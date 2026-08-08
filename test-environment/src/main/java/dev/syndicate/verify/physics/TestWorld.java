@@ -8,50 +8,51 @@ import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.badlogic.gdx.physics.bullet.collision.btBoxShape;
-import com.badlogic.gdx.physics.bullet.collision.btBroadphaseInterface;
-import com.badlogic.gdx.physics.bullet.collision.btCollisionConfiguration;
-import com.badlogic.gdx.physics.bullet.collision.btCollisionDispatcher;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
 import com.badlogic.gdx.physics.bullet.collision.btConvexHullShape;
-import com.badlogic.gdx.physics.bullet.collision.btDbvtBroadphase;
-import com.badlogic.gdx.physics.bullet.collision.btDefaultCollisionConfiguration;
 import com.badlogic.gdx.physics.bullet.collision.btShapeHull;
-import com.badlogic.gdx.physics.bullet.dynamics.btConstraintSolver;
 import com.badlogic.gdx.physics.bullet.dynamics.btDiscreteDynamicsWorld;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
-import com.badlogic.gdx.physics.bullet.dynamics.btSequentialImpulseConstraintSolver;
 import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
 import com.badlogic.gdx.physics.bullet.linearmath.btMotionState;
-import dev.syndicate.model.SimulationConstants;
+import dev.syndicate.core.physics.PhysicsWorld;
+import dev.syndicate.model.CollisionLayer;
 import dev.syndicate.verify.asset.MeshData;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A minimal Bullet world for the harness, with a ground plane and the game's gravity
+ * The harness's scene wrapper around the game's own Bullet world
  * (docs/14_test_environment.md#D14-S5.5, docs/06_physics_simulation.md#D06-S5.1).
+ *
+ * <p><b>The world itself is {@code game-core}'s.</b> D14-R10 requires it: a harness that verified
+ * against a bespoke physics setup would prove nothing about the game. This class adds only what the
+ * game's world has no business knowing about — a ground plane, hull construction from harness mesh
+ * data, and ownership of the bodies a check spawns. Gravity, solver, iteration count, margin and the
+ * step itself all come from {@link PhysicsWorld}, so the two cannot drift apart again (DEV-007).
  *
  * <p>Stepped only in whole {@code TICK_DT} increments (G2), so a check's result never depends on
  * how fast the machine running it happens to be. The visual mode's slow motion changes how many
  * ticks a frame advances, never the size of a tick (D14-S5.11).
  *
- * <p><b>Native ownership (G19, D02-S5.7).</b> This class owns every native object it creates, and
- * {@link #dispose()} tears them down in the mandated order: bodies, then motion states, then
- * shapes, then the world and its collaborators. Disposing a shape while a body still references it
- * is a use-after-free that Bullet reports as a segfault several steps later.
+ * <p><b>Native ownership (G19, D02-S5.7).</b> This class owns the bodies, motion states and shapes
+ * it creates; {@link PhysicsWorld} owns the world and its collaborators. {@link #dispose()} tears
+ * them down in the mandated order: bodies, then motion states, then shapes, then the world.
+ * Disposing a shape while a body still references it is a use-after-free that Bullet reports as a
+ * segfault several steps later.
  */
 public final class TestWorld implements AutoCloseable {
 
     /**
-     * Collision margin applied to every convex shape, metres.
+     * Collision margin applied to every convex shape, metres — the game's value, D06-R13, reached
+     * through the game's class.
      *
-     * <p>Bullet's default is 0.04 m, which is a quarter of the smallest shard this project ships
-     * and would hold a 1 m part visibly off the ground. Shrinking it costs a little contact
-     * stability and buys collision geometry that matches what is drawn — which the harness needs,
-     * since a capture is meant to be evidence about the simulation rather than an approximation
-     * of it.
+     * <p>Kept as an alias rather than a second constant so there is exactly one number: this is the
+     * distance a settled body sits above the ground, and the harness's PHYS-008 expectation is
+     * derived from it. Two constants meant the harness measured 0.005 m and the game shipped
+     * 0.010 m, and every fixture rested half a centimetre lower here than in the game (DEV-007).
      */
-    public static final float COLLISION_MARGIN_M = 0.005f;
+    public static final float COLLISION_MARGIN_M = PhysicsWorld.COLLISION_MARGIN_M;
 
     static {
         // Loads the native library. Idempotent, and calling it twice is the documented way to
@@ -59,11 +60,7 @@ public final class TestWorld implements AutoCloseable {
         Bullet.init();
     }
 
-    private final btCollisionConfiguration collisionConfig;
-    private final btCollisionDispatcher dispatcher;
-    private final btBroadphaseInterface broadphase;
-    private final btConstraintSolver solver;
-    private final btDiscreteDynamicsWorld world;
+    private final PhysicsWorld physics;
 
     private final List<btRigidBody> bodies = new ArrayList<>();
     private final List<btMotionState> motionStates = new ArrayList<>();
@@ -72,15 +69,7 @@ public final class TestWorld implements AutoCloseable {
     private long tick;
 
     public TestWorld(boolean withGroundPlane) {
-        collisionConfig = new btDefaultCollisionConfiguration();
-        dispatcher = new btCollisionDispatcher(collisionConfig);
-        broadphase = new btDbvtBroadphase();
-        solver = new btSequentialImpulseConstraintSolver();
-        world = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfig);
-        world.setGravity(new Vector3(
-                SimulationConstants.WORLD_GRAVITY_X,
-                SimulationConstants.WORLD_GRAVITY_Y,
-                SimulationConstants.WORLD_GRAVITY_Z));
+        physics = PhysicsWorld.create();
 
         if (withGroundPlane) {
             // A thick box rather than a static plane: an infinite plane has no thickness for a
@@ -103,19 +92,25 @@ public final class TestWorld implements AutoCloseable {
     }
 
     public btDiscreteDynamicsWorld world() {
-        return world;
+        return physics.dynamicsWorld();
+    }
+
+    /** The game's physics world, for checks that need to reach past the scene wrapper. */
+    public PhysicsWorld physics() {
+        return physics;
     }
 
     /**
-     * Advances exactly one {@code TICK_DT} (G2).
+     * Advances exactly one {@code TICK_DT} (G2), through {@code PhysicsWorld.step()} — the same
+     * call {@code PhysicsSystem} makes in schedule slot 10.
      *
-     * <p>The {@code maxSubSteps} of 0 tells Bullet to take a single step of exactly the size given,
-     * with no internal interpolation. That is what makes two runs of the same seeded scenario
-     * produce the same trajectory (PHYS-012) — Bullet's own accumulator would otherwise vary the
-     * substep pattern with the wall-clock intervals it was called at.
+     * <p>The {@code maxSubSteps} of 0 inside it tells Bullet to take a single step of exactly the
+     * size given, with no internal interpolation. That is what makes two runs of the same seeded
+     * scenario produce the same trajectory (PHYS-012) — Bullet's own accumulator would otherwise
+     * vary the substep pattern with the wall-clock intervals it was called at.
      */
     public void step() {
-        world.stepSimulation(SimulationConstants.TICK_DT, 0, SimulationConstants.TICK_DT);
+        physics.step();
         tick++;
     }
 
@@ -141,9 +136,10 @@ public final class TestWorld implements AutoCloseable {
                     new Vector3(mesh.positions()[i * 3], mesh.positions()[i * 3 + 1], mesh.positions()[i * 3 + 2]),
                     i == mesh.vertexCount() - 1);
         }
-        raw.setMargin(COLLISION_MARGIN_M);
+        raw.setMargin(0f);
 
         if (raw.getNumPoints() <= maxVertices) {
+            raw.setMargin(COLLISION_MARGIN_M);
             shapes.add(raw);
             return raw;
         }
@@ -152,11 +148,13 @@ public final class TestWorld implements AutoCloseable {
         // will consume the shape at runtime rather than by a second implementation that could
         // disagree about what counts as a vertex.
         //
-        // The margin argument is 0, not the shape's margin. `buildHull(m)` offsets the generated
-        // points outward by `m`, and the resulting shape then adds its *own* margin on top — so
-        // passing the margin here puts a simplified shape's collision surface two margins outside
-        // its mesh while an unsimplified one sits at exactly one. The sphere fixture rested 8 cm
-        // above the ground and the cube 4 cm, from the same code. See DISC-004.
+        // The source shape's margin is zeroed *before* simplification, and the real margin is set on
+        // the result. btShapeHull samples support points from the shape it is given, and those
+        // support points include that shape's margin — the `buildHull(margin)` argument is ignored
+        // (Bullet 2.8x marks it unused). So a source carrying a margin yields hull points already
+        // pushed one margin outward, and the simplified shape then adds its own on top: two margins
+        // for a simplified hull against one for an unsimplified one, which is DISC-004's symptom
+        // reappearing. Passing 0 to buildHull does not prevent it; zeroing the source does.
         btShapeHull simplifier = new btShapeHull(raw);
         simplifier.buildHull(0f);
         btConvexHullShape simplified = new btConvexHullShape(simplifier);
@@ -168,7 +166,9 @@ public final class TestWorld implements AutoCloseable {
     }
 
     /**
-     * Adds a rigid body.
+     * Adds a rigid body on the layer its mass implies: {@code STATIC} for a mass of 0, {@code DEBRIS}
+     * for anything dynamic (D06-S4.4). Those are the only two roles a harness scene has — ground and
+     * shards — and deriving the layer keeps every call site from repeating it.
      *
      * @param shape the collision shape; this world takes ownership only if it created it
      * @param massKg 0 for a static body
@@ -190,7 +190,7 @@ public final class TestWorld implements AutoCloseable {
         // Damping keeps debris from sliding forever on a frictionless-looking floor, and matches
         // what the game's debris bodies use (D07-S5.8).
         body.setDamping(0.02f, 0.08f);
-        world.addRigidBody(body);
+        physics.addBody(body, massKg == 0f ? CollisionLayer.STATIC : CollisionLayer.DEBRIS);
 
         bodies.add(body);
         motionStates.add(motionState);
@@ -208,7 +208,7 @@ public final class TestWorld implements AutoCloseable {
         if (index < 0) {
             return;
         }
-        world.removeRigidBody(body);
+        physics.removeBody(body);
         bodies.remove(index);
         btMotionState motionState = motionStates.remove(index);
         body.dispose();
@@ -227,7 +227,7 @@ public final class TestWorld implements AutoCloseable {
     /** See {@link #close()}. */
     public void dispose() {
         for (int i = bodies.size() - 1; i >= 0; i--) {
-            world.removeRigidBody(bodies.get(i));
+            physics.removeBody(bodies.get(i));
             bodies.get(i).dispose();
         }
         bodies.clear();
@@ -240,10 +240,8 @@ public final class TestWorld implements AutoCloseable {
         }
         shapes.clear();
 
-        world.dispose();
-        solver.dispose();
-        broadphase.dispose();
-        dispatcher.dispose();
-        collisionConfig.dispose();
+        // The world, solver, broadphase, dispatcher and collision configuration belong to
+        // PhysicsWorld, which frees them in the same mandated order.
+        physics.dispose();
     }
 }

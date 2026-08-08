@@ -202,11 +202,12 @@ function ShapeCache.hullFor(assetId, meshData, maxVertices):
     raw = new btConvexHullShape()
     for v in meshData.vertices: raw.addPoint(v, /*recalcAABB*/ false)
     raw.recalcLocalAabb()
+    raw.setMargin(0)                        # MANDATORY before simplification — see R13a
 
     if meshData.vertexCount > maxVertices:
         # btShapeHull simplifies to a bounded vertex count.
         hullUtil  = new btShapeHull(raw)
-        hullUtil.buildHull(raw.getMargin())
+        hullUtil.buildHull(0)               # argument is ignored by Bullet; see R13a
         simplified = new btConvexHullShape()
         for v in hullUtil.getVertexPointer(): simplified.addPoint(v, false)
         simplified.recalcLocalAabb()
@@ -222,6 +223,8 @@ function ShapeCache.hullFor(assetId, meshData, maxVertices):
     cache[key] = shape                      # OWNER: ShapeCache
     return shape
 ```
+
+**R13a.** The source shape's margin is set to **0 before `btShapeHull` runs**, and the real margin is set on the finished shape. `btShapeHull` samples support points from the shape it is given, and those support points include that shape's margin; its own `buildHull(margin)` argument is ignored (Bullet 2.8x marks the parameter unused). A source that still carries a margin therefore produces hull points already displaced one margin outward, and the simplified shape adds its own on top — a simplified hull sits **two** margins outside its mesh while an unsimplified one sits at exactly one. The symptom is a resting height that is correct for boxes and wrong for anything curved enough to be simplified, which is exactly how it reached the fixture set (DISC-008). Verified by reading the finished hull's `localGetSupportingVertexWithoutMargin`, which must land on the mesh surface, not below it.
 
 **R13.** Collision margin is **0.01 m** for all convex shapes. Bullet's default (0.04 m) is comparable to the thickness of thin armour plates and produces both visible gaps and incorrect mass-to-contact relationships. Reducing it below 0.005 m degrades solver stability, so 0.01 is the floor.
 

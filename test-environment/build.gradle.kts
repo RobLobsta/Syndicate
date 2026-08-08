@@ -12,7 +12,6 @@ dependencies {
     // other module it legitimately carries both backends.
     implementation(libs.gdx.backend.headless)
     implementation(libs.gdx.backend.lwjgl3)
-    implementation(libs.gdx.gltf)
     implementation(libs.json.schema.validator)
     runtimeOnly(variantOf(libs.gdx.platform) { classifier("natives-desktop") })
 }
@@ -39,6 +38,10 @@ val verifyFixtures = tasks.register("verifyFixtures") {
     group = "verification"
     description = "Runs the harness over build/fixtures-out/ and aggregates the reports (D14-S7.3)."
     dependsOn(":blender-tool:processFixtures")
+    // The runtime classpath is captured as a value below, which does not carry a task dependency
+    // with it — so without this the task happily runs the harness classes from the last build. It
+    // did exactly that once: a hull fix was verified against the pre-fix jar and reported failing.
+    dependsOn(tasks.named("classes"))
 
     val fixturesOut = rootProject.layout.buildDirectory.dir("fixtures-out").get().asFile
     val reportDir = rootProject.layout.buildDirectory.dir("verify").get().asFile

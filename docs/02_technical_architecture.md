@@ -158,9 +158,11 @@ Syndicate/
 | `game-client` | Java application | Window, GL context, render systems, camera, HUD, input mapping, audio, client prediction glue, main menu. | `game-core`, `shared-models`, `gdx-backend-lwjgl3`, `gdx-gltf` | `game-server-headless`, `test-environment` |
 | `game-server-headless` | Java application | Dedicated authoritative server: mode boot, tick loop, connection management, admin console. | `game-core`, `shared-models`, `gdx-backend-headless` | any rendering module |
 | `asset-pipeline` | Java application | CLI that validates `assets/` against schemas, resolves references, and produces the asset index consumed at startup. | `shared-models`, Jackson, json-schema-validator | `game-client` |
-| `test-environment` | Java application | Verification harness (D14): asset checks, physics checks, destruction progression, visual mode, headless mode, JSON report. | `game-core`, `shared-models`, `gdx-backend-lwjgl3` (visual), `gdx-backend-headless` (headless), `gdx-gltf` | `game-server-headless` |
+| `test-environment` | Java application | Verification harness (D14): asset checks, physics checks, destruction progression, visual mode, headless mode, JSON report. | `game-core`, `shared-models`, `gdx-backend-lwjgl3` (visual), `gdx-backend-headless` (headless) | `game-server-headless`, `gdx-gltf` |
 | `memory-system` | Java application | `.agent-memory` tooling: index regeneration, entry lint, link check (D13-S5.5). | `shared-models` (optional) | everything else |
 | `blender-tool` | Python package | Headless Blender fracture/morph/mass/export/verify tool (D09). | Blender 4.2 `bpy`, `mathutils`, stdlib | the JVM modules (communication is by file + exit code only) |
+
+> **Note on `test-environment` and `gdx-gltf`.** The harness reads `.glb` with its own reader and must not import gdx-gltf. The importer builds libGDX `Mesh` objects, which are GPU buffers requiring a GL context, and D14-S5.13 requires the headless runner to create none — so a dependency that cannot be used in the mode the harness runs in CI would only invite a check to reach for it. `game-client`, which has a GL context by definition, keeps it.
 
 **R9.** `game-core` headless safety is enforced by an automated check: no class in `game-core` may import from a banned package list (`com.badlogic.gdx.graphics.g3d.*` renderers, `com.badlogic.gdx.scenes.scene2d.*`, `com.badlogic.gdx.backends.*`). Mesh *data* types needed for collision shape construction are permitted through a narrow allowlist documented in the check's configuration. This satisfies G17.
 
