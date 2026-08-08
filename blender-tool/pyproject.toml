@@ -27,6 +27,6 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Determinism: the tool must produce byte-identical output for one seed (G11), so its own
-# tests never depend on hash ordering.
-env = ["PYTHONHASHSEED=0"]
+# Determinism (G11): the tool's own randomness is PCG32 and its string hashing is FNV
+# (`rng.stable_hash`), so nothing here depends on CPython's per-process hash seed. Pinning
+# PYTHONHASHSEED would only hide a dependency on it, which is the opposite of useful.

@@ -53,7 +53,33 @@ val pytestAvailable: Boolean = pythonAvailable
         isIgnoreExitValue = true
     }.result.get().exitValue == 0
 
-val blenderAvailable: Boolean = onPath(blenderExe)
+val blenderExeAvailable: Boolean = onPath(blenderExe)
+
+/**
+ * The `bpy` PyPI module is Blender 4.2 built as a Python extension — the same codebase,
+ * reachable without a `blender` executable on PATH. D02-R12's lookup order still applies
+ * to the executable; this is a second, equally valid host (see DEV-002), so the fracture
+ * tasks below run wherever either one is present.
+ */
+val bpyModuleAvailable: Boolean = pythonAvailable
+    && providers.exec {
+        commandLine("python3", "-c", "import bpy")
+        isIgnoreExitValue = true
+    }.result.get().exitValue == 0
+
+val blenderAvailable: Boolean = blenderExeAvailable || bpyModuleAvailable
+
+/**
+ * How to invoke the tool with whichever host is present. The executable is preferred when
+ * both exist, because that is the invocation D09-R1 specifies and the one CI pins.
+ */
+fun fractureCommand(vararg toolArgs: String): List<String> =
+    if (blenderExeAvailable) {
+        listOf(blenderExe, "--background", "--factory-startup", "--python-expr",
+            "import syndicate_fracture.__main__ as m; import sys; sys.exit(m.main())", "--") + toolArgs
+    } else {
+        listOf("python3", "-m", "syndicate_fracture") + toolArgs
+    }
 
 /** `ruff check` — CI stage 0 (D12-S5.4). */
 val lint = tasks.register<Exec>("lint") {
@@ -89,28 +115,102 @@ val unitTest = tasks.register<Exec>("unitTest") {
 }
 
 /**
- * In-Blender tests. Skipped with a warning on developer machines, fatal on CI, which
- * declares `SYNDICATE_REQUIRE_BLENDER=1` (D02-E4).
+ * In-Blender tests (D02-S4.6): the fracture stage's mathematical properties, which cannot be
+ * asserted without a Blender host and which no other check covers — a fracture can tile,
+ * conserve mass, and build valid hulls while not being a Voronoi decomposition at all.
  */
-tasks.register("blenderTest") {
+val blenderTest = tasks.register<Exec>("blenderTest") {
     group = "verification"
-    description = "Runs tests/blender/ inside headless Blender (D02-S4.6)."
-    val exe = blenderExe
+    description = "Runs tests/blender/ inside a Blender host (D02-S4.6)."
+    dependsOn("processFixtures")
+    workingDir = layout.projectDirectory.asFile
+    commandLine("python3", "-m", "pytest", "tests/blender", "-q")
+    environment("PYTHONPATH", layout.projectDirectory.asFile.absolutePath)
+    val available = pytestAvailable && blenderAvailable
+    onlyIf { task ->
+        if (!available) {
+            task.logger.warn("SKIPPED :blender-tool:blenderTest — needs pytest and a Blender host")
+        }
+        available
+    }
+}
+
+/**
+ * The fixture set of D14-S7.1, with the seed and shard count each fixture records there.
+ * `test_complex_hollow` is deliberately absent — the bisection fracture does not yet handle
+ * an internal cavity, so including it would make the task red for a known, recorded gap
+ * rather than for a regression. See DEV-004 and PROG-002.
+ */
+val fixtureSpecs = listOf(
+    Triple("test_cube_1m", 1001, 12),
+    Triple("test_plate_2x1x0.1", 1002, 16),
+    Triple("test_cylinder_r0.5_h1", 1003, 14),
+    Triple("test_sphere_r0.5", 1006, 16),
+)
+
+/**
+ * `:blender-tool:processFixtures` of D02-R11 / D14-S7.3 step 1: run the tool over every
+ * fixture mesh into `build/fixtures-out/`, which `:test-environment:verifyFixtures` then
+ * checks inside Bullet.
+ */
+tasks.register("processFixtures") {
+    group = "build"
+    description = "Fractures fixtures/meshes/*.glb into build/fixtures-out/ (D14-S7.3)."
+
+    val toolDir = layout.projectDirectory.asFile
+    val meshesDir = rootProject.layout.projectDirectory.dir("fixtures/meshes").asFile
+    val outRoot = rootProject.layout.buildDirectory.dir("fixtures-out").get().asFile
+    val materialTable =
+        rootProject.layout.projectDirectory.file("assets/materials/materials.json").asFile
+
+    // Every command line is resolved to plain strings here, at configuration time. A
+    // `doLast` that called `fractureCommand(...)` or `providers.exec { }` would capture the
+    // script object, which the configuration cache cannot serialise — the same trap as
+    // DISC-001, in its other form.
+    val invocations: List<Pair<String, List<String>>> = fixtureSpecs.map { (name, seed, shards) ->
+        name to fractureCommand(
+            "--input", File(meshesDir, "$name.glb").absolutePath,
+            "--out", File(outRoot, name).absolutePath,
+            "--seed", seed.toString(),
+            "--shards", shards.toString(),
+            "--damage-morphs", "4",
+            "--material-table", materialTable.absolutePath,
+        )
+    }
     val required = blenderRequired
     val available = blenderAvailable
+    val exe = blenderExe
+
+    inputs.dir(meshesDir).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(materialTable).withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.dir(outRoot)
+
     doLast {
         if (!available) {
-            val message = "Blender not found; tried '$exe' (D02-R12 lookup order)"
+            val message = "Blender not found; tried '$exe' on PATH and the bpy module (D02-R12)"
             if (required) {
                 throw GradleException("$message — SYNDICATE_REQUIRE_BLENDER=1")
             }
-            this@register.logger.warn("SKIPPED: $message")
+            this@register.logger.warn("SKIPPED :blender-tool:processFixtures — $message")
             return@doLast
         }
-        throw GradleException(
-            "blender-tool is not implemented yet (docs/09_blender_destruction_tool.md); " +
-                "see .agent-memory/progress/ for current state",
-        )
+        for ((name, command) in invocations) {
+            val process = ProcessBuilder(command)
+                .directory(toolDir)
+                .redirectErrorStream(false)
+                .also { it.environment()["PYTHONPATH"] = toolDir.absolutePath }
+                .start()
+            // The tool's stdout is one JSON document (D09-R2); its stderr is the log.
+            val document = process.inputStream.bufferedReader().readText()
+            val diagnostics = process.errorStream.bufferedReader().readText()
+            val code = process.waitFor()
+            if (code != 0) {
+                throw GradleException(
+                    "fracture failed for '$name' with exit $code (D09-S4.3):\n$document\n$diagnostics",
+                )
+            }
+            this@register.logger.lifecycle("processFixtures: $name -> ${File(outRoot, name)}")
+        }
     }
 }
 

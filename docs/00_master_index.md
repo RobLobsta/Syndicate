@@ -72,6 +72,8 @@ SectionPath := digit+ ( "." digit+ )*
 
 **R7.** IDs are **stable**. Once published, an ID is never reused for different content. If a section is deleted, its ID is retired (may be listed as `RETIRED` in that doc's changelog) and never re-issued.
 
+The section path `99.9` is **reserved and never allocated in any document**. It exists so that a document, a test case, or a lint fixture can write a citation that is *required not to resolve* (see T-D00-2, T-D13-4) without that citation becoming a real dangling reference. The cross-reference validator (D00-S5.3) ignores citations to `S99.9` and ignores everything inside fenced code blocks, since a fenced block is an illustration of the syntax rather than a citation.
+
 **R8.** If a section is renamed, its ID does not change. If a section is split, the original ID stays with the part that retains the original meaning; new parts receive new sibling IDs.
 
 **R9.** A **citation** is written as `docs/<filename>#<ID>`, e.g. `docs/06_physics_simulation.md#D06-S4.2`. Prose may cite as `D06-S4.2` when the containing document is unambiguous.
@@ -385,7 +387,7 @@ function requiredSectionsPresent(doc):
 | `MIN_BODY_MASS_KG` | 0.01 | Minimum dynamic body mass | D06-S4.2 |
 | `MASS_TOLERANCE_FRAC` | 0.02 | Mass conservation tolerance | D14-S6.4 |
 | `MAX_PARTS_PER_VEHICLE` | 64 | Hard cap on parts in an assembly | D05-S4.1 |
-| `MAX_SHARDS_PER_PART` | 64 | Hard cap on shards per part | D09-S4.3 |
+| `MAX_SHARDS_PER_PART` | 256 | Hard cap on shards per part | D09-S4.3 |
 | `DEBRIS_LIFETIME_S` | 12.0 | Default debris despawn time | D07-S5.8 |
 | `MAX_DEBRIS_BODIES` | 256 | Global debris body budget | D07-S5.8 |
 | `DAMAGE_STATE_THRESHOLDS` | 0.66 / 0.33 / 0.0 | INTACT→DAMAGED→CRITICAL→DESTROYED | D07-S5.3 |
