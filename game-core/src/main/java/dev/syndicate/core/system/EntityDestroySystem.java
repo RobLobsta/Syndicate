@@ -1,0 +1,164 @@
+/*
+ * Syndicate — modular vehicular combat.
+ * Implementation of the blueprint suite in docs/ (docs/00_master_index.md#D00-S4.2).
+ */
+package dev.syndicate.core.system;
+
+import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
+import com.badlogic.gdx.physics.bullet.dynamics.btTypedConstraint;
+import com.badlogic.gdx.physics.bullet.linearmath.btMotionState;
+import dev.syndicate.core.component.RigidBodyComponent;
+import dev.syndicate.core.component.SlotAttachmentComponent;
+import dev.syndicate.core.component.SlotGraphComponent;
+import dev.syndicate.core.component.VehicleChassisComponent;
+import dev.syndicate.core.ecs.Entity;
+import dev.syndicate.core.ecs.EntityId;
+import dev.syndicate.core.ecs.EntitySystem;
+import dev.syndicate.core.ecs.Phase;
+import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.physics.PhysicsWorld;
+import dev.syndicate.core.vehicle.SlotNode;
+import java.util.Arrays;
+import java.util.Objects;
+
+/**
+ * Schedule slot 27: tears down entities queued for destruction
+ * (docs/04_entity_component_model.md#D04-S5.5).
+ *
+ * <p>This system runs in the CLEANUP phase, after all gameplay systems have finished. It is
+ * responsible for:
+ *
+ * <ol>
+ *   <li>Cascading destruction to child entities (e.g. parts of a vehicle).
+ *   <li>Disposing native resources in dependency order (constraints, then bodies).
+ *   <li>Returning components to their pools and recycling the entity ID.
+ * </ol>
+ *
+ * <p>By deferring native teardown to this system, no other system can read a half-destroyed entity,
+ * and native disposal never races Bullet's step (D04-R15, D04-E5).
+ */
+public final class EntityDestroySystem implements EntitySystem {
+
+    /** This system's fixed slot in the D04-S4.4 catalogue. */
+    public static final int ORDER = 27;
+
+    private final PhysicsWorld physics;
+
+    public EntityDestroySystem(PhysicsWorld physics) {
+        this.physics = Objects.requireNonNull(physics, "physics");
+    }
+
+    @Override
+    public Phase phase() {
+        return Phase.CLEANUP;
+    }
+
+    @Override
+    public int order() {
+        return ORDER;
+    }
+
+    @Override
+    public void update(World world, float dtSeconds, long tick) {
+        int start = 0;
+
+        // 1. Expand the queue recursively by traversing children.
+        while (start < world.destroyQueueSize()) {
+            int end = world.destroyQueueSize();
+
+            // G3: teardown order is deterministic even when destroy calls arrive in a data-dependent order.
+            Arrays.sort(world.destroyQueue(), start, end);
+
+            for (int i = start; i < end; i++) {
+                int entityId = world.destroyQueue()[i];
+                Entity entity = world.getEntityForTeardown(entityId);
+
+                if (entity == null) {
+                    continue;
+                }
+
+                int chassisTypeIndex = world.componentTypes().indexOfOrAbsent(VehicleChassisComponent.class);
+                if (chassisTypeIndex >= 0 && entity.componentAt(chassisTypeIndex) != null) {
+                    VehicleChassisComponent chassis = (VehicleChassisComponent) entity.componentAt(chassisTypeIndex);
+                    for (int w = 0; w < chassis.wheelCount; w++) {
+                        int wheelId = chassis.wheelEntities[w];
+                        if (wheelId != EntityId.NULL) {
+                            world.destroyEntity(wheelId);
+                        }
+                    }
+                    if (chassis.chassisPartEntity != EntityId.NULL) {
+                        world.destroyEntity(chassis.chassisPartEntity);
+                    }
+                }
+
+                int graphTypeIndex = world.componentTypes().indexOfOrAbsent(SlotGraphComponent.class);
+                if (graphTypeIndex >= 0 && entity.componentAt(graphTypeIndex) != null) {
+                    SlotGraphComponent graph = (SlotGraphComponent) entity.componentAt(graphTypeIndex);
+                    for (int n = 0; n < graph.nodes.size(); n++) {
+                        SlotNode node = graph.nodes.get(n);
+                        if (node.childEntity != EntityId.NULL) {
+                            world.destroyEntity(node.childEntity);
+                        }
+                    }
+                }
+            }
+
+            start = end;
+        }
+
+        // 2. Tear down constraints for all entities in the queue first.
+        // This guarantees a constraint joining two bodies is removed before either body is destroyed.
+        int attachmentTypeIndex = world.componentTypes().indexOfOrAbsent(SlotAttachmentComponent.class);
+        if (attachmentTypeIndex >= 0) {
+            for (int i = 0; i < world.destroyQueueSize(); i++) {
+                int entityId = world.destroyQueue()[i];
+                Entity entity = world.getEntityForTeardown(entityId);
+                if (entity != null && entity.componentAt(attachmentTypeIndex) != null) {
+                    SlotAttachmentComponent attachment =
+                            (SlotAttachmentComponent) entity.componentAt(attachmentTypeIndex);
+                    if (attachment.constraintHandle != null) {
+                        btTypedConstraint handle = attachment.constraintHandle;
+                        physics.dynamicsWorld().removeConstraint(handle);
+                        handle.dispose();
+                        dev.syndicate.core.util.NativeResourceTracker.release(
+                                handle.getClass().getSimpleName());
+                        attachment.constraintHandle = null;
+                    }
+                }
+            }
+        }
+
+        // 3. Tear down bodies and recycle entities.
+        int rigidBodyTypeIndex = world.componentTypes().indexOfOrAbsent(RigidBodyComponent.class);
+        for (int i = 0; i < world.destroyQueueSize(); i++) {
+            int entityId = world.destroyQueue()[i];
+            Entity entity = world.getEntityForTeardown(entityId);
+            if (entity == null) {
+                continue;
+            }
+
+            if (rigidBodyTypeIndex >= 0 && entity.componentAt(rigidBodyTypeIndex) != null) {
+                RigidBodyComponent rigidBody = (RigidBodyComponent) entity.componentAt(rigidBodyTypeIndex);
+                if (rigidBody.body != null) {
+                    btRigidBody body = rigidBody.body;
+                    btMotionState motionState = rigidBody.motionState;
+                    physics.removeBody(body);
+                    if (motionState != null) {
+                        motionState.dispose();
+                        dev.syndicate.core.util.NativeResourceTracker.release(
+                                motionState.getClass().getSimpleName());
+                        rigidBody.motionState = null;
+                    }
+                    body.dispose();
+                    dev.syndicate.core.util.NativeResourceTracker.release(
+                            body.getClass().getSimpleName());
+                    rigidBody.body = null;
+                }
+            }
+
+            world.recycleEntity(entityId);
+        }
+
+        world.clearDestroyQueue();
+    }
+}

@@ -7,7 +7,6 @@ package dev.syndicate.core.ecs;
 import dev.syndicate.core.util.RandomSource;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
@@ -315,7 +314,6 @@ public final class World {
             system.update(this, dev.syndicate.model.SimulationConstants.TICK_DT, tickNumber);
         }
         events.dispatchQueued();
-        runDestroyQueue();
     }
 
     /**
@@ -333,44 +331,55 @@ public final class World {
         }
     }
 
-    /**
-     * Tears down every queued entity (D04-S5.5).
-     *
-     * <p>The queue is sorted before draining so teardown order is deterministic even when the
-     * destroy calls arrived in a data-dependent order (G3).
-     */
-    private void runDestroyQueue() {
-        if (destroyQueueSize == 0) {
-            return;
-        }
-        Arrays.sort(destroyQueue, 0, destroyQueueSize);
-        for (int i = 0; i < destroyQueueSize; i++) {
-            int entityId = destroyQueue[i];
-            int index = EntityId.index(entityId);
-            Entity entity = entities[index];
-            if (entity == null || entity.id() != entityId) {
-                continue; // already torn down this pass; double-destroy is a no-op
-            }
+    public int[] destroyQueue() {
+        return destroyQueue;
+    }
 
-            for (int typeIndex = 0; typeIndex < ComponentTypeRegistry.MAX_COMPONENT_TYPES; typeIndex++) {
-                Component component = entity.componentAt(typeIndex);
-                if (component != null) {
-                    component.reset();
-                }
-            }
+    public int destroyQueueSize() {
+        return destroyQueueSize;
+    }
 
-            for (int f = 0; f < families.size(); f++) {
-                families.get(f).onEntityRemoved(entityId);
-            }
-
-            entity.clear();
-            entities[index] = null;
-            // Incrementing the generation is what invalidates every outstanding id for this index.
-            generations[index] = EntityId.nextGeneration(generations[index]);
-            freeIndices.addLast(index);
-            entityPool.addLast(entity);
-        }
+    public void clearDestroyQueue() {
         destroyQueueSize = 0;
+    }
+
+    public Entity getEntityForTeardown(int entityId) {
+        if (entityId == EntityId.NULL) {
+            return null;
+        }
+        int index = EntityId.index(entityId);
+        Entity entity = entities[index];
+        // Must match generation, but intentionally does NOT check isActive() because the entity is in teardown
+        if (entity != null && generations[index] == EntityId.generation(entityId)) {
+            return entity;
+        }
+        return null;
+    }
+
+    public void recycleEntity(int entityId) {
+        int index = EntityId.index(entityId);
+        Entity entity = entities[index];
+        if (entity == null || entity.id() != entityId) {
+            return; // already torn down this pass; double-destroy is a no-op
+        }
+
+        for (int typeIndex = 0; typeIndex < ComponentTypeRegistry.MAX_COMPONENT_TYPES; typeIndex++) {
+            Component component = entity.componentAt(typeIndex);
+            if (component != null) {
+                component.reset();
+            }
+        }
+
+        for (int f = 0; f < families.size(); f++) {
+            families.get(f).onEntityRemoved(entityId);
+        }
+
+        entity.clear();
+        entities[index] = null;
+        // Incrementing the generation is what invalidates every outstanding id for this index.
+        generations[index] = EntityId.nextGeneration(generations[index]);
+        freeIndices.addLast(index);
+        entityPool.addLast(entity);
     }
 
     /** Releases systems in reverse registration order, then every remaining entity (D03-S5.6). */
@@ -384,7 +393,10 @@ public final class World {
                 destroyEntity(entity.id());
             }
         }
-        runDestroyQueue();
+        for (int i = 0; i < destroyQueueSize; i++) {
+            recycleEntity(destroyQueue[i]);
+        }
+        clearDestroyQueue();
         families.forEach(Family::clear);
         families.clear();
         initialized = false;

@@ -63,7 +63,10 @@ class WorldTest {
         int id = world.createEntity().id();
         world.addComponent(id, new MarkerComponent());
         world.destroyEntity(id);
-        world.tick(0);
+
+        // Manually run teardown logic that EntityDestroySystem would do
+        world.recycleEntity(id);
+        world.clearDestroyQueue();
 
         assertThat(world.get(id)).isNull();
         assertThat(world.getComponent(id, MarkerComponent.class)).isNull();
@@ -76,7 +79,10 @@ class WorldTest {
         // a stale id to the wrong entity.
         int first = world.createEntity().id();
         world.destroyEntity(first);
-        world.tick(0);
+
+        // Manually recycle the entity since WorldTest doesn't register EntityDestroySystem
+        world.recycleEntity(first);
+        world.clearDestroyQueue();
 
         int second = world.createEntity().id();
 
@@ -93,7 +99,8 @@ class WorldTest {
         world.destroyEntity(id);
         world.destroyEntity(id);
 
-        world.tick(0);
+        world.recycleEntity(id);
+        world.clearDestroyQueue();
 
         assertThat(world.isAlive(id)).isFalse();
         assertThat(world.entityCount()).isZero();
