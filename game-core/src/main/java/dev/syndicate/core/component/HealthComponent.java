@@ -1,0 +1,63 @@
+/*
+ * Syndicate — modular vehicular combat.
+ * Implementation of the blueprint suite in docs/ (docs/00_master_index.md#D00-S4.2).
+ */
+package dev.syndicate.core.component;
+
+import dev.syndicate.core.ecs.Component;
+import dev.syndicate.core.ecs.EntityId;
+
+/**
+ * A part's hit points and who last removed some (docs/04_entity_component_model.md#D04-S4.3.3).
+ *
+ * <p>{@link #healthFraction} is stored rather than divided on demand because it is read far more
+ * often than it is written: the degradation curve (D05-S5.4), the morph mapping (D07-S5.5), the
+ * damage state machine, the HUD, and bot threat assessment all consult it, most of them every tick
+ * for every part.
+ *
+ * <p>The two are only consistent if written together, so writers go through {@link #setCurrentHp}
+ * rather than assigning the field. That method is the one exception D04-R2 allows beyond trivial
+ * accessors: it is a setter with an invariant, not behaviour.
+ */
+public final class HealthComponent implements Component {
+
+    /** Hit points at full health, from the part type. */
+    public float maxHp;
+
+    /** Current hit points, clamped to {@code [0, maxHp]}. */
+    public float currentHp;
+
+    /** Derived {@code currentHp / maxHp}, {@code [0,1]}. Always consistent with the two above. */
+    public float healthFraction = 1f;
+
+    /** Flat mitigation subtracted before hit points are removed (D07-S5.2). */
+    public float armorValue;
+
+    /** The tick of the most recent damage; drives damage-over-time and scoring attribution. */
+    public long lastDamageTick;
+
+    /** Who dealt that damage, for kill attribution. */
+    public int lastAttacker = EntityId.NULL;
+
+    /**
+     * Sets current hit points, clamping to {@code [0, maxHp]} and updating {@link #healthFraction}.
+     *
+     * <p>A zero {@link #maxHp} yields a fraction of 0 rather than a NaN. A part with no maximum is a
+     * content error, but propagating NaN into the degradation curve turns it into a physics failure
+     * several systems away from the cause.
+     */
+    public void setCurrentHp(float hp) {
+        currentHp = Math.max(0f, Math.min(hp, maxHp));
+        healthFraction = maxHp > 0f ? currentHp / maxHp : 0f;
+    }
+
+    @Override
+    public void reset() {
+        maxHp = 0f;
+        currentHp = 0f;
+        healthFraction = 1f;
+        armorValue = 0f;
+        lastDamageTick = 0L;
+        lastAttacker = EntityId.NULL;
+    }
+}
