@@ -12,7 +12,6 @@ dependencies {
     // other module it legitimately carries both backends.
     implementation(libs.gdx.backend.headless)
     implementation(libs.gdx.backend.lwjgl3)
-    implementation(libs.gdx.gltf)
     implementation(libs.json.schema.validator)
     runtimeOnly(variantOf(libs.gdx.platform) { classifier("natives-desktop") })
 }

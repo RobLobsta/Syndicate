@@ -25,7 +25,8 @@
 | `game-core` system catalogue (D04-S4.4) | in_progress | 1 of 27. `SystemSetFactory.forMode` not started |
 | `game-core` vehicle/damage (D05, D07) | not_started | unchanged from PROG-002 |
 | `game-core` net/ai/match | not_started | unchanged from PROG-002 |
-| `blender-tool`, fixtures, `test-environment`, visual mode | in_progress | unchanged from PROG-002 |
+| `test-environment` world config (D14-R10) | done | `TestWorld` delegates to `PhysicsWorld.create()`; the harness and the game share one margin, solver and step (DEV-007 resolved). `:test-environment:check` runs 16 tests |
+| `blender-tool`, fixtures, visual mode | in_progress | unchanged from PROG-002 |
 | `game-client`, `game-server-headless` | not_started | unchanged from PROG-002 |
 | `asset-pipeline` + `schemas/` (D08) | not_started | unchanged from PROG-002 |
 | Golden manifests (D14-S7.2) | not_started | unchanged from PROG-002 |
@@ -33,9 +34,11 @@
 **History (append-only):**
 - 2026-08-08 (f): `PhysicsWorld`, `PendingImpulse`, `PhysicsSystem` and 18 tests. 70 JVM tests green in `game-core`, including the first `@Tag("physics")` regression pair: a steel cube rests at 0.5 m ± 0.005 m (T-D06-2) and a 6-body scatter scenario reruns to within `0.001 m` of itself (T-D06-5, D12-R9). Verified with a JDK 21 toolchain override — the sandbox has no JDK 17 and cannot fetch one (DISC-007). `:game-core:check`, `validateDocs` and `:memory-system:lintMemory` are green; `:test-environment:*` was not run (JitPack blocked, DEV-001).
 
-**Acceptance criteria now covered:** AC-D06-1 (dt guard, T-D06-1), AC-D06-2 (`maxSubSteps = 0`), AC-D06-13 for this system (family iteration is by ascending `EntityId`), AC-D06-15 (no wall-clock read), AC-D06-18 in the sense that nothing here re-enables sleeping. AC-D06-3/4/5 hold for the bodies the tests build but have no enforcement point until the spawn path exists.
+- 2026-08-08 (g): `TestWorld` refitted onto `PhysicsWorld` (DEV-007 resolved); a 1 m cube's resting height moved from 0.505000 m to 0.510000 m. No fixture expectation needed editing. `gdx-gltf` removed from `test-environment` (DEC-013). 16 `test-environment` tests green, 70 in `game-core`.
 
-**What the next session should pick up:** `EntityDestroySystem` (slot 27) is the natural next one — `PhysicsSystem` already destroys entities on a non-finite body, and until slot 27 exists their bodies and motion states are freed by test scaffolding rather than by the engine. After that, `MassPropertySystem` (slot 15) with the compound shape and shape cache of D06-S5.2/S5.3, then `FractureSystem` (slot 13), whose behaviour the harness's `DestructionScene` already encodes. Smaller and self-contained: the `TestWorld` refit of DEV-007, and re-running `:test-environment:verifyFixtures` (both need JitPack reachable).
+**Acceptance criteria now covered:** AC-D06-1 (dt guard, T-D06-1), AC-D06-2 (`maxSubSteps = 0`), AC-D06-13 for this system, AC-D06-15, and AC-D14-10 (asserted by `TestWorldTest`, not by inspection). AC-D06-3/4/5 hold for the bodies the tests build but have no enforcement point until the spawn path exists.
+
+**What the next session should pick up:** `EntityDestroySystem` (slot 27) is the natural next one — `PhysicsSystem` already destroys entities on a non-finite body, and until slot 27 exists their bodies and motion states are freed by test scaffolding rather than by the engine. Then `MassPropertySystem` (slot 15) with the compound shape and shape cache of D06-S5.2/S5.3, and `FractureSystem` (slot 13), whose behaviour `DestructionScene` already encodes. Smaller: re-run `:test-environment:verifyFixtures` on a machine with Blender, so the fixture reports reflect the 0.010 m margin (DEV-007) — every fixture's resting height moves up 5 mm, and the check should still pass because its expectation moved with it.
 
 ## Rationale / Context
 PROG-002 recorded the game half as "an ECS engine and a component catalogue with no systems on top of it" and named `PhysicsSystem` as the place to start. That row is now false, and a session that trusted it would rewrite work that exists. This entry also records what `PhysicsSystem` deliberately does *not* do — contacts, constraints, mass properties — so the next session does not read those omissions as oversights and re-derive the reasons.
