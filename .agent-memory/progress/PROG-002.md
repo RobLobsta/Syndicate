@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/09_blender_destruction_tool.md#D09-S5.1, docs/14_test_environment.md#D14-S5.2
 
-**Status:** active
+**Status:** superseded (by PROG-003)
 
 ## Summary
 The asset half of the project is functional: the Blender tool fractures a mesh and verifies its own output, the harness re-verifies that output inside Bullet, and the visual mode renders the destruction and captures it. The game half is still the ECS engine and a component catalogue with no systems on top of it.
