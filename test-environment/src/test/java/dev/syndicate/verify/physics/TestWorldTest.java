@@ -14,6 +14,7 @@ import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import dev.syndicate.core.physics.PhysicsWorld;
 import dev.syndicate.core.util.NativeResourceTracker;
 import dev.syndicate.model.SimulationConstants;
+import dev.syndicate.verify.asset.MeshData;
 import dev.syndicate.verify.check.Tolerances;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -96,6 +97,58 @@ class TestWorldTest {
             assertThat(body.getLinearVelocity().len()).as("post-rest jitter").isLessThan((float)
                     TOLERANCES.get(Tolerances.RESTING_JITTER_MPS));
         }
+    }
+
+    @Test
+    void simplifiedHull_sitsExactlyOneMarginOutsideItsMesh() {
+        // DISC-008. btShapeHull samples support points from the shape it is handed, margin included,
+        // and ignores its own `buildHull(margin)` argument — so a source shape carrying a margin
+        // yields hull points already pushed one margin out, and the simplified shape adds another.
+        // A simplified hull then rests two margins above the ground while an unsimplified one rests
+        // one, which is what failed the sphere and cylinder fixtures at 0.01 m.
+        //
+        // Asserted on the hull's own geometry rather than on a resting height: this is a property of
+        // shape construction, and reading it directly says which of the two numbers is wrong.
+        MeshData sphere = icosphereAboveOrigin();
+        try (TestWorld world = new TestWorld(false)) {
+            btConvexHullShape simplified = world.buildHull(sphere, 32);
+            // Simplification happened, but note it does not honour the budget it was given:
+            // btShapeHull samples a fixed set of directions and returns 42 points regardless of
+            // `maxVertices`, which is only a threshold for whether to simplify at all. The game's
+            // shard hulls come from the Blender tool (D09-S5.5) and do respect D06-R6's 32; the
+            // harness's rebuilt ones do not, and ASSET-011 compares against them.
+            assertThat(simplified.getNumPoints()).isLessThan(sphere.vertexCount());
+
+            float hullBottom = simplified.localGetSupportingVertexWithoutMargin(new Vector3(0f, -1f, 0f)).y;
+
+            assertThat(hullBottom)
+                    .as("simplified hull's own geometry must not carry a baked-in margin")
+                    .isEqualTo(0f, within(1e-6f));
+            assertThat(simplified.getMargin()).isEqualTo(TestWorld.COLLISION_MARGIN_M);
+        }
+    }
+
+    /**
+     * A sphere of radius 0.5 sitting on the origin plane, with enough vertices to force the
+     * simplification path. Generated rather than loaded, so the test needs no processed fixture.
+     */
+    private static MeshData icosphereAboveOrigin() {
+        int rings = 24;
+        int segments = 48;
+        float[] positions = new float[(rings + 1) * (segments + 1) * 3];
+        int p = 0;
+        for (int ring = 0; ring <= rings; ring++) {
+            double phi = Math.PI * ring / rings;
+            for (int segment = 0; segment <= segments; segment++) {
+                double theta = 2 * Math.PI * segment / segments;
+                positions[p++] = (float) (HALF_EXTENT_M * Math.sin(phi) * Math.cos(theta));
+                // Shifted up by the radius so the lowest vertex is exactly y = 0, matching how the
+                // fixtures are authored and making the expected hull bottom a round number.
+                positions[p++] = (float) (HALF_EXTENT_M * Math.cos(phi) + HALF_EXTENT_M);
+                positions[p++] = (float) (HALF_EXTENT_M * Math.sin(phi) * Math.sin(theta));
+            }
+        }
+        return new MeshData("probe_sphere", positions, new int[0]);
     }
 
     /** A 1 m cube as eight hull points, at the harness's margin. */

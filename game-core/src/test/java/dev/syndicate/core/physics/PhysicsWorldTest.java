@@ -61,6 +61,26 @@ class PhysicsWorldTest {
     }
 
     @Test
+    void nativeWorld_holdsExactlyTheBodiesThisWorldThinksItHas() {
+        // The configuration above is what we *set*; this is what Bullet *has*. They are different
+        // claims, and only the second one is evidence: a body added to the list but not to the
+        // native world would simulate nowhere while every Java-side count looked right.
+        assertThat(scene.physics().dynamicsWorld().getNumCollisionObjects()).isZero();
+
+        int first = scene.spawnBox(new Vector3(0.5f, 0.5f, 0.5f), 10f, new Vector3(0f, 5f, 0f));
+        scene.spawnBox(new Vector3(0.5f, 0.5f, 0.5f), 10f, new Vector3(4f, 5f, 0f));
+        assertThat(scene.physics().dynamicsWorld().getNumCollisionObjects())
+                .isEqualTo(scene.physics().bodyCount())
+                .isEqualTo(2);
+
+        scene.physics().removeBody(scene.bodyOf(first));
+
+        assertThat(scene.physics().dynamicsWorld().getNumCollisionObjects())
+                .isEqualTo(scene.physics().bodyCount())
+                .isEqualTo(1);
+    }
+
+    @Test
     void addingABodyTwice_isRejected() {
         // D06-E18: gdx-bullet does not guard this, and a double-added body is stepped twice per
         // tick — which reads as a body falling at 2g, a symptom nobody traces back to the add.

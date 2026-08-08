@@ -4,7 +4,7 @@
 **Category:** discoveries
 **Related Docs:** docs/06_physics_simulation.md#D06-S4.3, docs/14_test_environment.md#D14-S4.5.2
 
-**Status:** active
+**Status:** superseded (by DISC-008)
 
 ## Summary
 Passing a shape's collision margin to `btShapeHull.buildHull(margin)` offsets the generated hull points outward by that margin, and the `btConvexHullShape` built from the result then adds its own margin on top. A simplified hull therefore has its collision surface two margins outside its mesh while an unsimplified one has exactly one. Pass `0`.

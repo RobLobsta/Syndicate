@@ -136,9 +136,10 @@ public final class TestWorld implements AutoCloseable {
                     new Vector3(mesh.positions()[i * 3], mesh.positions()[i * 3 + 1], mesh.positions()[i * 3 + 2]),
                     i == mesh.vertexCount() - 1);
         }
-        raw.setMargin(COLLISION_MARGIN_M);
+        raw.setMargin(0f);
 
         if (raw.getNumPoints() <= maxVertices) {
+            raw.setMargin(COLLISION_MARGIN_M);
             shapes.add(raw);
             return raw;
         }
@@ -147,11 +148,13 @@ public final class TestWorld implements AutoCloseable {
         // will consume the shape at runtime rather than by a second implementation that could
         // disagree about what counts as a vertex.
         //
-        // The margin argument is 0, not the shape's margin. `buildHull(m)` offsets the generated
-        // points outward by `m`, and the resulting shape then adds its *own* margin on top — so
-        // passing the margin here puts a simplified shape's collision surface two margins outside
-        // its mesh while an unsimplified one sits at exactly one. The sphere fixture rested 8 cm
-        // above the ground and the cube 4 cm, from the same code. See DISC-004.
+        // The source shape's margin is zeroed *before* simplification, and the real margin is set on
+        // the result. btShapeHull samples support points from the shape it is given, and those
+        // support points include that shape's margin — the `buildHull(margin)` argument is ignored
+        // (Bullet 2.8x marks it unused). So a source carrying a margin yields hull points already
+        // pushed one margin outward, and the simplified shape then adds its own on top: two margins
+        // for a simplified hull against one for an unsimplified one, which is DISC-004's symptom
+        // reappearing. Passing 0 to buildHull does not prevent it; zeroing the source does.
         btShapeHull simplifier = new btShapeHull(raw);
         simplifier.buildHull(0f);
         btConvexHullShape simplified = new btConvexHullShape(simplifier);
