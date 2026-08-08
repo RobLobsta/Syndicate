@@ -24,12 +24,16 @@ from .cli import Args
 from .errors import EXIT_FRACTURE_FAILED, ToolError, log
 from .geometry import (
     Aabb,
+    Polytope,
     Tri,
     Vec3,
     aabb_of,
     add,
     distance,
+    face_planes,
     hull_planes,
+    intersect_halfspaces,
+    is_convex,
     mesh_centroid,
     mesh_volume,
     normalize,
@@ -97,7 +101,7 @@ def voronoi_fracture(obj, args: Args) -> list[Shard]:
         )
     log("INFO", f"placed {len(sites)} fracture sites for '{obj.name}' (mode {args.shard_mode})")
 
-    cells = [_clip_cell(obj, site, sites) for site in sites]
+    cells = _build_cells(obj, sites, bbox, source_vertices, source_triangles)
     cells = [cell for cell in cells if cell is not None]
     if not cells:
         raise ToolError(EXIT_FRACTURE_FAILED, "clipping produced no cells")
@@ -221,6 +225,62 @@ def _clamp_into(bbox: Aabb):
 
 
 # --- Cell construction -----------------------------------------------------------------
+
+
+def _build_cells(obj, sites: list[Vec3], bbox: Aabb, vertices: list[Vec3], triangles: list[Tri]):
+    """Every Voronoi cell, intersected with the source.
+
+    Two paths, chosen by whether the source is convex:
+
+    * **Convex** — the source *is* a set of half-spaces (its own face planes), so the cell and
+      the source intersect as one half-space intersection. That is exact: no mesh cutting, no
+      fill, no boolean, and the result is a Voronoi cell by construction rather than by
+      approximation. This is what DEV-005 asked for.
+    * **Non-convex** — falls back to cutting the mesh, with the limitation DEV-004 records.
+
+    The split is worth making because every part this project ships so far is convex, and the
+    exact path removes an entire class of defect for them.
+    """
+    if is_convex(vertices, triangles):
+        planes = face_planes(vertices, triangles)
+        log("INFO", f"source is convex ({len(planes)} face planes): using exact half-space cells")
+        return [_cell_exact(site, sites, bbox, planes) for site in sites]
+
+    log("INFO", "source is non-convex: falling back to mesh cutting (DEV-004)")
+    return [_clip_cell(obj, site, sites) for site in sites]
+
+
+def _cell_exact(
+    site: Vec3, sites: list[Vec3], bbox: Aabb, source_planes: list[tuple[Vec3, float]]
+):
+    """``cell(site) ∩ source`` as an exact convex polytope.
+
+    Bisectors are applied first: they cut the seed box down to a small cell in a few planes,
+    so the several hundred source planes that follow mostly hit the "wholly inside" early-out
+    and cost one dot product per vertex.
+
+    The cell margin insets the *bisectors* only. Insetting the source planes too would shrink
+    the part itself, losing volume at the outer surface where there is no neighbour to
+    separate from.
+    """
+    bisectors = [
+        (normal, offset - _CELL_MARGIN_M)
+        for normal, offset in bisector_planes(site, [s for s in sites if s != site])
+    ]
+
+    pad = max(bbox.max_extent, 1.0)
+    seed = Polytope.box(
+        tuple(bbox.min[i] - pad for i in range(3)),  # type: ignore[arg-type]
+        tuple(bbox.max[i] + pad for i in range(3)),  # type: ignore[arg-type]
+    )
+    poly = intersect_halfspaces(seed, bisectors + source_planes)
+    if poly.is_empty():
+        return None
+
+    triangles = poly.triangles()
+    if len(poly.vertices) < 4 or len(triangles) < 4:
+        return None
+    return (poly.vertices, triangles)
 
 
 def _clip_cell(obj, site: Vec3, sites: list[Vec3]):

@@ -9,8 +9,15 @@ that produced the frame.
 
 | File | Asset | Moment | Command |
 |---|---|---|---|
-| `cube_explosion.png` | `test_cube_1m`, 12 shards, 7850.0 kg | 12 ticks (0.2 s) after fracture | `syndicate-verify --asset build/fixtures-out/test_cube_1m --capture <out>.png --capture-tick 12 --capture-scatter 1.6` |
-| `sphere_explosion.png` | `test_sphere_r0.5`, 16 shards, 4024.4 kg | 10 ticks (0.17 s) after fracture | `syndicate-verify --asset build/fixtures-out/test_sphere_r0.5 --capture <out>.png --capture-tick 10 --capture-scatter 1.8` |
+| `cube_explosion.png` | `test_cube_1m`, 12 shards, 7850.0 kg | 12 ticks (0.2 s) after fracture | `--asset build/fixtures-out/test_cube_1m --capture-tick 12 --capture-scatter 1.6` |
+| `sphere_explosion.png` | `test_sphere_r0.5`, 16 shards, 4024.4 kg | 10 ticks (0.17 s) after fracture | `--asset build/fixtures-out/test_sphere_r0.5 --capture-tick 10 --capture-scatter 1.8` |
+| `cube_100_shards.png` | `test_cube_1m`, **100 shards**, 7850.0 kg | 14 ticks (0.23 s) after fracture | `--asset build/fixtures-out/test_cube_100 --capture-tick 14 --capture-scatter 1.9` |
+| `sphere_100_shards.png` | `test_sphere_r0.5`, **100 shards**, 4024.4 kg | 12 ticks (0.2 s) after fracture | `--asset build/fixtures-out/sphere_100 --capture-tick 12 --capture-scatter 2.0` |
+
+The 100-shard assets are produced by passing `--shards 100` to the fracture tool; the cap is
+`MAX_SHARDS_PER_PART = 256` (DEC-009). Both still pass 31/31, conserve mass exactly, and
+inherit momentum to within float noise — a 100-shard fracture is not a special case of the
+pipeline, just a larger one.
 
 Shards are coloured by index on a golden-angle hue ramp, which is the `shardcolor` overlay of
 D14-S5.11 — neighbouring shards never share a colour, at any shard count.

@@ -93,7 +93,7 @@ blender --background --factory-startup [<input.blend>] \
 | `--out <dir>` | path | yes | — | Output directory; created if absent |
 | `--object <name>` | string | no | all mesh objects | Process only this object |
 | `--seed <int>` | int | no | `1337` | Master seed for all randomness (G11) |
-| `--shards <int>` | int | no | `24` | Target shard count; clamped to `[2, MAX_SHARDS_PER_PART=64]` |
+| `--shards <int>` | int | no | `24` | Target shard count; clamped to `[2, MAX_SHARDS_PER_PART=256]` |
 | `--shard-mode <mode>` | enum | no | `uniform` | `uniform` \| `surface_biased` \| `impact_biased` |
 | `--impact-point x,y,z` | vec3 | no | — | Required when `--shard-mode impact_biased` |
 | `--damage-morphs <int>` | int | no | `4` | Number of damage shape keys; `0` disables |
@@ -878,7 +878,7 @@ function verifyDeterminism(args):
 | E1 | Source mesh is not watertight | Exit 66 with `nonManifoldEdgeCount` and the "Select Non Manifold" suggestion. Never fracture an open mesh — volume, and therefore mass, would be meaningless. |
 | E2 | Source has zero volume (flat plane) | Exit 66. |
 | E3 | Source is smaller than `MIN_PART_EXTENT_M` or larger than `MAX_PART_EXTENT_M` | Exit 66 via TV-010, with a unit-error hint — this catches cm/mm authoring. |
-| E4 | `--shards` exceeds `MAX_SHARDS_PER_PART` | Clamped to 64 with a warning; not an error. |
+| E4 | `--shards` exceeds `MAX_SHARDS_PER_PART` | Clamped to 256 with a warning; not an error. |
 | E5 | `--shards 1` | Clamped to 2 with a warning. A single "shard" is not a fracture. |
 | E6 | Sites cannot be placed (thin geometry, high shard count) | Exit 68 with the achieved site count and a suggestion to lower `--shards`. |
 | E7 | Boolean stage produces a shard with zero volume | Merged if below `--min-shard-volume`; otherwise exit 68. |

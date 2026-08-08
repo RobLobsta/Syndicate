@@ -387,7 +387,7 @@ function requiredSectionsPresent(doc):
 | `MIN_BODY_MASS_KG` | 0.01 | Minimum dynamic body mass | D06-S4.2 |
 | `MASS_TOLERANCE_FRAC` | 0.02 | Mass conservation tolerance | D14-S6.4 |
 | `MAX_PARTS_PER_VEHICLE` | 64 | Hard cap on parts in an assembly | D05-S4.1 |
-| `MAX_SHARDS_PER_PART` | 64 | Hard cap on shards per part | D09-S4.3 |
+| `MAX_SHARDS_PER_PART` | 256 | Hard cap on shards per part | D09-S4.3 |
 | `DEBRIS_LIFETIME_S` | 12.0 | Default debris despawn time | D07-S5.8 |
 | `MAX_DEBRIS_BODIES` | 256 | Global debris body budget | D07-S5.8 |
 | `DAMAGE_STATE_THRESHOLDS` | 0.66 / 0.33 / 0.0 | INTACT→DAMAGED→CRITICAL→DESTROYED | D07-S5.3 |

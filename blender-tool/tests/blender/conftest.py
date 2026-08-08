@@ -14,7 +14,13 @@ from __future__ import annotations
 import os
 import sys
 
+import pytest
 
+
+# `trylast` matters: the terminal reporter writes the run summary from its own
+# `pytest_sessionfinish`, so exiting from an earlier one throws the report away and every
+# failure prints as a bare "F" with no traceback.
+@pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session, exitstatus):
     del session
     sys.stdout.flush()

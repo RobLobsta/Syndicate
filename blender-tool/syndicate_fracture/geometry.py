@@ -524,3 +524,267 @@ def point_in_convex(point: Vec3, planes: list[tuple[Vec3, float]], epsilon: floa
 def pairwise(items: list[Vec3]):
     """Every unordered pair, for site-spacing tests."""
     return itertools.combinations(items, 2)
+
+
+# --- Convex polytopes from half-spaces -------------------------------------------------
+
+
+class Polytope:
+    """A closed convex polyhedron as ordered face loops over a shared vertex list.
+
+    Faces are stored as loops rather than triangles because clipping needs the loop: a
+    plane crosses a convex face in exactly two points, so the clipped face is again one
+    loop, and the new points across all faces form exactly one closed cap loop. Triangles
+    would lose that structure and put the caller back to guessing how to fill the cut —
+    which is the failure mode that made bisect-and-fill wrong on curved sources (DEV-005).
+    """
+
+    __slots__ = ("faces", "vertices")
+
+    def __init__(self, vertices: list[Vec3], faces: list[list[int]]) -> None:
+        self.vertices = vertices
+        self.faces = faces
+
+    @staticmethod
+    def box(lo: Vec3, hi: Vec3) -> Polytope:
+        """An axis-aligned box, faces wound counter-clockwise seen from outside."""
+        vertices: list[Vec3] = [
+            (lo[0], lo[1], lo[2]),
+            (hi[0], lo[1], lo[2]),
+            (hi[0], hi[1], lo[2]),
+            (lo[0], hi[1], lo[2]),
+            (lo[0], lo[1], hi[2]),
+            (hi[0], lo[1], hi[2]),
+            (hi[0], hi[1], hi[2]),
+            (lo[0], hi[1], hi[2]),
+        ]
+        faces = [
+            [0, 3, 2, 1],
+            [4, 5, 6, 7],
+            [0, 1, 5, 4],
+            [1, 2, 6, 5],
+            [2, 3, 7, 6],
+            [3, 0, 4, 7],
+        ]
+        return Polytope(vertices, faces)
+
+    def is_empty(self) -> bool:
+        return not self.faces or len(self.vertices) < 4
+
+    def triangles(self) -> list[Tri]:
+        """Fan-triangulate every face. Valid because each face is convex."""
+        out: list[Tri] = []
+        for face in self.faces:
+            for i in range(1, len(face) - 1):
+                out.append((face[0], face[i], face[i + 1]))
+        return out
+
+    def volume(self) -> float:
+        return mesh_volume(self.vertices, self.triangles())
+
+    def compact(self) -> Polytope:
+        """Drop vertices no face references, renumbering what remains."""
+        used = sorted({index for face in self.faces for index in face})
+        remap = {old: new for new, old in enumerate(used)}
+        return Polytope(
+            [self.vertices[i] for i in used],
+            [[remap[i] for i in face] for face in self.faces],
+        )
+
+
+def clip_polytope(poly: Polytope, normal: Vec3, offset: float, epsilon: float = 1e-9) -> Polytope:
+    """Clip to the half-space ``dot(normal, p) <= offset``.
+
+    Sutherland-Hodgman per face, then one cap face closing the cut.
+
+    The cap is built by sorting the on-plane points angularly about their own centroid,
+    rather than by chaining cut segments head to tail. Chaining looks natural and is fragile:
+    when a vertex lies *exactly* on the plane — which happens constantly, because every clip
+    after the first meets vertices the previous clip placed there — that vertex is both the
+    end of one segment and the start of the next, and deciding which face "enters" and which
+    "leaves" needs case analysis that is wrong more often than it is right. The cut of a
+    convex polytope is a convex polygon, so an angular sort is exact and needs no cases.
+    """
+    if poly.is_empty():
+        return poly
+
+    distances = [dot(normal, v) - offset for v in poly.vertices]
+    if all(d <= epsilon for d in distances):
+        return poly  # wholly inside: the plane does not cut
+    if all(d >= -epsilon for d in distances):
+        return Polytope([], [])  # wholly outside
+
+    vertices = list(poly.vertices)
+    # Points on the cut plane are shared between adjacent faces, so they are deduplicated on
+    # a lattice — otherwise the cap would have several copies of each corner.
+    shared: dict[tuple[int, int, int], int] = {}
+
+    def intern(point: Vec3) -> int:
+        key = quantise(point, 1e-9)
+        existing = shared.get(key)
+        if existing is not None:
+            return existing
+        shared[key] = len(vertices)
+        vertices.append(point)
+        return shared[key]
+
+    on_plane: set[int] = set()
+    faces: list[list[int]] = []
+
+    for face in poly.faces:
+        kept: list[int] = []
+        count = len(face)
+        for i in range(count):
+            current = face[i]
+            following = face[(i + 1) % count]
+            d_current = distances[current]
+            d_next = distances[following]
+
+            if d_current <= epsilon:
+                # A vertex already sitting on the plane is a cap corner too, and must be
+                # interned so both faces sharing it reference the same index.
+                if abs(d_current) <= epsilon:
+                    index = intern(poly.vertices[current])
+                    kept.append(index)
+                    on_plane.add(index)
+                else:
+                    kept.append(current)
+
+            crosses = (d_current < -epsilon and d_next > epsilon) or (
+                d_current > epsilon and d_next < -epsilon
+            )
+            if crosses:
+                t = d_current / (d_current - d_next)
+                edge = sub(poly.vertices[following], poly.vertices[current])
+                crossing = intern(add(poly.vertices[current], scale(edge, t)))
+                kept.append(crossing)
+                on_plane.add(crossing)
+
+        deduped = _dedupe_loop(kept)
+        if len(deduped) >= 3:
+            faces.append(deduped)
+
+    cap = _cap_face(vertices, on_plane, normal)
+    if cap is not None:
+        faces.append(cap)
+
+    if len(faces) < 4:
+        return Polytope([], [])
+    return Polytope(vertices, faces).compact()
+
+
+def _cap_face(vertices: list[Vec3], on_plane: set[int], normal: Vec3) -> list[int] | None:
+    """The polygon closing a clip, wound counter-clockwise seen from outside.
+
+    ``u`` and ``v`` are chosen so that ``u x v == normal``; sorting by ``atan2(.v, .u)`` then
+    runs counter-clockwise about ``+normal``, which is the outward direction for the cap.
+    Getting this backwards inverts the face and makes the polytope's signed volume negative.
+    """
+    if len(on_plane) < 3:
+        return None
+    indices = sorted(on_plane)
+    centre = vertex_average([vertices[i] for i in indices])
+
+    seed = (0.0, 0.0, 1.0) if abs(normal[2]) < 0.9 else (1.0, 0.0, 0.0)
+    u = normalize(cross(seed, normal))
+    if length(u) == 0.0:
+        return None
+    v = cross(normal, u)
+
+    def angle(i: int) -> float:
+        radial = sub(vertices[i], centre)
+        return math.atan2(dot(radial, v), dot(radial, u))
+
+    ordered = sorted(indices, key=angle)
+    return ordered if len(ordered) >= 3 else None
+
+
+def intersect_halfspaces(
+    seed: Polytope, planes: list[tuple[Vec3, float]], epsilon: float = 1e-9
+) -> Polytope:
+    """Clip ``seed`` by every half-space in turn.
+
+    The seed bounds the result: a half-space intersection is unbounded in general, and this
+    is where that is resolved — by starting from a box big enough to contain anything the
+    caller cares about rather than by a separate clamping pass.
+    """
+    poly = seed
+    for normal, offset in planes:
+        poly = clip_polytope(poly, normal, offset, epsilon)
+        if poly.is_empty():
+            return poly
+    return poly
+
+
+def face_planes(
+    vertices: list[Vec3], triangles: list[Tri], epsilon: float = 1e-9
+) -> list[tuple[Vec3, float]]:
+    """Outward face planes of a mesh, deduplicated.
+
+    For a convex mesh these half-spaces *are* the solid, which is what lets a convex source
+    be intersected with a Voronoi cell exactly, with no mesh boolean anywhere.
+    """
+    seen: dict[tuple[int, int, int, int], tuple[Vec3, float]] = {}
+    for i, j, k in triangles:
+        a, b, c = vertices[i], vertices[j], vertices[k]
+        normal = cross(sub(b, a), sub(c, a))
+        if length(normal) < epsilon:
+            continue
+        normal = normalize(normal)
+        offset = dot(normal, a)
+        key = (*quantise(normal, 1e-6), math.floor(offset / 1e-6 + 0.5))
+        seen.setdefault(key, (normal, offset))
+    return list(seen.values())
+
+
+def is_convex(vertices: list[Vec3], triangles: list[Tri], tolerance: float = 1e-6) -> bool:
+    """True when every vertex lies on the inner side of every face plane.
+
+    Decides whether the exact polytope path applies. A false negative merely costs the
+    slower path; a false positive would silently carve a non-convex part as if it were
+    solid, so the tolerance is scaled to the mesh and the test is over *all* vertices.
+    """
+    planes = face_planes(vertices, triangles)
+    if not planes:
+        return False
+    extent = aabb_of(vertices).max_extent or 1.0
+    slack = tolerance * extent
+    for normal, offset in planes:
+        for v in vertices:
+            if dot(normal, v) - offset > slack:
+                return False
+    return True
+
+
+def _dedupe_loop(loop: list[int]) -> list[int]:
+    out: list[int] = []
+    for index in loop:
+        if not out or out[-1] != index:
+            out.append(index)
+    if len(out) > 1 and out[0] == out[-1]:
+        out.pop()
+    return out
+
+
+def _chain_loop(segments: list[tuple[int, int]]) -> list[int] | None:
+    """Chain directed segments head-to-tail into one closed loop."""
+    if not segments:
+        return None
+    following = {}
+    for a, b in segments:
+        if a in following:
+            return None  # a branching boundary is not a simple loop
+        following[a] = b
+
+    start = segments[0][0]
+    loop = [start]
+    current = start
+    for _ in range(len(following)):
+        nxt = following.get(current)
+        if nxt is None:
+            return None
+        if nxt == start:
+            return loop
+        loop.append(nxt)
+        current = nxt
+    return None

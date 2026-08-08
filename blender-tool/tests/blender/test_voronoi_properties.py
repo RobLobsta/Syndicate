@@ -19,7 +19,7 @@ import pytest
 
 from syndicate_fracture import blender
 from syndicate_fracture.cli import parse
-from syndicate_fracture.fracture import _clip_cell, _generate_sites
+from syndicate_fracture.fracture import _build_cells, _generate_sites
 from syndicate_fracture.geometry import aabb_of, distance, mesh_centroid, mesh_volume
 from syndicate_fracture.rng import Pcg32, mix, stable_hash
 
@@ -32,12 +32,16 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURES = [
     ("test_cube_1m", 1001, 12),
     ("test_sphere_r0.5", 1006, 16),
+    # A high-count case, because the properties can hold for a dozen cells and fail for a
+    # hundred: more sites means more bisectors per cell, more near-degenerate clips, and
+    # more chances for a cap to be built wrong.
+    ("test_cube_1m", 2001, 100),
 ]
 
 # Fixtures whose cells are known *not* to be true Voronoi cells, with the entry that explains
-# it. Listed as strict xfail rather than removed: the day the clipping stage is fixed, this
-# flips to XPASS and says so, which a deleted test cannot do.
-KNOWN_NOT_VORONOI = {"test_sphere_r0.5": "DEV-005: curved sources deviate from the true partition"}
+# it. Empty since the exact half-space path landed (DEV-005 resolved); the mechanism stays so
+# a future source type that regresses can be recorded here rather than by deleting a test.
+KNOWN_NOT_VORONOI: dict[str, str] = {}
 
 
 def _voronoi_marks(name: str):
@@ -64,7 +68,7 @@ def _fracture_cells(name: str, seed: int, shards: int):
     bbox = aabb_of(source_vertices)
     rng = Pcg32(seed=mix(args.seed, stable_hash(obj.name)))
     sites = _generate_sites(args, rng, bbox, source_vertices, source_triangles)
-    cells = [_clip_cell(obj, site, sites) for site in sites]
+    cells = _build_cells(obj, sites, bbox, source_vertices, source_triangles)
     return sites, cells, mesh_volume(source_vertices, source_triangles)
 
 

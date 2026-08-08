@@ -11,11 +11,16 @@ import math
 import pytest
 
 from syndicate_fracture.geometry import (
+    Polytope,
     Vec3,
     aabb_of,
+    clip_polytope,
     convex_hull,
+    face_planes,
     inertia_diagonal,
     inflate_hull,
+    intersect_halfspaces,
+    is_convex,
     max_outside_distance,
     mesh_centroid,
     mesh_volume,
@@ -24,6 +29,7 @@ from syndicate_fracture.geometry import (
     surface_area,
     vertex_normals,
 )
+from syndicate_fracture.sites import bisector_planes
 
 
 def cube(
@@ -178,3 +184,102 @@ class TestQuantisation:
 
     def test_distinct_points_do_not_collide(self) -> None:
         assert quantise((0.0, 0.0, 0.0)) != quantise((0.001, 0.0, 0.0))
+
+
+class TestHalfSpaceIntersection:
+    """The exact cell construction of D09-S5.2 (see DEV-005).
+
+    Pure geometry, so it is unit-testable without Blender — which matters, because this is
+    the code that decides whether a fracture is a Voronoi decomposition at all, and the
+    property tests that check it end-to-end need a Blender host to run.
+    """
+
+    @staticmethod
+    def unit_box() -> Polytope:
+        return Polytope.box((-1.0, -1.0, -1.0), (1.0, 1.0, 1.0))
+
+    def test_seed_box_has_its_analytic_volume(self) -> None:
+        assert self.unit_box().volume() == pytest.approx(8.0)
+
+    def test_clipping_by_a_plane_through_the_centre_halves_it(self) -> None:
+        half = clip_polytope(self.unit_box(), (1.0, 0.0, 0.0), 0.0)
+        assert half.volume() == pytest.approx(4.0)
+
+    def test_three_orthogonal_clips_give_an_octant(self) -> None:
+        octant = intersect_halfspaces(
+            self.unit_box(),
+            [((1.0, 0.0, 0.0), 0.0), ((0.0, 1.0, 0.0), 0.0), ((0.0, 0.0, 1.0), 0.0)],
+        )
+        assert octant.volume() == pytest.approx(1.0)
+        assert len(octant.faces) == 6
+
+    def test_reconstructing_a_box_from_its_own_face_planes_is_exact(self) -> None:
+        """The property the convex fracture path rests on.
+
+        A convex solid *is* its face half-spaces, so intersecting a larger seed with them
+        must reproduce it exactly — no boolean, no mesh cutting, no tolerance.
+        """
+        target, target_tris = cube(1.0)
+        planes = face_planes(target, target_tris)
+        assert len(planes) == 6
+
+        seed = Polytope.box((-5.0, -5.0, -5.0), (5.0, 5.0, 5.0))
+        rebuilt = intersect_halfspaces(seed, planes)
+        assert rebuilt.volume() == pytest.approx(mesh_volume(target, target_tris), rel=1e-9)
+
+    def test_clipping_everything_away_yields_an_empty_polytope(self) -> None:
+        empty = intersect_halfspaces(
+            self.unit_box(), [((1.0, 0.0, 0.0), -2.0), ((-1.0, 0.0, 0.0), -2.0)]
+        )
+        assert empty.is_empty()
+        assert empty.volume() == 0.0
+
+    def test_a_plane_that_misses_leaves_the_polytope_untouched(self) -> None:
+        poly = clip_polytope(self.unit_box(), (1.0, 0.0, 0.0), 50.0)
+        assert poly.volume() == pytest.approx(8.0)
+
+    def test_repeated_clips_stay_exact(self) -> None:
+        """Clips after the first meet vertices lying exactly on the plane.
+
+        That case is what broke cap construction by segment chaining: a coincident vertex
+        both ends and begins a boundary segment. Slicing a box repeatedly along the same
+        axis exercises it directly.
+        """
+        poly = self.unit_box()
+        for offset in (0.9, 0.8, 0.7, 0.6, 0.5):
+            poly = clip_polytope(poly, (1.0, 0.0, 0.0), offset)
+        assert poly.volume() == pytest.approx(6.0)
+
+    def test_cells_of_two_sites_tile_the_seed(self) -> None:
+        """Two sites split space along their bisector; the halves must sum to the whole."""
+        seed = self.unit_box()
+        a, b = (-0.5, 0.0, 0.0), (0.5, 0.0, 0.0)
+        left = intersect_halfspaces(seed, bisector_planes(a, [b]))
+        right = intersect_halfspaces(seed, bisector_planes(b, [a]))
+        assert left.volume() + right.volume() == pytest.approx(seed.volume())
+        assert left.volume() == pytest.approx(right.volume())
+
+
+class TestConvexity:
+    def test_a_box_is_convex(self) -> None:
+        vertices, triangles = cube(1.0)
+        assert is_convex(vertices, triangles)
+
+    def test_a_sphere_is_convex(self) -> None:
+        points = sphere_points()
+        hull_points, hull_tris = convex_hull(points)
+        assert is_convex(hull_points, hull_tris)
+
+    def test_a_hollow_box_is_not_convex(self) -> None:
+        """The case that selects the fallback path (DEV-004).
+
+        An outer shell plus an inward-wound inner shell: every cavity vertex sits outside
+        some outer face plane's inner side, so convexity must be rejected — otherwise the
+        cavity would be carved as if the part were solid.
+        """
+        outer_v, outer_t = cube(1.0)
+        inner_v, inner_t = cube(0.5)
+        offset = len(outer_v)
+        vertices = outer_v + [(v[0], v[1] + 0.25, v[2]) for v in inner_v]
+        triangles = outer_t + [(k + offset, j + offset, i + offset) for i, j, k in inner_t]
+        assert not is_convex(vertices, triangles)

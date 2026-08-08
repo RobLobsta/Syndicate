@@ -53,7 +53,7 @@ public final class SimulationConstants {
     public static final int MAX_PARTS_PER_VEHICLE = 64;
 
     /** Hard cap on shards produced from one part (D09-S4.3). */
-    public static final int MAX_SHARDS_PER_PART = 64;
+    public static final int MAX_SHARDS_PER_PART = 256;
 
     /** Default debris despawn time in seconds (D07-S5.8). */
     public static final float DEBRIS_LIFETIME_S = 12.0f;
