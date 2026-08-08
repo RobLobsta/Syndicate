@@ -1,0 +1,77 @@
+# Version catalog — the SINGLE source of dependency versions (D02-R1, AC-D02-5).
+#
+# No `build.gradle.kts` in this repository may contain a hard-coded version string;
+# `:checkVersionCatalog` enforces that. Changing a version in the "Fixed toolchain"
+# block below requires a `.agent-memory/spec_deviations/` entry AND an amendment to
+# the table in docs/02_technical_architecture.md#D02-S4.1.
+
+[versions]
+# ---- Fixed toolchain (docs/02_technical_architecture.md#D02-S4.1) ----------------
+java                 = "17"
+gdx                  = "1.14.2"
+# gdx-gltf is published to JitPack only, and 2.3.0 is the newest release.
+# D02-S4.1 originally said "3.x", which does not exist — see DEV-001 and the
+# amended D02-S4.1 table.
+gdxGltf              = "2.3.0"
+jackson              = "2.17.2"
+jsonSchemaValidator  = "1.4.0"
+# KryoNet's only artifact on Maven Central is 2.22.0-RC1; it is the de-facto
+# release used by the ecosystem. See DEV-001.
+kryonet              = "2.22.0-RC1"
+slf4j                = "2.0.13"
+logback              = "1.5.6"
+junit                = "5.10.2"
+assertj              = "3.25.3"
+jmh                  = "1.37"
+
+# ---- Build-time plugins ---------------------------------------------------------
+spotless             = "6.25.0"
+shadow               = "8.3.5"
+foojayResolver       = "0.8.0"
+
+[libraries]
+# libGDX core + backends. `game-core` may depend on gdx-core and gdx-bullet only
+# (D02-S4.5); the backends are for the executable modules.
+gdx-core             = { module = "com.badlogicgames.gdx:gdx",                  version.ref = "gdx" }
+gdx-platform         = { module = "com.badlogicgames.gdx:gdx-platform",         version.ref = "gdx" }
+gdx-backend-lwjgl3   = { module = "com.badlogicgames.gdx:gdx-backend-lwjgl3",   version.ref = "gdx" }
+gdx-backend-headless = { module = "com.badlogicgames.gdx:gdx-backend-headless", version.ref = "gdx" }
+gdx-bullet           = { module = "com.badlogicgames.gdx:gdx-bullet",           version.ref = "gdx" }
+gdx-bullet-platform  = { module = "com.badlogicgames.gdx:gdx-bullet-platform",  version.ref = "gdx" }
+gdx-gltf             = { module = "com.github.mgsx-dev.gdx-gltf:gltf",          version.ref = "gdxGltf" }
+
+# Data / contracts
+jackson-databind     = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jackson-annotations  = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
+json-schema-validator = { module = "com.networknt:json-schema-validator",       version.ref = "jsonSchemaValidator" }
+
+# Networking (wrapped behind `Transport`; types confined to core.net.kryo — D02-R6)
+kryonet              = { module = "com.esotericsoftware:kryonet",               version.ref = "kryonet" }
+
+# Logging: libraries take the API only; the binding is added by applications.
+slf4j-api            = { module = "org.slf4j:slf4j-api",                        version.ref = "slf4j" }
+logback-classic      = { module = "ch.qos.logback:logback-classic",             version.ref = "logback" }
+
+# Testing
+junit-bom            = { module = "org.junit:junit-bom",                        version.ref = "junit" }
+junit-jupiter        = { module = "org.junit.jupiter:junit-jupiter",            version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+assertj-core         = { module = "org.assertj:assertj-core",                   version.ref = "assertj" }
+
+# Benchmarking (D12-S5.6; nightly only)
+jmh-core             = { module = "org.openjdk.jmh:jmh-core",                   version.ref = "jmh" }
+jmh-annprocess       = { module = "org.openjdk.jmh:jmh-generator-annprocess",   version.ref = "jmh" }
+
+# Plugin marker artifacts, used by `build-logic` so that convention plugins and the
+# main build share one version source.
+spotless-gradle       = { module = "com.diffplug.spotless:spotless-plugin-gradle",  version.ref = "spotless" }
+shadow-gradle         = { module = "com.gradleup.shadow:shadow-gradle-plugin",      version.ref = "shadow" }
+
+[bundles]
+jackson              = ["jackson-databind", "jackson-annotations"]
+testing              = ["junit-jupiter", "assertj-core"]
+
+[plugins]
+spotless             = { id = "com.diffplug.spotless",       version.ref = "spotless" }
+shadow               = { id = "com.gradleup.shadow",         version.ref = "shadow" }
+foojay-resolver      = { id = "org.gradle.toolchains.foojay-resolver-convention", version.ref = "foojayResolver" }
