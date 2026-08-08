@@ -25,9 +25,17 @@ public final class InMemoryAssetIndex implements AssetIndex {
 
     private final Map<AssetId, FractureManifest> manifests = new TreeMap<>();
 
+    private final Map<AssetId, PartType> partTypes = new TreeMap<>();
+
     /** Registers a manifest under its own {@link FractureManifest#manifestId()}. */
     public InMemoryAssetIndex put(FractureManifest manifest) {
         manifests.put(manifest.manifestId(), manifest);
+        return this;
+    }
+
+    /** Registers a part type under its own {@link PartType#partTypeId()}. */
+    public InMemoryAssetIndex put(PartType partType) {
+        partTypes.put(partType.partTypeId(), partType);
         return this;
     }
 
@@ -36,8 +44,18 @@ public final class InMemoryAssetIndex implements AssetIndex {
         return manifestId == null ? null : manifests.get(manifestId);
     }
 
+    @Override
+    public PartType partType(AssetId partTypeId) {
+        return partTypeId == null ? null : partTypes.get(partTypeId);
+    }
+
     /** Every loaded manifest, by ascending id. */
     public Map<AssetId, FractureManifest> manifests() {
         return Collections.unmodifiableMap(manifests);
+    }
+
+    /** Every loaded part type, by ascending id. */
+    public Map<AssetId, PartType> partTypes() {
+        return Collections.unmodifiableMap(partTypes);
     }
 }

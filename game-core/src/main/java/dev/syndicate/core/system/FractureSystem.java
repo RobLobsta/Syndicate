@@ -33,6 +33,7 @@ import dev.syndicate.core.util.Pcg32;
 import dev.syndicate.core.util.RandomVectors;
 import dev.syndicate.core.util.StreamId;
 import dev.syndicate.core.vehicle.PartDetachment;
+import dev.syndicate.core.vehicle.PartPlacement;
 import dev.syndicate.core.vehicle.SlotChain;
 import dev.syndicate.model.DamageState;
 import dev.syndicate.model.SimulationConstants;
@@ -63,9 +64,9 @@ import org.slf4j.LoggerFactory;
  *
  * <p><b>What this system does not do.</b> Parts hanging <em>below</em> the fractured one leave the
  * vehicle with it (D05-S5.5 step 1) but are not turned into debris bodies here: a non-fractured part
- * becomes a single body from its own collision hull, which is {@code DetachSystem}'s case in slot 14
- * and needs the part-hull half of the asset index. They are left detached, bodyless and inert until
- * that system exists.
+ * becomes a single body from its own collision hull, which is {@code DetachSystem}'s case in slot 14.
+ * {@code PartDetachment} leaves each of them holding the world transform and velocity it left with,
+ * which is all slot 14 needs to find them in the same tick.
  */
 public final class FractureSystem implements EntitySystem {
 
@@ -98,7 +99,6 @@ public final class FractureSystem implements EntitySystem {
     private final Matrix4 scratchPartWorld = new Matrix4();
     private final Matrix4 scratchShardWorld = new Matrix4();
     private final Matrix4 scratchLocal = new Matrix4();
-    private final Matrix4 scratchRecentre = new Matrix4();
     private final Vector3 scratchComWorld = new Vector3();
     private final Vector3 scratchBodyLinear = new Vector3();
     private final Vector3 scratchBodyAngular = new Vector3();
@@ -180,7 +180,12 @@ public final class FractureSystem implements EntitySystem {
 
         // 2. Remove the part's contribution from the vehicle. Mass, COM and inertia are reconciled by
         //    MassPropertySystem in slot 15 — the same tick, before the next step (G10, AC-D07-14).
-        if (vehicleEntity != EntityId.NULL) {
+        //
+        //    A chassis part is the exception: it cannot be detached (D05-R26), because a vehicle
+        //    without one is not a vehicle. It still fractures — D07-S5.7 has a wrecked chassis break
+        //    into shards if it has manifest data — and DetachSystem (14) wrecks the vehicle around
+        //    it in this same tick, having seen that the chassis part is gone.
+        if (vehicleEntity != EntityId.NULL && !isChassisPart(world, vehicleEntity, partEntity)) {
             PartDetachment.detach(world, shapes, vehicleEntity, partEntity, DetachReason.FRACTURED, tick);
         }
 
@@ -226,15 +231,14 @@ public final class FractureSystem implements EntitySystem {
      */
     private boolean capturePartWorldTransform(World world, int partEntity, int vehicleEntity, String slotPath) {
         if (vehicleEntity != EntityId.NULL) {
-            RigidBodyComponent vehicleBody = world.getComponent(vehicleEntity, RigidBodyComponent.class);
             VehicleChassisComponent chassis = world.getComponent(vehicleEntity, VehicleChassisComponent.class);
             SlotGraphComponent graph = world.getComponent(vehicleEntity, SlotGraphComponent.class);
-            if (vehicleBody != null && vehicleBody.body != null && chassis != null && graph != null) {
+            if (chassis != null
+                    && graph != null
+                    && PartPlacement.chassisToWorld(world, vehicleEntity, scratchPartWorld, scratchComWorld)) {
                 Matrix4 chainTransform = SlotChain.of(graph, chassis).transformOf(slotPath);
                 if (chainTransform != null) {
-                    vehicleBody.body.getWorldTransform(scratchPartWorld);
-                    scratchRecentre.setToTranslation(-chassis.comLocal.x, -chassis.comLocal.y, -chassis.comLocal.z);
-                    scratchPartWorld.mul(scratchRecentre).mul(chainTransform);
+                    scratchPartWorld.mul(chainTransform);
                     return true;
                 }
             }
@@ -253,6 +257,12 @@ public final class FractureSystem implements EntitySystem {
             return true;
         }
         return false;
+    }
+
+    /** Whether this part is its vehicle's root, which never detaches (D05-R26). */
+    private static boolean isChassisPart(World world, int vehicleEntity, int partEntity) {
+        VehicleChassisComponent chassis = world.getComponent(vehicleEntity, VehicleChassisComponent.class);
+        return chassis != null && chassis.chassisPartEntity == partEntity;
     }
 
     /**

@@ -13,6 +13,7 @@ import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
 import dev.syndicate.core.asset.FractureManifest;
 import dev.syndicate.core.asset.InMemoryAssetIndex;
 import dev.syndicate.core.asset.MeshData;
+import dev.syndicate.core.asset.PartType;
 import dev.syndicate.core.asset.ShardDefinition;
 import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.FractureDataComponent;
@@ -31,6 +32,7 @@ import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.Family;
 import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.system.DetachSystem;
 import dev.syndicate.core.system.EntityDestroySystem;
 import dev.syndicate.core.system.FractureSystem;
 import dev.syndicate.core.system.MassPropertySystem;
@@ -73,7 +75,8 @@ public final class DestructionTestScene implements AutoCloseable {
             Vector3 halfExtents,
             Vector3 localPosition,
             AssetId partTypeId,
-            AssetId manifestRef) {
+            AssetId manifestRef,
+            boolean hangsBeforeFalling) {
 
         public static PartSpec of(String slotPath, PartCategory category, float massKg, Vector3 localPosition) {
             return new PartSpec(
@@ -83,12 +86,26 @@ public final class DestructionTestScene implements AutoCloseable {
                     new Vector3(0.5f, 0.2f, 0.5f),
                     localPosition,
                     AssetId.of("part_" + slotPath.replace('/', '_')),
-                    null);
+                    null,
+                    false);
         }
 
         /** The same part, but one that breaks into shards described by {@code manifestRef}. */
         public PartSpec fracturing(AssetId manifestRef) {
-            return new PartSpec(slotPath, category, massKg, halfExtents, localPosition, partTypeId, manifestRef);
+            return new PartSpec(
+                    slotPath,
+                    category,
+                    massKg,
+                    halfExtents,
+                    localPosition,
+                    partTypeId,
+                    manifestRef,
+                    hangsBeforeFalling);
+        }
+
+        /** The same part, but one that hangs by a thread before it falls (D07-S5.7 T1). */
+        public PartSpec hanging() {
+            return new PartSpec(slotPath, category, massKg, halfExtents, localPosition, partTypeId, manifestRef, true);
         }
     }
 
@@ -100,6 +117,7 @@ public final class DestructionTestScene implements AutoCloseable {
 
     private final PhysicsSystem physicsSystem;
     private final FractureSystem fractureSystem;
+    private final DetachSystem detachSystem;
     private final MassPropertySystem massPropertySystem;
     private final EntityDestroySystem entityDestroySystem;
 
@@ -114,10 +132,11 @@ public final class DestructionTestScene implements AutoCloseable {
         debrisFactory = new DebrisFactory(physics);
         physicsSystem = new PhysicsSystem(physics);
         fractureSystem = new FractureSystem(assets, shapes, debrisFactory);
+        detachSystem = new DetachSystem(assets, shapes, debrisFactory, physics);
         massPropertySystem = new MassPropertySystem(shapes);
         entityDestroySystem = new EntityDestroySystem(physics, shapes);
-        world.registerSystems(
-                List.<EntitySystem>of(physicsSystem, fractureSystem, massPropertySystem, entityDestroySystem));
+        world.registerSystems(List.<EntitySystem>of(
+                physicsSystem, fractureSystem, detachSystem, massPropertySystem, entityDestroySystem));
         embodied = world.family(ComponentQuery.all(RigidBodyComponent.class));
     }
 
@@ -143,6 +162,10 @@ public final class DestructionTestScene implements AutoCloseable {
 
     public FractureSystem fractureSystem() {
         return fractureSystem;
+    }
+
+    public DetachSystem detachSystem() {
+        return detachSystem;
     }
 
     public MassPropertySystem massPropertySystem() {
@@ -256,6 +279,10 @@ public final class DestructionTestScene implements AutoCloseable {
     private int createPart(int vehicleEntity, PartSpec spec) {
         Entity part = world.createEntity();
         int partEntity = part.id();
+
+        // The part type is what DetachSystem builds a detached part's debris body from — and for a
+        // wheel it is the only source, since a wheel contributes no compound geometry (D06-R6).
+        assets.put(new PartType(spec.partTypeId(), boxMesh(spec.halfExtents()), spec.hangsBeforeFalling()));
 
         PartRefComponent ref = new PartRefComponent();
         ref.partTypeId = spec.partTypeId();

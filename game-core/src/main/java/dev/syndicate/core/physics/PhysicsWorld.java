@@ -4,6 +4,7 @@
  */
 package dev.syndicate.core.physics;
 
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.btBroadphaseInterface;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionConfiguration;
@@ -13,9 +14,11 @@ import com.badlogic.gdx.physics.bullet.collision.btDefaultCollisionConfiguration
 import com.badlogic.gdx.physics.bullet.dynamics.btConstraintSolver;
 import com.badlogic.gdx.physics.bullet.dynamics.btContactSolverInfo;
 import com.badlogic.gdx.physics.bullet.dynamics.btDiscreteDynamicsWorld;
+import com.badlogic.gdx.physics.bullet.dynamics.btFixedConstraint;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.dynamics.btSequentialImpulseConstraintSolver;
 import com.badlogic.gdx.physics.bullet.dynamics.btSolverMode;
+import com.badlogic.gdx.physics.bullet.dynamics.btTypedConstraint;
 import dev.syndicate.core.util.NativeResourceTracker;
 import dev.syndicate.model.CollisionLayer;
 import dev.syndicate.model.SimulationConstants;
@@ -36,7 +39,10 @@ import org.slf4j.LoggerFactory;
  * collision configuration, dispatcher, broadphase, solver, dynamics world — and nothing else. Bodies
  * and motion states belong to the entity's {@code RigidBodyComponent} (rule 3) and shapes to the
  * shape cache (rule 2), so {@link #addBody} records membership without taking ownership and
- * {@link #dispose()} evicts stragglers rather than freeing them.
+ * {@link #dispose()} evicts stragglers rather than freeing them. Constraints
+ * ({@link #attachBreakable}) are the exception in both directions: they are allocated here, and the
+ * handle is held by a {@code SlotAttachmentComponent} that disposes it after
+ * {@link #removeConstraint} — always before either endpoint body (rules 4 and 5).
  *
  * <p>{@code Bullet.init()} is deliberately not called here: D02-R3 puts it in each executable's
  * bootstrap, exactly once per process, so a library class cannot make the process-wide ref-counting
@@ -48,6 +54,9 @@ public final class PhysicsWorld implements AutoCloseable {
 
     /** Solver iterations per step (D06-S4.1). */
     public static final int SOLVER_ITERATIONS = 10;
+
+    /** Solver iterations for a breakable constraint, which is stiffer than the world (D06-S5.6). */
+    public static final int BREAKABLE_SOLVER_ITERATIONS = 20;
 
     /** Metres. Split impulse only corrects penetration deeper than this (D06-S4.1). */
     public static final float SPLIT_IMPULSE_PENETRATION_THRESHOLD_M = -0.02f;
@@ -83,6 +92,16 @@ public final class PhysicsWorld implements AutoCloseable {
      * twice — somewhere to be detected, which gdx-bullet itself does not guard.
      */
     private final List<btRigidBody> bodies = new ArrayList<>();
+
+    /**
+     * Constraints currently in the world, in insertion order (D06-S5.6).
+     *
+     * <p>Unlike {@link #bodies}, whose entries belong to a {@code RigidBodyComponent}, these were
+     * allocated by {@link #attachBreakable} and have no component that owns them until a caller
+     * stores the handle — so {@link #dispose()} frees the stragglers rather than merely evicting
+     * them.
+     */
+    private final List<btTypedConstraint> constraints = new ArrayList<>();
 
     private final List<PendingImpulse> pendingImpulses = new ArrayList<>();
 
@@ -220,6 +239,72 @@ public final class PhysicsWorld implements AutoCloseable {
         return -1;
     }
 
+    // ---- Constraints (D06-S5.6) ------------------------------------------------------
+
+    /**
+     * Joins two bodies with a fixed constraint that breaks above {@code breakImpulseN}
+     * (D06-S5.6 {@code attachBreakable}).
+     *
+     * <p>Used for the two situations D06-R21 allows a constraint at all: an authored articulated
+     * part, and a destroyed part hanging by a thread before it falls. The common case has no
+     * constraint — an attached part is geometry inside the vehicle's compound (D06-R20, DEC-004) —
+     * which is deliberate, because constraints are the least stable part of any Bullet setup.
+     *
+     * <p>The threshold is an <b>impulse in N·s, not a force</b> (D06-R22). Confusing the two is a
+     * factor of {@code TICK_DT}: a threshold given in newtons breaks at 1/60th of the load its
+     * author intended, and the part falls off the moment the vehicle drives over a kerb.
+     *
+     * @param frameInParent the joint frame in {@code parentBody}'s local space
+     * @param frameInChild the joint frame in {@code childBody}'s local space
+     * @return the constraint, which the caller stores on {@code SlotAttachmentComponent} and
+     *     releases through {@link #removeConstraint} before disposing it (G19)
+     */
+    public btFixedConstraint attachBreakable(
+            btRigidBody parentBody,
+            btRigidBody childBody,
+            Matrix4 frameInParent,
+            Matrix4 frameInChild,
+            float breakImpulseN) {
+        btFixedConstraint constraint = new btFixedConstraint(parentBody, childBody, frameInParent, frameInChild);
+        NativeResourceTracker.register("btFixedConstraint");
+        constraint.setBreakingImpulseThreshold(breakImpulseN);
+        // Stiffer than the world default: a joint that visibly sags before it breaks reads as a
+        // physics glitch rather than as drama.
+        constraint.setOverrideNumSolverIterations(BREAKABLE_SOLVER_ITERATIONS);
+        // Linked bodies do not collide: the child's hull overlaps the parent's by construction, and
+        // letting them resolve that overlap would fling the part off the instant the joint is made.
+        dynamicsWorld.addConstraint(constraint, true);
+        constraints.add(constraint);
+        return constraint;
+    }
+
+    /**
+     * Removes a constraint from the world without disposing it.
+     *
+     * <p>Disposal belongs to whoever holds the handle, and happens in the deferred destroy phase
+     * (D02-S5.7 rules 4 and 5) — always <em>before</em> either endpoint body, never during a step.
+     *
+     * <p>The Bullet-side removal is unconditional, including for a constraint that was added behind
+     * this class's back. A caller only removes a constraint it is about to dispose, and a disposed
+     * constraint still in the world is a freed pointer the solver dereferences on the next step —
+     * whereas removing one Bullet does not have is a no-op.
+     *
+     * @return true if the constraint was one this world was tracking
+     */
+    public boolean removeConstraint(btTypedConstraint constraint) {
+        int index = constraints.indexOf(constraint);
+        if (index >= 0) {
+            constraints.remove(index);
+        }
+        dynamicsWorld.removeConstraint(constraint);
+        return index >= 0;
+    }
+
+    /** How many constraints are in the world. */
+    public int constraintCount() {
+        return constraints.size();
+    }
+
     // ---- Pending impulses (D06-S5.4 step 1) ------------------------------------------
 
     /**
@@ -321,6 +406,22 @@ public final class PhysicsWorld implements AutoCloseable {
             return;
         }
         disposed = true;
+
+        // Constraints go before bodies, which is rule 4 of D02-S5.7: a constraint outliving an
+        // endpoint body is a freed pointer the solver dereferences on the next step.
+        if (!constraints.isEmpty()) {
+            LOG.warn(
+                    "{} constraints were still in the physics world at teardown; a broken or detached "
+                            + "part should have released its constraint (D06-S5.6)",
+                    constraints.size());
+            for (int i = constraints.size() - 1; i >= 0; i--) {
+                btTypedConstraint constraint = constraints.get(i);
+                dynamicsWorld.removeConstraint(constraint);
+                constraint.dispose();
+                NativeResourceTracker.release("btFixedConstraint");
+            }
+            constraints.clear();
+        }
 
         if (!bodies.isEmpty()) {
             LOG.warn(
