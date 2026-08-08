@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/04_entity_component_model.md#D04-S5.5, docs/04_entity_component_model.md#D04-S4.4
 
-**Status:** active
+**Status:** superseded (by PROG-005)
 
 ## Summary
 `EntityDestroySystem` (slot 27, CLEANUP phase) is implemented. It safely tears down entities that were queued for destruction. This includes recursive child entity destruction, releasing native resources like Bullet physics rigid bodies and constraints in the proper dependency order, and returning component instances to their object pools. `World`'s internal destroy queue has been exposed properly so that `EntityDestroySystem` runs within the schedule rather than as a hidden operation.

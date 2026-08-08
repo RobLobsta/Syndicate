@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/06_physics_simulation.md#D06-S5.4, docs/04_entity_component_model.md#D04-S4.4
 
-**Status:** active
+**Status:** superseded (by PROG-005)
 
 ## Summary
 `game-core` has its first system: `PhysicsSystem` in schedule slot 10, stepping a real `PhysicsWorld` at a fixed `TICK_DT` and mirroring Bullet's state into `Transform` and `Velocity`. The harness now runs on that same world, and all five fixtures verify 31/31 against it. The other 26 systems of D04-S4.4 remain unwritten, and nothing yet spawns a vehicle.
