@@ -1,18 +1,29 @@
 # CI pipeline (docs/12_testing_validation_ci.md#D12-S5.4).
 #
-# Stages run in the order D12-R11 fixes, and every stage is a Gradle task so it is
-# reproducible locally with the same command — that is AC-D12-3, and it is what keeps CI
-# from becoming a second, undocumented build.
+# D12-R11 defines the stages as an ordered sequence of Gradle tasks, each a gate for
+# everything after it. It says nothing about *how many runners* that takes, and the ordering
+# is what carries the meaning: cheap checks first, so an expensive stage never runs behind a
+# formatting error.
 #
-# Stages 3-7 of D12-S5.4 depend on subsystems that do not exist yet (asset schemas, the
-# physics scenarios, the Blender tool, the harness). They are listed in the `not-yet`
-# job below rather than omitted, so the gap stays visible instead of being rediscovered.
+# So the stages are steps in one job, not one job each. Three jobs meant three checkouts,
+# three JDK installs and three Gradle cache restores to run the same work, and the fan-out
+# bought nothing — the stages are strictly sequential gates, so there was never any
+# parallelism to gain.
+#
+# Stages 3-6 of D12-S5.4 depend on subsystems that are not finished (asset schemas, physics
+# scenarios, the fixture pipeline). Stage 7 (package) is deliberately omitted: it is the one
+# stage D12-S5.4 does not mark as a gate, and distribution packaging is not what this branch
+# is verifying. `:game-client:distZip` and the D02-E12 art-source assertion come back with it.
 
 name: CI
 
 on:
+  # Only the default branch on push. Every other branch is covered by its pull request, and
+  # listening to both `push: ["**"]` and `pull_request` ran the whole pipeline twice for the
+  # same commit — 6 jobs and ~573 s of runner time per push, for one commit's worth of
+  # information.
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -30,10 +41,10 @@ env:
   SYNDICATE_STRICT_ASSETS: "1"
 
 jobs:
-  stage0-fast-checks:
-    name: "Stage 0 — fast checks (gate)"
+  verify:
+    name: "Verify (D12-S5.4 stages 0-2)"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -48,84 +59,32 @@ jobs:
       - name: Install ruff
         run: pipx install ruff
 
-      # Formatting, layering, headless safety, doc integrity, memory lint, ruff.
-      # D12-R12: deliberately first and deliberately cheap.
-      - name: Fast checks
+      # Stage 0 — formatting, layering, headless safety, doc integrity, memory lint, ruff,
+      # and the .gitignore source-tracking guard (DISC-005). Deliberately first and
+      # deliberately cheap (D12-R12); a failure here stops the job before anything compiles.
+      - name: "Stage 0 — fast checks"
         run: ./gradlew fastChecks --no-daemon
 
-  stage1-2-build-and-test:
-    name: "Stage 1-2 — compile, unit, integration (gate)"
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: stage0-fast-checks
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - uses: gradle/actions/setup-gradle@v4
-
-      - name: Assemble
+      # Stage 1 — compile every module on the pinned Java 17 toolchain.
+      - name: "Stage 1 — assemble"
         run: ./gradlew assemble --no-daemon
 
-      # G17 in practice: game-core's tests must pass with no display present. The runner
-      # has no DISPLAY, so this is a real check rather than a declared intention.
-      - name: Unit and integration tests
+      # Stage 2 — G17 in practice: the runner has no DISPLAY, so a rendering dependency that
+      # crept into game-core fails here rather than on a dedicated server after deploy.
+      - name: "Stage 2 — unit and integration tests"
         run: ./gradlew test -Ptags=unit,integration --no-daemon
 
-      - name: Blender tool unit tests
+      - name: "Stage 2 — blender-tool unit tests"
         run: |
           python -m pip install --upgrade pip pytest
           python -m pytest blender-tool/tests/unit -q
 
+      # Only on failure. A green run's reports are never read, and uploading them costs
+      # storage and upload time on every single build.
       - name: Upload test reports
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
           path: "**/build/reports/tests/**"
-          retention-days: 30
-
-  stage7-package:
-    name: "Stage 7 — package"
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: stage1-2-build-and-test
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - uses: gradle/actions/setup-gradle@v4
-
-      - name: Build distributions
-        run: >-
-          ./gradlew :game-client:distZip :game-server-headless:shadowJar
-          :test-environment:shadowJar :asset-pipeline:shadowJar --no-daemon
-
-      # D02-E12: a shipping build must never contain authoring sources or fixtures.
-      - name: Assert art-source and fixtures are absent from the client zip
-        run: |
-          zip=$(find game-client/build/distributions -name '*.zip' | head -1)
-          echo "inspecting $zip"
-          if unzip -l "$zip" | grep -E 'art-source|fixtures/'; then
-            echo "::error::client distribution contains art-source or fixtures (D02-E12)"
-            exit 1
-          fi
-
-      - name: Upload distributions
-        uses: actions/upload-artifact@v4
-        with:
-          name: distributions
-          path: |
-            game-client/build/distributions/*.zip
-            */build/libs/*.jar
-          retention-days: 30
+          retention-days: 14

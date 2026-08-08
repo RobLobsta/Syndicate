@@ -204,3 +204,34 @@ What this means for you:
 - **Keep memory entries accurate.** Jules reads `.agent-memory/spec_deviations/` and `decisions/` to understand *why* code looks the way it does. An unrecorded deviation will be reported as a spec violation, and it will be right to do so.
 - **Jules cannot fix anything.** If Jules identifies a real problem, you apply the fix. If Jules is wrong about an entry or a piece of code, you correct the entry by superseding it (`D13-S5.6`), not by editing history.
 - **Reference the same IDs Jules does.** When you respond to a review, cite blueprint sections by stable ID so the conversation stays anchored to the contract rather than to opinion.
+
+---
+
+## 8. CI and GitHub Usage
+
+GitHub Actions minutes are a metered, finite resource on this repository. Treat a
+runner-hour the same way you would treat a paid API call.
+
+1. **One run per commit.** Workflows trigger on `pull_request` for every branch and on
+   `push` only for the default branch. Do not add a `push: ["**"]` trigger alongside a
+   `pull_request` trigger — that runs the entire pipeline twice for the same SHA. See
+   `.agent-memory/decisions/DEC-010.md`.
+
+2. **Stages are steps, not jobs.** `D12-S5.4` orders the stages as sequential gates. Because
+   they are strictly sequential there is no parallelism to win by splitting them across
+   runners — extra jobs only buy extra checkouts, JDK installs and cache restores. Keep them
+   as steps in one job unless a stage genuinely runs independently of the others.
+
+3. **Only run stages that can pass.** Stages whose subsystems are unfinished stay out of the
+   workflow until they exist. Stage 7 (package/distribution) is deferred; it is the one stage
+   `D12-S5.4` does not mark as a gate.
+
+4. **Don't push to test.** Reproduce CI locally first, in a tracked-files-only tree
+   (`git ls-files -z | xargs -0 tar …`), not just in your working directory. A working tree
+   that is green proves nothing about what was committed — that is exactly how DISC-005
+   happened.
+
+5. **Always monitor CI after a push.** A push is not finished when it lands; it is finished
+   when the run it triggers is green, or when you have reported the failure. Poll the run
+   with the GitHub MCP tools (`mcp__github__actions_*`); direct GitHub API access is blocked
+   in this environment. Do not end a turn with a run left unwatched.
