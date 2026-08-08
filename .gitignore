@@ -1,8 +1,18 @@
 # Gradle
+#
+# The build-output patterns are ANCHORED (leading `/`). A bare `build/` matches a directory
+# of that name at *any* depth, and `dev.syndicate.build` is a real package in `build-logic` —
+# so `build-logic/src/main/kotlin/dev/syndicate/build/` matched it and every guardrail task
+# class was silently untracked. `git add -A` skips ignored files without a word and
+# `git status` does not list them, so the repository built locally and failed on a clean
+# clone with `Unresolved reference: dev`. It cost two sessions. See DISC-005.
+#
+# Anything added here that could also name a package must be anchored the same way.
+# `.gradle/` stays unanchored: a leading dot cannot begin a package name, so it has no
+# collision to worry about.
 .gradle/
-build/
-build-logic/build/
-build-logic/.gradle/
+/build/
+/*/build/
 !gradle/wrapper/gradle-wrapper.jar
 
 # IDE

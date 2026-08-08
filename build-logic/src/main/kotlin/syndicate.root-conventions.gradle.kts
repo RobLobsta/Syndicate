@@ -1,3 +1,4 @@
+import dev.syndicate.build.SourceTrackingCheckTask
 import dev.syndicate.build.ValidateDocsTask
 import dev.syndicate.build.VersionCatalogCheckTask
 
@@ -26,6 +27,26 @@ val checkVersionCatalog = tasks.register<VersionCatalogCheckTask>("checkVersionC
         layout.projectDirectory.asFileTree.matching {
             include("*/build.gradle.kts")
         },
+    )
+}
+
+/**
+ * Catches source files that `.gitignore` silently excludes — including `build-logic`'s own,
+ * which is exactly how this repository shipped a tree that would not configure from a clean
+ * clone, twice. Run from the root because it spans every module's sources at once (DISC-005).
+ */
+val checkSourcesTracked = tasks.register<SourceTrackingCheckTask>("checkSourcesTracked") {
+    repositoryRoot.set(layout.projectDirectory.asFile.absolutePath)
+    // `build-logic/src` plus every module's `src`. Listed explicitly rather than globbed,
+    // because a glob that walks `src/**` would itself skip the ignored files it is looking
+    // for — Gradle's file trees honour nothing here, but the directory list must be built
+    // from the module layout rather than from what happens to be visible.
+    sources.from(
+        layout.projectDirectory.asFile
+            .listFiles { f: File -> f.isDirectory }
+            .orEmpty()
+            .map { File(it, "src") }
+            .filter { it.isDirectory },
     )
 }
 
@@ -59,6 +80,7 @@ tasks.register("fastChecks") {
     dependsOn(
         validateDocs,
         checkVersionCatalog,
+        checkSourcesTracked,
         "checkLayering",
         ":memory-system:lintMemory",
         ":game-core:checkHeadlessSafety",
@@ -68,5 +90,5 @@ tasks.register("fastChecks") {
 }
 
 tasks.named("check") {
-    dependsOn(validateDocs, checkVersionCatalog)
+    dependsOn(validateDocs, checkVersionCatalog, checkSourcesTracked)
 }
