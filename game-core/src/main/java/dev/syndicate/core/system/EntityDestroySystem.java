@@ -17,6 +17,7 @@ import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.Phase;
 import dev.syndicate.core.ecs.World;
 import dev.syndicate.core.physics.PhysicsWorld;
+import dev.syndicate.core.physics.ShapeCache;
 import dev.syndicate.core.vehicle.SlotNode;
 import java.util.Arrays;
 import java.util.Objects;
@@ -44,8 +45,21 @@ public final class EntityDestroySystem implements EntitySystem {
 
     private final PhysicsWorld physics;
 
+    /**
+     * Nullable. A vehicle's compound shape is per-instance and mutable, so unlike a part hull it has
+     * a single owner that dies with it (D06-R8, D02-S5.7 rule 2); the cache is handed over so slot 27
+     * can release it. A schedule built without a shape cache — the physics-only test scenes — leaves
+     * this null and simply skips that release.
+     */
+    private final ShapeCache shapes;
+
     public EntityDestroySystem(PhysicsWorld physics) {
+        this(physics, null);
+    }
+
+    public EntityDestroySystem(PhysicsWorld physics, ShapeCache shapes) {
         this.physics = Objects.requireNonNull(physics, "physics");
+        this.shapes = shapes;
     }
 
     @Override
@@ -154,6 +168,14 @@ public final class EntityDestroySystem implements EntitySystem {
                             body.getClass().getSimpleName());
                     rigidBody.body = null;
                 }
+            }
+
+            // The vehicle's compound shape dies with the vehicle — it is per-instance and mutable, so
+            // nothing else can be using it — but only *after* the body that references it has been
+            // disposed (D02-S5.7 rule 5). Its child hulls are shared by every instance of the same
+            // part type and survive until the cache itself is disposed (D06-R8).
+            if (shapes != null) {
+                shapes.releaseVehicleCompound(entityId);
             }
 
             world.recycleEntity(entityId);
