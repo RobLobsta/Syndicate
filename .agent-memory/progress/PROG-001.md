@@ -4,7 +4,8 @@
 **Category:** progress
 **Related Docs:** docs/00_master_index.md#D00-S4.2, docs/02_technical_architecture.md#D02-S4.5
 
-**Status:** active
+**Status:** superseded (by PROG-002)
+
 
 ## Summary
 The Gradle multi-project build, the guardrail check tasks, `shared-models`, the `game-core` ECS engine, and the `memory-system` tooling are implemented and green. Physics, vehicle, damage, net, AI, and match are not started; the asset schemas and the Blender tool remain the blocking prerequisites for everything downstream of them.

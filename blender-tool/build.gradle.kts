@@ -134,6 +134,7 @@ val fixtureSpecs = listOf(
     Triple("test_cube_1m", 1001, 12),
     Triple("test_plate_2x1x0.1", 1002, 16),
     Triple("test_cylinder_r0.5_h1", 1003, 14),
+    Triple("test_sphere_r0.5", 1006, 16),
 )
 
 /**

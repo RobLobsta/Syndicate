@@ -96,11 +96,57 @@ def complex_hollow(wall: float = 0.05) -> tuple[list[Vec3], list[list[int]]]:
     return outer_v + inner_v, outer_f + flipped
 
 
+def sphere_r0_5(rings: int = 16, segments: int = 24) -> tuple[list[Vec3], list[list[int]]]:
+    """UV sphere, r = 0.5 m, origin at the centre of the base (so it rests on z = 0).
+
+    Beyond D14-S7.1's five, because a sphere is the hardest case for the fracture and hull
+    stages at once: every cell boundary is curved, so hull simplification has nowhere flat
+    to cut corners, and a shard's mass depends entirely on how faithfully the curve was
+    followed. A cube can pass those stages with a sloppy implementation; a sphere cannot.
+    """
+    radius = 0.5
+    vertices: list[Vec3] = [(0.0, 0.0, 0.0)]  # south pole, sitting on the ground
+    for i in range(1, rings):
+        theta = math.pi * i / rings
+        z = radius - radius * math.cos(theta)
+        r = radius * math.sin(theta)
+        for j in range(segments):
+            phi = 2.0 * math.pi * j / segments
+            vertices.append((r * math.cos(phi), r * math.sin(phi), z))
+    vertices.append((0.0, 0.0, 2.0 * radius))  # north pole
+    north = len(vertices) - 1
+
+    faces: list[list[int]] = []
+    # South cap: wound so the normal points down and out.
+    for j in range(segments):
+        a = 1 + j
+        b = 1 + (j + 1) % segments
+        faces.append([0, b, a])
+    # Quad bands between successive rings.
+    for i in range(rings - 2):
+        base = 1 + i * segments
+        nxt = base + segments
+        for j in range(segments):
+            a = base + j
+            b = base + (j + 1) % segments
+            c = nxt + (j + 1) % segments
+            d = nxt + j
+            faces.append([a, b, c, d])
+    # North cap.
+    last = 1 + (rings - 2) * segments
+    for j in range(segments):
+        a = last + j
+        b = last + (j + 1) % segments
+        faces.append([north, a, b])
+    return vertices, faces
+
+
 FIXTURES = {
     "test_cube_1m": (cube_1m, "steel", 1001),
     "test_plate_2x1x0.1": (plate_2x1x0_1, "steel_hardened", 1002),
     "test_cylinder_r0.5_h1": (cylinder_r0_5_h1, "aluminium", 1003),
     "test_complex_hollow": (complex_hollow, "steel", 1004),
+    "test_sphere_r0.5": (sphere_r0_5, "steel", 1006),
 }
 
 
