@@ -8,6 +8,10 @@ the perpendicular bisectors to every other site, so clipping a copy of the sourc
 those planes yields the same cell the add-on would, intersected with the source in the same
 step. See DEV-002 for the recorded deviation.
 
+That identity holds only while the source is convex, so a non-convex source is first split
+into disjoint convex pieces by :mod:`decompose`; ``cell ∩ source`` is then the union of the
+cell's exact intersection with each piece. See DEV-004.
+
 Everything else D09-S5.2 requires is unchanged: sites come from the tool's PCG32, are sorted
 lexicographically before use, and shards are re-sorted by quantised centroid afterwards
 (D09-R10), sub-minimum cells are merged rather than dropped (D09-R11), and there is no
@@ -18,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from . import blender
+from . import blender, decompose
 from .blender import Vector, bmesh, require_bpy
 from .cli import Args
 from .errors import EXIT_FRACTURE_FAILED, ToolError, log
@@ -230,38 +234,64 @@ def _clamp_into(bbox: Aabb):
 def _build_cells(obj, sites: list[Vec3], bbox: Aabb, vertices: list[Vec3], triangles: list[Tri]):
     """Every Voronoi cell, intersected with the source.
 
-    Two paths, chosen by whether the source is convex:
+    Three paths, in order of preference:
 
-    * **Convex** — the source *is* a set of half-spaces (its own face planes), so the cell and
-      the source intersect as one half-space intersection. That is exact: no mesh cutting, no
-      fill, no boolean, and the result is a Voronoi cell by construction rather than by
-      approximation. This is what DEV-005 asked for.
-    * **Non-convex** — falls back to cutting the mesh, with the limitation DEV-004 records.
-
-    The split is worth making because every part this project ships so far is convex, and the
-    exact path removes an entire class of defect for them.
+    * **Convex source** — the source *is* a set of half-spaces (its own face planes), so the
+      cell and the source intersect as one half-space intersection. That is exact: no mesh
+      cutting, no fill, no boolean, and the result is a Voronoi cell by construction rather
+      than by approximation. This is what DEV-005 asked for.
+    * **Non-convex source, decomposable** — the source is first decomposed into disjoint
+      convex pieces (D09-S5.2, ``decompose``), and the cell is intersected with each piece by
+      the same exact construction. ``cell ∩ source`` is then the union of ``cell ∩ piece``
+      over the pieces, exact for the same reason. This is what resolves DEV-004.
+    * **Non-convex source, not decomposable** — falls back to cutting the mesh, which is
+      approximate on a curved source (DEV-005) and wrong on a cavity (DEV-004). Reaching it
+      means the decomposition reported *why* it could not run, which is logged.
     """
     if is_convex(vertices, triangles):
         planes = face_planes(vertices, triangles)
         log("INFO", f"source is convex ({len(planes)} face planes): using exact half-space cells")
-        return [_cell_exact(site, sites, bbox, planes) for site in sites]
+        return [_cell_exact(site, sites, bbox, [planes]) for site in sites]
 
-    log("INFO", "source is non-convex: falling back to mesh cutting (DEV-004)")
+    result = decompose.convex_decomposition(vertices, triangles)
+    if result.ok:
+        log(
+            "INFO",
+            f"source is non-convex: decomposed into {len(result.pieces)} convex pieces "
+            f"({result.volume_m3:.6f} m3, {100 * result.volume_error_frac:.6f}% from source)",
+        )
+        pieces = [piece.planes for piece in result.pieces]
+        boxes = [piece.aabb for piece in result.pieces]
+        return [_cell_exact(site, sites, bbox, pieces, boxes) for site in sites]
+
+    log("WARN", f"convex decomposition unavailable ({result.reason}): cutting the mesh instead")
     return [_clip_cell(obj, site, sites) for site in sites]
 
 
 def _cell_exact(
-    site: Vec3, sites: list[Vec3], bbox: Aabb, source_planes: list[tuple[Vec3, float]]
+    site: Vec3,
+    sites: list[Vec3],
+    bbox: Aabb,
+    pieces: list[list[tuple[Vec3, float]]],
+    boxes: list[Aabb] | None = None,
 ):
-    """``cell(site) ∩ source`` as an exact convex polytope.
+    """``cell(site) ∩ source`` as an exact convex polytope, or a union of them.
+
+    ``pieces`` is the source as convex regions, each a list of half-spaces. A convex source is
+    the one-piece case; a decomposed one contributes a polytope per piece the cell reaches,
+    and the shard is their union. The pieces are disjoint, so the union's volume is the sum of
+    theirs and no part of the source is counted twice — which is exactly what the mesh-cutting
+    path could not guarantee across a cavity.
 
     Bisectors are applied first: they cut the seed box down to a small cell in a few planes,
     so the several hundred source planes that follow mostly hit the "wholly inside" early-out
-    and cost one dot product per vertex.
+    and cost one dot product per vertex. The per-piece AABBs cull most pieces before even
+    that, once there is more than one.
 
     The cell margin insets the *bisectors* only. Insetting the source planes too would shrink
     the part itself, losing volume at the outer surface where there is no neighbour to
-    separate from.
+    separate from — and insetting a piece's internal planes would open a gap *inside* a shard,
+    where the two sides of a decomposition cut have to meet exactly.
     """
     bisectors = [
         (normal, offset - _CELL_MARGIN_M)
@@ -273,14 +303,29 @@ def _cell_exact(
         tuple(bbox.min[i] - pad for i in range(3)),  # type: ignore[arg-type]
         tuple(bbox.max[i] + pad for i in range(3)),  # type: ignore[arg-type]
     )
-    poly = intersect_halfspaces(seed, bisectors + source_planes)
-    if poly.is_empty():
+    cell = intersect_halfspaces(seed, bisectors)
+    if cell.is_empty():
         return None
+    cell_box = aabb_of(cell.vertices)
 
-    triangles = poly.triangles()
-    if len(poly.vertices) < 4 or len(triangles) < 4:
+    vertices: list[Vec3] = []
+    triangles: list[Tri] = []
+    for index, planes in enumerate(pieces):
+        if boxes is not None and not _aabb_touch(cell_box, boxes[index], 0.0):
+            continue
+        poly = intersect_halfspaces(cell, planes)
+        if poly.is_empty():
+            continue
+        part = poly.triangles()
+        if len(poly.vertices) < 4 or len(part) < 4:
+            continue
+        base = len(vertices)
+        vertices.extend(poly.vertices)
+        triangles.extend((i + base, j + base, k + base) for i, j, k in part)
+
+    if len(vertices) < 4 or len(triangles) < 4:
         return None
-    return (poly.vertices, triangles)
+    return (vertices, triangles)
 
 
 def _clip_cell(obj, site: Vec3, sites: list[Vec3]):
