@@ -1,0 +1,41 @@
+# Gradle
+.gradle/
+build/
+build-logic/build/
+build-logic/.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Java
+*.class
+hs_err_pid*
+replay_pid*
+
+# Python (blender-tool)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Blender
+*.blend1
+*.blend2
+
+# Runtime output — never committed. Fixtures and golden manifests under fixtures/ ARE.
+assets/asset-index.json
+syndicate.conf
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

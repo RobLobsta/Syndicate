@@ -67,13 +67,13 @@ Requirements in this document are numbered `R1..Rn` and cited as `D02-R7`.
 | Math | libGDX `com.badlogic.gdx.math` (`Vector3`, `Matrix4`, `Quaternion`) | Avoids a second math type system. |
 | JSON | **Jackson 2.17.x** (`jackson-databind`) | Schema-friendly, streaming for snapshots, well-understood. libGDX's `Json` is used only for internal quick config, never for contract files. |
 | JSON Schema validation | **networknt/json-schema-validator 1.4.x** | Validates manifests against checked-in schemas (D08-S6). |
-| Networking transport | **KryoNet 2.22.x** (TCP control + UDP state) — see D02-S4.3 | |
+| Networking transport | **KryoNet 2.22.0-RC1** (TCP control + UDP state) — see D02-S4.3 | `2.22.0-RC1` is the only KryoNet build published to Maven Central and is the de-facto release. |
 | Logging | **SLF4J 2.x API** + **Logback 1.5.x** (binding, apps only) | Libraries depend on the API only. |
 | Testing | **JUnit 5.10+**, **AssertJ 3.25+** | |
 | Benchmarking | **JMH 1.37** (optional module tasks) | D12-S5.6. |
 | Blender | **4.2 LTS** (Python 3.11) | LTS; `bmesh`, `bpy.types.ShapeKey`, Cell Fracture add-on available. |
 | Python tooling | `pytest 8.x`, `ruff`, `jsonschema` | Blender tool unit tests run outside Blender where possible (D09-S12). |
-| glTF export/import | Blender's built-in glTF 2.0 exporter; runtime import via **gdx-gltf 3.x** | D08-S4.5. |
+| glTF export/import | Blender's built-in glTF 2.0 exporter; runtime import via **gdx-gltf 2.3.0** | D08-S4.5. Published to **JitPack only** (`com.github.mgsx-dev.gdx-gltf:gltf`), not Maven Central; the JitPack repository is declared with a content filter restricted to that group. Amended from "3.x", which was never released. |
 
 <!-- D02-S4.2 -->### 4.2 Bullet Wrapper Choice
 

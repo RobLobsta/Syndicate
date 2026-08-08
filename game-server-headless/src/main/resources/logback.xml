@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging binding for this application (docs/02_technical_architecture.md#D02-S4.1).
+  Libraries depend on the SLF4J API only; the binding and its configuration belong here.
+
+  The pattern leads with the tick-free wall clock deliberately: this is operator-facing
+  output, not simulation state. Simulation code reads tick numbers, never the clock (G5).
+-->
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+      <charset>UTF-8</charset>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
+</configuration>
