@@ -115,13 +115,24 @@ val unitTest = tasks.register<Exec>("unitTest") {
 }
 
 /**
- * In-Blender tests. Skipped with a warning on developer machines, fatal on CI, which
- * declares `SYNDICATE_REQUIRE_BLENDER=1` (D02-E4).
+ * In-Blender tests (D02-S4.6): the fracture stage's mathematical properties, which cannot be
+ * asserted without a Blender host and which no other check covers — a fracture can tile,
+ * conserve mass, and build valid hulls while not being a Voronoi decomposition at all.
  */
-tasks.register("blenderTest") {
+val blenderTest = tasks.register<Exec>("blenderTest") {
     group = "verification"
-    description = "Runs the fracture tool over the fixtures inside Blender (D02-S4.6)."
+    description = "Runs tests/blender/ inside a Blender host (D02-S4.6)."
     dependsOn("processFixtures")
+    workingDir = layout.projectDirectory.asFile
+    commandLine("python3", "-m", "pytest", "tests/blender", "-q")
+    environment("PYTHONPATH", layout.projectDirectory.asFile.absolutePath)
+    val available = pytestAvailable && blenderAvailable
+    onlyIf { task ->
+        if (!available) {
+            task.logger.warn("SKIPPED :blender-tool:blenderTest — needs pytest and a Blender host")
+        }
+        available
+    }
 }
 
 /**
