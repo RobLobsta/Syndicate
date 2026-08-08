@@ -9,12 +9,46 @@ Communication with the JVM side is by file and exit code only (D02-S4.5); the to
 imports or is imported by the game.
 """
 
+from .errors import (
+    EXIT_BLENDER_ERROR,
+    EXIT_DETERMINISM_VIOLATION,
+    EXIT_EXPORT_FAILED,
+    EXIT_FRACTURE_FAILED,
+    EXIT_HULL_FAILED,
+    EXIT_INPUT_GEOMETRY_INVALID,
+    EXIT_INPUT_INVALID,
+    EXIT_MASS_IMPLAUSIBLE,
+    EXIT_MATERIAL_UNRESOLVED,
+    EXIT_OK,
+    EXIT_OUTPUT_WRITE_FAILED,
+    EXIT_SHAPEKEY_FAILED,
+    EXIT_USAGE,
+    EXIT_VERIFICATION_FAILED,
+)
+
 __version__ = "0.1.0"
 
-# Exit codes of D09-S4.3. Distinct from the game's (D03-S4.4) and the harness's (D14-S4.2)
-# because these are three different programs.
-EXIT_OK = 0
-EXIT_USAGE = 64
-EXIT_INPUT_INVALID = 66
-EXIT_MATERIAL_UNKNOWN = 67
-EXIT_BLENDER_NOT_FOUND = 70
+# Retained under their original names because the skeleton's tests assert them. The full
+# D09-S4.3 table now lives in `errors`, where the failure paths that raise them are.
+EXIT_MATERIAL_UNKNOWN = EXIT_MATERIAL_UNRESOLVED
+EXIT_BLENDER_NOT_FOUND = EXIT_BLENDER_ERROR
+
+__all__ = [
+    "EXIT_BLENDER_ERROR",
+    "EXIT_BLENDER_NOT_FOUND",
+    "EXIT_DETERMINISM_VIOLATION",
+    "EXIT_EXPORT_FAILED",
+    "EXIT_FRACTURE_FAILED",
+    "EXIT_HULL_FAILED",
+    "EXIT_INPUT_GEOMETRY_INVALID",
+    "EXIT_INPUT_INVALID",
+    "EXIT_MASS_IMPLAUSIBLE",
+    "EXIT_MATERIAL_UNKNOWN",
+    "EXIT_MATERIAL_UNRESOLVED",
+    "EXIT_OK",
+    "EXIT_OUTPUT_WRITE_FAILED",
+    "EXIT_SHAPEKEY_FAILED",
+    "EXIT_USAGE",
+    "EXIT_VERIFICATION_FAILED",
+    "__version__",
+]

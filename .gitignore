@@ -39,3 +39,6 @@ syndicate.conf
 # OS
 .DS_Store
 Thumbs.db
+
+# Blender module host writes a version directory next to the working directory
+/4.2/
