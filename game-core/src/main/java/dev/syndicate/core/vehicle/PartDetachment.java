@@ -4,14 +4,18 @@
  */
 package dev.syndicate.core.vehicle;
 
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Vector3;
 import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.PartRefComponent;
 import dev.syndicate.core.component.PartStatsComponent;
 import dev.syndicate.core.component.RigidBodyComponent;
 import dev.syndicate.core.component.SlotAttachmentComponent;
 import dev.syndicate.core.component.SlotGraphComponent;
+import dev.syndicate.core.component.TransformComponent;
 import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.component.VehicleStatsComponent;
+import dev.syndicate.core.component.VelocityComponent;
 import dev.syndicate.core.component.WheelControllerComponent;
 import dev.syndicate.core.damage.DetachReason;
 import dev.syndicate.core.damage.PartDetachedEvent;
@@ -42,6 +46,14 @@ import org.slf4j.LoggerFactory;
  * caller knows which (D05-S5.5 step 4). It does not recompute mass, COM or inertia either:
  * {@code MassPropertySystem} in slot 15 does that from the structural state this leaves behind,
  * which is what satisfies G10 within the same tick (D04-E11).
+ *
+ * <p><b>It does record where each part was and how fast it was going.</b> An attached part's
+ * placement is derived from the slot chain it is about to leave, and its velocity from the vehicle
+ * body it is about to stop belonging to — so both are unrecoverable a line after the removal.
+ * Writing them onto the part's own {@code Transform} and {@code Velocity} is what lets the caller
+ * spawn the world object at all, and lets a caller that is <em>not</em> the one that detached the
+ * part do it too: {@code FractureSystem} detaches a whole subtree and only turns its root into
+ * shards, and {@code DetachSystem} finds the rest of that subtree by these components alone.
  *
  * <p><b>Detachment is one-way</b> (G9, D07-R21). A part that has left never rejoins the graph.
  */
@@ -101,6 +113,11 @@ public final class PartDetachment {
         // lexicographic order visits children before parents (G3).
         subtree.sort(Comparator.comparing((SlotNode node) -> node.slotPath).reversed());
 
+        // Captured before the first removal: a slot chain built from a half-emptied graph would
+        // place the parts still in it correctly and the ones already gone not at all.
+        SlotChain chain = SlotChain.of(graph, chassis);
+        Motion motion = Motion.of(world, vehicleEntity);
+
         VehicleCompound compound = shapes == null ? null : shapes.vehicleCompound(vehicleEntity);
         List<Integer> detached = new ArrayList<>(subtree.size());
 
@@ -111,6 +128,10 @@ public final class PartDetachment {
             // 1. Leave the graph (D05-S5.5 step 1).
             graph.nodes.remove(node);
             graph.parentOf.remove(childEntity);
+
+            // Recorded before the vehicle reference goes, because that reference is how the
+            // placement is derived (D05-S5.5 step 4).
+            motion.recordPlacement(world, childEntity, chain.transformOf(node.slotPath));
 
             PartRefComponent childRef = world.getComponent(childEntity, PartRefComponent.class);
             if (childRef != null) {
@@ -166,6 +187,78 @@ public final class PartDetachment {
             }
         }
         return total;
+    }
+
+    /**
+     * The vehicle's motion at the moment of a detach, and the placement it gives each leaving part.
+     *
+     * <p>One instance per {@code detach} call rather than static scratch: a structural change is a
+     * rare event, not a per-tick allocation, and shared mutable scratch on a static utility would be
+     * unusable the moment two vehicles lose a part in one tick.
+     */
+    private static final class Motion {
+
+        private final Matrix4 chassisToWorld = new Matrix4();
+        private final Matrix4 partWorld = new Matrix4();
+        private final Vector3 comWorld = new Vector3();
+        private final Vector3 linear = new Vector3();
+        private final Vector3 angular = new Vector3();
+        private final Vector3 position = new Vector3();
+        private final boolean placed;
+
+        private Motion(World world, int vehicleEntity) {
+            placed = PartPlacement.chassisToWorld(world, vehicleEntity, chassisToWorld, comWorld);
+            VelocityComponent velocity = world.getComponent(vehicleEntity, VelocityComponent.class);
+            if (velocity != null) {
+                linear.set(velocity.linear);
+                angular.set(velocity.angular);
+            }
+        }
+
+        static Motion of(World world, int vehicleEntity) {
+            return new Motion(world, vehicleEntity);
+        }
+
+        /**
+         * Writes a leaving part's world transform and the velocity it leaves with onto the part.
+         *
+         * <p>The components are added when the part has none: an attached part needs neither, since
+         * its placement is the slot chain's and its motion is the vehicle's, and a spawn path is free
+         * not to give it either. A detached part needs both, so this is where they start existing.
+         *
+         * @param chassisLocal the part's accumulated slot-chain transform, or null when the graph
+         *     could not place it — in which case whatever transform the part already has is left
+         *     alone rather than replaced with a wrong one
+         */
+        void recordPlacement(World world, int partEntity, Matrix4 chassisLocal) {
+            if (!placed || chassisLocal == null) {
+                return;
+            }
+            partWorld.set(chassisToWorld).mul(chassisLocal);
+            partWorld.getTranslation(position);
+
+            TransformComponent transform = world.getComponent(partEntity, TransformComponent.class);
+            if (transform == null) {
+                transform = new TransformComponent();
+                world.addComponent(partEntity, transform);
+            }
+            // World space from here on: the part has no parent to be relative to (D04-S4.3.1).
+            transform.parent = EntityId.NULL;
+            transform.position.set(position);
+            partWorld.getRotation(transform.rotation, true);
+            transform.dirty = true;
+
+            VelocityComponent velocity = world.getComponent(partEntity, VelocityComponent.class);
+            if (velocity == null) {
+                velocity = new VelocityComponent();
+                world.addComponent(partEntity, velocity);
+            }
+            // v + ω × r at the part's own position (D05-R23). The vehicle's own velocity is left
+            // untouched: the departing mass carries its momentum away, and "correcting" the
+            // vehicle for it would create momentum rather than conserve it.
+            PartPlacement.velocityAt(linear, angular, comWorld, position, velocity.linear);
+            velocity.angular.set(angular);
+        }
     }
 
     private static void markDetached(World world, int partEntity, long tick) {

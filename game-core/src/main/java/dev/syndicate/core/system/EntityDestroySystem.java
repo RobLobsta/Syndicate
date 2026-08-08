@@ -132,7 +132,10 @@ public final class EntityDestroySystem implements EntitySystem {
                             (SlotAttachmentComponent) entity.componentAt(attachmentTypeIndex);
                     if (attachment.constraintHandle != null) {
                         btTypedConstraint handle = attachment.constraintHandle;
-                        physics.dynamicsWorld().removeConstraint(handle);
+                        // Through PhysicsWorld rather than its dynamicsWorld: the world tracks its
+                        // own constraints (D06-S5.6), and a constraint removed behind its back is
+                        // one it would try to free again at teardown.
+                        physics.removeConstraint(handle);
                         handle.dispose();
                         dev.syndicate.core.util.NativeResourceTracker.release(
                                 handle.getClass().getSimpleName());

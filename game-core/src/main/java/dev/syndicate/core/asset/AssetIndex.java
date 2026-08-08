@@ -16,9 +16,8 @@ import dev.syndicate.model.AssetId;
  * scheduled without one.
  *
  * <p>Only the lookups an implemented system actually performs are declared. The asset pipeline of
- * D08 is not written yet; part types, materials, assemblies and arenas join this interface as the
- * systems that consume them arrive, rather than being declared now and returning null for a
- * release.
+ * D08 is not written yet; materials, assemblies and arenas join this interface as the systems that
+ * consume them arrive, rather than being declared now and returning null for a release.
  */
 public interface AssetIndex {
 
@@ -31,4 +30,18 @@ public interface AssetIndex {
      *     (D05-S4.4).
      */
     FractureManifest fractureManifest(AssetId manifestId);
+
+    /**
+     * The part type with this id.
+     *
+     * <p>Read by {@code DetachSystem} (slot 14), which needs a part's collision mesh to build the
+     * debris body it becomes and its {@code hangsBeforeFalling} flag to decide when it leaves
+     * (D07-S5.7).
+     *
+     * @return the part type, or null when no type with that id is loaded. Null rather than a throw,
+     *     for the same reason {@link #fractureManifest} returns null: a part whose type failed to
+     *     load must still be able to leave its vehicle, and refusing to detach it would leave a
+     *     destroyed part welded to a live chassis.
+     */
+    PartType partType(AssetId partTypeId);
 }

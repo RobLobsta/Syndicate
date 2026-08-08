@@ -3,7 +3,7 @@
 **Date:** 2026-08-08
 **Category:** progress
 **Related Docs:** docs/06_physics_simulation.md#D06-S5.2, docs/06_physics_simulation.md#D06-S5.7, docs/07_damage_destruction_model.md#D07-S5.6
-**Status:** active
+**Status:** superseded (by PROG-006)
 
 ## Summary
 `ShapeCache` (D06-S5.2) owns every collision shape, `MassPropertySystem` (slot 15) keeps mass, COM and inertia true to a vehicle's live parts, and `FractureSystem` (slot 13) turns a destroyed part into its manifest's shards with inherited momentum. Four of D04-S4.4's 27 systems now exist. `DetachSystem` (14) and everything that spawns a vehicle in the game rather than in a test are still unwritten.
