@@ -137,14 +137,14 @@ val blenderTest = tasks.register<Exec>("blenderTest") {
 
 /**
  * The fixture set of D14-S7.1, with the seed and shard count each fixture records there.
- * `test_complex_hollow` is deliberately absent — the bisection fracture does not yet handle
- * an internal cavity, so including it would make the task red for a known, recorded gap
- * rather than for a regression. See DEV-004 and PROG-002.
+ * `test_complex_hollow` was excluded while the fracture could not handle an internal cavity;
+ * it processes to exit 0 since the source is convex-decomposed (DEV-004 resolved).
  */
 val fixtureSpecs = listOf(
     Triple("test_cube_1m", 1001, 12),
     Triple("test_plate_2x1x0.1", 1002, 16),
     Triple("test_cylinder_r0.5_h1", 1003, 14),
+    Triple("test_complex_hollow", 1004, 14),
     Triple("test_sphere_r0.5", 1006, 16),
 )
 

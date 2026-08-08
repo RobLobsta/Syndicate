@@ -32,6 +32,10 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURES = [
     ("test_cube_1m", 1001, 12),
     ("test_sphere_r0.5", 1006, 16),
+    # The non-convex case, which reaches the cells through a convex decomposition of the
+    # source rather than through its face planes (DEV-004). Its cells are still Voronoi cells
+    # — the shard each one carves out is not convex, but the region it is clipped from is.
+    ("test_complex_hollow", 1004, 14),
     # A high-count case, because the properties can hold for a dozen cells and fail for a
     # hundred: more sites means more bisectors per cell, more near-degenerate clips, and
     # more chances for a cap to be built wrong.
