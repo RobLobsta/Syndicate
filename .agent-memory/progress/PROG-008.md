@@ -29,7 +29,8 @@ talk to each other by file and exit code only (D02-S4.5).
 | Self-verification (D09-S5.7) | done | Exit codes are protected from `bpy` teardown segfaults by `os._exit` (DISC-003) |
 | Fixtures (D14-S7.1) | done | All five process to exit 0, including `test_complex_hollow` (DEV-004, resolved). `test_complex_hollow` still lacks its internal rib and weighs 2127 kg, not 2500 (DEV-006, open) |
 | Harness physics (D14-S5.5) | done | `TestWorld` delegates to `game-core`'s `PhysicsWorld` (DEV-007, resolved), so both share one collision margin |
-| Harness GLB reading | done | Own reader, deliberately not gdx-gltf (DEC-008, DEC-013) |
+| Harness GLB reading | done | `GlbReader` is now an adapter over `game-core`'s `GltfReader` rather than a second parser (DEC-035). Still deliberately not gdx-gltf (DEC-008, DEC-013), and it gains node transforms and `.gltf` support it silently lacked |
+| Source-art checks (`--model`) | done | Ten `MODEL-nnn` checks over an unprocessed model — geometry, finiteness, external resources, metres, up axis, long axis, ground plane, skinning, degenerate faces, triangle budget — plus a textured two-view render. Headless except the render |
 | Visual mode (D14-S5.13) | done | Mid-explosion captures render; the headless runner creates no GL context |
 | Hull vertex budgets | blocked | `btShapeHull` reduces to a fixed 42 directions and no further, so `MAX_SHARD_HULL_VERTICES` (32) cannot be enforced at runtime; meeting it is the tool's job (DISC-009) |
 | Known defect: ray predicate | blocked | `fracture._inside_predicate` double-counts a ray grazing a shared edge (DISC-006) |
@@ -41,8 +42,13 @@ last to touch the harness). Nothing in the 2026-08-09 session modified either mo
 **History (append-only):**
 - 2026-08-09: entry created to carry PROG-002's toolchain state forward as an active record. No
   toolchain work was done; this is a bookkeeping correction, not progress.
+- 2026-08-09 (later): the harness gained `--model` mode (`ModelImport`, `ModelInspector`,
+  `ModelScene`, `ModelRenderer`) and `GlbReader` became an adapter over `game-core`'s reader. The
+  Blender tool was not touched. Both supplied car models pass all ten source-art checks and render.
 
-**What the next session should pick up:** nothing urgent. The two open items are DISC-006's ray
+**What the next session should pick up:** the Blender **split** — one whole-car model in
+`art-source/vehicles/` into a chassis part and four wheel parts, which is what PROG-013 is now
+blocked on and the first job the tool has had on real art. The two older open items are DISC-006's ray
 predicate — a latent correctness bug that has not produced a wrong fixture yet — and DEV-006's
 fixture, which does not match its D14-R20 description. Both are worth doing before the tool is
 pointed at real art, and neither blocks the simulation work in PROG-007.

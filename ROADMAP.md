@@ -1,8 +1,9 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-09 (end of SESS-013)
-**Where we are:** two real cars' worth of physics drive around a headless server. Nothing shoots,
-and nothing is visible.
+**Last updated:** 2026-08-09 (end of SESS-014)
+**Where we are:** the game can read a car model, and there are two of them on disk that it measures
+correctly and renders. Nothing shoots yet, and the cars are still one mesh each rather than five
+parts.
 
 > This file is maintained by the coding assistant and updated **at the end of every session**
 > (CLAUDE.md §5, step 14). It is allowed to change shape as the work demands — reorder phases, split
@@ -24,11 +25,12 @@ gantt
     Destruction toolchain                   :done, p1, 2, 3
     Simulation core - physics and breakage   :done, p2, 5, 5
     Spawning and lifetime                   :done, p3, 10, 1
-    A vehicle you can drive  (we are here)  :done, p4, 11, 2
+    A vehicle you can drive                 :done, p4, 11, 2
+    Reading real art  (we are here)         :done, p6a, 13, 1
 
     section Next
-    Combat - hits, damage, weapons          :active, p5, 13, 3
-    A world to fight in - real content      :p6, 16, 3
+    Combat - hits, damage, weapons          :active, p5, 14, 3
+    A world to fight in - real content      :p6, 17, 3
 
     section Then
     A window - client, render, HUD          :p7, 19, 3
@@ -53,15 +55,17 @@ done and green; everything after is an estimate that will move.
   │  │            Bullet steps; parts fracture, detach, become scrap │
   │  ●  Phase 3   Spawning and lifetime                              │
   │  │            An assembly becomes a vehicle; debris expires      │
-  │  ●  Phase 4   A vehicle you can drive        ← THIS SESSION      │
+  │  ●  Phase 4   A vehicle you can drive                            │
   │  │            Stats aggregate, wheels turn, a server runs ticks  │
+  │  ◐  Phase 6a  Reading real art               ← THIS SESSION      │
+  │  │            glTF loads headlessly; two cars measured and drawn │
   └──┼───────────────────────────────────────────────────────────────┘
      │
   ┌──┼─ NEXT ──────────────────────────────────────────────────────────┐
   │  ○  Phase 5   Combat                                               │
   │  │            Contacts become damage; weapons fire; parts die      │
-  │  ○  Phase 6   A world to fight in                                  │
-  │  │            A glTF reader, real parts, an arena to drive on      │
+  │  ◐  Phase 6   A world to fight in                                  │
+  │  │            Reader done; parts must be cut from the car models   │
   │  ○  Phase 7   A window                                             │
   │  │            Rendering, damage morphs, camera, HUD                │
   │  ○  Phase 8   Opponents                          ★ PLAYABLE HERE   │
@@ -97,79 +101,70 @@ The eighteen that do not exist are named in a log line at startup rather than si
 
 ---
 
-## 2. What happened this session (SESS-012)
+## 2. What happened this session (SESS-014)
 
-PROG-007 named two systems as the next work. Both are done, plus the piece underneath them that
-neither could exist without, plus the shell that turns the whole thing into a program.
+The game can read a car now. That sentence has been the blocker in this file for three sessions, and
+it turned out to have three parts rather than one.
 
-- **Damage now means something to performance.** Every part carries a curve saying how its
-  contribution falls off as it takes damage — a wheel loses grip immediately and keeps a third of it
-  to the end, steering fades gently, a weapon works perfectly until it is two-thirds dead and then
-  starts sputtering, and a hit always does full damage because a player needs to be able to read
-  that. Those curves are now real code rather than a table in a document.
-- **`VehicleStatsSystem`.** The thing that adds a vehicle up: engine force, brakes, steering lock,
-  average armour, and from those a top speed and an acceleration that are *derived* rather than
-  authored — so no content file can promise a speed the physics will not deliver. Utility parts that
-  buff other parts are folded in here too, and stop buffing the moment they die.
-- **`VehicleControlSystem`.** The one that makes it move. Throttle becomes engine force spread
-  across the wheels that are actually driven and actually alive; steering is eased toward its target
-  rather than snapped to it, because a keyboard produces input that jumps and a vehicle that
-  followed it exactly would flip; each wheel gets grip reflecting its own damage, so a car with one
-  dead corner pulls to that side.
-- **A schedule, and a server that runs it.** There are 27 systems in the design, in a fixed order,
-  and which of them run depends on whether the process is a client, a listen server or a dedicated
-  one. That table is now data, and `syndicate-server` boots against it: natives, assets, world,
-  schedule, and a 60 Hz loop that paces itself against the clock and skips forward rather than
-  spiralling if the machine cannot keep up. Before this, the simulation only ever ran inside a test
-  that assembled its own list of systems.
+### The reader
 
-Two bugs came out of it, both worth naming.
+`game-core` had no way to open a mesh file. The specification names a library — gdx-gltf — and that
+library cannot be used, because it builds meshes as GPU buffers and the dedicated server has no
+graphics card, no window, and by design no ability to create one. So the module every runtime mode
+shares now has its own reader: about eight hundred lines that turn a glTF file into plain arrays of
+numbers, with no graphics anywhere near it.
 
-The first drive test put the vehicle on the ground and gave it full throttle, and it sat there. The
-wheels are ray casts, and every one of them was missing the floor — Bullet issues that ray with a
-fixed collision filter it will not let you change, and the filter our arena geometry was registered
-with did not admit it. So the vehicle sank through its own suspension and rested on its chassis,
-with the engine turning nothing. Everything about the vehicle was correct; one bit in one number was
-not.
+It handles what real files contain rather than what our own exporter happens to write. The most
+important of those is the **node hierarchy**. A model file does not just contain triangles; it
+contains a tree of transforms — rotate this, scale that — and the conversions between one tool's
+conventions and another's live in that tree rather than in the geometry. Both supplied cars carry
+theirs there:
 
-The second surfaced while investigating the first. The suspension and tyre settings had been chosen
-two sessions ago from a Bullet sample, on the belief that the specification didn't provide any — it
-does, in a table a few hundred lines above the code that reads it. Tyre grip had been five times the
-specified value. It is now what the document says, which is a noticeably different car.
+- the Maserati has a 0.9625 scale and a Z-up-to-Y-up rotation on its top node;
+- the Mustang has a centimetre-to-metre conversion applied to data that was already in metres, which
+  leaves the car **4.9 centimetres long**.
 
-### Since then (SESS-013) — two vehicles with real numbers
+The harness's older reader ignored all of that, which was harmless only because every file the
+Blender tool writes has an identity transform. Ignoring it on real art gives you a car lying on its
+side at a hundredth of its size — and, crucially, *nothing complains*. Every measurement taken from
+it agrees with every other. That is the kind of bug that ships.
 
-The handling question §4 asked — *how should it handle?* — turned out to be answerable by picking
-real cars and copying their homework.
+### The art, organised and checked
 
-There are now two vehicles. The **Eclipse** is a mid-engine road supercar whose mass, power, torque,
-0–100 time, top speed, braking distance, drag coefficient and tyre sizes all come from Maserati's
-published figures for the MC20. The **Stampede** is a front-engine GT racer built the same way
-from the Ford Mustang GT3 — 1289 kg, 550 hp, slicks and a wing. The in-game names are deliberately
-not the real ones: the numbers are facts and free to use, the trademarks are not.
+Both models are unpacked into `art-source/vehicles/eclipse/` and `.../stampede/`, each with its
+provenance, its licence, its required credit line, and every measurement taken off it written down.
 
-They are meant to be a choice rather than a ladder. The road car wins a drag race — it makes more
-power and puts it down through a shorter first gear. The race car is 200 kg lighter, brakes about a
-fifth shorter, holds far more grip and generates six times the downforce, so it is quicker at
-everything except a standing start.
+Beside each one is an `import.json`: three numbers that convert the file into the game's units and
+orientation. The point of putting them there is that they are then **checked rather than believed**.
+A new harness mode, `syndicate-verify --model`, applies the correction and then measures the result
+against ten questions — is it in metres, is Y up, is the long axis the length, does the origin sit on
+the road, are the textures actually present, is anything degenerate. Both cars pass. Corrected, they
+reproduce their real counterparts' wheelbases to within three millimetres, which is the strongest
+evidence available that the conversions are right.
 
-What makes this more than a table of numbers is that the game is held to it. Each vehicle is spawned
-in the real physics world, driven, and timed: the 0–100 has to come out within about a tenth of a
-second of the real car's, and the braking distance within a third of the published one. Change the
-drag model or the tyre grip and a test says which car stopped matching reality.
+One thing the checks cannot answer is which end is the front — geometry alone cannot tell a nose from
+a tail. So the mode also renders the car from a front and a rear three-quarter view. That is how the
+Maserati was found to be facing backwards, and both images are now in `docs/captures/`.
 
-Getting there needed three fixes. A vehicle had only a force, not a power, so one calibrated to a
-real standing start claimed a 637 km/h top speed — adding an engine power ceiling makes both figures
-come out right at once. Bullet turned out to read the brake command as an impulse where it reads the
-engine command as a force, so braking was sixty times too strong and had been hiding behind that.
-And splitting the brake evenly across four wheels throws away the rears' share as the nose dives,
-which had the race car barely out-braking the road car; the brake now follows the weight, like a real
-car's does.
+### The rename, and a different Mustang
 
-`VEHICLES.md` is the roster, with every published figure, every derived one, every estimate, and the
-sources. It regenerates itself and the build fails until the new copy is committed, so it cannot go
-stale. `assets/README.md` says where a model file goes.
+The vehicles are now the **Eclipse** and the **Stampede**, dropping the class suffixes. That is a
+rename of file paths and identifiers as much as of display names, and it is much cheaper now than
+after save files and network messages start carrying them.
 
+The Stampede was derived from a Ford Mustang **GT3** — a 1289 kg race car. The model supplied is a
+Mustang **GTD**, a 1969 kg road car with 815 horsepower. Every derived figure moved with it: mass,
+power, torque, tyres, springs, brakes and aerodynamics. Its drag is now solved backwards out of the
+published 202 mph top speed instead of estimated, and the simulation reproduces that top speed to
+within a tenth of a percent.
+
+That changes what the two cars *are* to each other. It used to be a road car against a race car. It
+is now light against heavy: the Eclipse is 470 kg lighter and still wins a standing start, while the
+Stampede has a third more power, six times the downforce, more grip and more brake. Two tests had
+quietly encoded the old relationship and were rewritten to assert the new one — including one that
+was simply no longer true, because a car with 31% more mass and 25% more grip stops *longer*, not
+shorter, in a model whose braking is limited by tyre grip. That is a real limitation and it is now
+written down rather than papered over with a larger friction number.
 
 ## 3. What is next
 
@@ -188,16 +183,21 @@ The shortest path from a vehicle that drives to a vehicle that can be beaten.
 At the end of Phase 5 two vehicles can hurt each other, and everything the destruction pipeline has
 been able to do since Phase 1 finally gets triggered by the game rather than by a test.
 
-### Phase 6 — A world to fight in
+### Phase 6 — A world to fight in *(half done)*
 
-The blocker here is specific, known, and now the *only* thing between the content that exists and a
-car on screen: the simulation cannot read a `.glb` file. Two vehicles are fully authored — parts,
-masses, slots, handling, assemblies — and they load, validate, spawn and drive correctly against
-stand-in box hulls. Drop a model into `assets/parts/chassis_eclipse_01/mesh.glb` today and nothing
-reads it.
+The reader that used to be the blocker exists and works on real files. The blocker moved one step
+along, and it is a **Blender job rather than a coding one**.
 
-The verification harness already has a reader for exactly this format; `game-core` needs its own.
-After that: the pipeline that validates content, and an arena format with spawn points and ground.
+A car in this game is five parts — a chassis and four wheels — because parts come off individually;
+that is the whole premise. Both supplied models are *one* mesh with the wheels attached. Splitting
+one into five, adding a simplified collision shape to each and the four damage shapes the destruction
+pipeline has been generating since Phase 1, is what stands between the art and a car in the game.
+Nothing has to be invented for it: every measurement it needs — wheel centres, tyre diameters, track,
+wheelbase, ride height — is already recorded in each car's `SOURCE.md`, taken off the model by the
+reader.
+
+After the split: the pipeline that validates content into an index, and an arena format with spawn
+points, ground and bounds. Then there is a world.
 
 ### Phase 7 — A window
 
@@ -240,9 +240,16 @@ None of these are decided. They are here so the options are visible when a sessi
   numbers. What nobody has decided is whether a *combat* game wants that: real cars are fragile,
   grippy and fast, and an arena brawl might want something heavier and more forgiving. The place to
   find out is to drive them, which needs Phase 6.
-- **Which vehicles next?** The two shipped are both fast and light. A roster wants contrast — a
-  pickup, a van, something with six wheels. Each is an afternoon now that the profile machinery
-  exists: pick a real vehicle, copy its published figures, author the parts.
+- **Which vehicles next?** The two shipped are both fast, and now differ mainly in mass. A roster
+  wants more contrast than that — a pickup, a van, something with six wheels. Each is an afternoon
+  now that the profile machinery exists: pick a real vehicle, copy its published figures, author the
+  parts. Finding *art* for it is the slower half.
+- **What happens to the two car models before release?** Both are licensed CC-BY-NC-SA — free to
+  use, credit required, and **not for commercial use**. As prototype and reference art that is
+  ideal: real shapes, real proportions, real measurements to build the pipeline against. It is not
+  something that can ship in a paid game. The options are to license replacements, commission
+  original models, or decide the project is non-commercial. Nothing needs deciding now; it needs
+  deciding before art budget is spent.
 - **Do doors and other moving parts open?** Undecided, and worth deciding before any more art is
   made. A door is already expressible: the slot graph supports a part hanging off a part, so a door
   is a part in a `door_left` slot with its own mass, health and fracture data, and it can be shot
@@ -311,17 +318,25 @@ rather than an unknown.
 
 What is missing is still everything between the simulation and a person. There is no window, no
 input from a device, nothing to shoot at and nothing that shoots back. Damage happens only when a
-test declares it. The two things standing between here and something recognisably a game are making
-a collision hurt (Phase 5) and being able to load a mesh that wasn't built out of boxes in a test
-fixture (Phase 6) — and the second is one file: a reader for the format the rest of the project has
-been producing since Phase 1.
+test declares it.
 
-Worth noting what the two bugs this session say about the project. Both were found by the first test
-that tried to do the obvious thing — drive the vehicle forward — and both had been sitting in code
-that reviewed as correct. One was a single bit in a collision mask; the other was a number copied
-from a sample instead of from the specification that authored it. The specifications keep earning
-their keep, and so does the habit of writing down why a number is what it is: the second bug was
-found because a memory entry claimed nothing authored those values, and that claim was checkable.
+The second of those two blockers is now half gone. The game can read a mesh — a real one, from a real
+model file, with all the awkwardness real files have — and there are two cars in the repository that
+it measures to within millimetres of the vehicles they were built from, and draws. What it cannot yet
+do is treat one of them as five separate breakable parts, and that is a Blender operation rather than
+a missing capability. So: making a collision hurt (Phase 5), and cutting a car into parts (Phase 6).
+
+Worth noting how this session's problems were found, because none of them would have been found by a
+test. A car a hundred times too small parses cleanly. A car facing backwards passes every geometric
+check that can be written. Both were caught by rendering the thing and looking at it — which is why
+the new mode captures two views rather than reporting a number, and why those images are committed
+next to the code. There is a category of asset bug that is only visible to an eye, and the cheapest
+way to have an eye on it is to make looking automatic.
+
+One caveat that is not technical. Both car models are free to use but **not commercially** — they are
+prototype art, and everything derived from them inherits that. They are exactly right for building a
+pipeline against and wrong for shipping. That is a decision for later, but not for much later, and
+`art-source/README.md` states it wherever somebody will trip over it.
 
 The realistic read: something you can fight in within a handful of sessions, something you can look
 at shortly after, and something recognisably a game around Phase 8. Whether it is a *good* game is
