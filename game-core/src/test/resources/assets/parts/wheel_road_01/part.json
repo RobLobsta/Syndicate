@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0.0",
+  "partTypeId": "wheel_road_01",
+  "displayName": "Road Wheel",
+  "category": "WHEEL",
+  "massKg": 45.0,
+  "maxHp": 400.0,
+  "armorValue": 0.0,
+  "materialId": "rubber",
+  "slotTypeRequired": "WHEEL",
+  "powerCost": 6.0,
+  "breakImpulseN": 3000.0,
+  "hangsBeforeFalling": false,
+  "stats": {
+    "frictionSlip": { "add": 10.5 },
+    "suspensionStiffness": { "add": 22.0 },
+    "maxSteerRad": { "add": 0.5 }
+  },
+  "slots": [],
+  "assets": {
+    "visualMesh": "mesh.glb",
+    "collisionSource": "mesh.glb#node=wheel_road_01_col",
+    "fractureManifest": "fracture_manifest.json"
+  }
+}

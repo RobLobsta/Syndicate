@@ -27,6 +27,10 @@ public final class InMemoryAssetIndex implements AssetIndex {
 
     private final Map<AssetId, PartType> partTypes = new TreeMap<>();
 
+    private final Map<AssetId, AssemblyDef> assemblies = new TreeMap<>();
+
+    private final Map<AssetId, MaterialDef> materials = new TreeMap<>();
+
     /** Registers a manifest under its own {@link FractureManifest#manifestId()}. */
     public InMemoryAssetIndex put(FractureManifest manifest) {
         manifests.put(manifest.manifestId(), manifest);
@@ -36,6 +40,18 @@ public final class InMemoryAssetIndex implements AssetIndex {
     /** Registers a part type under its own {@link PartType#partTypeId()}. */
     public InMemoryAssetIndex put(PartType partType) {
         partTypes.put(partType.partTypeId(), partType);
+        return this;
+    }
+
+    /** Registers an assembly under its own {@link AssemblyDef#assemblyId()}. */
+    public InMemoryAssetIndex put(AssemblyDef assembly) {
+        assemblies.put(assembly.assemblyId(), assembly);
+        return this;
+    }
+
+    /** Registers a material under its own {@link MaterialDef#materialId()}. */
+    public InMemoryAssetIndex put(MaterialDef material) {
+        materials.put(material.materialId(), material);
         return this;
     }
 
@@ -49,6 +65,16 @@ public final class InMemoryAssetIndex implements AssetIndex {
         return partTypeId == null ? null : partTypes.get(partTypeId);
     }
 
+    @Override
+    public AssemblyDef assembly(AssetId assemblyId) {
+        return assemblyId == null ? null : assemblies.get(assemblyId);
+    }
+
+    @Override
+    public MaterialDef material(AssetId materialId) {
+        return materialId == null ? null : materials.get(materialId);
+    }
+
     /** Every loaded manifest, by ascending id. */
     public Map<AssetId, FractureManifest> manifests() {
         return Collections.unmodifiableMap(manifests);
@@ -57,5 +83,15 @@ public final class InMemoryAssetIndex implements AssetIndex {
     /** Every loaded part type, by ascending id. */
     public Map<AssetId, PartType> partTypes() {
         return Collections.unmodifiableMap(partTypes);
+    }
+
+    /** Every loaded assembly, by ascending id. */
+    public Map<AssetId, AssemblyDef> assemblies() {
+        return Collections.unmodifiableMap(assemblies);
+    }
+
+    /** Every loaded material, by ascending id. */
+    public Map<AssetId, MaterialDef> materials() {
+        return Collections.unmodifiableMap(materials);
     }
 }

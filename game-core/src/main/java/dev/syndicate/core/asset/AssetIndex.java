@@ -34,9 +34,10 @@ public interface AssetIndex {
     /**
      * The part type with this id.
      *
-     * <p>Read by {@code DetachSystem} (slot 14), which needs a part's collision mesh to build the
-     * debris body it becomes and its {@code hangsBeforeFalling} flag to decide when it leaves
-     * (D07-S5.7).
+     * <p>Read by {@code SpawnSystem} (slot 5), which copies a type's authored fields onto the
+     * components of the part it creates, and by {@code DetachSystem} (slot 14), which needs a part's
+     * collision mesh to build the debris body it becomes and its {@code hangsBeforeFalling} flag to
+     * decide when it leaves (D07-S5.7).
      *
      * @return the part type, or null when no type with that id is loaded. Null rather than a throw,
      *     for the same reason {@link #fractureManifest} returns null: a part whose type failed to
@@ -44,4 +45,21 @@ public interface AssetIndex {
      *     destroyed part welded to a live chassis.
      */
     PartType partType(AssetId partTypeId);
+
+    /**
+     * The assembly with this id (D08-S4.4).
+     *
+     * @return the assembly, or null when none with that id is loaded. A spawn request naming an
+     *     unloaded assembly is refused with a log line rather than an exception, because a bad
+     *     assembly id arriving from a client's loadout choice must not be able to abort a tick
+     *     (D10-S4.6).
+     */
+    AssemblyDef assembly(AssetId assemblyId);
+
+    /**
+     * The material with this id (D08-S4.3).
+     *
+     * @return the material, or null when none with that id is loaded
+     */
+    MaterialDef material(AssetId materialId);
 }

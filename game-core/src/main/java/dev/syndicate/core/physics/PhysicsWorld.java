@@ -6,6 +6,7 @@ package dev.syndicate.core.physics;
 
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.physics.bullet.collision.CollisionConstants;
 import com.badlogic.gdx.physics.bullet.collision.btBroadphaseInterface;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionConfiguration;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionDispatcher;
@@ -13,8 +14,10 @@ import com.badlogic.gdx.physics.bullet.collision.btDbvtBroadphase;
 import com.badlogic.gdx.physics.bullet.collision.btDefaultCollisionConfiguration;
 import com.badlogic.gdx.physics.bullet.dynamics.btConstraintSolver;
 import com.badlogic.gdx.physics.bullet.dynamics.btContactSolverInfo;
+import com.badlogic.gdx.physics.bullet.dynamics.btDefaultVehicleRaycaster;
 import com.badlogic.gdx.physics.bullet.dynamics.btDiscreteDynamicsWorld;
 import com.badlogic.gdx.physics.bullet.dynamics.btFixedConstraint;
+import com.badlogic.gdx.physics.bullet.dynamics.btRaycastVehicle;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.dynamics.btSequentialImpulseConstraintSolver;
 import com.badlogic.gdx.physics.bullet.dynamics.btSolverMode;
@@ -305,6 +308,96 @@ public final class PhysicsWorld implements AutoCloseable {
         return constraints.size();
     }
 
+    // ---- Ray-cast vehicles (D06-S5.5) ------------------------------------------------
+
+    /**
+     * The three natives a ray-cast vehicle needs, kept together so they are freed together.
+     *
+     * <p>The raycaster and the tuning are not optional extras: the controller holds pointers to
+     * both, so freeing either while the controller is in the world is a use-after-free on the next
+     * step, and freeing neither is a leak per vehicle spawned.
+     */
+    private record RaycastVehicleEntry(
+            btRaycastVehicle controller,
+            btDefaultVehicleRaycaster raycaster,
+            btRaycastVehicle.btVehicleTuning tuning) {}
+
+    private final List<RaycastVehicleEntry> raycastVehicles = new ArrayList<>();
+
+    /**
+     * Builds the ray-cast controller for a vehicle chassis and adds it to the world (D06-R18).
+     *
+     * <p>One body plus N ray casts, rather than rigid-body wheels on constraints: no wheel joint can
+     * explode when the chassis mass and inertia change abruptly at detachment, which in this game
+     * happens constantly. The wheels themselves are added by the spawn path, which knows the slot
+     * transforms (D05-S5.2 step 3).
+     *
+     * <p><b>Native ownership (G19).</b> This world owns the controller, its raycaster and its tuning
+     * — {@code VehicleChassisComponent.vehicleController} is a borrowed handle that disposes nothing.
+     * The ordering is why: the controller must leave the world before the chassis body it wraps is
+     * disposed, and only this class knows the body-to-controller relation at teardown time
+     * (D02-S5.7 rule 5).
+     *
+     * @param chassisBody the vehicle's single rigid body, already added to the world
+     * @return the controller, to be stored on the vehicle's {@code VehicleChassisComponent}
+     */
+    public btRaycastVehicle createRaycastVehicle(btRigidBody chassisBody) {
+        btRaycastVehicle.btVehicleTuning tuning = new btRaycastVehicle.btVehicleTuning();
+        NativeResourceTracker.register("btVehicleTuning");
+        btDefaultVehicleRaycaster raycaster = new btDefaultVehicleRaycaster(dynamicsWorld);
+        NativeResourceTracker.register("btDefaultVehicleRaycaster");
+        btRaycastVehicle controller = new btRaycastVehicle(tuning, chassisBody, raycaster);
+        NativeResourceTracker.register("btRaycastVehicle");
+
+        // Right = +X, up = +Y, forward = +Z, matching the world axes of D00-R16. Bullet's default
+        // is right/up/forward = 0/1/2 as well, but stating it makes the vehicle's idea of "forward"
+        // a documented fact rather than a default that a library upgrade could change underneath.
+        controller.setCoordinateSystem(0, 1, 2);
+        // The chassis must never sleep (D06-R4): a sleeping body ignores the engine force the
+        // controller applies, so the vehicle would refuse to move until something else hit it.
+        chassisBody.setActivationState(CollisionConstants.DISABLE_DEACTIVATION);
+        dynamicsWorld.addAction(controller);
+        raycastVehicles.add(new RaycastVehicleEntry(controller, raycaster, tuning));
+        return controller;
+    }
+
+    /**
+     * Removes a ray-cast controller from the world and disposes it with its raycaster and tuning.
+     *
+     * <p>Unlike {@link #removeBody}, this <em>does</em> dispose, because this class is the owner
+     * (D02-S5.7 rule 1). It must be called before the chassis body is disposed, which is why
+     * {@code EntityDestroySystem} does it in the same pass, ahead of the body teardown.
+     *
+     * @return true if the controller belonged to this world
+     */
+    public boolean removeRaycastVehicle(btRaycastVehicle controller) {
+        if (controller == null) {
+            return false;
+        }
+        for (int i = 0; i < raycastVehicles.size(); i++) {
+            if (raycastVehicles.get(i).controller() == controller) {
+                disposeRaycastVehicle(raycastVehicles.remove(i));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void disposeRaycastVehicle(RaycastVehicleEntry entry) {
+        dynamicsWorld.removeAction(entry.controller());
+        entry.controller().dispose();
+        NativeResourceTracker.release("btRaycastVehicle");
+        entry.raycaster().dispose();
+        NativeResourceTracker.release("btDefaultVehicleRaycaster");
+        entry.tuning().dispose();
+        NativeResourceTracker.release("btVehicleTuning");
+    }
+
+    /** How many ray-cast vehicle controllers this world owns. */
+    public int raycastVehicleCount() {
+        return raycastVehicles.size();
+    }
+
     // ---- Pending impulses (D06-S5.4 step 1) ------------------------------------------
 
     /**
@@ -406,6 +499,19 @@ public final class PhysicsWorld implements AutoCloseable {
             return;
         }
         disposed = true;
+
+        // Ray-cast controllers go first: each holds a pointer to its chassis body, and unlike a
+        // constraint it is owned here, so a straggler is disposed rather than merely evicted.
+        if (!raycastVehicles.isEmpty()) {
+            LOG.warn(
+                    "{} ray-cast vehicle controllers were still in the physics world at teardown; a destroyed "
+                            + "vehicle should have released its controller (D06-S5.5)",
+                    raycastVehicles.size());
+            for (int i = raycastVehicles.size() - 1; i >= 0; i--) {
+                disposeRaycastVehicle(raycastVehicles.get(i));
+            }
+            raycastVehicles.clear();
+        }
 
         // Constraints go before bodies, which is rule 4 of D02-S5.7: a constraint outliving an
         // endpoint body is a freed pointer the solver dereferences on the next step.
