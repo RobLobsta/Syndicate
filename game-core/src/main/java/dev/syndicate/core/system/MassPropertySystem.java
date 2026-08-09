@@ -7,12 +7,16 @@ package dev.syndicate.core.system;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
+import com.badlogic.gdx.physics.bullet.dynamics.btRaycastVehicle;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
+import com.badlogic.gdx.physics.bullet.linearmath.btVector3;
+import dev.syndicate.core.component.PartRefComponent;
 import dev.syndicate.core.component.RigidBodyComponent;
 import dev.syndicate.core.component.SlotGraphComponent;
 import dev.syndicate.core.component.TransformComponent;
 import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.component.VehicleStatsComponent;
+import dev.syndicate.core.component.WheelControllerComponent;
 import dev.syndicate.core.ecs.ComponentQuery;
 import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.core.ecs.EntitySystem;
@@ -211,6 +215,10 @@ public final class MassPropertySystem implements EntitySystem {
             }
         }
 
+        if (comChanged) {
+            moveWheelConnectionPoints(world, chassis, chain, scratchCom);
+        }
+
         // 3. Inertia from the recentred compound at the new mass. On a compound this is an
         //    approximation over child AABBs (D06-R24) — acceptable for a vehicle, and explicitly not
         //    good enough for a single part under verification, where the harness integrates the
@@ -248,6 +256,48 @@ public final class MassPropertySystem implements EntitySystem {
                 tick,
                 totalMassKg,
                 scratchCom);
+    }
+
+    /**
+     * Re-places the ray-cast wheels after the body's local origin moved (D06-S5.5).
+     *
+     * <p>A wheel's connection point is expressed in the chassis body's local space, whose origin is
+     * the centre of mass — the same space the compound's children live in. Recentring the compound
+     * without moving the wheels leaves them attached where the COM used to be, so a vehicle that
+     * loses its rear armour finds its wheels have crept backwards under it: the suspension rays
+     * start in the wrong place, and the vehicle drives at a slight, permanent list.
+     *
+     * <p>Recomputed from the slot chain rather than shifted by the delta. The two are arithmetically
+     * the same, and deriving from the chain means a wheel whose placement was corrected some other
+     * way still ends up where the graph says it is, rather than accumulating deltas from an origin
+     * nobody remembers.
+     */
+    private void moveWheelConnectionPoints(
+            World world, VehicleChassisComponent chassis, SlotChain chain, Vector3 comLocal) {
+
+        btRaycastVehicle controller = chassis.vehicleController;
+        if (controller == null) {
+            return;
+        }
+        for (int i = 0; i < chassis.wheelCount; i++) {
+            int wheelEntity = chassis.wheelEntities[i];
+            WheelControllerComponent wheel = world.getComponent(wheelEntity, WheelControllerComponent.class);
+            PartRefComponent partRef = world.getComponent(wheelEntity, PartRefComponent.class);
+            if (wheel == null || partRef == null || wheel.wheelIndex >= controller.getNumWheels()) {
+                continue;
+            }
+            Matrix4 chassisLocal = chain.transformOf(partRef.slotPath);
+            if (chassisLocal == null) {
+                continue;
+            }
+            chassisLocal.getTranslation(scratchPosition);
+            scratchPosition.sub(comLocal);
+            // A temporary native: Bullet's member setter assigns by value, so this is freed
+            // immediately rather than becoming one live btVector3 per wheel per structural change.
+            btVector3 connection = new btVector3(scratchPosition.x, scratchPosition.y, scratchPosition.z);
+            controller.getWheelInfo(wheel.wheelIndex).setChassisConnectionPointCS(connection);
+            connection.dispose();
+        }
     }
 
     /** D06-E13: a zero principal inertia is legal arithmetic and an unusable body. */

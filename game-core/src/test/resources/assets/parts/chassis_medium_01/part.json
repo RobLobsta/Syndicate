@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0.0",
+  "partTypeId": "chassis_medium_01",
+  "displayName": "Medium Chassis",
+  "category": "CHASSIS",
+  "massKg": 1000.0,
+  "maxHp": 2400.0,
+  "armorValue": 20.0,
+  "materialId": "steel",
+  "slotTypeRequired": "ROOT",
+  "powerCost": 40.0,
+  "breakImpulseN": 20000.0,
+  "hangsBeforeFalling": false,
+  "stats": {
+    "engineForceN": { "add": 6000.0 },
+    "brakeForceN": { "add": 900.0 }
+  },
+  "slots": [
+    { "slotId": "wheel_fl", "slotType": "WHEEL", "localPosition": { "x": -0.9, "y": -0.4, "z": 1.4 }, "maxMassKg": 120.0, "covers": [] },
+    { "slotId": "wheel_fr", "slotType": "WHEEL", "localPosition": { "x": 0.9, "y": -0.4, "z": 1.4 }, "maxMassKg": 120.0, "covers": [] },
+    { "slotId": "wheel_rl", "slotType": "WHEEL", "localPosition": { "x": -0.9, "y": -0.4, "z": -1.4 }, "maxMassKg": 120.0, "covers": [] },
+    { "slotId": "wheel_rr", "slotType": "WHEEL", "localPosition": { "x": 0.9, "y": -0.4, "z": -1.4 }, "maxMassKg": 120.0, "covers": [] },
+    {
+      "slotId": "armor_front",
+      "slotType": "ARMOR_PANEL",
+      "localPosition": { "x": 0.0, "y": 0.1, "z": 1.8 },
+      "localRotationDeg": { "x": 0.0, "y": 0.0, "z": 0.0, "order": "XYZ" },
+      "maxMassKg": 400.0,
+      "covers": ["wheel_fl", "wheel_fr"],
+      "isDetachable": true
+    }
+  ],
+  "assets": {
+    "visualMesh": "mesh.glb",
+    "collisionSource": "mesh.glb#node=chassis_medium_01_col",
+    "fractureManifest": "fracture_manifest.json"
+  },
+  "tags": ["starter", "medium"]
+}

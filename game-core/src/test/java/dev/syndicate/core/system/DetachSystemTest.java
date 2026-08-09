@@ -243,7 +243,9 @@ class DetachSystemTest {
         for (int i = 0; i < debris.size(); i++) {
             longest = Math.max(longest, scene.world().getComponent(ids[i], LifetimeComponent.class).remainingS);
         }
-        assertThat(longest).isEqualTo(DetachSystem.WRECK_LIFETIME_S);
+        // One TICK_DT short of the full lifetime: LifetimeSystem is slot 16 and the wreck was
+        // spawned in slot 14, so the debris is counted down once in the tick it appeared.
+        assertThat(longest).isEqualTo(DetachSystem.WRECK_LIFETIME_S - SimulationConstants.TICK_DT, within(1e-4f));
         assertThat(DetachSystem.WRECK_LIFETIME_S).isGreaterThan(SimulationConstants.DEBRIS_LIFETIME_S);
     }
 

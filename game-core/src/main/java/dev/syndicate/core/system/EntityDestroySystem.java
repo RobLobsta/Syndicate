@@ -154,6 +154,19 @@ public final class EntityDestroySystem implements EntitySystem {
                 continue;
             }
 
+            // The ray-cast controller goes before the chassis body it wraps (D02-S5.7 rule 5): it
+            // holds a pointer to that body and is stepped as a world action, so a controller left
+            // behind dereferences freed memory on the next step. PhysicsWorld owns it, unlike the
+            // body, so this both removes and disposes (D06-S5.5).
+            int chassisIndex = world.componentTypes().indexOfOrAbsent(VehicleChassisComponent.class);
+            if (chassisIndex >= 0 && entity.componentAt(chassisIndex) != null) {
+                VehicleChassisComponent chassis = (VehicleChassisComponent) entity.componentAt(chassisIndex);
+                if (chassis.vehicleController != null) {
+                    physics.removeRaycastVehicle(chassis.vehicleController);
+                    chassis.vehicleController = null;
+                }
+            }
+
             if (rigidBodyTypeIndex >= 0 && entity.componentAt(rigidBodyTypeIndex) != null) {
                 RigidBodyComponent rigidBody = (RigidBodyComponent) entity.componentAt(rigidBodyTypeIndex);
                 if (rigidBody.body != null) {

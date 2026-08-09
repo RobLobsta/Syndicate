@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0.0",
+  "partTypeId": "armor_plate_medium_01",
+  "displayName": "Medium Armour Plate",
+  "category": "ARMOR",
+  "massKg": 160.0,
+  "maxHp": 900.0,
+  "armorValue": 45.0,
+  "materialId": "steel_hardened",
+  "slotTypeRequired": "ARMOR_PANEL",
+  "powerCost": 12.5,
+  "breakImpulseN": 4000.0,
+  "hangsBeforeFalling": true,
+  "stats": {
+    "armorValue": { "add": 45.0 }
+  },
+  "slots": [],
+  "assets": {
+    "visualMesh": "mesh.glb",
+    "collisionSource": "mesh.glb#node=armor_plate_medium_01_col",
+    "fractureManifest": "fracture_manifest.json"
+  }
+}

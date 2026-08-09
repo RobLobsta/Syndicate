@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0.0",
+  "materials": [
+    {
+      "materialId": "steel",
+      "densityKgPerM3": 7850.0,
+      "resistance": { "KINETIC": 1.0, "EXPLOSIVE": 1.0, "INCENDIARY": 1.0, "ENERGY": 1.0, "COLLISION": 1.0 },
+      "fractureBrittleness": 0.5
+    },
+    {
+      "materialId": "steel_hardened",
+      "densityKgPerM3": 7850.0,
+      "resistance": { "KINETIC": 0.85, "EXPLOSIVE": 0.95, "INCENDIARY": 1.15, "ENERGY": 1.05, "COLLISION": 0.9 },
+      "fractureBrittleness": 0.35
+    },
+    {
+      "materialId": "rubber",
+      "densityKgPerM3": 1100.0,
+      "resistance": { "KINETIC": 1.0, "EXPLOSIVE": 1.0, "INCENDIARY": 1.0, "ENERGY": 1.0, "COLLISION": 1.0 },
+      "fractureBrittleness": 0.1
+    }
+  ]
+}

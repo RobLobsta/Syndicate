@@ -7,27 +7,20 @@ package dev.syndicate.core.physics;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
-import com.badlogic.gdx.physics.bullet.collision.btCompoundShape;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
-import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
+import dev.syndicate.core.asset.AssemblyDef;
 import dev.syndicate.core.asset.FractureManifest;
 import dev.syndicate.core.asset.InMemoryAssetIndex;
 import dev.syndicate.core.asset.MeshData;
 import dev.syndicate.core.asset.PartType;
 import dev.syndicate.core.asset.ShardDefinition;
+import dev.syndicate.core.asset.SlotDefinition;
 import dev.syndicate.core.component.DamageStateComponent;
-import dev.syndicate.core.component.FractureDataComponent;
-import dev.syndicate.core.component.PartRefComponent;
-import dev.syndicate.core.component.PartStatsComponent;
 import dev.syndicate.core.component.RigidBodyComponent;
-import dev.syndicate.core.component.SlotAttachmentComponent;
 import dev.syndicate.core.component.SlotGraphComponent;
-import dev.syndicate.core.component.TransformComponent;
+import dev.syndicate.core.component.TeamComponent;
 import dev.syndicate.core.component.VehicleChassisComponent;
-import dev.syndicate.core.component.VehicleStatsComponent;
-import dev.syndicate.core.component.VelocityComponent;
 import dev.syndicate.core.ecs.ComponentQuery;
-import dev.syndicate.core.ecs.Entity;
 import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.Family;
@@ -35,29 +28,38 @@ import dev.syndicate.core.ecs.World;
 import dev.syndicate.core.system.DetachSystem;
 import dev.syndicate.core.system.EntityDestroySystem;
 import dev.syndicate.core.system.FractureSystem;
+import dev.syndicate.core.system.LifetimeSystem;
 import dev.syndicate.core.system.MassPropertySystem;
 import dev.syndicate.core.system.PhysicsSystem;
-import dev.syndicate.core.util.NativeResourceTracker;
+import dev.syndicate.core.system.SpawnSystem;
 import dev.syndicate.core.util.Transform;
+import dev.syndicate.core.vehicle.SlotChain;
 import dev.syndicate.core.vehicle.SlotNode;
 import dev.syndicate.core.vehicle.SlotType;
+import dev.syndicate.core.vehicle.SpawnQueue;
+import dev.syndicate.core.vehicle.VehicleFactory;
 import dev.syndicate.model.AssetId;
-import dev.syndicate.model.CollisionLayer;
 import dev.syndicate.model.DamageState;
 import dev.syndicate.model.PartCategory;
 import dev.syndicate.model.SimulationConstants;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A world with a vehicle in it, for the systems that change a vehicle's structure
  * (docs/12_testing_validation_ci.md#D12-S4.1 level L3).
  *
- * <p>It stands in for {@code SpawnSystem} (slot 5) and the assembly loader, neither of which exists.
- * Everything it builds follows the shape the real spawn path will: one rigid body per vehicle with a
- * compound of part hulls (DEC-004), parts as bodyless entities carrying their own mass, and the slot
- * graph as the structural record. When the spawn path arrives this class collapses into a call to
- * it.
+ * <p>It builds nothing itself any more: {@link #spawnVehicle} turns its {@link PartSpec} list into
+ * the {@link PartType}s and the {@link AssemblyDef} a real load would produce, and hands them to
+ * {@link VehicleFactory} — the same call {@code SpawnSystem} (slot 5) makes. So the vehicles these
+ * tests assert against are built by the code the game uses, and a spawn-path regression fails the
+ * destruction tests rather than hiding behind a parallel test-only assembler.
+ *
+ * <p>{@link PartSpec} survives as the authoring shorthand because an assembly manifest is a verbose
+ * thing to write inline, and a test that spends thirty lines describing a vehicle stops saying what
+ * it is testing.
  */
 public final class DestructionTestScene implements AutoCloseable {
 
@@ -66,6 +68,12 @@ public final class DestructionTestScene implements AutoCloseable {
         // and useRefCounting = false because ownership here is manual and explicit (G19).
         Bullet.init(false);
     }
+
+    /** How heavy a slot in a test assembly will accept — every test part, by construction. */
+    private static final float TEST_SLOT_MAX_MASS_KG = 100_000f;
+
+    /** Newton-seconds. Well above anything a test scene generates, so nothing detaches by accident. */
+    private static final float TEST_BREAK_IMPULSE_NS = 40_000f;
 
     /** One part of a test assembly. */
     public record PartSpec(
@@ -107,6 +115,15 @@ public final class DestructionTestScene implements AutoCloseable {
         public PartSpec hanging() {
             return new PartSpec(slotPath, category, massKg, halfExtents, localPosition, partTypeId, manifestRef, true);
         }
+
+        /** The slot's id on the parent: the last segment of the path. */
+        String slotId() {
+            return slotPath.substring(slotPath.lastIndexOf('/') + 1);
+        }
+
+        boolean isChassis() {
+            return SlotChain.ROOT_SLOT_PATH.equals(slotPath);
+        }
     }
 
     private final World world;
@@ -114,11 +131,14 @@ public final class DestructionTestScene implements AutoCloseable {
     private final ShapeCache shapes;
     private final DebrisFactory debrisFactory;
     private final InMemoryAssetIndex assets = new InMemoryAssetIndex();
+    private final SpawnQueue spawnQueue = new SpawnQueue();
 
     private final PhysicsSystem physicsSystem;
+    private final SpawnSystem spawnSystem;
     private final FractureSystem fractureSystem;
     private final DetachSystem detachSystem;
     private final MassPropertySystem massPropertySystem;
+    private final LifetimeSystem lifetimeSystem;
     private final EntityDestroySystem entityDestroySystem;
 
     private final Family embodied;
@@ -131,12 +151,20 @@ public final class DestructionTestScene implements AutoCloseable {
         shapes = new ShapeCache();
         debrisFactory = new DebrisFactory(physics);
         physicsSystem = new PhysicsSystem(physics);
+        spawnSystem = new SpawnSystem(spawnQueue, assets, physics, shapes);
         fractureSystem = new FractureSystem(assets, shapes, debrisFactory);
         detachSystem = new DetachSystem(assets, shapes, debrisFactory, physics);
         massPropertySystem = new MassPropertySystem(shapes);
+        lifetimeSystem = new LifetimeSystem();
         entityDestroySystem = new EntityDestroySystem(physics, shapes);
         world.registerSystems(List.<EntitySystem>of(
-                physicsSystem, fractureSystem, detachSystem, massPropertySystem, entityDestroySystem));
+                spawnSystem,
+                physicsSystem,
+                fractureSystem,
+                detachSystem,
+                massPropertySystem,
+                lifetimeSystem,
+                entityDestroySystem));
         embodied = world.family(ComponentQuery.all(RigidBodyComponent.class));
     }
 
@@ -160,6 +188,14 @@ public final class DestructionTestScene implements AutoCloseable {
         return assets;
     }
 
+    public SpawnQueue spawnQueue() {
+        return spawnQueue;
+    }
+
+    public SpawnSystem spawnSystem() {
+        return spawnSystem;
+    }
+
     public FractureSystem fractureSystem() {
         return fractureSystem;
     }
@@ -170,6 +206,10 @@ public final class DestructionTestScene implements AutoCloseable {
 
     public MassPropertySystem massPropertySystem() {
         return massPropertySystem;
+    }
+
+    public LifetimeSystem lifetimeSystem() {
+        return lifetimeSystem;
     }
 
     /** Advances the whole schedule one tick, which is one {@code TICK_DT} of simulation (G2). */
@@ -224,127 +264,91 @@ public final class DestructionTestScene implements AutoCloseable {
     // ---- Vehicle assembly ------------------------------------------------------------
 
     /**
-     * Spawns a vehicle: one body, a compound of the non-wheel parts' hulls, and one entity per part.
+     * Registers the part types and the assembly a {@link PartSpec} list describes, then spawns it
+     * through {@link VehicleFactory} — the same path {@code SpawnSystem} takes.
+     *
+     * <p>Each spec's {@code localPosition} becomes the slot offset on its <em>parent</em>, which is
+     * where a real assembly's geometry comes from: a part's chassis-local placement is the product of
+     * the slot offsets from the chassis down to it (D05-S4.3).
      *
      * @param parts the chassis first, at slot path {@code root}, then everything else
      * @return the vehicle entity id
      */
     public int spawnVehicle(AssetId assemblyId, List<PartSpec> parts, Vector3 worldPosition) {
-        Entity vehicle = world.createEntity();
-        int vehicleEntity = vehicle.id();
+        AssemblyDef assembly = registerAssembly(assemblyId, parts);
+        return VehicleFactory.spawnVehicle(
+                world,
+                physics,
+                shapes,
+                assets,
+                assembly,
+                new Matrix4().setToTranslation(worldPosition),
+                EntityId.NULL,
+                TeamComponent.FREE_FOR_ALL);
+    }
 
-        SlotGraphComponent graph = new SlotGraphComponent();
-        VehicleChassisComponent chassis = new VehicleChassisComponent();
-        chassis.assemblyId = assemblyId;
-
-        List<VehicleCompound.Child> children = new ArrayList<>();
-        float totalMassKg = 0f;
+    /**
+     * Registers the same content without spawning, for a test that wants the request to go through
+     * {@code SpawnSystem}'s queue instead.
+     */
+    public AssemblyDef registerAssembly(AssetId assemblyId, List<PartSpec> parts) {
+        Map<String, PartType.Builder> builders = new LinkedHashMap<>();
         for (PartSpec spec : parts) {
-            int partEntity = createPart(vehicleEntity, spec);
-            totalMassKg += spec.massKg();
-
-            if ("root".equals(spec.slotPath())) {
-                chassis.chassisPartEntity = partEntity;
-            } else {
-                SlotNode node = new SlotNode();
-                node.slotPath = spec.slotPath();
-                node.slotId = spec.slotPath().substring(spec.slotPath().lastIndexOf('/') + 1);
-                node.childEntity = partEntity;
-                node.parentEntity = chassis.chassisPartEntity;
-                node.slotType = spec.category() == PartCategory.WHEEL ? SlotType.WHEEL : SlotType.HARDPOINT;
-                node.localTransform.position.set(spec.localPosition());
-                graph.nodes.add(node);
-                graph.parentOf.put(partEntity, chassis.chassisPartEntity);
-            }
-            if (spec.category() == PartCategory.WHEEL) {
-                chassis.wheelEntities[chassis.wheelCount++] = partEntity;
-            } else {
-                children.add(new VehicleCompound.Child(
-                        spec.slotPath(),
-                        ShapeCacheKey.of(spec.partTypeId(), ShapeCacheKey.Variant.PART_HULL),
-                        boxMesh(spec.halfExtents()),
-                        new Matrix4().setToTranslation(spec.localPosition())));
-            }
+            builders.put(
+                    spec.slotPath(),
+                    PartType.builder(spec.partTypeId(), spec.category(), boxMesh(spec.halfExtents()))
+                            .massKg(spec.massKg())
+                            .maxHp(100f)
+                            .breakImpulseN(TEST_BREAK_IMPULSE_NS)
+                            .hangsBeforeFalling(spec.hangsBeforeFalling())
+                            .fractureManifestRef(spec.manifestRef()));
         }
 
-        world.addComponent(vehicleEntity, graph);
-        world.addComponent(vehicleEntity, chassis);
-        world.addComponent(vehicleEntity, new VehicleStatsComponent());
-
-        VehicleCompound compound = shapes.buildVehicleCompound(vehicleEntity, assemblyId, children);
-        attachVehicleBody(vehicleEntity, compound.compound(), totalMassKg, worldPosition);
-        return vehicleEntity;
-    }
-
-    private int createPart(int vehicleEntity, PartSpec spec) {
-        Entity part = world.createEntity();
-        int partEntity = part.id();
-
-        // The part type is what DetachSystem builds a detached part's debris body from — and for a
-        // wheel it is the only source, since a wheel contributes no compound geometry (D06-R6).
-        assets.put(new PartType(spec.partTypeId(), boxMesh(spec.halfExtents()), spec.hangsBeforeFalling()));
-
-        PartRefComponent ref = new PartRefComponent();
-        ref.partTypeId = spec.partTypeId();
-        ref.vehicleEntity = vehicleEntity;
-        ref.slotPath = spec.slotPath();
-        world.addComponent(partEntity, ref);
-
-        PartStatsComponent stats = new PartStatsComponent();
-        stats.category = spec.category();
-        world.addComponent(partEntity, stats);
-
-        // An attached part is geometry inside the vehicle's compound, not a body of its own
-        // (DEC-004), so its RigidBodyComponent carries mass and the part-local centre of mass with a
-        // null body. That is where MassPropertySystem reads a part's contribution from.
-        RigidBodyComponent partBody = new RigidBodyComponent();
-        partBody.massKg = spec.massKg();
-        partBody.shapeKey = ShapeCacheKey.of(spec.partTypeId(), ShapeCacheKey.Variant.PART_HULL);
-        partBody.layer = CollisionLayer.VEHICLE;
-        world.addComponent(partEntity, partBody);
-
-        world.addComponent(partEntity, new DamageStateComponent());
-
-        SlotAttachmentComponent attachment = new SlotAttachmentComponent();
-        attachment.localTransform.position.set(spec.localPosition());
-        world.addComponent(partEntity, attachment);
-
-        if (spec.manifestRef() != null) {
-            FractureDataComponent fracture = new FractureDataComponent();
-            fracture.manifestRef = spec.manifestRef();
-            world.addComponent(partEntity, fracture);
+        AssetId chassisTypeId = null;
+        List<AssemblyDef.PartPlacement> placements = new ArrayList<>();
+        for (PartSpec spec : parts) {
+            if (spec.isChassis()) {
+                chassisTypeId = spec.partTypeId();
+                continue;
+            }
+            String parentPath = SlotChain.parentPathOf(spec.slotPath());
+            PartType.Builder parent = builders.get(parentPath);
+            if (parent == null) {
+                throw new IllegalArgumentException(
+                        "part " + spec.slotPath() + " has no parent at " + parentPath + " in this spec list");
+            }
+            Transform offset = new Transform();
+            offset.position.set(spec.localPosition());
+            parent.slot(new SlotDefinition(
+                    spec.slotId(), slotTypeFor(spec.category()), offset, TEST_SLOT_MAX_MASS_KG, List.of(), true));
+            placements.add(new AssemblyDef.PartPlacement(
+                    spec.slotPath(),
+                    parentPath,
+                    spec.slotId(),
+                    spec.partTypeId(),
+                    spec.category() == PartCategory.WHEEL
+                            ? AssemblyDef.Overrides.wheel(true, true)
+                            : AssemblyDef.Overrides.NONE));
         }
-        return partEntity;
+        if (chassisTypeId == null) {
+            throw new IllegalArgumentException("a test assembly needs a part at slot path root");
+        }
+        for (PartType.Builder builder : builders.values()) {
+            assets.put(builder.build());
+        }
+        AssemblyDef assembly = new AssemblyDef(assemblyId, "medium", chassisTypeId, placements, null);
+        assets.put(assembly);
+        return assembly;
     }
 
-    private void attachVehicleBody(int vehicleEntity, btCompoundShape compound, float massKg, Vector3 worldPosition) {
-        Vector3 inertia = new Vector3();
-        compound.calculateLocalInertia(massKg, inertia);
-        Matrix4 transform = new Matrix4().setToTranslation(worldPosition);
-        btDefaultMotionState motionState = new btDefaultMotionState(transform);
-        NativeResourceTracker.register("btDefaultMotionState");
-        btRigidBody.btRigidBodyConstructionInfo info =
-                new btRigidBody.btRigidBodyConstructionInfo(massKg, motionState, compound, inertia);
-        btRigidBody body = new btRigidBody(info);
-        NativeResourceTracker.register("btRigidBody");
-        info.dispose();
-        // D06-R4: a chassis never sleeps, or it would ignore an impulse and a mass change for a tick.
-        body.setActivationState(4 /* DISABLE_DEACTIVATION */);
-        physics.addBody(body, CollisionLayer.VEHICLE);
-
-        RigidBodyComponent rigidBody = new RigidBodyComponent();
-        rigidBody.body = body;
-        rigidBody.motionState = motionState;
-        rigidBody.massKg = massKg;
-        rigidBody.localInertia.set(inertia);
-        rigidBody.layer = CollisionLayer.VEHICLE;
-        rigidBody.mask = CollisionLayer.VEHICLE.mask();
-        world.addComponent(vehicleEntity, rigidBody);
-
-        TransformComponent transformComponent = new TransformComponent();
-        transformComponent.position.set(worldPosition);
-        world.addComponent(vehicleEntity, transformComponent);
-        world.addComponent(vehicleEntity, new VelocityComponent());
+    private static SlotType slotTypeFor(PartCategory category) {
+        return switch (category) {
+            case CHASSIS -> SlotType.ROOT;
+            case WHEEL -> SlotType.WHEEL;
+            case ARMOR -> SlotType.ARMOR_PANEL;
+            case WEAPON, UTILITY -> SlotType.HARDPOINT;
+            case DECORATIVE -> SlotType.ACCESSORY;
+        };
     }
 
     /** Marks a part destroyed, which is what {@code DamageSystem} will do in slot 12. */
@@ -370,7 +374,7 @@ public final class DestructionTestScene implements AutoCloseable {
             }
         }
         VehicleChassisComponent chassis = world.getComponent(vehicleEntity, VehicleChassisComponent.class);
-        return "root".equals(slotPath) ? chassis.chassisPartEntity : EntityId.NULL;
+        return SlotChain.ROOT_SLOT_PATH.equals(slotPath) ? chassis.chassisPartEntity : EntityId.NULL;
     }
 
     /** Seconds of simulated time in {@code ticks} ticks. */
@@ -379,8 +383,8 @@ public final class DestructionTestScene implements AutoCloseable {
     }
 
     /**
-     * Tears down in the D02-S5.7 rule 5 order: entities (and with them bodies and motion states),
-     * then shapes, then the physics world.
+     * Tears down in the D02-S5.7 rule 5 order: entities (and with them bodies, motion states and
+     * ray-cast controllers), then shapes, then the physics world.
      *
      * <p>Entities go through {@code EntityDestroySystem} rather than {@code World.dispose()} alone,
      * because slot 27 is what releases natives — a scene that freed them itself would leave every
