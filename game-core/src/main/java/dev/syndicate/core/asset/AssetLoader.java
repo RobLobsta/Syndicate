@@ -226,6 +226,7 @@ public final class AssetLoader {
         }
 
         readStats(root.path("stats"), partTypeId, category, builder);
+        readHandling(root.path("handling"), partTypeId, builder);
         readDegradationOverrides(root.path("degradationOverrides"), partTypeId, builder);
         readSlots(root.path("slots"), partTypeId, builder);
 
@@ -291,6 +292,35 @@ public final class AssetLoader {
             // multiplier at 1, or the part would zero out every other part's contribution (D05-R15).
             builder.stat(stat, (float) value.path("add").asDouble(0d), (float)
                     value.path("mul").asDouble(1d));
+        }
+    }
+
+    /**
+     * Reads the {@code handling} block: the physical parameters no stat can carry (D08-R5, DEC-031).
+     *
+     * <p>Every field is optional and falls back to D06-S4.5's reference chassis, so a part authoring
+     * only a drag coefficient keeps the reference suspension rather than getting zeros. A value the
+     * record rejects — a negative drag coefficient, a NaN damping — is reported as A210 and the whole
+     * block is discarded, because a partly-applied handling block is a vehicle nobody can explain.
+     */
+    private void readHandling(JsonNode node, AssetId partTypeId, PartType.Builder builder) {
+        if (!node.isObject()) {
+            return;
+        }
+        HandlingBlock reference = HandlingBlock.REFERENCE;
+        try {
+            builder.handling(new HandlingBlock(
+                    (float) node.path("dragCoefficient").asDouble(reference.dragCoefficient()),
+                    (float) node.path("rollingResistance").asDouble(reference.rollingResistance()),
+                    (float) node.path("downforceCoefficient").asDouble(reference.downforceCoefficient()),
+                    (float) node.path("suspensionCompression").asDouble(reference.suspensionCompression()),
+                    (float) node.path("suspensionDamping").asDouble(reference.suspensionDamping()),
+                    (float) node.path("rollInfluence").asDouble(reference.rollInfluence()),
+                    (float) node.path("suspensionRestLengthM").asDouble(reference.suspensionRestLengthM()),
+                    (float) node.path("maxSuspensionTravelCm").asDouble(reference.maxSuspensionTravelCm()),
+                    (float) node.path("maxSuspensionForceN").asDouble(reference.maxSuspensionForceN())));
+        } catch (IllegalArgumentException e) {
+            issues.add(ValidationIssue.error("A210", partTypeId.value(), "handling: " + e.getMessage()));
         }
     }
 

@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/03_runtime_modes.md#D03-S5.1, docs/03_runtime_modes.md#D03-S5.4, docs/08_asset_pipeline.md#D08-S4.6
 
-**Status:** active
+**Status:** superseded (by PROG-012)
 
 ## Summary
 `game-server-headless` boots: natives, assets, world, mode-filtered schedule, a 60 Hz tick loop with

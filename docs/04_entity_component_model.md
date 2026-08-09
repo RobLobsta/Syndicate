@@ -144,9 +144,11 @@ Legend for **Auth**: `A` = authoritative (replicated, gameplay-relevant, G6); `C
 | | `accelerationMps2` | `float` | m/s² | A | |
 | | `maxSteerRad` | `float` | rad | A | Steering lock, the mean over live steering wheels. Assigned by D05-S5.6 phase 3; without it there is nothing for `VehicleControlSystem` to scale a steering input by. |
 | | `steerRateRadPerSec` | `float` | rad/s | A | |
-| | `engineForceN` | `float` | N | A | |
+| | `engineForceN` | `float` | N | A | Traction-limited force, applied at low speed. |
+| | `enginePowerW` | `float` | W | A | Caps `engineForceN` at speed: available force is `min(engineForceN, enginePowerW / v)` (D05-R16). |
 | | `brakeForceN` | `float` | N | A | |
 | | `armorRatingAvg` | `float` | — | A | |
+| | `downforceCoefficient` | `float` | N/(m/s)² | A | The chassis part's downforce (D06-S4.5), carried here so `VehicleControlSystem` needs no asset lookup. |
 | | `powerBudget` | `float` | — | A | D05-S5.7. |
 | | `dirty` | `boolean` | — | L | Set by `DamageSystem`, cleared by `VehicleStatsSystem`. |
 

@@ -20,13 +20,20 @@ import java.util.Arrays;
  * field per stat would make that loop a 14-way copy-paste that silently rots when a stat is added.
  *
  * <p>{@code maxSpeedMps} and {@code accelerationMps2} are deliberately absent: D05-R16 derives them
- * from engine force, mass and drag, so content cannot author a top speed that contradicts physics.
+ * from engine force, power, mass and drag, so content cannot author a top speed that contradicts
+ * physics.
+ *
+ * <p>{@code ENGINE_POWER_W} is a fifteenth stat added to D05-S4.5's table in the same commit as this
+ * line (DEC-032). Without it a vehicle's tractive force is constant at every speed, which makes the
+ * derived top speed of D05-S5.6 phase 4 a function of the <em>launch</em> force — and a car
+ * calibrated to a real 0-100 time then reports a top speed several times what it has.
  */
 public final class StatBlock {
 
     /** The stat identifiers of the D05-S4.5 table, in table order. */
     public enum Stat {
         ENGINE_FORCE_N,
+        ENGINE_POWER_W,
         BRAKE_FORCE_N,
         MAX_STEER_RAD,
         STEER_RATE_RAD_PER_SEC,

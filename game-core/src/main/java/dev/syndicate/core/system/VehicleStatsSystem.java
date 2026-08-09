@@ -5,6 +5,7 @@
 package dev.syndicate.core.system;
 
 import dev.syndicate.core.asset.AssetIndex;
+import dev.syndicate.core.asset.HandlingBlock;
 import dev.syndicate.core.asset.PartType;
 import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.HealthComponent;
@@ -89,10 +90,10 @@ public final class VehicleStatsSystem implements EntitySystem {
      * clamp is set at, so the drag curve and the clamp agree instead of the clamp being what a
      * vehicle actually drives against.
      */
-    public static final float CHASSIS_DRAG_COEFFICIENT = 12.0f;
+    public static final float CHASSIS_DRAG_COEFFICIENT = HandlingBlock.REFERENCE_DRAG_COEFFICIENT;
 
     /** Dimensionless. Rolling resistance, {@code k_roll} in D05-S5.6 phase 4; a road tyre's figure. */
-    public static final float CHASSIS_ROLLING_RESISTANCE = 0.015f;
+    public static final float CHASSIS_ROLLING_RESISTANCE = HandlingBlock.REFERENCE_ROLLING_RESISTANCE;
 
     /**
      * The {@code max(kDrag, 1e-4)} of D05-S5.6 phase 4. A zero drag coefficient is arithmetic that
@@ -161,7 +162,9 @@ public final class VehicleStatsSystem implements EntitySystem {
         collectUtilityMultipliers(world, chain);
         applyUtilityMultipliers(world, chain);
         aggregate(world, chain, chassis, stats);
-        deriveFromMass(chassis, stats);
+        HandlingBlock handling = chassisHandlingOf(world, chassis);
+        stats.downforceCoefficient = handling.downforceCoefficient();
+        deriveFromMass(chassis, stats, handling);
         stats.powerBudget = powerBudgetOf(world, chain);
         stats.dirty = false;
     }
@@ -320,6 +323,7 @@ public final class VehicleStatsSystem implements EntitySystem {
     private void aggregate(World world, SlotChain chain, VehicleChassisComponent chassis, VehicleStatsComponent stats) {
 
         float engineForceN = 0f;
+        float enginePowerW = 0f;
         float brakeForceN = 0f;
         float steerSum = 0f;
         float steerRateSum = 0f;
@@ -335,6 +339,7 @@ public final class VehicleStatsSystem implements EntitySystem {
                 continue;
             }
             engineForceN += partStats.effectiveStats.resolve(Stat.ENGINE_FORCE_N, 0f);
+            enginePowerW += partStats.effectiveStats.resolve(Stat.ENGINE_POWER_W, 0f);
             brakeForceN += partStats.effectiveStats.resolve(Stat.BRAKE_FORCE_N, 0f);
 
             WheelControllerComponent wheel = world.getComponent(partEntity, WheelControllerComponent.class);
@@ -377,6 +382,7 @@ public final class VehicleStatsSystem implements EntitySystem {
         }
 
         stats.engineForceN = engineForceN;
+        stats.enginePowerW = enginePowerW;
         stats.brakeForceN = brakeForceN;
         // D05-E1 and D05-E12: no live steering wheel and no live armour are both ordinary states of
         // a vehicle late in a fight. Both are answered with an explicit zero rather than a sum over
@@ -391,23 +397,62 @@ public final class VehicleStatsSystem implements EntitySystem {
     /**
      * Acceleration and top speed, which content may never author (D05-R16).
      *
-     * <p>Top speed is where engine force balances drag and rolling resistance:
-     * {@code F = k_drag·v² + k_roll·m·g}, solved for {@code v}. A vehicle whose engine cannot even
-     * overcome its own rolling resistance gets a top speed of zero rather than the square root of a
-     * negative number.
+     * <p>Top speed is where the engine's tractive force balances drag and rolling resistance. Which
+     * force that is depends on speed: a vehicle is traction-limited at a standstill and power-limited
+     * once {@code enginePowerW / v} falls below {@code engineForceN} (DEC-032). Both cases are solved
+     * by bisection on {@code F(v) = k_drag·v² + k_roll·m·g}, which is monotonic in {@code v}, so
+     * forty halvings put the answer well inside a metre per second and no discriminant has to be
+     * checked.
+     *
+     * <p>The result is then clamped to the arena's own limit. A vehicle derived from a real road car
+     * has a top speed near 340 km/h and will never see it — {@code MAX_VEHICLE_SPEED_MPS} caps every
+     * vehicle at 40 m/s (D06-S5.5) — so reporting the unclamped figure would put a number on the HUD
+     * that the game cannot deliver.
      */
-    private void deriveFromMass(VehicleChassisComponent chassis, VehicleStatsComponent stats) {
+    private void deriveFromMass(VehicleChassisComponent chassis, VehicleStatsComponent stats, HandlingBlock handling) {
         // D05-R29: the mass is asserted above MIN_BODY_MASS_KG at spawn and at every detach, so the
         // division cannot be by zero. The guard is what keeps that true if it ever stops being.
         float massKg = Math.max(chassis.totalMassKg, SimulationConstants.MIN_BODY_MASS_KG);
         stats.accelerationMps2 = stats.engineForceN / massKg;
+        stats.maxSpeedMps = Math.min(
+                topSpeedFor(stats.engineForceN, stats.enginePowerW, massKg, handling),
+                VehicleControlSystem.MAX_VEHICLE_SPEED_MPS);
+    }
 
+    /** The speed at which available tractive force equals drag plus rolling resistance. */
+    static float topSpeedFor(float engineForceN, float enginePowerW, float massKg, HandlingBlock handling) {
         float gravity = Math.abs(SimulationConstants.WORLD_GRAVITY_Y);
-        float rolling = CHASSIS_ROLLING_RESISTANCE * massKg * gravity;
-        float surplus = stats.engineForceN - rolling;
-        stats.maxSpeedMps = surplus <= 0f
-                ? 0f
-                : (float) Math.sqrt(surplus / Math.max(CHASSIS_DRAG_COEFFICIENT, MIN_DRAG_COEFFICIENT));
+        float rolling = handling.rollingResistance() * massKg * gravity;
+        float drag = Math.max(handling.dragCoefficient(), MIN_DRAG_COEFFICIENT);
+        if (engineForceN <= rolling) {
+            // An engine that cannot overcome its own rolling resistance never moves. Zero rather
+            // than the square root of a negative number (D05-E12's spirit, one field over).
+            return 0f;
+        }
+        float low = 0f;
+        float high = engineForceN / drag + 1f;
+        for (int i = 0; i < 40; i++) {
+            float mid = (low + high) * 0.5f;
+            float available = enginePowerW > 0f ? Math.min(engineForceN, enginePowerW / mid) : engineForceN;
+            if (available > drag * mid * mid + rolling) {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+        return (low + high) * 0.5f;
+    }
+
+    /**
+     * The chassis part's handling block, or D06-S4.5's reference when the type is not loaded.
+     *
+     * <p>D05-S5.6 phase 4 takes drag and rolling resistance "from the chassis part", which before
+     * DEC-031 nothing could express. A vehicle whose chassis type failed to load still needs to
+     * derive a speed, so the reference stands in rather than the whole aggregation failing.
+     */
+    private HandlingBlock chassisHandlingOf(World world, VehicleChassisComponent chassis) {
+        PartType type = partTypeOf(world, chassis.chassisPartEntity);
+        return type == null ? HandlingBlock.REFERENCE : type.handling();
     }
 
     /**

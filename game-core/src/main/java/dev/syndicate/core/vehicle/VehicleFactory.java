@@ -14,6 +14,7 @@ import dev.syndicate.core.asset.AssemblyDef;
 import dev.syndicate.core.asset.AssemblyLayout;
 import dev.syndicate.core.asset.AssetIndex;
 import dev.syndicate.core.asset.FractureManifest;
+import dev.syndicate.core.asset.HandlingBlock;
 import dev.syndicate.core.asset.MeshData;
 import dev.syndicate.core.asset.PartType;
 import dev.syndicate.core.component.DamageStateComponent;
@@ -87,22 +88,22 @@ public final class VehicleFactory {
      * stats — {@code SUSPENSION_STIFFNESS} and {@code FRICTION_SLIP} — through
      * {@link StatBlock#resolve}, which is what "these are the reference defaults" means.
      */
-    public static final float WHEEL_SUSPENSION_REST_LENGTH_M = 0.30f;
+    public static final float WHEEL_SUSPENSION_REST_LENGTH_M = HandlingBlock.REFERENCE_SUSPENSION_REST_LENGTH_M;
 
     /** Centimetres. Caps how far a wheel may travel before the suspension bottoms out (D06-S4.5). */
-    public static final float WHEEL_MAX_SUSPENSION_TRAVEL_CM = 25f;
+    public static final float WHEEL_MAX_SUSPENSION_TRAVEL_CM = HandlingBlock.REFERENCE_MAX_SUSPENSION_TRAVEL_CM;
 
     /** Newtons. Caps the spring force one wheel may push with, which is what stops a launch. */
-    public static final float WHEEL_MAX_SUSPENSION_FORCE_N = 15_000f;
+    public static final float WHEEL_MAX_SUSPENSION_FORCE_N = HandlingBlock.REFERENCE_MAX_SUSPENSION_FORCE_N;
 
     /** Default spring constant, overridable per wheel by {@code SUSPENSION_STIFFNESS} (D05-S4.5). */
     public static final float WHEEL_SUSPENSION_STIFFNESS = 30f;
 
     /** Damping while the suspension relaxes (D06-S4.5 {@code suspensionDamping}). */
-    public static final float WHEEL_DAMPING_RELAXATION = 2.3f;
+    public static final float WHEEL_DAMPING_RELAXATION = HandlingBlock.REFERENCE_SUSPENSION_DAMPING;
 
     /** Damping while the suspension compresses (D06-S4.5 {@code suspensionCompression}). */
-    public static final float WHEEL_DAMPING_COMPRESSION = 2.4f;
+    public static final float WHEEL_DAMPING_COMPRESSION = HandlingBlock.REFERENCE_SUSPENSION_COMPRESSION;
 
     /** Default tyre grip, overridable per wheel by {@code FRICTION_SLIP} (D05-S4.5). */
     public static final float WHEEL_FRICTION_SLIP = 2.0f;
@@ -114,7 +115,7 @@ public final class VehicleFactory {
      * and a vehicle that has just lost half its armour has a centre of mass nowhere near where the
      * author put it — the two together produce a car that rolls for no visible reason.
      */
-    public static final float WHEEL_ROLL_INFLUENCE = 0.15f;
+    public static final float WHEEL_ROLL_INFLUENCE = HandlingBlock.REFERENCE_ROLL_INFLUENCE;
 
     /**
      * Metres. The wheel radius used when a wheel's collision mesh cannot supply one (D06-S4.5).
@@ -376,16 +377,20 @@ public final class VehicleFactory {
 
     /** Builds a wheel's controller from its type's stats and the assembly's per-instance overrides. */
     private static WheelControllerComponent wheelController(PartType type, AssemblyLayout.PlacedPart placed) {
+        // A wheel's spring and tyre come from its own part type: the two figures D05-S4.5 makes
+        // stats are resolved against the reference default, and the rest are its handling block
+        // (DEC-031). A part authoring neither gets D06-S4.5's reference corner throughout.
+        HandlingBlock handling = type.handling();
         WheelControllerComponent wheel = new WheelControllerComponent();
         wheel.radiusM = wheelRadiusOf(type.collisionMesh());
-        wheel.suspensionRestLengthM = WHEEL_SUSPENSION_REST_LENGTH_M;
+        wheel.suspensionRestLengthM = handling.suspensionRestLengthM();
         wheel.suspensionStiffness =
                 type.stats().resolve(StatBlock.Stat.SUSPENSION_STIFFNESS, WHEEL_SUSPENSION_STIFFNESS);
-        wheel.dampingRelax = WHEEL_DAMPING_RELAXATION;
-        wheel.dampingCompress = WHEEL_DAMPING_COMPRESSION;
+        wheel.dampingRelax = handling.suspensionDamping();
+        wheel.dampingCompress = handling.suspensionCompression();
         wheel.frictionSlip = type.stats().resolve(StatBlock.Stat.FRICTION_SLIP, WHEEL_FRICTION_SLIP);
         wheel.effectiveFrictionSlip = wheel.frictionSlip;
-        wheel.rollInfluence = WHEEL_ROLL_INFLUENCE;
+        wheel.rollInfluence = handling.rollInfluence();
         // Unset means "as the part type would have it", and the part type has no opinion: the
         // wheel's role is a property of where it sits on the vehicle, not of what it is made of.
         wheel.isSteering = Boolean.TRUE.equals(placed.overrides().isSteering());
@@ -484,6 +489,7 @@ public final class VehicleFactory {
             int wheelEntity,
             Vector3 comLocal) {
 
+        HandlingBlock handling = placed.type().handling();
         WheelControllerComponent wheel = world.getComponent(wheelEntity, WheelControllerComponent.class);
         btRaycastVehicle controller = chassis.vehicleController;
         if (wheel == null || controller == null) {
@@ -499,8 +505,8 @@ public final class VehicleFactory {
         tuning.setSuspensionStiffness(wheel.suspensionStiffness);
         tuning.setSuspensionCompression(wheel.dampingCompress);
         tuning.setSuspensionDamping(wheel.dampingRelax);
-        tuning.setMaxSuspensionTravelCm(WHEEL_MAX_SUSPENSION_TRAVEL_CM);
-        tuning.setMaxSuspensionForce(WHEEL_MAX_SUSPENSION_FORCE_N);
+        tuning.setMaxSuspensionTravelCm(handling.maxSuspensionTravelCm());
+        tuning.setMaxSuspensionForce(handling.maxSuspensionForceN());
         tuning.setFrictionSlip(wheel.frictionSlip);
 
         controller.addWheel(

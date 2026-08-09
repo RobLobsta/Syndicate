@@ -201,6 +201,9 @@ public final class Degradation {
         // chassis — the vehicle gets sluggish, and loses less of its brakes than of its engine.
         Map<Stat, DegradationRule> chassis = new EnumMap<>(Stat.class);
         chassis.put(Stat.ENGINE_FORCE_N, new DegradationRule(DegradationProfile.LINEAR, 0.45f));
+        // Power degrades with the force it is the high-speed limit on; a damaged engine that lost
+        // launch force but kept full power would accelerate harder at speed than when healthy.
+        chassis.put(Stat.ENGINE_POWER_W, new DegradationRule(DegradationProfile.LINEAR, 0.45f));
         chassis.put(Stat.BRAKE_FORCE_N, new DegradationRule(DegradationProfile.LINEAR, 0.60f));
         table.put(PartCategory.CHASSIS, Map.copyOf(chassis));
 

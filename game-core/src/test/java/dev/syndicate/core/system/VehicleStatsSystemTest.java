@@ -104,11 +104,16 @@ class VehicleStatsSystemTest {
 
         assertThat(stats.accelerationMps2).isCloseTo(ENGINE_FORCE_N / chassis.totalMassKg, within(1e-3f));
 
+        // The unclamped aerodynamic figure, which for this fixture is above the arena's own limit.
         float rolling = VehicleStatsSystem.CHASSIS_ROLLING_RESISTANCE
                 * chassis.totalMassKg
                 * Math.abs(SimulationConstants.WORLD_GRAVITY_Y);
-        float expected = (float) Math.sqrt((ENGINE_FORCE_N - rolling) / VehicleStatsSystem.CHASSIS_DRAG_COEFFICIENT);
-        assertThat(stats.maxSpeedMps).isCloseTo(expected, within(1e-2f));
+        float aerodynamic = (float) Math.sqrt((ENGINE_FORCE_N - rolling) / VehicleStatsSystem.CHASSIS_DRAG_COEFFICIENT);
+        assertThat(aerodynamic).isGreaterThan(VehicleControlSystem.MAX_VEHICLE_SPEED_MPS);
+
+        // What slot 6 reports is the clamp, because that is the speed the vehicle can actually reach
+        // in the arena (D06-S5.5) and therefore the one a HUD should show.
+        assertThat(stats.maxSpeedMps).isEqualTo(VehicleControlSystem.MAX_VEHICLE_SPEED_MPS);
     }
 
     /** An engine that cannot overcome its own rolling resistance gets zero, not a NaN. */

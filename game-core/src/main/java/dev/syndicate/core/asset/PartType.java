@@ -47,6 +47,7 @@ public final class PartType {
     private final float powerCost;
     private final boolean hangsBeforeFalling;
     private final StatBlock stats;
+    private final HandlingBlock handling;
     private final Map<StatBlock.Stat, DegradationRule> degradationOverrides;
     private final Map<String, SlotDefinition> slots;
     private final AssetId fractureManifestRef;
@@ -64,6 +65,7 @@ public final class PartType {
         this.powerCost = builder.powerCost;
         this.hangsBeforeFalling = builder.hangsBeforeFalling;
         this.stats = new StatBlock().set(builder.stats);
+        this.handling = builder.handling;
         this.degradationOverrides = builder.degradationOverrides.isEmpty()
                 ? Map.of()
                 : Collections.unmodifiableMap(new EnumMap<>(builder.degradationOverrides));
@@ -129,6 +131,17 @@ public final class PartType {
     /** The part's authored stat contributions (D05-S4.5). The returned block is shared; do not mutate. */
     public StatBlock stats() {
         return stats;
+    }
+
+    /**
+     * The physical parameters a stat block cannot carry: drag and rolling resistance on a chassis,
+     * damping and roll influence on a wheel (D08-R5, DEC-031).
+     *
+     * @return never null — a part that authors no {@code handling} block gets
+     *     {@link HandlingBlock#REFERENCE}, D06-S4.5's reference chassis
+     */
+    public HandlingBlock handling() {
+        return handling;
     }
 
     /**
@@ -212,6 +225,7 @@ public final class PartType {
         private float powerCost;
         private boolean hangsBeforeFalling;
         private final StatBlock stats = new StatBlock();
+        private HandlingBlock handling = HandlingBlock.REFERENCE;
         private final Map<StatBlock.Stat, DegradationRule> degradationOverrides = new EnumMap<>(StatBlock.Stat.class);
         private final Map<String, SlotDefinition> slots = new TreeMap<>();
         private AssetId fractureManifestRef;
@@ -271,6 +285,12 @@ public final class PartType {
 
         public Builder stats(StatBlock value) {
             stats.set(value);
+            return this;
+        }
+
+        /** Replaces D06-S4.5's reference chassis figures for this part (D08-R5). */
+        public Builder handling(HandlingBlock value) {
+            this.handling = value == null ? HandlingBlock.REFERENCE : value;
             return this;
         }
 

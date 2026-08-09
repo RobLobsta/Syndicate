@@ -173,6 +173,7 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 | Stat | Unit | Scope | Typical contributor |
 |---|---|---|---|
 | `engineForceN` | N | vehicle | chassis |
+| `enginePowerW` | W | vehicle | chassis |
 | `brakeForceN` | N | vehicle | chassis, wheels |
 | `maxSteerRad` | rad | vehicle | wheels (steering ones) |
 | `steerRateRadPerSec` | rad/s | vehicle | wheels |
@@ -187,7 +188,9 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 | `projectileSpeedMps` | m/s | per-weapon | weapon |
 | `sensorRangeM` | m | vehicle | utility (`radar`) |
 
-**R16.** `maxSpeedMps` and `accelerationMps2` are **derived**, never authored. They come from engine force, mass, and drag (D05-S5.6). Authoring a top speed directly would let content contradict physics (P3).
+**R16.** `maxSpeedMps` and `accelerationMps2` are **derived**, never authored. They come from engine force, engine power, mass, and drag (D05-S5.6). Authoring a top speed directly would let content contradict physics (P3).
+
+`enginePowerW` is what makes that derivation honest. Tractive force is `min(engineForceN, enginePowerW / v)`: a vehicle is traction-limited at a standstill and power-limited once it is moving. Without the power term the force is constant at every speed, and a chassis whose `engineForceN` was calibrated to a real standing-start acceleration reports a top speed several times what the vehicle has. A chassis that declares no power is unlimited, which is the behaviour of content authored before the stat existed.
 
 ---
 
@@ -461,11 +464,13 @@ function recomputeVehicleStats(vehicle):
     # ---- Phase 4: derived stats (never authored, D05-R16) --------------------
     m = vehicle.totalMassKg
     v.accelerationMps2 = v.engineForceN / m
-    # Top speed where engine force equals aerodynamic + rolling resistance:
-    #     F_engine = k_drag * v^2 + k_roll * m * g
-    # Solved for v, with k_drag and k_roll from the chassis part.
-    kDrag = chassis.dragCoefficient; kRoll = chassis.rollingResistance
-    v.maxSpeedMps = sqrt(max(0, (v.engineForceN - kRoll * m * 9.81) / max(kDrag, 1e-4)))
+    # Top speed where AVAILABLE tractive force equals aerodynamic + rolling resistance:
+    #     min(F_engine, P_engine / v) = k_drag * v^2 + k_roll * m * g
+    # Monotonic in v, so solved by bisection. k_drag and k_roll come from the chassis
+    # part's `handling` block (D08-R5); a chassis authoring none uses the reference.
+    kDrag = chassis.handling.dragCoefficient; kRoll = chassis.handling.rollingResistance
+    v.maxSpeedMps = min(solveTopSpeed(v.engineForceN, v.enginePowerW, m, kDrag, kRoll),
+                        MAX_VEHICLE_SPEED_MPS)          # the arena's own limit, D06-S5.5
 
     v.powerBudget = computePowerBudget(vehicle)                # D05-S5.7
     v.dirty = false

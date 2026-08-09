@@ -1,7 +1,8 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-09 (end of SESS-012)
-**Where we are:** a vehicle drives, and a server process runs the simulation. Nothing shoots yet.
+**Last updated:** 2026-08-09 (end of SESS-013)
+**Where we are:** two real cars' worth of physics drive around a headless server. Nothing shoots,
+and nothing is visible.
 
 > This file is maintained by the coding assistant and updated **at the end of every session**
 > (CLAUDE.md §5, step 14). It is allowed to change shape as the work demands — reorder phases, split
@@ -136,6 +137,40 @@ two sessions ago from a Bullet sample, on the belief that the specification didn
 does, in a table a few hundred lines above the code that reads it. Tyre grip had been five times the
 specified value. It is now what the document says, which is a noticeably different car.
 
+### Since then (SESS-013) — two vehicles with real numbers
+
+The handling question §4 asked — *how should it handle?* — turned out to be answerable by picking
+real cars and copying their homework.
+
+There are now two vehicles. The **Apex GT** is a mid-engine road supercar whose mass, power, torque,
+0–100 time, top speed, braking distance, drag coefficient and tyre sizes all come from Maserati's
+published figures for the MC20. The **Stampede GT3** is a front-engine GT racer built the same way
+from the Ford Mustang GT3 — 1289 kg, 550 hp, slicks and a wing. The in-game names are deliberately
+not the real ones: the numbers are facts and free to use, the trademarks are not.
+
+They are meant to be a choice rather than a ladder. The road car wins a drag race — it makes more
+power and puts it down through a shorter first gear. The race car is 200 kg lighter, brakes about a
+fifth shorter, holds far more grip and generates six times the downforce, so it is quicker at
+everything except a standing start.
+
+What makes this more than a table of numbers is that the game is held to it. Each vehicle is spawned
+in the real physics world, driven, and timed: the 0–100 has to come out within about a tenth of a
+second of the real car's, and the braking distance within a third of the published one. Change the
+drag model or the tyre grip and a test says which car stopped matching reality.
+
+Getting there needed three fixes. A vehicle had only a force, not a power, so one calibrated to a
+real standing start claimed a 637 km/h top speed — adding an engine power ceiling makes both figures
+come out right at once. Bullet turned out to read the brake command as an impulse where it reads the
+engine command as a force, so braking was sixty times too strong and had been hiding behind that.
+And splitting the brake evenly across four wheels throws away the rears' share as the nose dives,
+which had the race car barely out-braking the road car; the brake now follows the weight, like a real
+car's does.
+
+`VEHICLES.md` is the roster, with every published figure, every derived one, every estimate, and the
+sources. It regenerates itself and the build fails until the new copy is committed, so it cannot go
+stale. `assets/README.md` says where a model file goes.
+
+
 ## 3. What is next
 
 ### Phase 5 — Combat *(next session)*
@@ -155,11 +190,14 @@ been able to do since Phase 1 finally gets triggered by the game rather than by 
 
 ### Phase 6 — A world to fight in
 
-The blocker here is specific and known: the simulation cannot read a `.glb` file. The verification
-harness already has a reader for exactly this; `game-core` needs its own, and until it does, no
-authored part can load — which blocks arenas, real vehicles, the asset pipeline and every screenshot
-of the actual game. After that: the pipeline that validates content, an arena format with spawn
-points and ground, and the first vehicle that isn't a fixture made of boxes.
+The blocker here is specific, known, and now the *only* thing between the content that exists and a
+car on screen: the simulation cannot read a `.glb` file. Two vehicles are fully authored — parts,
+masses, slots, handling, assemblies — and they load, validate, spawn and drive correctly against
+stand-in box hulls. Drop a model into `assets/parts/chassis_apex_gt_01/mesh.glb` today and nothing
+reads it.
+
+The verification harness already has a reader for exactly this format; `game-core` needs its own.
+After that: the pipeline that validates content, and an arena format with spawn points and ground.
 
 ### Phase 7 — A window
 
@@ -197,11 +235,22 @@ None of these are decided. They are here so the options are visible when a sessi
 
 **Gameplay**
 
-- **How should it handle?** Genuinely open now, for the first time — there is a vehicle to have an
-  opinion about. The current settings are the specification's reference numbers, which produce a
-  heavy car with modest grip that understeers and takes a moment to build speed. Whether the game
-  wants that, or something twitchier, is a design call nobody has made. Everything it depends on —
-  steering lock, how fast the wheels turn, drag, tyre grip, suspension — is one file.
+- **How should it handle?** Half-answered. The two shipped vehicles handle like the real cars they
+  were derived from, which is a defensible starting point and a much better one than invented
+  numbers. What nobody has decided is whether a *combat* game wants that: real cars are fragile,
+  grippy and fast, and an arena brawl might want something heavier and more forgiving. The place to
+  find out is to drive them, which needs Phase 6.
+- **Which vehicles next?** The two shipped are both fast and light. A roster wants contrast — a
+  pickup, a van, something with six wheels. Each is an afternoon now that the profile machinery
+  exists: pick a real vehicle, copy its published figures, author the parts.
+- **Do doors and other moving parts open?** Undecided, and worth deciding before any more art is
+  made. A door is already expressible: the slot graph supports a part hanging off a part, so a door
+  is a part in a `door_left` slot with its own mass, health and fracture data, and it can be shot
+  off today. What does not exist is *articulation* — a door that swings on a hinge rather than being
+  either attached or gone. The design has the pieces (`D06-S5.6` specifies a breakable constraint,
+  and `DEV-009` records that a part only gets one once it is a body of its own), but nothing builds
+  an articulated part, and the choice between "cosmetic hinge animation on the client" and "a real
+  constrained body" is a fork with very different costs.
 - **Arena shapes.** Open scrapyard, tight industrial corridors, a pit with a hazard in the middle.
   This changes what vehicle builds are good, so it is a design decision, not set dressing.
 - **Game modes beyond deathmatch.** `docs/01_product_game_design.md` sketches several; picking one
@@ -226,9 +275,12 @@ None of these are decided. They are here so the options are visible when a sessi
 - **`DISC-011`** — the collision-filter trap that made every suspension ray miss the ground is fixed
   for bodies, but the same trap is waiting for the next ray anyone adds: bot sensors, hitscan
   weapons, a ground check.
-- **`DEC-027`** — four handling numbers (steering lock, steer rate, drag, rolling resistance) are
-  constants in code because no document authors them. If they should be per-vehicle content, the
-  part schema is what changes.
+- **`DEC-034`** — the shipped vehicles still stop 11% and 25% longer than the cars they came from.
+  That residue is the ray-cast tyre model, not the calibration, and closing it needs a tyre model
+  rather than a bigger brake number.
+- **`DISC-012`** — a wheel can report ground contact while carrying no load at all, so counting
+  wheels in contact is not a measure of whether a vehicle is properly on its wheels. One test fixture
+  had been driving on two wheels while every check said four.
 - **`DISC-006`** — a latent bug in the fracture tool's point-in-mesh test. It has not produced a
   wrong result yet. It will.
 - **`DEV-006`** — one test fixture does not match its own specification.

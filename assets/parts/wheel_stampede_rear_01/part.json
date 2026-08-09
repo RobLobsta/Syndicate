@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0.0",
+  "partTypeId": "wheel_stampede_rear_01",
+  "displayName": "Stampede GT3 Rear Wheel (345/700 R18 slick)",
+  "category": "WHEEL",
+  "massKg": 38.0,
+  "maxHp": 420.0,
+  "armorValue": 0.0,
+  "materialId": "rubber",
+  "slotTypeRequired": "WHEEL",
+  "powerCost": 9.0,
+  "breakImpulseN": 3600.0,
+  "hangsBeforeFalling": false,
+  "stats": {
+    "frictionSlip": {
+      "mul": 1.45
+    },
+    "suspensionStiffness": {
+      "mul": 1.833333
+    }
+  },
+  "handling": {
+    "suspensionCompression": 3.25,
+    "suspensionDamping": 3.11,
+    "rollInfluence": 0.08,
+    "suspensionRestLengthM": 0.3
+  },
+  "slots": [],
+  "assets": {
+    "visualMesh": "mesh.glb",
+    "collisionSource": "mesh.glb#node=wheel_stampede_rear_01_col",
+    "fractureManifest": "fracture_manifest.json"
+  },
+  "tags": [
+    "race",
+    "slick",
+    "rear"
+  ]
+}
