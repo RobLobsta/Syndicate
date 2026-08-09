@@ -212,7 +212,7 @@ class SpawnSystemTest {
 
     @Test
     void massPropertySystem_findsNothingToChangeOnTheSpawnTick() {
-        // DEC-023. The factory establishes the mass properties as part of building the body, so slot
+        // DEC-021. The factory establishes the mass properties as part of building the body, so slot
         // 15 compares equal and does nothing; the first value it sees differ is a detach's.
         int vehicle = spawnOne();
         VehicleChassisComponent chassis = scene.world().getComponent(vehicle, VehicleChassisComponent.class);

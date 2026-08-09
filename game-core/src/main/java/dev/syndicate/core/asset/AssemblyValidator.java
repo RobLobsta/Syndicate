@@ -43,7 +43,7 @@ public final class AssemblyValidator {
      * <p>D08 names this {@code MASS_DELTA_FRAC} but D00-S6.4 never defines it; the one mass
      * tolerance the project does define is {@code MASS_TOLERANCE_FRAC} (2%, G7), and having two
      * different mass tolerances would be a distinction without a difference. Aliased rather than
-     * duplicated so there is one number (DEC-022).
+     * duplicated so there is one number (DEC-020).
      */
     public static final float MASS_DELTA_FRAC = SimulationConstants.MASS_TOLERANCE_FRAC;
 
@@ -52,7 +52,7 @@ public final class AssemblyValidator {
      *
      * <p>D08-R10 names {@code COM_OFFSET_M} and no document defines it. One centimetre: below the
      * collision margin (D06-R13), so a COM drift this small cannot move a contact point, and far
-     * enough above float noise on a 64-part sum that it will not trip on rounding (DEC-022).
+     * enough above float noise on a 64-part sum that it will not trip on rounding (DEC-020).
      */
     public static final float COM_OFFSET_M = 0.01f;
 

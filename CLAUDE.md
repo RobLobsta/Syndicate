@@ -150,9 +150,16 @@ Follow this every session.
 11. Update .agent-memory/progress/ with completed work
 12. Write a session summary in .agent-memory/session_summaries/
 13. Update .agent-memory/INDEX.md
+14. Update ROADMAP.md
 ```
 
-Steps 1–3 and 12–13 are unconditional. Steps 5–6 are what make the middle of the session cheap; skipping them is how a session re-derives a decision that was settled three sessions ago.
+Steps 1–3 and 12–14 are unconditional. Steps 5–6 are what make the middle of the session cheap; skipping them is how a session re-derives a decision that was settled three sessions ago.
+
+**Step 14 in full.** `ROADMAP.md` in the repository root is the project's single forward-looking document: a phase timeline from where the work stands to a production-ready game, the choices the user has not yet made, and a plain-language account of what the project actually is right now. It is written for a human reading it cold, not for you — so it carries no blueprint IDs it does not need and explains rather than cites.
+
+Update it at the end of **every** session, before or alongside the session summary, following the checklist in its own §6: move the "we are here" marker and the system-catalogue progress bar, replace §2 with what this session did, re-cut §3's "what is next", add any choice you deliberately left to the user, and rewrite §5 only if the honest answer changed. Restructure the file freely as the work demands — reorder phases, split them, delete ones that stopped making sense. Unlike `docs/`, it is a convenience rather than a contract.
+
+A session that skipped it leaves the next one, and the user, reading a plan for a project that no longer exists.
 
 Before reporting a task complete, run the checks the change touches:
 

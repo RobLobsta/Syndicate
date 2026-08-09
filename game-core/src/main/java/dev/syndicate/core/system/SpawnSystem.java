@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
  * <p>It runs in PRE_SIM, ahead of everything that reads a vehicle, so a vehicle spawned this tick is
  * stepped this tick rather than sitting inert for one — including
  * {@code MassPropertySystem} (15), which finds the mass properties {@link VehicleFactory} already
- * established and leaves them alone (DEC-023).
+ * established and leaves them alone (DEC-021).
  */
 public final class SpawnSystem implements EntitySystem {
 

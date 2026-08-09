@@ -27,7 +27,7 @@ import java.util.Objects;
  * (D08 owns the schema per D00-S4.2), and modelling the root as a field rather than a convention
  * makes "exactly one root, and it is a chassis" (A301) partly structural instead of entirely a
  * check — the half that remains is that the named type really is of category {@code chassis}
- * (DEC-021).
+ * (DEC-019).
  *
  * @param assemblyId the manifest's {@code vehicleTypeId}; what
  *     {@code VehicleChassisComponent.assemblyId} records

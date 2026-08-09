@@ -67,7 +67,7 @@ import org.slf4j.LoggerFactory;
  * this computes them as part of building the body and writes the same values slot 15 would —
  * including recentring the compound on the centre of mass. {@code MassPropertySystem} then finds the
  * stored mass and COM already equal to what it computes, and does nothing, which is exactly the
- * "no structural change since last tick" path it is written around (DEC-023).
+ * "no structural change since last tick" path it is written around (DEC-021).
  *
  * <p><b>What a spawned vehicle does not have yet.</b> Its {@code VehicleStatsComponent} is
  * {@code dirty} and stays that way until {@code VehicleStatsSystem} (slot 6) exists to aggregate it,
@@ -85,7 +85,7 @@ public final class VehicleFactory {
      * <p>Not authored: D05-S4.5's stat table carries suspension <em>stiffness</em> and friction but
      * no rest length, and no other document names one. A third of a metre is the value Bullet's own
      * vehicle demo uses and is a plausible arcade car — long enough that a vehicle visibly settles
-     * on its springs, short enough that it does not float (DEC-024).
+     * on its springs, short enough that it does not float (DEC-022).
      */
     public static final float WHEEL_SUSPENSION_REST_LENGTH_M = 0.3f;
 
@@ -385,7 +385,7 @@ public final class VehicleFactory {
      * ray-cast wheel needs one — the ray is cast from the connection point and the contact is placed
      * a radius short of it, so a wrong radius parks the vehicle in the ground or hovers it above.
      * The mesh already answers the question exactly: the axle runs along X, so the wheel's
-     * silhouette is its YZ extent and its radius is half of the larger of the two (DEC-024).
+     * silhouette is its YZ extent and its radius is half of the larger of the two (DEC-022).
      */
     public static float wheelRadiusOf(MeshData collisionMesh) {
         Vector3 min = new Vector3();
@@ -445,7 +445,7 @@ public final class VehicleFactory {
         world.addComponent(vehicleEntity, rigidBody);
 
         // Published so MassPropertySystem (15) compares equal on the spawn tick and leaves the
-        // vehicle alone; the first value it will see differ is the one a detach produces (DEC-023).
+        // vehicle alone; the first value it will see differ is the one a detach produces (DEC-021).
         chassis.totalMassKg = totalMassKg;
         chassis.comLocal.set(comLocal);
 
