@@ -16,9 +16,15 @@ import java.util.Set;
  * <p>{@code --headless} is the default when no display is available, which is what makes the same
  * command work on a developer's laptop and in CI without a flag either place has to remember
  * (D14-S4.2).
+ *
+ * <p>Two subjects, exactly one per run. {@code --asset} is a processed part directory and drives the
+ * destruction checks D14 is about. {@code --model} is a single glTF file and drives the source-art
+ * checks of {@link dev.syndicate.verify.model.ModelInspector} — a mode that exists because the art
+ * that becomes a part has to be checked before there is a part to check.
  */
 public record VerifyOptions(
         Path assetDir,
+        Path modelPath,
         Path reportPath,
         Set<Check.Category> categories,
         long seed,
@@ -28,6 +34,11 @@ public record VerifyOptions(
         Path capturePath,
         int captureTick,
         float captureScatter) {
+
+    /** True when this run inspects a single model file rather than a processed asset directory. */
+    public boolean isModelMode() {
+        return modelPath != null;
+    }
 
     /** Default harness seed (D14-R1). */
     public static final long DEFAULT_SEED = 1337L;
@@ -42,6 +53,7 @@ public record VerifyOptions(
     /** Parses the argument list, applying the defaults of D14-S4.2. */
     public static VerifyOptions parse(String[] args) {
         Path assetDir = null;
+        Path modelPath = null;
         Path reportPath = null;
         Path capturePath = null;
         Set<Check.Category> categories = EnumSet.allOf(Check.Category.class);
@@ -57,6 +69,7 @@ public record VerifyOptions(
             String arg = args[i];
             switch (arg) {
                 case "--asset" -> assetDir = Path.of(require(args, ++i, "--asset"));
+                case "--model" -> modelPath = Path.of(require(args, ++i, "--model"));
                 case "--report" -> reportPath = Path.of(require(args, ++i, "--report"));
                 case "--capture" -> capturePath = Path.of(require(args, ++i, "--capture"));
                 case "--capture-tick" -> captureTick = Integer.parseInt(require(args, ++i, "--capture-tick"));
@@ -74,8 +87,11 @@ public record VerifyOptions(
         if (visual && headless) {
             throw new UsageException("--visual and --headless are mutually exclusive");
         }
-        if (assetDir == null) {
-            throw new UsageException("--asset <dir> is required");
+        if (assetDir == null && modelPath == null) {
+            throw new UsageException("--asset <dir> or --model <file> is required");
+        }
+        if (assetDir != null && modelPath != null) {
+            throw new UsageException("--asset and --model are mutually exclusive");
         }
         // A capture is a rendered frame, so asking for one implies visual mode even without the
         // flag — the alternative is a run that silently produces no image.
@@ -83,11 +99,14 @@ public record VerifyOptions(
             visual = true;
         }
         if (reportPath == null) {
-            reportPath = Path.of("build", "verify", assetDir.getFileName() + ".report.json");
+            Path subject = assetDir != null ? assetDir : modelPath;
+            String name = assetDir != null ? subject.getFileName().toString() : stem(subject);
+            reportPath = Path.of("build", "verify", name + ".report.json");
         }
 
         return new VerifyOptions(
                 assetDir,
+                modelPath,
                 reportPath,
                 categories,
                 seed,
@@ -103,13 +122,20 @@ public record VerifyOptions(
     public static String usage() {
         return """
             syndicate-verify [--visual | --headless]
-                             --asset <dir>
+                             (--asset <dir> | --model <file.gltf|.glb>)
                              [--categories asset,physics,progression]
                              [--report <out.json>]
                              [--seed <long>]
                              [--capture <out.png>] [--capture-tick <n>] [--capture-scatter <f>]
                              [--fail-fast] [--verbose]
             """;
+    }
+
+    /** A file name without its extension, for naming a model run's report. */
+    private static String stem(Path file) {
+        String name = file.getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        return dot < 0 ? name : name.substring(0, dot);
     }
 
     private static String require(String[] args, int index, String flag) {

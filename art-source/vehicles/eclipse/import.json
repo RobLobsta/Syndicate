@@ -1,0 +1,6 @@
+{
+  "_comment": "Correction from the source art's units and axes to the game's (D00-R16). Verified by `syndicate-verify --model` — see art-source/README.md.",
+  "scaleToMetres": 1.0389227840196078,
+  "yawDeg": 180.0,
+  "translationM": { "x": 0.0, "y": 0.6669, "z": 0.0 }
+}

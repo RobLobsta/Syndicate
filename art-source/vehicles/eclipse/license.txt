@@ -1,0 +1,11 @@
+Model Information:
+* title:	Maserati MC20
+* source:	https://sketchfab.com/3d-models/maserati-mc20-9787ff97921646388f9c00aa57497adf
+* author:	VTX (https://sketchfab.com/VTX_car)
+
+Model License:
+* license type:	CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)
+* requirements:	Author must be credited. No commercial use. Modified versions must have the same license.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Maserati MC20" (https://sketchfab.com/3d-models/maserati-mc20-9787ff97921646388f9c00aa57497adf) by VTX (https://sketchfab.com/VTX_car) licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)
