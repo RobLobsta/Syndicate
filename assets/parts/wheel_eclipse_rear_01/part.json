@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "partTypeId": "wheel_apex_rear_01",
-  "displayName": "Apex GT Rear Wheel (305/30 ZR20)",
+  "partTypeId": "wheel_eclipse_rear_01",
+  "displayName": "Eclipse Rear Wheel (305/30 ZR20)",
   "category": "WHEEL",
   "massKg": 37.5,
   "maxHp": 380.0,
@@ -21,7 +21,7 @@
   "slots": [],
   "assets": {
     "visualMesh": "mesh.glb",
-    "collisionSource": "mesh.glb#node=wheel_apex_rear_01_col",
+    "collisionSource": "mesh.glb#node=wheel_eclipse_rear_01_col",
     "fractureManifest": "fracture_manifest.json"
   },
   "tags": [

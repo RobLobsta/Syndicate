@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "vehicleTypeId": "vehicle_stampede_gt3_01",
-  "displayName": "Stampede GT3",
-  "vehicleClass": "medium",
+  "vehicleTypeId": "vehicle_stampede_01",
+  "displayName": "Stampede",
+  "vehicleClass": "heavy",
   "unlockLevel": 0,
-  "chassis": "chassis_stampede_gt3_01",
+  "chassis": "chassis_stampede_01",
   "parts": [
     {
       "slotPath": "root/wheel_fl",
@@ -51,11 +51,11 @@
     "paintSchemeId": "scheme_default_01"
   },
   "expected": {
-    "totalMassKg": 1289.0,
+    "totalMassKg": 1969.0,
     "powerBudget": 84.0,
     "comLocal": {
       "x": 0.0,
-      "y": -0.0118,
+      "y": 0.0,
       "z": 0.0
     }
   }

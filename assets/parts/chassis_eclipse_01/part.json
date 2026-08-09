@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "partTypeId": "chassis_apex_gt_01",
-  "displayName": "Apex GT Chassis",
+  "partTypeId": "chassis_eclipse_01",
+  "displayName": "Eclipse Chassis",
   "category": "CHASSIS",
   "massKg": 1350.0,
   "maxHp": 2600.0,
@@ -103,7 +103,7 @@
   ],
   "assets": {
     "visualMesh": "mesh.glb",
-    "collisionSource": "mesh.glb#node=chassis_apex_gt_01_col",
+    "collisionSource": "mesh.glb#node=chassis_eclipse_01_col",
     "fractureManifest": "fracture_manifest.json",
     "morphTargets": [
       "dmg_25",

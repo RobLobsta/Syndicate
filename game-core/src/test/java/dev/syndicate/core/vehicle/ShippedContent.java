@@ -19,11 +19,13 @@ import java.util.Map;
  * Loads the real {@code assets/} tree with stand-in collision geometry, for the tests that check the
  * shipped vehicles (docs/08_asset_pipeline.md#D08-S5.3).
  *
- * <p>{@code game-core} has no headless glTF reader yet (DEV-010), so no part's {@code mesh.glb} can
- * be turned into a hull and every shipped part would fail to load with A503. This supplies a box
- * instead, sized from the vehicle's own published dimensions and tyre codes — a chassis the size of
- * the real car's body, and a wheel the size of the real car's tyre. It is a fixture standing in for
- * art, not a fallback: nothing outside tests uses it, and when the reader lands it goes away.
+ * <p>There is a headless glTF reader now ({@code GltfCollisionMeshSource}), and no {@code mesh.glb}
+ * for it to read: the supplied car art in {@code art-source/vehicles/} is one model per whole
+ * vehicle, wheels included, and has not been split into parts. So every shipped part would still
+ * fail to load with A503. This supplies a box instead, sized from the vehicle's own published
+ * dimensions and tyre codes — a chassis the size of the real car's body, and a wheel the size of the
+ * real car's tyre. It is a fixture standing in for art, not a fallback: nothing outside tests uses
+ * it, and when the split lands it goes away.
  *
  * <p>The boxes are not centred on the origin. A real car's body sits mostly <em>above</em> the wheel
  * centres and hangs about a wheel radius minus its ground clearance below them, and a hull that
@@ -40,20 +42,20 @@ public final class ShippedContent {
     /** Half-extents of each chassis hull, keyed by part type id. */
     private static final Map<String, Vector3> CHASSIS_BODY = Map.of(
             // 4669 x 1965 x 1224 mm (published), as half-extents about the wheel-centre plane.
-            "chassis_apex_gt_01", new Vector3(0.9825f, 0.562f, 2.3345f),
-            // Mustang S650 bodyshell, lowered to GT3 ride height.
-            "chassis_stampede_gt3_01", new Vector3(0.960f, 0.570f, 2.405f));
+            "chassis_eclipse_01", new Vector3(0.9825f, 0.562f, 2.3345f),
+            // 4810 x 2030 x 1330 mm (published), as half-extents about the wheel-centre plane.
+            "chassis_stampede_01", new Vector3(1.015f, 0.615f, 2.405f));
 
     /** Where the centre of each chassis hull sits above the wheel-centre plane, metres. */
     private static final Map<String, Float> CHASSIS_CENTRE_Y =
-            Map.of("chassis_apex_gt_01", 0.322f, "chassis_stampede_gt3_01", 0.330f);
+            Map.of("chassis_eclipse_01", 0.322f, "chassis_stampede_01", 0.3605f);
 
     /** Tyre section width and radius per wheel part type, metres. */
     private static final Map<String, Vector3> WHEEL_SIZE = Map.of(
-            "wheel_apex_front_01", new Vector3(0.245f, 0.340f, 0f),
-            "wheel_apex_rear_01", new Vector3(0.305f, 0.346f, 0f),
-            "wheel_stampede_front_01", new Vector3(0.325f, 0.340f, 0f),
-            "wheel_stampede_rear_01", new Vector3(0.345f, 0.350f, 0f));
+            "wheel_eclipse_front_01", new Vector3(0.245f, 0.340f, 0f),
+            "wheel_eclipse_rear_01", new Vector3(0.305f, 0.346f, 0f),
+            "wheel_stampede_front_01", new Vector3(0.325f, 0.3515f, 0f),
+            "wheel_stampede_rear_01", new Vector3(0.345f, 0.3575f, 0f));
 
     private ShippedContent() {
         throw new AssertionError("no instances");

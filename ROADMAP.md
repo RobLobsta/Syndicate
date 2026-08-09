@@ -142,9 +142,9 @@ specified value. It is now what the document says, which is a noticeably differe
 The handling question §4 asked — *how should it handle?* — turned out to be answerable by picking
 real cars and copying their homework.
 
-There are now two vehicles. The **Apex GT** is a mid-engine road supercar whose mass, power, torque,
+There are now two vehicles. The **Eclipse** is a mid-engine road supercar whose mass, power, torque,
 0–100 time, top speed, braking distance, drag coefficient and tyre sizes all come from Maserati's
-published figures for the MC20. The **Stampede GT3** is a front-engine GT racer built the same way
+published figures for the MC20. The **Stampede** is a front-engine GT racer built the same way
 from the Ford Mustang GT3 — 1289 kg, 550 hp, slicks and a wing. The in-game names are deliberately
 not the real ones: the numbers are facts and free to use, the trademarks are not.
 
@@ -193,7 +193,7 @@ been able to do since Phase 1 finally gets triggered by the game rather than by 
 The blocker here is specific, known, and now the *only* thing between the content that exists and a
 car on screen: the simulation cannot read a `.glb` file. Two vehicles are fully authored — parts,
 masses, slots, handling, assemblies — and they load, validate, spawn and drive correctly against
-stand-in box hulls. Drop a model into `assets/parts/chassis_apex_gt_01/mesh.glb` today and nothing
+stand-in box hulls. Drop a model into `assets/parts/chassis_eclipse_01/mesh.glb` today and nothing
 reads it.
 
 The verification harness already has a reader for exactly this format; `game-core` needs its own.

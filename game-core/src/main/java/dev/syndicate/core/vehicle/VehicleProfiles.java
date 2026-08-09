@@ -24,7 +24,7 @@ import java.util.TreeMap;
 public final class VehicleProfiles {
 
     /**
-     * Apex GT — a mid-engine road supercar. Reference: <b>Maserati MC20 (2021-)</b>.
+     * Eclipse — a mid-engine road supercar. Reference: <b>Maserati MC20 (2021-)</b>.
      *
      * <p><b>Published.</b> 1500 kg kerb; 463 kW (630 PS) at 7500 rpm and 730 N·m from a 3.0 L
      * twin-turbo V6; 0-100 km/h under 2.9 s; 0-200 km/h under 8.8 s; over 325 km/h; 100-0 km/h under
@@ -42,8 +42,8 @@ public final class VehicleProfiles {
      * about 100 kg at 250 km/h, which is a flat floor and a fixed spoiler rather than a wing; track
      * widths; and the 40/60 mass split a rear mid-engine layout implies.
      */
-    public static final VehicleProfile APEX_GT = VehicleProfile.builder(
-                    AssetId.of("vehicle_apex_gt_01"), "Apex GT", "Maserati MC20 (2021-)")
+    public static final VehicleProfile ECLIPSE = VehicleProfile.builder(
+                    AssetId.of("vehicle_eclipse_01"), "Eclipse", "Maserati MC20 (2021-)")
             .referenceSource("Maserati/Stellantis press material; Wikipedia 'Maserati MC20'")
             .vehicleClass("medium")
             .kerbMassKg(1500f)
@@ -59,48 +59,51 @@ public final class VehicleProfiles {
             .build();
 
     /**
-     * Stampede GT3 — a front-engine, rear-transaxle GT racer. Reference:
-     * <b>Ford Mustang GT3 (2024)</b>.
+     * Stampede — a front-engine, rear-transaxle road supercar. Reference:
+     * <b>Ford Mustang GTD (2025)</b>.
      *
-     * <p><b>Published.</b> 1289 kg (2842 lb); 410 kW (550 hp) from a naturally aspirated 5.4 L V8;
-     * Xtrac six-speed sequential transaxle; double wishbones and Multimatic DSSV dampers at both
-     * ends; Alcon brakes; 18-inch wheels on 12.8-inch front and 13.6-inch rear slicks. FIA GT3
-     * balance-of-performance puts the class between 1200 and 1300 kg and 500 to 600 hp.
+     * <p><b>Published.</b> 1969 kg (4340 lb); 608 kW (815 hp) and 900 N·m (664 lb·ft) from a
+     * supercharged 5.2 L V8 revving past 7500 rpm; an eight-speed dual-clutch rear transaxle on a
+     * carbon driveshaft, giving a near 50/50 split; 325/30 ZR20 front and 345/30 ZR20 rear;
+     * 325 km/h (202 mph); over 8.4 kN of downforce at 290 km/h with the track package; 6:52.072 at
+     * the Nürburgring.
      *
-     * <p><b>Derived.</b> Power is 92% of crank — a sequential transaxle loses less than a road
-     * dual-clutch. Engine force calibrates to a 3.3 s 0-100 km/h, which is slower than the road car
-     * despite far more grip, because a GT3 is geared for a circuit rather than for a standing start.
-     * The resulting 11.3 kN is almost exactly the traction a slick-shod 1289 kg car can put down,
-     * which is the right physical story for a class that is grip-limited off the line.
+     * <p><b>Derived.</b> {@code Cd·A} is solved backwards from the published top speed rather than
+     * guessed: 90% of 608 kW at 90.3 m/s, less rolling resistance, leaves 523 kW of drag power and
+     * therefore {@code k_drag = 0.711}, i.e. {@code Cd·A = 1.16 m²} — {@code Cd = 0.54} on a 2.15 m²
+     * frontal area, which is what a fixed rear wing costs. Downforce follows straight from the
+     * 8.4 kN figure: {@code 8451 / 80.5² = 1.30 N per (m/s)²}. Power is 90% of crank, the same
+     * dual-clutch driveline loss as the Eclipse.
      *
-     * <p><b>Estimated</b>, because none of it is published for a race car: {@code Cd·A} at 1.45 m²,
-     * the figure a GT3 aero package with a splitter, a large rear wing and a full diffuser implies —
-     * it puts the derived top speed at about 267 km/h, which is where GT3s actually run. Downforce at
-     * roughly 600 kg at 250 km/h. Braking at 1.7 g, which slicks plus that downforce support.
-     * Suspension is stiffer than the road car by the ratio of typical race to road spring rates, with
-     * damping scaled by {@code √(k)} so it stays critically damped, and roll influence is low because
-     * a GT3 has a low centre of gravity and stiff anti-roll bars.
+     * <p><b>Estimated.</b> The 0-100 km/h is the one figure Ford states loosely — "under three
+     * seconds" to 60 mph, with independent numbers nearer 3.3 s — so 3.40 s to 100 km/h is the
+     * conservative reading, and it is what an 815 hp rear-drive car on road tyres can actually put
+     * down. 100-0 in 30 m (1.31 g) for carbon-ceramics on 325-section semi-slicks. Grip and springs
+     * sit between the Eclipse's and a race car's: this is a road car with adjustable Multimatic DSSV
+     * dampers and a ride-height change, not a GT3.
      *
-     * <p>The pair is meant to be a real choice rather than an upgrade: the Apex accelerates harder in
-     * a straight line and the Stampede corners, brakes and holds speed better everywhere else.
+     * <p>The pair is meant to be a real choice rather than an upgrade, and against a GTD that choice
+     * is a different one than it was against the GT3 this profile used to describe: the Eclipse is
+     * 470 kg lighter and still wins the standing start, while the Stampede carries far more power,
+     * downforce and brake, and holds speed where the Eclipse cannot.
      */
-    public static final VehicleProfile STAMPEDE_GT3 = VehicleProfile.builder(
-                    AssetId.of("vehicle_stampede_gt3_01"), "Stampede GT3", "Ford Mustang GT3 (2024)")
-            .referenceSource("Ford Performance and Multimatic material; Wikipedia 'Ford Mustang GT3'")
-            .vehicleClass("medium")
-            .kerbMassKg(1289f)
-            .engine(410f, 570f)
-            .performance(3.30f, 267f, 24.0f)
-            .aero(0.7256f, 2.00f, 1.22f)
-            .drivelineEfficiency(0.92f)
-            .geometry(2.72f, 1.70f, 1.68f, 0.50f)
-            .wheels("325/680 R18 slick", "345/700 R18 slick", 0.340f, 0.350f, 38f)
-            .steering(0.48f, 1.80f)
-            .suspension(2.90f, 55f, 3.25f, 3.11f, 0.08f)
+    public static final VehicleProfile STAMPEDE = VehicleProfile.builder(
+                    AssetId.of("vehicle_stampede_01"), "Stampede", "Ford Mustang GTD (2025)")
+            .referenceSource("Ford Performance press material; Ford.com Mustang GTD specifications")
+            .vehicleClass("heavy")
+            .kerbMassKg(1969f)
+            .engine(608f, 900f)
+            .performance(3.40f, 325f, 30.0f)
+            .aero(0.54f, 2.15f, 1.30f)
+            .drivelineEfficiency(0.90f)
+            .geometry(2.72f, 1.71f, 1.71f, 0.50f)
+            .wheels("325/30 ZR20", "345/30 ZR20", 0.3515f, 0.3575f, 34f)
+            .steering(0.55f, 1.50f)
+            .suspension(2.50f, 45f, 2.94f, 2.82f, 0.10f)
             .rollingResistance(0.014f)
             .build();
 
-    private static final Map<AssetId, VehicleProfile> BY_ID = index(APEX_GT, STAMPEDE_GT3);
+    private static final Map<AssetId, VehicleProfile> BY_ID = index(ECLIPSE, STAMPEDE);
 
     private VehicleProfiles() {
         throw new AssertionError("no instances");
