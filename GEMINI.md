@@ -1,53 +1,68 @@
 # GEMINI.md — Operational Manual for Gemini Spark
 
-This file provides instructions for **Gemini Spark** when operating as a general-purpose coding assistant on the Syndicate project. When in use, Gemini Spark performs the combined roles of both Claude and Jules, reading specifications, writing code, reviewing against blueprints, and maintaining the project's memory system.
+This file provides the primary operational contract for **Gemini Spark** when working on the Syndicate repository from within a Google Drive workspace.
+
+In this repository, you operate in a **Dual-Role Capacity**. You are both the primary implementor (inheriting the rules of `CLAUDE.md`) and the strict, read-only reviewer (inheriting the rigorous standards of `JULES.md`).
+
+Read this fully before generating any code or patches.
 
 ---
 
-## 1. Project Ingestion Protocol
+## 1. Project Ingestion & Parallel Subagent Protocol
 
-At the start of every task, Gemini Spark must perform the following ingestion steps:
-1. **Search for and read key files**: Read `CLAUDE.md`, `JULES.md`, `README.md`, the contents of the `docs/` directory, and any related project documentation hosted in your Google Drive workspace.
-2. **Review Persistent Memory**: Check `.agent-memory/INDEX.md`, recent `progress/` entries, and any relevant `decisions/` or `spec_deviations/` entries for the domain you are working in.
-3. **Parallel Subagent Processing**: For large or multi-file documentation sets (like the 15 specification documents in `docs/`), explicitly delegate reading tasks to parallel subagents to process the information concurrently and efficiently.
+At the start of every task, you must orient yourself by doing the following:
 
----
-
-## 2. Technical Stack & Execution Constraints
-
-The Syndicate project operates under strict technical constraints and conventions.
-
-### Tech Stack Details
-- **Java 17**: The project uses a pinned Java 17 toolchain.
-- **libGDX 1.14.2**: The core framework. Note the strict distinction between client, listen server, and headless dedicated server runtime modes (see `docs/03_runtime_modes.md`).
-- **Bullet Physics (`gdx-bullet`)**: The simulation relies on the libGDX Bullet wrapper. All instantiated native Bullet objects must be explicitly disposed of and tracked to prevent memory leaks (invariant G19).
-- **Gradle 8.7+**: The build system uses the Kotlin DSL (`build.gradle.kts`).
-- **Asset & Destruction Pipeline**: Uses Blender 4.2 LTS (Python) and glTF 2.0 (`.glb`).
-
-### Execution Constraints & Testing Rules
-Before generating any patches, Gemini Spark must validate code logic locally in the Linux workspace:
-- **Formatting**: Always format code using `./gradlew spotlessApply`.
-- **Compile and Test**: Ensure the project compiles and all tests pass by running `./gradlew check`. This encompasses layering, headless safety, architectural rules, and unit/integration tests.
-- **Physics and Harness Testing**: When simulation logic is modified, run `./gradlew :game-core:test -Ptags=physics`. For the destruction pipeline, run `./gradlew :test-environment:verifyFixtures`.
-- **Invariants**: Strictly adhere to the mesh destruction math invariants and global invariants (G1–G20) found in `docs/00_master_index.md`.
+1. **Read Core Manuals**: Read `CLAUDE.md` (for the primary workflow and persistent memory rules) and `JULES.md` (for the strict review standards).
+2. **Review Persistent Memory**: Read `.agent-memory/INDEX.md` and any relevant entries in `progress/`, `decisions/`, and `spec_deviations/` for the current subsystem.
+3. **Parallel Subagent Processing**: The specifications in `docs/` (D00-D14) are dense and contractual. **You must explicitly instruct parallel subagents to concurrently read and summarize the relevant blueprint documents** (e.g., `06_physics_simulation.md`, `07_damage_destruction_model.md`). Do not attempt to guess or write code without your subagents verifying the exact requirements.
 
 ---
 
-## 3. Delivery & Sync Protocol
+## 2. Technical Stack & Blueprint Constraints
 
-Because Gemini Spark operates within a Google Drive workspace detached from the live GitHub repository, changes must be synchronized via patch files.
+The Syndicate project is not a generic Java application. It is a highly constrained simulation governed by global invariants.
+
+### Stack Details
+- **Java 17** & **libGDX 1.14.2**.
+- **Bullet Physics (`gdx-bullet`)**: The simulation uses Bullet (not Box2D).
+- **Blender 4.2 LTS (Python)** & **glTF 2.0**: The runtime mesh format is specifically chosen to support morph targets for vehicle deformation.
+- **Gradle 8.7+ (Kotlin DSL)**: Dependency versions are strictly managed in `gradle/libs.versions.toml`.
+
+### Contractual Blueprint Verification
+You must anchor all code changes to the 15 specification documents in `docs/`.
+1. **Cite Stable IDs**: When writing code comments or memory entries, you must cite stable blueprint IDs (e.g., `docs/06_physics_simulation.md#D06-S4.2`).
+2. **Observe Invariants (G1-G20)**: Pay special attention to `G2` (fixed timestep), `G3` (deterministic ordering via sorted collections), and `G19` (explicit disposal of all native Bullet objects via `NativeResourceTracker`).
+3. **Execution Rules**: Before finalizing logic, you must compile and test your code locally in the Linux workspace using `./gradlew spotlessApply` (for formatting) and `./gradlew check`. If touching simulation logic, verify against the headless harness with `./gradlew :game-core:test -Ptags=physics`.
+
+---
+
+## 3. The Self-Review Protocol
+
+Because you are generating patches offline, you must perform a rigorous self-review mimicking the `JULES` agent *before* finalizing your output.
+
+**Before generating a `.patch` file, you must output a written "Self-Review Verdict":**
+- **Spec Compliance**: Did you cite the exact document IDs (e.g., `D07-R14`)? Do you meet the Acceptance Criteria?
+- **Global Invariants**: Did you verify that no native memory is leaked and iteration is deterministic?
+- **Deviations**: If you deviated from a blueprint, did you document it in `.agent-memory/spec_deviations/`?
+
+If your self-review verdict is not "Approved", you must iterate on the code before outputting the patch.
+
+---
+
+## 4. Delivery & Sync Protocol
+
+Because you operate in a detached Google Drive workspace, you are responsible for bridging the gap to the live GitHub repository.
 
 1. **Unified Patch Files**: Output all code modifications as unified `.patch` files compatible with `git apply`.
-2. **Workspace Update**: Update the codebase archive in the Google Drive workspace as necessary.
-3. **Action Trigger Notification**: Once the `.patch` file is ready, notify the user so they can manually trigger the `apply-patch.yml` GitHub Action workflow to sync the codebases.
-4. **Attribution**: Ensure that any commit descriptions, PRs, or patch metadata include `Co-authored-by: Gemini Spark <spark@gemini.google.com>` (or an equivalent identifier) so that Gemini Spark is appropriately credited as an author or co-author.
+2. **Workspace Maintenance**: Update the codebase archive in your Google Drive workspace to reflect your changes.
+3. **Attribution**: Ensure that your patch metadata and proposed commit messages include `Co-authored-by: Gemini Spark <spark@gemini.google.com>` to ensure you are credited on the resulting pull request.
+4. **Action Trigger Notification**: Once the patch file is complete and the self-review is approved, notify the user. Explicitly instruct them to trigger the `apply-patch.yml` GitHub Action workflow to sync the codebases.
 
 ---
 
-## 4. Persistent Memory & Workflow Integration
+## 5. End of Session
 
-Gemini Spark assumes the memory maintenance duties defined in `CLAUDE.md`:
-- Record new technical choices in `.agent-memory/decisions/`.
-- Record any spec deviations in `.agent-memory/spec_deviations/`.
-- Update project state in `.agent-memory/progress/` and the master `ROADMAP.md` at the conclusion of tasks.
-- Ensure any observations, assumptions, or gaps in the blueprint specifications are explicitly noted rather than silently worked around.
+At the conclusion of your task, you must:
+1. Write any necessary entries in `.agent-memory/decisions/` or `.agent-memory/spec_deviations/`.
+2. Update the system catalogue progress in `ROADMAP.md` and document what was accomplished.
+3. Generate the final session summary in `.agent-memory/session_summaries/`.
