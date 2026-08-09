@@ -138,6 +138,8 @@ MASKS:
   SENSOR_RAY = STATIC | VEHICLE | PROP
 ```
 
+These masks govern **pair collision**. Bullet's own internal ray tests — above all the one a ray-cast wheel casts to find the ground — issue their query on `btBroadphaseProxy::DefaultFilter` and offer the caller no way to change it, and Bullet's filter test is bidirectional. Every body therefore carries `DefaultFilter` in the mask it is added with, in addition to the mask above; it is bit `1<<0`, so the only pairing it newly admits is static against static, which the dispatcher rejects before it reaches a manifold. Omitting it produces a vehicle whose wheels find no ground on any surface (DEV-012).
+
 **R10.** (*) Debris–vehicle collisions are enabled but produce **no damage** (D07-S5.2 rejects `COLLISION` damage from `LAYER_DEBRIS` sources). Debris bouncing off a vehicle is a visual and physical event, never a gameplay one — otherwise a player could be killed by their own scrap.
 
 **R11.** Projectiles ignore debris deliberately: a cloud of shards must not act as spaced armour, which would make outcomes depend on cosmetic-looking clutter.

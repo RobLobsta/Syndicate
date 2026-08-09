@@ -27,17 +27,42 @@ public final class VehicleStatsComponent implements Component {
     /** Metres per second squared. Derived (D05-R16). */
     public float accelerationMps2;
 
-    /** Radians per second. */
+    /**
+     * Radians. The steering lock: how far the steered wheels turn at full input.
+     *
+     * <p>Not in D04-S4.3.2's original field list, which D05-S5.6 phase 3 nonetheless assigns
+     * ({@code v.maxSteerRad = mean(...)}). D05 owns stat aggregation (D00-S11), so the table was
+     * amended rather than the algorithm; without the field there is nothing for
+     * {@code VehicleControlSystem} to scale a steering input by (DEC-026).
+     */
+    public float maxSteerRad;
+
+    /** Radians per second. How fast steering moves toward its target, which rate-limits input. */
     public float steerRateRadPerSec;
 
-    /** Newtons, summed over driven wheels. */
+    /** Newtons, summed over driven wheels. The traction-limited force, applied at low speed. */
     public float engineForceN;
+
+    /**
+     * Watts at the road. Caps {@link #engineForceN} at speed: tractive force is
+     * {@code min(engineForceN, enginePowerW / v)}.
+     *
+     * <p>Without it a vehicle pushes its launch force at every speed, and a car calibrated to a real
+     * 0-100 time reports a top speed several times what it has (DEC-032).
+     */
+    public float enginePowerW;
 
     /** Newtons, summed over braked wheels. */
     public float brakeForceN;
 
     /** Mean armour rating across armour parts; feeds the HUD and bot threat assessment. */
     public float armorRatingAvg;
+
+    /**
+     * Newtons per (m/s)². The chassis part's downforce, carried here so slot 7 can apply it without
+     * an asset lookup of its own (D06-S4.5, DEC-031).
+     */
+    public float downforceCoefficient;
 
     /** The assembly's balance-budget total (D05-S5.7). */
     public float powerBudget;
@@ -49,10 +74,13 @@ public final class VehicleStatsComponent implements Component {
     public void reset() {
         maxSpeedMps = 0f;
         accelerationMps2 = 0f;
+        maxSteerRad = 0f;
         steerRateRadPerSec = 0f;
         engineForceN = 0f;
+        enginePowerW = 0f;
         brakeForceN = 0f;
         armorRatingAvg = 0f;
+        downforceCoefficient = 0f;
         powerBudget = 0f;
         dirty = true;
     }

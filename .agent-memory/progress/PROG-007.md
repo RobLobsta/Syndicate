@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/04_entity_component_model.md#D04-S4.4, docs/05_vehicle_part_system.md#D05-S5.2, docs/07_damage_destruction_model.md#D07-S5.8
 
-**Status:** active
+**Status:** superseded (by PROG-010)
 
 ## Summary
 `SpawnSystem` (5) and `LifetimeSystem` (16) exist, and `VehicleFactory` implements D05-S5.2: one

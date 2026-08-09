@@ -4,11 +4,13 @@
  */
 package dev.syndicate.core.asset;
 
+import dev.syndicate.core.vehicle.DegradationRule;
 import dev.syndicate.core.vehicle.SlotType;
 import dev.syndicate.core.vehicle.StatBlock;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.PartCategory;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -30,8 +32,7 @@ import java.util.TreeMap;
  * <p><b>Not the whole of D08-R5.</b> {@code displayName}, {@code tags}, the visual mesh and the
  * morph target names are absent because nothing in {@code game-core} reads them — presentation and
  * the asset pipeline do, and a field declared before anything reads it has no test that would
- * notice it being loaded wrong. {@code degradationOverrides} is absent for the same reason until
- * {@code VehicleStatsSystem} (slot 6) exists to apply the curve.
+ * notice it being loaded wrong.
  */
 public final class PartType {
 
@@ -46,6 +47,8 @@ public final class PartType {
     private final float powerCost;
     private final boolean hangsBeforeFalling;
     private final StatBlock stats;
+    private final HandlingBlock handling;
+    private final Map<StatBlock.Stat, DegradationRule> degradationOverrides;
     private final Map<String, SlotDefinition> slots;
     private final AssetId fractureManifestRef;
     private final MeshData collisionMesh;
@@ -62,6 +65,10 @@ public final class PartType {
         this.powerCost = builder.powerCost;
         this.hangsBeforeFalling = builder.hangsBeforeFalling;
         this.stats = new StatBlock().set(builder.stats);
+        this.handling = builder.handling;
+        this.degradationOverrides = builder.degradationOverrides.isEmpty()
+                ? Map.of()
+                : Collections.unmodifiableMap(new EnumMap<>(builder.degradationOverrides));
         this.slots = Collections.unmodifiableMap(new TreeMap<>(builder.slots));
         this.fractureManifestRef = builder.fractureManifestRef;
         this.collisionMesh = Objects.requireNonNull(builder.collisionMesh, "collisionMesh");
@@ -124,6 +131,30 @@ public final class PartType {
     /** The part's authored stat contributions (D05-S4.5). The returned block is shared; do not mutate. */
     public StatBlock stats() {
         return stats;
+    }
+
+    /**
+     * The physical parameters a stat block cannot carry: drag and rolling resistance on a chassis,
+     * damping and roll influence on a wheel (D08-R5, DEC-031).
+     *
+     * @return never null — a part that authors no {@code handling} block gets
+     *     {@link HandlingBlock#REFERENCE}, D06-S4.5's reference chassis
+     */
+    public HandlingBlock handling() {
+        return handling;
+    }
+
+    /**
+     * Per-stat degradation rules this part authors, overriding the D05-S5.4 table (D08-R5).
+     *
+     * <p>Usually empty: the table is the answer for almost every part, and an override exists so a
+     * particular plate can be authored to fail harder or a particular gun to keep working longer.
+     * A stat absent from the map falls back to {@code Degradation.ruleFor(category, stat)}.
+     *
+     * @return an immutable map, never null
+     */
+    public Map<StatBlock.Stat, DegradationRule> degradationOverrides() {
+        return degradationOverrides;
     }
 
     /** The slots this part offers, by ascending slot id (G3). */
@@ -194,6 +225,8 @@ public final class PartType {
         private float powerCost;
         private boolean hangsBeforeFalling;
         private final StatBlock stats = new StatBlock();
+        private HandlingBlock handling = HandlingBlock.REFERENCE;
+        private final Map<StatBlock.Stat, DegradationRule> degradationOverrides = new EnumMap<>(StatBlock.Stat.class);
         private final Map<String, SlotDefinition> slots = new TreeMap<>();
         private AssetId fractureManifestRef;
 
@@ -252,6 +285,18 @@ public final class PartType {
 
         public Builder stats(StatBlock value) {
             stats.set(value);
+            return this;
+        }
+
+        /** Replaces D06-S4.5's reference chassis figures for this part (D08-R5). */
+        public Builder handling(HandlingBlock value) {
+            this.handling = value == null ? HandlingBlock.REFERENCE : value;
+            return this;
+        }
+
+        /** Overrides the D05-S5.4 table for one stat on this part type (D08-R5). */
+        public Builder degradationOverride(StatBlock.Stat stat, DegradationRule rule) {
+            degradationOverrides.put(stat, rule);
             return this;
         }
 

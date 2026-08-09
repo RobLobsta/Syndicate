@@ -115,6 +115,11 @@ art-source/
   "stats": {
     "armorValue": { "add": 45.0 }
   },
+  "handling": {
+    "suspensionCompression": 2.4,
+    "suspensionDamping": 2.3,
+    "rollInfluence": 0.15
+  },
   "slots": [
     {
       "slotId": "deco_mount_01",
@@ -152,6 +157,7 @@ art-source/
 | `powerCost` | number | `>= 0`; warned if >15% from the reference formula (D05-S5.7) |
 | `breakImpulseN` | number | `> 0`; **unit is N·s** (D06-R22) |
 | `stats` | object | keys must be known stat names (D05-S4.5); `decorative` may declare none |
+| `handling` | object | optional; every field optional and defaulted from D06-S4.5's reference chassis. A chassis uses `dragCoefficient`, `rollingResistance` and `downforceCoefficient`; a wheel uses `suspensionCompression`, `suspensionDamping`, `rollInfluence`, `suspensionRestLengthM`, `maxSuspensionTravelCm` and `maxSuspensionForceN`. These are properties of one body or one corner rather than contributions to a vehicle-wide sum, which is why they are not stats — adding two chassis together must not add their drag coefficients. A field the loader cannot accept is reported `A210` and the whole block falls back to the reference. |
 | `slots[].slotId` | string | unique within the part; `^[a-z][a-z0-9_]{1,31}$` |
 | `slots[].localRotationDeg` | object | degrees with explicit `order` (D00-R17) |
 | `slots[].covers` | string[] | each must be a `slotId` on the **same** part |
