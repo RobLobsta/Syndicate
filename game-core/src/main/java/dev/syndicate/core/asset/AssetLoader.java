@@ -47,12 +47,12 @@ import org.slf4j.LoggerFactory;
  * finding — refuse to start in strict mode, substitute a fallback in lenient mode (G18) — is
  * D03-S4.4's decision, not this class's.
  *
- * <p><b>Collision geometry comes from outside.</b> A part's hull source lives in {@code mesh.glb}
- * and {@code game-core} has no glTF reader: the runtime importer is gdx-gltf, which builds libGDX
- * {@code Mesh} objects — GPU buffers requiring a GL context — and G17 forbids that in the module the
- * dedicated server shares (DEC-008 rejected it in the harness for the same reason). So the mesh
- * arrives through {@link CollisionMeshSource}, which is the one seam a future headless glTF reader
- * plugs into, and every other field of a part comes off disk here (DEV-010).
+ * <p><b>Collision geometry comes through a seam.</b> A part's hull source lives in {@code mesh.glb},
+ * and the importer D08-R12 names — gdx-gltf — builds libGDX {@code Mesh} objects, which are GPU
+ * buffers requiring a GL context that G17 forbids in the module the dedicated server shares. So the
+ * mesh arrives through {@link CollisionMeshSource} rather than being read inline (DEV-010). The
+ * implementation that reads it is {@link GltfCollisionMeshSource}, on {@link GltfReader}; the seam
+ * stays because it is also what lets a test stand a box in place of a model.
  */
 public final class AssetLoader {
 

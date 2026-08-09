@@ -6,6 +6,10 @@ package dev.syndicate.verify;
 
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
+import dev.syndicate.core.asset.GltfException;
+import dev.syndicate.core.asset.GltfModel;
+import dev.syndicate.core.asset.GltfOptions;
+import dev.syndicate.core.asset.GltfReader;
 import dev.syndicate.verify.asset.FractureManifest;
 import dev.syndicate.verify.asset.GlbReader;
 import dev.syndicate.verify.asset.MeshData;
@@ -13,11 +17,16 @@ import dev.syndicate.verify.check.Check;
 import dev.syndicate.verify.check.CheckRunner;
 import dev.syndicate.verify.check.ReportWriter;
 import dev.syndicate.verify.check.Tolerances;
+import dev.syndicate.verify.model.ModelImport;
+import dev.syndicate.verify.model.ModelInspector;
+import dev.syndicate.verify.model.ModelScene;
 import dev.syndicate.verify.render.VisualScene;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -66,6 +75,110 @@ public final class VerifyMain {
             return HARNESS_ERROR;
         }
 
+        return options.isModelMode() ? runModel(options) : runAsset(options);
+    }
+
+    /**
+     * The source-art mode: check one glTF file, and optionally render it.
+     *
+     * <p>Deliberately not part of the asset path. That one starts from a manifest and a shard set,
+     * which a model dropped into {@code art-source/} has neither of — and the questions worth asking
+     * about a raw model (is it in metres, which way is up, do its textures exist) are the ones that
+     * have to be answered before anything is processed at all (D08-S4.1).
+     */
+    private static int runModel(VerifyOptions options) {
+        long started = System.currentTimeMillis();
+        Path file = options.modelPath();
+        if (!Files.isRegularFile(file)) {
+            LOG.error("input not found: {}", file);
+            return INPUT_NOT_FOUND;
+        }
+
+        ModelImport correction = ModelImport.besideModel(file);
+        GltfModel model;
+        try {
+            model = GltfReader.read(file, GltfOptions.FULL);
+            correction.applyTo(model);
+        } catch (GltfException | UncheckedIOException e) {
+            LOG.error("{}", e.getMessage());
+            return MESH_LOAD_FAILED;
+        }
+
+        LOG.info(
+                "inspecting {}: {} mesh nodes, {} triangles, {} materials{}",
+                file.getFileName(),
+                model.meshNodes().size(),
+                model.triangleCount(),
+                model.materials().size(),
+                correction.isIdentity()
+                        ? ""
+                        : ", import x" + correction.scaleToMetres() + " yaw " + correction.yawDeg() + "°");
+
+        ModelInspector inspector = new ModelInspector(model, file, correction);
+        List<Check> checks = inspector.run();
+
+        if (options.visual()) {
+            try {
+                renderModel(options, model, inspector.measurements());
+            } catch (RuntimeException e) {
+                LOG.error("visual mode failed", e);
+                return HARNESS_ERROR;
+            }
+        }
+
+        int exitCode = exitCodeFor(checks);
+        Map<String, Object> target = new LinkedHashMap<>();
+        target.put("model", file.toString());
+        target.put(
+                "import",
+                correction.isIdentity()
+                        ? null
+                        : file.toAbsolutePath()
+                                .getParent()
+                                .resolve(ModelImport.FILE_NAME)
+                                .toString());
+        Map<String, Object> report = ReportWriter.build(
+                file.getFileName().toString(),
+                target,
+                options.visual() ? "visual" : "headless",
+                options.seed(),
+                checks,
+                inspector.measurements(),
+                new Tolerances(),
+                exitCode,
+                System.currentTimeMillis() - started);
+        ReportWriter.write(report, options.reportPath());
+
+        if (options.verbose()) {
+            for (Check check : checks) {
+                LOG.info(
+                        "{} {} {} — {}",
+                        check.status().json().toUpperCase(java.util.Locale.ROOT),
+                        check.id(),
+                        check.name(),
+                        check.actual());
+            }
+        }
+        LOG.info("{}", ReportWriter.oneLine(report, file.getFileName().toString()));
+        LOG.info("report written to {}", options.reportPath());
+        return exitCode;
+    }
+
+    /** Renders a model in an LWJGL3 window, capturing a front and a rear three-quarter view. */
+    private static void renderModel(VerifyOptions options, GltfModel model, Map<String, Object> measurements) {
+        Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
+        config.setTitle("syndicate-verify — " + model.source().getFileName());
+        config.setWindowedMode(1600, 900);
+        config.setBackBufferConfig(8, 8, 8, 8, 24, 0, 0);
+        config.useVsync(false);
+
+        ModelScene scene = new ModelScene(model, options.capturePath());
+        new Lwjgl3Application(scene, config);
+        measurements.put(
+                "captures", scene.captures().stream().map(Path::toString).toList());
+    }
+
+    private static int runAsset(VerifyOptions options) {
         long started = System.currentTimeMillis();
         Path assetDir = options.assetDir();
         Path manifestPath = assetDir.resolve("fracture_manifest.json");

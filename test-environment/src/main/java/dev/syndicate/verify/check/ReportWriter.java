@@ -35,10 +35,35 @@ public final class ReportWriter {
         throw new AssertionError("no instances");
     }
 
-    /** Assembles the report document. */
+    /** Assembles the report document for a processed asset directory. */
     public static Map<String, Object> build(
             String assetName,
             Path assetDir,
+            String mode,
+            long seed,
+            List<Check> checks,
+            Map<String, Object> physicsData,
+            Tolerances tolerances,
+            int exitCode,
+            long durationMs) {
+
+        Map<String, Object> target = new LinkedHashMap<>();
+        target.put("assetDir", assetDir.toString());
+        target.put("manifest", assetDir.resolve("fracture_manifest.json").toString());
+        return build(assetName, target, mode, seed, checks, physicsData, tolerances, exitCode, durationMs);
+    }
+
+    /**
+     * Assembles the report document with a caller-supplied {@code target} block.
+     *
+     * <p>The block names what was checked, and that differs by mode: a processed asset is a
+     * directory plus a manifest, a source model is one file plus the {@code import.json} beside it.
+     * Emitting a manifest path for a run that never had one would leave an archived report claiming
+     * a file that was never read.
+     */
+    public static Map<String, Object> build(
+            String assetName,
+            Map<String, Object> target,
             String mode,
             long seed,
             List<Check> checks,
@@ -54,10 +79,6 @@ public final class ReportWriter {
         report.put("mode", mode);
         report.put("harnessVersion", "0.1.0");
         report.put("seed", seed);
-
-        Map<String, Object> target = new LinkedHashMap<>();
-        target.put("assetDir", assetDir.toString());
-        target.put("manifest", assetDir.resolve("fracture_manifest.json").toString());
         report.put("target", target);
 
         List<Map<String, Object>> checkJson = new ArrayList<>();

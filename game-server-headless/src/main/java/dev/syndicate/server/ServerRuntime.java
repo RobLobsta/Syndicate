@@ -8,8 +8,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessFiles;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import dev.syndicate.core.asset.AssetLoader;
+import dev.syndicate.core.asset.GltfCollisionMeshSource;
 import dev.syndicate.core.asset.InMemoryAssetIndex;
-import dev.syndicate.core.asset.MeshData;
 import dev.syndicate.core.asset.ValidationIssue;
 import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.World;
@@ -21,7 +21,6 @@ import dev.syndicate.core.system.CoreSystemProvider;
 import dev.syndicate.core.system.SystemSetFactory;
 import dev.syndicate.core.util.NativeResourceTracker;
 import dev.syndicate.core.vehicle.SpawnQueue;
-import dev.syndicate.model.AssetId;
 import dev.syndicate.model.ExitCode;
 import dev.syndicate.model.config.LaunchConfig;
 import java.nio.file.Files;
@@ -42,10 +41,10 @@ import org.slf4j.LoggerFactory;
  * a real assertion rather than a hope.
  *
  * <p><b>Assets.</b> The loader reads everything textual and asks a {@link AssetLoader
- * .CollisionMeshSource} for collision geometry (DEV-010). {@code game-core} has no headless glTF
- * reader yet, so the source here produces nothing and every part reports A503. That is why the
- * server currently comes up with an empty content index: not because loading is unwired, but
- * because the one piece it needs is a known, tracked gap.
+ * .CollisionMeshSource} for collision geometry (DEV-010). That source is now
+ * {@link GltfCollisionMeshSource}, which reads the part's {@code mesh.glb} with {@code game-core}'s
+ * own headless glTF reader — so a part directory holding a model loads completely, and one that does
+ * not still reports A503 for that part alone rather than failing the server.
  */
 final class ServerRuntime implements AutoCloseable {
 
@@ -152,10 +151,9 @@ final class ServerRuntime implements AutoCloseable {
                     ExitCode.ASSETS_NOT_FOUND, "asset root " + assetRoot + " is missing or not a directory", null);
         }
 
-        // DEV-010: game-core has no headless glTF reader, so no part's collision geometry can be
-        // produced yet. Returning null is what makes that visible as A503 per part rather than as a
-        // vehicle that spawns with no shape.
-        AssetLoader loader = new AssetLoader((AssetId partTypeId, String ref, Path dir) -> (MeshData) null);
+        // A part with no mesh on disk still reports A503 and is skipped (G18) — but a part that has
+        // one is now read here rather than stubbed out, which is what DEV-010's seam existed for.
+        AssetLoader loader = new AssetLoader(new GltfCollisionMeshSource());
         InMemoryAssetIndex index = loader.loadFrom(assetRoot);
 
         List<ValidationIssue> blocking = loader.blockingIssues();

@@ -36,12 +36,12 @@ For the two shipped vehicles:
 
 | Put this model here | For |
 |---|---|
-| `assets/parts/chassis_apex_gt_01/mesh.glb` | Apex GT body, no wheels |
-| `assets/parts/wheel_apex_front_01/mesh.glb` | Apex GT front wheel, one wheel |
-| `assets/parts/wheel_apex_rear_01/mesh.glb` | Apex GT rear wheel, one wheel |
-| `assets/parts/chassis_stampede_gt3_01/mesh.glb` | Stampede GT3 body, no wheels |
-| `assets/parts/wheel_stampede_front_01/mesh.glb` | Stampede GT3 front wheel |
-| `assets/parts/wheel_stampede_rear_01/mesh.glb` | Stampede GT3 rear wheel |
+| `assets/parts/chassis_eclipse_01/mesh.glb` | Eclipse body, no wheels |
+| `assets/parts/wheel_eclipse_front_01/mesh.glb` | Eclipse front wheel, one wheel |
+| `assets/parts/wheel_eclipse_rear_01/mesh.glb` | Eclipse rear wheel, one wheel |
+| `assets/parts/chassis_stampede_01/mesh.glb` | Stampede body, no wheels |
+| `assets/parts/wheel_stampede_front_01/mesh.glb` | Stampede front wheel |
+| `assets/parts/wheel_stampede_rear_01/mesh.glb` | Stampede rear wheel |
 
 The directories already exist with their `part.json` in place, so a model dropped in is picked up
 with no further wiring.
@@ -53,7 +53,7 @@ with no further wiring.
 ```json
 "assets": {
   "visualMesh": "mesh.glb",
-  "collisionSource": "mesh.glb#node=chassis_apex_gt_01_col"
+  "collisionSource": "mesh.glb#node=chassis_eclipse_01_col"
 }
 ```
 
@@ -88,14 +88,18 @@ somewhere else, move the slot positions rather than the model.
 
 ## Current limitation
 
-**Meshes do not load yet.** `game-core` has no headless glTF reader (`DEV-010` in
-`.agent-memory/spec_deviations/`), so a part reports `A503` at load and is skipped. Everything else
-in the chain works — the JSON is read, validated, and the vehicles drive correctly in tests against
-stand-in box hulls. The reader is the first item in Phase 6 of `ROADMAP.md`, and it is the single
-thing between a `.glb` in one of these directories and a car on screen.
+**Meshes load; there are none to load.** `game-core` reads glTF now — `GltfReader` and
+`GltfCollisionMeshSource`, which closed the gap `DEV-010` recorded — so a `.glb` dropped into one of
+the directories above becomes that part's collision hull with no further wiring, and the headless
+server reads it at startup. Until one is, each part reports `A503` and is skipped, and the vehicles
+drive in tests against stand-in box hulls.
 
-So: put your models in now. They will be read the moment the reader lands, and nothing else has to
-change.
+What is missing is the **split**. The two supplied car models are in
+`art-source/vehicles/eclipse/` and `art-source/vehicles/stampede/`, and each is one mesh for the
+whole vehicle — body and wheels together. A vehicle here is five parts, because parts come off
+individually. Cutting one model into a chassis and four wheels, adding a `_col` hull node and the
+four damage morph targets, is a Blender job; `art-source/README.md` records what each model measures
+so the slot positions can come straight off it.
 
 ---
 

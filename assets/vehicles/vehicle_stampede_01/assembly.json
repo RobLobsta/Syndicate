@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0.0",
+  "vehicleTypeId": "vehicle_stampede_01",
+  "displayName": "Stampede",
+  "vehicleClass": "heavy",
+  "unlockLevel": 0,
+  "chassis": "chassis_stampede_01",
+  "parts": [
+    {
+      "slotPath": "root/wheel_fl",
+      "parentSlotPath": "root",
+      "parentSlotId": "wheel_fl",
+      "partTypeId": "wheel_stampede_front_01",
+      "overrides": {
+        "isSteering": true,
+        "isDriven": false
+      }
+    },
+    {
+      "slotPath": "root/wheel_fr",
+      "parentSlotPath": "root",
+      "parentSlotId": "wheel_fr",
+      "partTypeId": "wheel_stampede_front_01",
+      "overrides": {
+        "isSteering": true,
+        "isDriven": false
+      }
+    },
+    {
+      "slotPath": "root/wheel_rl",
+      "parentSlotPath": "root",
+      "parentSlotId": "wheel_rl",
+      "partTypeId": "wheel_stampede_rear_01",
+      "overrides": {
+        "isSteering": false,
+        "isDriven": true
+      }
+    },
+    {
+      "slotPath": "root/wheel_rr",
+      "parentSlotPath": "root",
+      "parentSlotId": "wheel_rr",
+      "partTypeId": "wheel_stampede_rear_01",
+      "overrides": {
+        "isSteering": false,
+        "isDriven": true
+      }
+    }
+  ],
+  "cosmetics": {
+    "paintSchemeId": "scheme_default_01"
+  },
+  "expected": {
+    "totalMassKg": 1969.0,
+    "powerBudget": 84.0,
+    "comLocal": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    }
+  }
+}

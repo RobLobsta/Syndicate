@@ -13,8 +13,8 @@ What the real cars do, as published by their makers.
 
 | Vehicle | Reference | Class | Kerb mass | Power | Torque | 0–100 km/h | Top speed | 100–0 | Cd | Wheelbase |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **Apex GT** | Maserati MC20 (2021-) | medium | 1500 kg | 463 kW (621 hp) | 730 N·m | 2.88 s | 325 km/h | 33.0 m | 0.38 | 2.70 m |
-| **Stampede GT3** | Ford Mustang GT3 (2024) | medium | 1289 kg | 410 kW (550 hp) | 570 N·m | 3.30 s | 267 km/h | 24.0 m | 0.73 | 2.72 m |
+| **Eclipse** | Maserati MC20 (2021-) | medium | 1500 kg | 463 kW (621 hp) | 730 N·m | 2.88 s | 325 km/h | 33.0 m | 0.38 | 2.70 m |
+| **Stampede** | Ford Mustang GTD (2025) | heavy | 1969 kg | 608 kW (815 hp) | 900 N·m | 3.40 s | 325 km/h | 30.0 m | 0.54 | 2.72 m |
 
 ## Simulation parameters
 
@@ -22,8 +22,8 @@ What the game actually runs, derived from the figures above. `Engine force` repr
 
 | Vehicle | Chassis / wheel mass | Engine force | Power at road | Brake force | k_drag | k_roll | Downforce | Derived top speed |
 |---|---|---|---|---|---|---|---|---|
-| **Apex GT** | 1350 / 37.5 kg | 14808 N | 417 kW | 17537 N | 0.465 | 0.015 | 0.20 N/(m/s)² | 341 km/h |
-| **Stampede GT3** | 1137 / 38.0 kg | 11256 N | 377 kW | 20721 N | 0.889 | 0.014 | 1.22 N/(m/s)² | 267 km/h |
+| **Eclipse** | 1350 / 37.5 kg | 14808 N | 417 kW | 17537 N | 0.465 | 0.015 | 0.20 N/(m/s)² | 341 km/h |
+| **Stampede** | 1833 / 34.0 kg | 16540 N | 547 kW | 25322 N | 0.711 | 0.014 | 1.30 N/(m/s)² | 325 km/h |
 
 ## Handling
 
@@ -31,8 +31,8 @@ The numbers a tuning pass changes. Steering and grip are authored on the wheel p
 
 | Vehicle | Steering lock | Steer rate | Tyre grip | Spring rate | Damping (comp/rel) | Roll influence | Wheel radius f/r | Track f/r |
 |---|---|---|---|---|---|---|---|---|
-| **Apex GT** | 0.60 rad (34°) | 1.35 rad/s | 2.00 | 30 | 2.40 / 2.30 | 0.15 | 0.340 / 0.346 m | 1.68 / 1.64 m |
-| **Stampede GT3** | 0.48 rad (28°) | 1.80 rad/s | 2.90 | 55 | 3.25 / 3.11 | 0.08 | 0.340 / 0.350 m | 1.70 / 1.68 m |
+| **Eclipse** | 0.60 rad (34°) | 1.35 rad/s | 2.00 | 30 | 2.40 / 2.30 | 0.15 | 0.340 / 0.346 m | 1.68 / 1.64 m |
+| **Stampede** | 0.55 rad (32°) | 1.50 rad/s | 2.50 | 45 | 2.94 / 2.82 | 0.10 | 0.352 / 0.357 m | 1.71 / 1.71 m |
 
 ## Content
 
@@ -40,12 +40,12 @@ Where each vehicle's files live. Drop a `mesh.glb` into a part's directory and i
 
 | Vehicle | Assembly | Chassis part | Wheel parts |
 |---|---|---|---|
-| **Apex GT** | `assets/vehicles/vehicle_apex_gt_01/` | `assets/parts/chassis_apex_gt_01/` | `assets/parts/wheel_apex_front_01/`, `assets/parts/wheel_apex_rear_01/` |
-| **Stampede GT3** | `assets/vehicles/vehicle_stampede_gt3_01/` | `assets/parts/chassis_stampede_gt3_01/` | `assets/parts/wheel_stampede_front_01/`, `assets/parts/wheel_stampede_rear_01/` |
+| **Eclipse** | `assets/vehicles/vehicle_eclipse_01/` | `assets/parts/chassis_eclipse_01/` | `assets/parts/wheel_eclipse_front_01/`, `assets/parts/wheel_eclipse_rear_01/` |
+| **Stampede** | `assets/vehicles/vehicle_stampede_01/` | `assets/parts/chassis_stampede_01/` | `assets/parts/wheel_stampede_front_01/`, `assets/parts/wheel_stampede_rear_01/` |
 
 ## Sources
 
-- **Apex GT** — Maserati MC20 (2021-). Maserati/Stellantis press material; Wikipedia 'Maserati MC20'
-- **Stampede GT3** — Ford Mustang GT3 (2024). Ford Performance and Multimatic material; Wikipedia 'Ford Mustang GT3'
+- **Eclipse** — Maserati MC20 (2021-). Maserati/Stellantis press material; Wikipedia 'Maserati MC20'
+- **Stampede** — Ford Mustang GTD (2025). Ford Performance press material; Ford.com Mustang GTD specifications
 
 Figures not published by the manufacturer are estimated from the vehicle's class and labelled as estimates in the profile's Javadoc — for a race car that is most of the aerodynamics.

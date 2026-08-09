@@ -1,0 +1,120 @@
+{
+  "schemaVersion": "1.0.0",
+  "partTypeId": "chassis_eclipse_01",
+  "displayName": "Eclipse Chassis",
+  "category": "CHASSIS",
+  "massKg": 1350.0,
+  "maxHp": 2600.0,
+  "armorValue": 18.0,
+  "materialId": "aluminium",
+  "slotTypeRequired": "ROOT",
+  "powerCost": 42.0,
+  "breakImpulseN": 22000.0,
+  "hangsBeforeFalling": false,
+  "stats": {
+    "engineForceN": {
+      "add": 14808.1
+    },
+    "enginePowerW": {
+      "add": 416700.0
+    },
+    "brakeForceN": {
+      "add": 17536.5
+    }
+  },
+  "handling": {
+    "dragCoefficient": 0.4655,
+    "rollingResistance": 0.015,
+    "downforceCoefficient": 0.2
+  },
+  "slots": [
+    {
+      "slotId": "wheel_fl",
+      "slotType": "WHEEL",
+      "localPosition": {
+        "x": -0.84,
+        "y": 0.0,
+        "z": 1.35
+      },
+      "localRotationDeg": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "order": "XYZ"
+      },
+      "maxMassKg": 60.0,
+      "covers": [],
+      "isDetachable": true
+    },
+    {
+      "slotId": "wheel_fr",
+      "slotType": "WHEEL",
+      "localPosition": {
+        "x": 0.84,
+        "y": 0.0,
+        "z": 1.35
+      },
+      "localRotationDeg": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "order": "XYZ"
+      },
+      "maxMassKg": 60.0,
+      "covers": [],
+      "isDetachable": true
+    },
+    {
+      "slotId": "wheel_rl",
+      "slotType": "WHEEL",
+      "localPosition": {
+        "x": -0.82,
+        "y": 0.0,
+        "z": -1.35
+      },
+      "localRotationDeg": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "order": "XYZ"
+      },
+      "maxMassKg": 60.0,
+      "covers": [],
+      "isDetachable": true
+    },
+    {
+      "slotId": "wheel_rr",
+      "slotType": "WHEEL",
+      "localPosition": {
+        "x": 0.82,
+        "y": 0.0,
+        "z": -1.35
+      },
+      "localRotationDeg": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "order": "XYZ"
+      },
+      "maxMassKg": 60.0,
+      "covers": [],
+      "isDetachable": true
+    }
+  ],
+  "assets": {
+    "visualMesh": "mesh.glb",
+    "collisionSource": "mesh.glb#node=chassis_eclipse_01_col",
+    "fractureManifest": "fracture_manifest.json",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ]
+  },
+  "tags": [
+    "starter",
+    "road",
+    "mid_engine"
+  ]
+}

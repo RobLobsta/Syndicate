@@ -35,3 +35,30 @@ xvfb-run -a -s "-screen 0 1280x720x24" \
 
 `xvfb-run` is only needed where there is no display; the harness's headless mode never creates
 a GL context at all (D14-S5.13, G17).
+
+---
+
+## Source-art captures
+
+Frames from `--model` mode, which renders a whole glTF through the same reader the checks measure
+with. Same principle as above: the image is evidence about the file, not an illustration of it.
+
+| File | Model | View |
+|---|---|---|
+| `eclipse.png` | `art-source/vehicles/eclipse/scene.gltf` | front three-quarter |
+| `eclipse_rear.png` | " | rear three-quarter |
+| `stampede.png` | `art-source/vehicles/stampede/scene.gltf` | front three-quarter |
+| `stampede_rear.png` | " | rear three-quarter |
+
+Both views, always. Which end of a car is the front is the one thing the geometric checks cannot
+decide — `MODEL-006` can tell that the long axis is Z and not which way along it the nose points —
+and it is how the Eclipse's 180° yaw correction was found. Each car is rendered with its
+`import.json` applied, so what these show is the model in the game's frame: metres, +Y up, +Z
+forward, wheels on the grid.
+
+```
+./gradlew :test-environment:installDist
+xvfb-run -a -s "-screen 0 1600x900x24" \
+  test-environment/build/install/syndicate-verify/bin/syndicate-verify \
+  --model art-source/vehicles/eclipse/scene.gltf --capture build/captures/eclipse.png
+```

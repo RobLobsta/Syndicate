@@ -1,0 +1,120 @@
+{
+  "schemaVersion": "1.0.0",
+  "partTypeId": "chassis_stampede_01",
+  "displayName": "Stampede Chassis",
+  "category": "CHASSIS",
+  "massKg": 1833.0,
+  "maxHp": 3400.0,
+  "armorValue": 26.0,
+  "materialId": "steel_hardened",
+  "slotTypeRequired": "ROOT",
+  "powerCost": 48.0,
+  "breakImpulseN": 30000.0,
+  "hangsBeforeFalling": false,
+  "stats": {
+    "engineForceN": {
+      "add": 16539.9
+    },
+    "enginePowerW": {
+      "add": 547200.0
+    },
+    "brakeForceN": {
+      "add": 25321.5
+    }
+  },
+  "handling": {
+    "dragCoefficient": 0.711113,
+    "rollingResistance": 0.014,
+    "downforceCoefficient": 1.3
+  },
+  "slots": [
+    {
+      "slotId": "wheel_fl",
+      "slotType": "WHEEL",
+      "localPosition": {
+        "x": -0.855,
+        "y": 0.0,
+        "z": 1.36
+      },
+      "localRotationDeg": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "order": "XYZ"
+      },
+      "maxMassKg": 60.0,
+      "covers": [],
+      "isDetachable": true
+    },
+    {
+      "slotId": "wheel_fr",
+      "slotType": "WHEEL",
+      "localPosition": {
+        "x": 0.855,
+        "y": 0.0,
+        "z": 1.36
+      },
+      "localRotationDeg": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "order": "XYZ"
+      },
+      "maxMassKg": 60.0,
+      "covers": [],
+      "isDetachable": true
+    },
+    {
+      "slotId": "wheel_rl",
+      "slotType": "WHEEL",
+      "localPosition": {
+        "x": -0.855,
+        "y": 0.0,
+        "z": -1.36
+      },
+      "localRotationDeg": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "order": "XYZ"
+      },
+      "maxMassKg": 60.0,
+      "covers": [],
+      "isDetachable": true
+    },
+    {
+      "slotId": "wheel_rr",
+      "slotType": "WHEEL",
+      "localPosition": {
+        "x": 0.855,
+        "y": 0.0,
+        "z": -1.36
+      },
+      "localRotationDeg": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "order": "XYZ"
+      },
+      "maxMassKg": 60.0,
+      "covers": [],
+      "isDetachable": true
+    }
+  ],
+  "assets": {
+    "visualMesh": "mesh.glb",
+    "collisionSource": "mesh.glb#node=chassis_stampede_01_col",
+    "fractureManifest": "fracture_manifest.json",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ]
+  },
+  "tags": [
+    "road",
+    "supercar",
+    "front_engine"
+  ]
+}

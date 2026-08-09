@@ -139,7 +139,7 @@ class VehicleProfileCalibrationTest {
     /** The power limit is what stops the vehicle accelerating forever (DEC-032). */
     @Test
     void thePowerLimitBitesAboveTheCrossover() {
-        VehicleProfile profile = VehicleProfiles.APEX_GT;
+        VehicleProfile profile = VehicleProfiles.ECLIPSE;
         int vehicle = scene.spawn(profile, SPAWN_POSITION);
         scene.step(150);
 
@@ -156,51 +156,61 @@ class VehicleProfileCalibrationTest {
     /**
      * The two vehicles are a choice rather than an upgrade.
      *
-     * <p>The road car wins the drag race; the race car brakes harder and holds more grip. If a
-     * future tuning pass makes one strictly better than the other, this is what says so.
+     * <p>The trade is mass against everything else. The Eclipse is 470 kg lighter and wins the
+     * standing start; the Stampede has a third more power, six times the downforce, more grip and
+     * more brake, and pays for all of it by weighing what it weighs. If a future tuning pass makes
+     * one strictly better than the other, this is what says so.
+     *
+     * <p>This used to assert the opposite mass ordering, because the Stampede was derived from a
+     * 1289 kg Mustang GT3 rather than a 1969 kg Mustang GTD. The pairing changed; the property the
+     * test exists to protect — that neither car dominates — did not.
      */
     @Test
-    void theRoadCarOutAcceleratesAndTheRaceCarOutBrakes() {
-        VehicleProfile road = VehicleProfiles.APEX_GT;
-        VehicleProfile race = VehicleProfiles.STAMPEDE_GT3;
+    void theLightCarOutAcceleratesAndTheHeavyCarHasThePowerAndTheGrip() {
+        VehicleProfile light = VehicleProfiles.ECLIPSE;
+        VehicleProfile heavy = VehicleProfiles.STAMPEDE;
 
-        assertThat(road.accelerationMps2()).isGreaterThan(race.accelerationMps2());
-        assertThat(race.brakeForceN() / race.kerbMassKg()).isGreaterThan(road.brakeForceN() / road.kerbMassKg());
-        assertThat(race.frictionSlip()).isGreaterThan(road.frictionSlip());
-        assertThat(race.downforceCoefficientNPerMps2()).isGreaterThan(road.downforceCoefficientNPerMps2());
-        assertThat(race.kerbMassKg()).isLessThan(road.kerbMassKg());
+        assertThat(light.accelerationMps2()).isGreaterThan(heavy.accelerationMps2());
+        assertThat(light.kerbMassKg()).isLessThan(heavy.kerbMassKg());
+
+        assertThat(heavy.enginePowerW()).isGreaterThan(light.enginePowerW());
+        assertThat(heavy.frictionSlip()).isGreaterThan(light.frictionSlip());
+        assertThat(heavy.downforceCoefficientNPerMps2()).isGreaterThan(light.downforceCoefficientNPerMps2());
+        // Per kilogram, because that is what a published braking distance measures: 1.31 g against
+        // 1.19 g. What the simulation does with it is the next test.
+        assertThat(heavy.brakeForceN() / heavy.kerbMassKg()).isGreaterThan(light.brakeForceN() / light.kerbMassKg());
     }
 
     /**
-     * Braking from 100 km/h lands near the published distance, and the race car stops shorter.
+     * Braking from 100 km/h lands near each car's published distance.
      *
-     * <p>The absolute figure runs long — about 11% for the road car and 25% for the race car — and
-     * that gap is the model's, not the calibration's: a ray-cast wheel's brake is clipped to its own
-     * friction circle, and no amount of brake force recovers grip the tyre does not have. Splitting
-     * the brake by live wheel load (DEC-034) closed most of it; closing the rest needs a tyre model
-     * rather than a bigger number. The ordering assertion is the one the design actually rests on.
+     * <p>The absolute figure runs long, and that gap is the model's rather than the calibration's: a
+     * ray-cast wheel's brake is clipped to its own friction circle, and no amount of brake force
+     * recovers grip the tyre does not have. Splitting the brake by live wheel load (DEC-034) closed
+     * most of it; closing the rest needs a tyre model rather than a bigger number.
+     *
+     * <p><b>No ordering assertion.</b> There was one — the race car stopped shorter — and it held
+     * while the Stampede was a 1289 kg GT3 on slicks. Against a 1969 kg GTD it does not: 31% more
+     * mass beats 25% more grip, and the Stampede stops about a metre longer than the Eclipse here
+     * even though its published distance is 3 m shorter. That is a real limitation of a ray-cast
+     * vehicle with no load-sensitive tyre model, recorded in DISC-014 — not something to hide by
+     * inflating a friction number until the old assertion passes again.
      */
     @Test
-    void eachVehicleStopsNearItsPublishedDistanceAndTheRaceCarStopsShorter() {
-        float roadDistance = brakingDistanceOf(VehicleProfiles.APEX_GT);
-        float raceDistance = brakingDistanceOf(VehicleProfiles.STAMPEDE_GT3);
+    void eachVehicleStopsNearItsPublishedDistance() {
+        float lightDistance = brakingDistanceOf(VehicleProfiles.ECLIPSE);
+        float heavyDistance = brakingDistanceOf(VehicleProfiles.STAMPEDE);
 
-        assertThat(roadDistance)
-                .as("Apex GT 100-0 against a published %.1f m", VehicleProfiles.APEX_GT.brakingHundredToZeroM())
+        assertThat(lightDistance)
+                .as("Eclipse 100-0 against a published %.1f m", VehicleProfiles.ECLIPSE.brakingHundredToZeroM())
                 .isCloseTo(
-                        VehicleProfiles.APEX_GT.brakingHundredToZeroM(),
-                        within(VehicleProfiles.APEX_GT.brakingHundredToZeroM() * BRAKING_TOLERANCE));
-        assertThat(raceDistance)
-                .as(
-                        "Stampede GT3 100-0 against a published %.1f m",
-                        VehicleProfiles.STAMPEDE_GT3.brakingHundredToZeroM())
+                        VehicleProfiles.ECLIPSE.brakingHundredToZeroM(),
+                        within(VehicleProfiles.ECLIPSE.brakingHundredToZeroM() * BRAKING_TOLERANCE));
+        assertThat(heavyDistance)
+                .as("Stampede 100-0 against a published %.1f m", VehicleProfiles.STAMPEDE.brakingHundredToZeroM())
                 .isCloseTo(
-                        VehicleProfiles.STAMPEDE_GT3.brakingHundredToZeroM(),
-                        within(VehicleProfiles.STAMPEDE_GT3.brakingHundredToZeroM() * BRAKING_TOLERANCE));
-
-        assertThat(raceDistance)
-                .as("the race car stops shorter than the road car")
-                .isLessThan(roadDistance * 0.92f);
+                        VehicleProfiles.STAMPEDE.brakingHundredToZeroM(),
+                        within(VehicleProfiles.STAMPEDE.brakingHundredToZeroM() * BRAKING_TOLERANCE));
     }
 
     private float brakingDistanceOf(VehicleProfile profile) {
