@@ -22,6 +22,7 @@ import dev.syndicate.core.component.HealthComponent;
 import dev.syndicate.core.component.OwnerComponent;
 import dev.syndicate.core.component.PartRefComponent;
 import dev.syndicate.core.component.PartStatsComponent;
+import dev.syndicate.core.component.PlayerInputComponent;
 import dev.syndicate.core.component.RigidBodyComponent;
 import dev.syndicate.core.component.SlotAttachmentComponent;
 import dev.syndicate.core.component.SlotGraphComponent;
@@ -69,52 +70,60 @@ import org.slf4j.LoggerFactory;
  * stored mass and COM already equal to what it computes, and does nothing, which is exactly the
  * "no structural change since last tick" path it is written around (DEC-021).
  *
- * <p><b>What a spawned vehicle does not have yet.</b> Its {@code VehicleStatsComponent} is
- * {@code dirty} and stays that way until {@code VehicleStatsSystem} (slot 6) exists to aggregate it,
- * so {@code maxSpeedMps} and the rest read zero. Nothing consumes them yet — {@code
- * VehicleControlSystem} (7) is unwritten too — so a spawned vehicle is a correct physical object
- * that no input can drive.
+ * <p><b>Stats are left dirty on purpose.</b> A spawned vehicle's {@code VehicleStatsComponent} is
+ * empty and {@code dirty}; {@code VehicleStatsSystem} (slot 6) fills it in the same tick, before
+ * {@code VehicleControlSystem} (7) reads it. Aggregating here as well would be a second
+ * implementation of D05-S5.6 to keep in step with the first.
  */
 public final class VehicleFactory {
 
     private static final Logger LOG = LoggerFactory.getLogger(VehicleFactory.class);
 
     /**
-     * Metres of suspension travel above the wheel's contact point (D06-S5.5).
+     * The ray-cast vehicle's per-wheel defaults are D06-S4.5's reference chassis table (DEC-029).
      *
-     * <p>Not authored: D05-S4.5's stat table carries suspension <em>stiffness</em> and friction but
-     * no rest length, and no other document names one. A third of a metre is the value Bullet's own
-     * vehicle demo uses and is a plausible arcade car — long enough that a vehicle visibly settles
-     * on its springs, short enough that it does not float (DEC-022).
+     * <p>They were previously Bullet's forklift-demo values, chosen when D06-S4.5 was read as
+     * authoring none of them; it authors all of them. Content still overrides the two D05-S4.5 makes
+     * stats — {@code SUSPENSION_STIFFNESS} and {@code FRICTION_SLIP} — through
+     * {@link StatBlock#resolve}, which is what "these are the reference defaults" means.
      */
-    public static final float WHEEL_SUSPENSION_REST_LENGTH_M = 0.3f;
+    public static final float WHEEL_SUSPENSION_REST_LENGTH_M = 0.30f;
 
-    /** Centimetres. Caps how far a wheel may travel before the suspension bottoms out. */
-    public static final float WHEEL_MAX_SUSPENSION_TRAVEL_CM = 30f;
+    /** Centimetres. Caps how far a wheel may travel before the suspension bottoms out (D06-S4.5). */
+    public static final float WHEEL_MAX_SUSPENSION_TRAVEL_CM = 25f;
 
     /** Newtons. Caps the spring force one wheel may push with, which is what stops a launch. */
-    public static final float WHEEL_MAX_SUSPENSION_FORCE_N = 12_000f;
+    public static final float WHEEL_MAX_SUSPENSION_FORCE_N = 15_000f;
 
     /** Default spring constant, overridable per wheel by {@code SUSPENSION_STIFFNESS} (D05-S4.5). */
-    public static final float WHEEL_SUSPENSION_STIFFNESS = 20f;
+    public static final float WHEEL_SUSPENSION_STIFFNESS = 30f;
 
-    /** Damping as the suspension extends. Below the compression figure, so a landing settles. */
+    /** Damping while the suspension relaxes (D06-S4.5 {@code suspensionDamping}). */
     public static final float WHEEL_DAMPING_RELAXATION = 2.3f;
 
-    /** Damping as the suspension compresses. */
-    public static final float WHEEL_DAMPING_COMPRESSION = 4.4f;
+    /** Damping while the suspension compresses (D06-S4.5 {@code suspensionCompression}). */
+    public static final float WHEEL_DAMPING_COMPRESSION = 2.4f;
 
     /** Default tyre grip, overridable per wheel by {@code FRICTION_SLIP} (D05-S4.5). */
-    public static final float WHEEL_FRICTION_SLIP = 10.5f;
+    public static final float WHEEL_FRICTION_SLIP = 2.0f;
 
     /**
-     * How much lateral force induces body roll, {@code [0,1]}.
+     * How much lateral force induces body roll, {@code [0,1]} (D06-S4.5).
      *
      * <p>Low on purpose. A ray-cast vehicle with a high roll influence tips over on a hard corner,
      * and a vehicle that has just lost half its armour has a centre of mass nowhere near where the
      * author put it — the two together produce a car that rolls for no visible reason.
      */
-    public static final float WHEEL_ROLL_INFLUENCE = 0.1f;
+    public static final float WHEEL_ROLL_INFLUENCE = 0.15f;
+
+    /**
+     * Metres. The wheel radius used when a wheel's collision mesh cannot supply one (D06-S4.5).
+     *
+     * <p>{@link #wheelRadiusOf} derives the radius from the art, which is what D06-S4.5's "From the
+     * wheel part" asks for; this is the figure that table gives, and it is what a degenerate mesh
+     * falls back to rather than a zero radius that parks the vehicle inside the ground.
+     */
+    public static final float WHEEL_RADIUS_FALLBACK_M = 0.42f;
 
     /** Wheel travel direction in chassis-local space: straight down (D00-R16, Y-up). */
     private static final Vector3 WHEEL_DIRECTION_LOCAL = new Vector3(0f, -1f, 0f);
@@ -216,6 +225,12 @@ public final class VehicleFactory {
         world.addComponent(vehicleEntity, graph);
         world.addComponent(vehicleEntity, chassis);
         world.addComponent(vehicleEntity, new VehicleStatsComponent());
+        // D04-R4 puts PlayerInput in the VEHICLE archetype; D05-S5.2's pseudocode omits it, and
+        // without it a spawned vehicle is outside VehicleControlSystem's family and cannot be
+        // driven by anything — human or bot, which write the same component (DEC-026). It is added
+        // whether or not the vehicle has an owner yet, because a driverless vehicle with zero input
+        // is a parked vehicle, and an owner arriving later must not have to add components.
+        world.addComponent(vehicleEntity, new PlayerInputComponent());
         TeamComponent team = new TeamComponent();
         team.teamId = teamId;
         world.addComponent(vehicleEntity, team);
@@ -391,7 +406,8 @@ public final class VehicleFactory {
         Vector3 min = new Vector3();
         Vector3 max = new Vector3();
         collisionMesh.bounds(min, max);
-        return Math.max(max.y - min.y, max.z - min.z) * 0.5f;
+        float radiusM = Math.max(max.y - min.y, max.z - min.z) * 0.5f;
+        return radiusM > 0f ? radiusM : WHEEL_RADIUS_FALLBACK_M;
     }
 
     // ---- The chassis body (D05-S5.2 step 2) ------------------------------------------

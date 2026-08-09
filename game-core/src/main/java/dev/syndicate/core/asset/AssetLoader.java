@@ -9,6 +9,8 @@ import com.badlogic.gdx.math.Vector3;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.syndicate.core.util.Transform;
+import dev.syndicate.core.vehicle.DegradationProfile;
+import dev.syndicate.core.vehicle.DegradationRule;
 import dev.syndicate.core.vehicle.SlotType;
 import dev.syndicate.core.vehicle.StatBlock;
 import dev.syndicate.model.AssetId;
@@ -224,6 +226,7 @@ public final class AssetLoader {
         }
 
         readStats(root.path("stats"), partTypeId, category, builder);
+        readDegradationOverrides(root.path("degradationOverrides"), partTypeId, builder);
         readSlots(root.path("slots"), partTypeId, builder);
 
         String manifestFile = root.path("assets").path("fractureManifest").asText(null);
@@ -288,6 +291,52 @@ public final class AssetLoader {
             // multiplier at 1, or the part would zero out every other part's contribution (D05-R15).
             builder.stat(stat, (float) value.path("add").asDouble(0d), (float)
                     value.path("mul").asDouble(1d));
+        }
+    }
+
+    /**
+     * Reads the {@code degradationOverrides} block: a per-stat {@code {profile, floor}} that
+     * replaces the D05-S5.4 table for this part type (D08-R5).
+     *
+     * <p>An unknown stat name is A206, the same code the {@code stats} block reports, because it is
+     * the same mistake. A bad profile or an out-of-range floor is reported and the entry dropped, so
+     * the part falls back to the table rather than to a curve nobody authored.
+     */
+    private void readDegradationOverrides(JsonNode node, AssetId partTypeId, PartType.Builder builder) {
+        if (!node.isObject()) {
+            return;
+        }
+        Iterator<String> names = node.fieldNames();
+        while (names.hasNext()) {
+            String name = names.next();
+            StatBlock.Stat stat = statByName(name);
+            if (stat == null) {
+                issues.add(ValidationIssue.error(
+                        "A206",
+                        partTypeId.value(),
+                        "degradationOverrides names unknown stat \"" + name + "\" (D05-S4.5)"));
+                continue;
+            }
+            JsonNode entry = node.path(name);
+            DegradationProfile profile =
+                    enumValue(DegradationProfile.class, entry.path("profile").asText(null));
+            if (profile == null) {
+                issues.add(ValidationIssue.error(
+                        "A206",
+                        partTypeId.value(),
+                        "degradationOverrides." + name + ".profile \""
+                                + entry.path("profile").asText() + "\" is not a DegradationProfile (D05-S5.4)"));
+                continue;
+            }
+            float floor = (float) entry.path("floor").asDouble(1d);
+            if (!(floor >= 0f) || floor > 1f) {
+                issues.add(ValidationIssue.error(
+                        "A206",
+                        partTypeId.value(),
+                        "degradationOverrides." + name + ".floor " + floor + " must be in [0,1]"));
+                continue;
+            }
+            builder.degradationOverride(stat, new DegradationRule(profile, floor));
         }
     }
 

@@ -7,7 +7,9 @@ package dev.syndicate.core.physics;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
+import com.badlogic.gdx.physics.bullet.collision.btBoxShape;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
+import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
 import dev.syndicate.core.asset.AssemblyDef;
 import dev.syndicate.core.asset.FractureManifest;
 import dev.syndicate.core.asset.InMemoryAssetIndex;
@@ -32,13 +34,18 @@ import dev.syndicate.core.system.LifetimeSystem;
 import dev.syndicate.core.system.MassPropertySystem;
 import dev.syndicate.core.system.PhysicsSystem;
 import dev.syndicate.core.system.SpawnSystem;
+import dev.syndicate.core.system.VehicleControlSystem;
+import dev.syndicate.core.system.VehicleStatsSystem;
+import dev.syndicate.core.util.NativeResourceTracker;
 import dev.syndicate.core.util.Transform;
 import dev.syndicate.core.vehicle.SlotChain;
 import dev.syndicate.core.vehicle.SlotNode;
 import dev.syndicate.core.vehicle.SlotType;
 import dev.syndicate.core.vehicle.SpawnQueue;
+import dev.syndicate.core.vehicle.StatBlock;
 import dev.syndicate.core.vehicle.VehicleFactory;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.CollisionLayer;
 import dev.syndicate.model.DamageState;
 import dev.syndicate.model.PartCategory;
 import dev.syndicate.model.SimulationConstants;
@@ -84,7 +91,8 @@ public final class DestructionTestScene implements AutoCloseable {
             Vector3 localPosition,
             AssetId partTypeId,
             AssetId manifestRef,
-            boolean hangsBeforeFalling) {
+            boolean hangsBeforeFalling,
+            StatBlock stats) {
 
         public static PartSpec of(String slotPath, PartCategory category, float massKg, Vector3 localPosition) {
             return new PartSpec(
@@ -95,7 +103,22 @@ public final class DestructionTestScene implements AutoCloseable {
                     localPosition,
                     AssetId.of("part_" + slotPath.replace('/', '_')),
                     null,
-                    false);
+                    false,
+                    new StatBlock());
+        }
+
+        /** The same part with a different collision box — a wheel's radius comes from it (DEC-022). */
+        public PartSpec sized(Vector3 newHalfExtents) {
+            return new PartSpec(
+                    slotPath,
+                    category,
+                    massKg,
+                    newHalfExtents,
+                    localPosition,
+                    partTypeId,
+                    manifestRef,
+                    hangsBeforeFalling,
+                    stats);
         }
 
         /** The same part, but one that breaks into shards described by {@code manifestRef}. */
@@ -108,12 +131,46 @@ public final class DestructionTestScene implements AutoCloseable {
                     localPosition,
                     partTypeId,
                     manifestRef,
-                    hangsBeforeFalling);
+                    hangsBeforeFalling,
+                    stats);
         }
 
         /** The same part, but one that hangs by a thread before it falls (D07-S5.7 T1). */
         public PartSpec hanging() {
-            return new PartSpec(slotPath, category, massKg, halfExtents, localPosition, partTypeId, manifestRef, true);
+            return new PartSpec(
+                    slotPath, category, massKg, halfExtents, localPosition, partTypeId, manifestRef, true, stats);
+        }
+
+        /** The same part, contributing {@code add} of one stat — an engine force, a fire interval. */
+        public PartSpec contributing(StatBlock.Stat stat, float add) {
+            StatBlock combined = new StatBlock().set(stats);
+            combined.setAdd(stat, add);
+            return new PartSpec(
+                    slotPath,
+                    category,
+                    massKg,
+                    halfExtents,
+                    localPosition,
+                    partTypeId,
+                    manifestRef,
+                    hangsBeforeFalling,
+                    combined);
+        }
+
+        /** The same part, multiplying one stat — a utility's buff (D05-S5.6 phase 2). */
+        public PartSpec multiplying(StatBlock.Stat stat, float mul) {
+            StatBlock combined = new StatBlock().set(stats);
+            combined.setMul(stat, mul);
+            return new PartSpec(
+                    slotPath,
+                    category,
+                    massKg,
+                    halfExtents,
+                    localPosition,
+                    partTypeId,
+                    manifestRef,
+                    hangsBeforeFalling,
+                    combined);
         }
 
         /** The slot's id on the parent: the last segment of the path. */
@@ -135,6 +192,8 @@ public final class DestructionTestScene implements AutoCloseable {
 
     private final PhysicsSystem physicsSystem;
     private final SpawnSystem spawnSystem;
+    private final VehicleStatsSystem vehicleStatsSystem;
+    private final VehicleControlSystem vehicleControlSystem;
     private final FractureSystem fractureSystem;
     private final DetachSystem detachSystem;
     private final MassPropertySystem massPropertySystem;
@@ -142,6 +201,12 @@ public final class DestructionTestScene implements AutoCloseable {
     private final EntityDestroySystem entityDestroySystem;
 
     private final Family embodied;
+
+    /** Static geometry this scene owns directly, because it belongs to no entity (G19). */
+    private final List<btBoxShape> groundShapes = new ArrayList<>();
+
+    private final List<btRigidBody> groundBodies = new ArrayList<>();
+    private final List<btDefaultMotionState> groundMotionStates = new ArrayList<>();
 
     private long tick;
 
@@ -152,6 +217,8 @@ public final class DestructionTestScene implements AutoCloseable {
         debrisFactory = new DebrisFactory(physics);
         physicsSystem = new PhysicsSystem(physics);
         spawnSystem = new SpawnSystem(spawnQueue, assets, physics, shapes);
+        vehicleStatsSystem = new VehicleStatsSystem(assets);
+        vehicleControlSystem = new VehicleControlSystem();
         fractureSystem = new FractureSystem(assets, shapes, debrisFactory);
         detachSystem = new DetachSystem(assets, shapes, debrisFactory, physics);
         massPropertySystem = new MassPropertySystem(shapes);
@@ -159,6 +226,8 @@ public final class DestructionTestScene implements AutoCloseable {
         entityDestroySystem = new EntityDestroySystem(physics, shapes);
         world.registerSystems(List.<EntitySystem>of(
                 spawnSystem,
+                vehicleStatsSystem,
+                vehicleControlSystem,
                 physicsSystem,
                 fractureSystem,
                 detachSystem,
@@ -194,6 +263,41 @@ public final class DestructionTestScene implements AutoCloseable {
 
     public SpawnSystem spawnSystem() {
         return spawnSystem;
+    }
+
+    public VehicleStatsSystem vehicleStatsSystem() {
+        return vehicleStatsSystem;
+    }
+
+    public VehicleControlSystem vehicleControlSystem() {
+        return vehicleControlSystem;
+    }
+
+    /**
+     * A static ground box whose top face is at {@code y = 0}, so ray-cast wheels have something to
+     * find.
+     *
+     * <p>A box rather than {@code btStaticPlaneShape}, for the reason {@code PhysicsTestScene} gives:
+     * a plane has no thickness, so anything that outruns a step passes through it.
+     */
+    public void addGround() {
+        btBoxShape shape = new btBoxShape(new Vector3(200f, 1f, 200f));
+        shape.setMargin(PhysicsWorld.COLLISION_MARGIN_M);
+        groundShapes.add(shape);
+        NativeResourceTracker.register("btBoxShape");
+
+        btDefaultMotionState motionState = new btDefaultMotionState(new Matrix4().setToTranslation(0f, -1f, 0f));
+        NativeResourceTracker.register("btDefaultMotionState");
+        btRigidBody.btRigidBodyConstructionInfo info =
+                new btRigidBody.btRigidBodyConstructionInfo(0f, motionState, shape, Vector3.Zero);
+        btRigidBody body = new btRigidBody(info);
+        NativeResourceTracker.register("btRigidBody");
+        info.dispose();
+        body.setFriction(0.9f);
+        body.setRestitution(0f);
+        physics.addBody(body, CollisionLayer.STATIC);
+        groundBodies.add(body);
+        groundMotionStates.add(motionState);
     }
 
     public FractureSystem fractureSystem() {
@@ -301,6 +405,7 @@ public final class DestructionTestScene implements AutoCloseable {
                             .maxHp(100f)
                             .breakImpulseN(TEST_BREAK_IMPULSE_NS)
                             .hangsBeforeFalling(spec.hangsBeforeFalling())
+                            .stats(spec.stats())
                             .fractureManifestRef(spec.manifestRef()));
         }
 
@@ -402,6 +507,19 @@ public final class DestructionTestScene implements AutoCloseable {
             entityDestroySystem.update(world, SimulationConstants.TICK_DT, tick);
         }
         world.dispose();
+        for (btRigidBody body : groundBodies) {
+            physics.removeBody(body);
+            body.dispose();
+            NativeResourceTracker.release("btRigidBody");
+        }
+        for (btDefaultMotionState motionState : groundMotionStates) {
+            motionState.dispose();
+            NativeResourceTracker.release("btDefaultMotionState");
+        }
+        for (btBoxShape shape : groundShapes) {
+            shape.dispose();
+            NativeResourceTracker.release("btBoxShape");
+        }
         shapes.dispose();
         physics.dispose();
     }

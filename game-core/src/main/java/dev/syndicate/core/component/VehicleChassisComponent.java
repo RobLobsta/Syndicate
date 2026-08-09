@@ -48,6 +48,21 @@ public final class VehicleChassisComponent implements Component {
     /** How many entries of {@link #wheelEntities} are live. */
     public int wheelCount;
 
+    /**
+     * Radians. The steering angle currently applied to the steered wheels.
+     *
+     * <p>D06-S5.5's control loop rate-limits steering toward its target, which needs the angle it
+     * reached last tick. That state cannot live in {@code VehicleControlSystem}: D04-R3 keeps
+     * systems stateless with respect to gameplay, and a field on the system would be invisible to
+     * replication and to a client rewinding across a reconciliation — the vehicle would come out of
+     * the rewind steering wherever the un-rewound field happened to be pointing (DEC-026).
+     *
+     * <p>It is here rather than on {@code VehicleStatsComponent} because stat aggregation rebuilds
+     * that component from the parts every time it runs (D05-R27), and control state is not derived
+     * from parts.
+     */
+    public float currentSteerRad;
+
     /** OWNER: {@code PhysicsWorld} (D06-S5.5). Never disposed from here. */
     public btRaycastVehicle vehicleController;
 
@@ -65,6 +80,7 @@ public final class VehicleChassisComponent implements Component {
         comLocal.set(0f, 0f, 0f);
         Arrays.fill(wheelEntities, EntityId.NULL);
         wheelCount = 0;
+        currentSteerRad = 0f;
         vehicleController = null;
     }
 }

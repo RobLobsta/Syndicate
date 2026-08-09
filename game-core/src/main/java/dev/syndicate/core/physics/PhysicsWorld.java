@@ -197,8 +197,25 @@ public final class PhysicsWorld implements AutoCloseable {
      *     that falls at twice gravity — a symptom nobody traces back to the add.
      */
     public void addBody(btRigidBody body, CollisionLayer layer) {
-        addBody(body, layer.bit(), layer.mask());
+        addBody(body, layer.bit(), layer.mask() | BULLET_DEFAULT_FILTER);
     }
+
+    /**
+     * {@code btBroadphaseProxy::DefaultFilter}, added to every body's mask (DEV-012).
+     *
+     * <p>Bullet's own ray tests — above all the one a ray-cast wheel casts to find the ground —
+     * issue their query on this filter group and provide no way to change it
+     * ({@code btDefaultVehicleRaycaster} constructs its callback internally). A body whose mask
+     * excludes the bit is invisible to them, and D06-S4.4's {@code STATIC} mask excludes it: a
+     * vehicle on arena geometry then finds no ground under any wheel, gets no suspension force, and
+     * settles onto its own chassis hull with the engine turning nothing. It looks like a tuning
+     * problem and is a filtering one (DISC-011).
+     *
+     * <p>No pair outcome changes. The bit is {@code STATIC}'s, so the only pairing it newly admits is
+     * static against static, which Bullet's dispatcher rejects before it reaches a manifold — two
+     * bodies with no mass have nothing to solve.
+     */
+    private static final int BULLET_DEFAULT_FILTER = 1;
 
     /** Adds a body with an explicit filter group and mask, for the rare body that is not on a stock layer. */
     public void addBody(btRigidBody body, int filterGroup, int filterMask) {

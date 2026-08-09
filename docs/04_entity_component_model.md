@@ -123,6 +123,7 @@ Legend for **Auth**: `A` = authoritative (replicated, gameplay-relevant, G6); `C
 | | `totalMassKg` | `float` | kg | A | Recomputed on any attach/detach (G10). |
 | | `comLocal` | `Vector3` | m | A | Centre of mass in chassis local space. |
 | | `wheelEntities` | `EntityId[]` | — | A | Ordered, index = Bullet wheel index. |
+| | `currentSteerRad` | `float` | rad | A | The steering angle applied to the steered wheels. Rate-limited toward its target by `VehicleControlSystem` (D06-S5.5), which needs last tick's value; systems hold no cross-tick state (D04-R3). |
 | | `vehicleController` | `btRaycastVehicle` handle | — | L | D06-S5.5. |
 | `SlotGraphComponent` | `nodes` | `SlotNode[]` | — | A | Tree rooted at chassis; see D05-S4.3. |
 | | `parentOf` | `map<EntityId,EntityId>` | — | A | Derived index, rebuilt on structural change. |
@@ -141,6 +142,7 @@ Legend for **Auth**: `A` = authoritative (replicated, gameplay-relevant, G6); `C
 | | `breakImpulseN` | `float` | N·s | A | Joint break threshold (D07-S5.7). |
 | `VehicleStatsComponent` | `maxSpeedMps` | `float` | m/s | A | Aggregated (D05-S5.6). |
 | | `accelerationMps2` | `float` | m/s² | A | |
+| | `maxSteerRad` | `float` | rad | A | Steering lock, the mean over live steering wheels. Assigned by D05-S5.6 phase 3; without it there is nothing for `VehicleControlSystem` to scale a steering input by. |
 | | `steerRateRadPerSec` | `float` | rad/s | A | |
 | | `engineForceN` | `float` | N | A | |
 | | `brakeForceN` | `float` | N | A | |

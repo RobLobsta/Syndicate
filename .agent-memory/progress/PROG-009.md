@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/08_asset_pipeline.md#D08-S4.6, docs/03_runtime_modes.md#D03-S5.1, docs/02_technical_architecture.md#D02-S4.5
 
-**Status:** active
+**Status:** superseded (by PROG-011)
 
 ## Summary
 `assets/` holds one material table and nothing else; `schemas/` is empty; `asset-pipeline` exits 70;
