@@ -20,10 +20,9 @@ Continuation of SESS-012's Phase 4 work rather than a new phase.
 them into simulation parameters. `VehicleProfiles` holds the two shipped ones. The name is separate
 from the reference car, deliberately (DEC-033).
 
-**The `handling` block (DEC-031).** D06-S4.5's reference chassis table names nine parameters that
-D05-S4.5's stat list cannot carry, because they are properties of a body rather than contributions to
-a sum — drag does not add up across two chassis. They are now authored on the part, and
-`HandlingBlock.REFERENCE` is the single home for that table in code.
+**The `handling` block (DEC-031).** D06-S4.5's reference chassis names nine parameters D05-S4.5's
+stat list cannot carry, because they are properties of a body rather than contributions to a sum —
+drag does not add up across two chassis. They are now authored on the part.
 
 **Engine power (DEC-032).** Calibrating the first vehicle exposed a modelling hole: with one constant
 force at every speed, a chassis calibrated to a real 0-100 reports a 637 km/h top speed. Adding
@@ -33,18 +32,21 @@ force at every speed, a chassis calibrated to a real 0-100 reports a 637 km/h to
 **Two brake bugs.** Bullet reads `setBrake` as an impulse and `applyEngineForce` as a force, so the
 blueprint's own control loop brakes sixty times too hard (DISC-012). And splitting brake force
 equally across wheels throws away the rears' share as they unload, which had the race car barely
-out-braking the road car; splitting by live suspension load fixes it (DEC-034). The same
-investigation turned up that a wheel can report contact while carrying no load at all, which is why a
-test fixture had been driving and braking on two wheels while every contact check said four.
+out-braking the road car; splitting by live suspension load fixes it (DEC-034).
 
 **The roster.** `VEHICLES.md` is generated from the profiles by a test that rewrites it and fails
-until the new copy is committed. `assets/README.md` documents the content layout and exactly where a
-`.glb` goes.
+until the new copy is committed. `assets/README.md` says where a `.glb` goes.
 
-Amendments in the same commit: `enginePowerW` added to D05-S4.5 and the power limit to D05-S5.6 phase
-4; the `handling` block added to D08-R5; two more fields on D04-S4.3.2's `VehicleStatsComponent`.
+Amendments: `enginePowerW` in D05-S4.5 and the power limit in D05-S5.6 phase 4; the `handling` block
+in D08-R5; two fields on D04-S4.3.2's `VehicleStatsComponent`.
 
-285 tests green across the JVM modules; `check`, `validateDocs` and `lintMemory` all pass.
+CI then failed two `ServerMainTest` cases that pass locally: the job exports
+`SYNDICATE_STRICT_ASSETS=1`, and `ServerMain` resolved its configuration from `System.getenv()`, so
+the two tests asserting the non-strict asset path were asserting the runner's environment instead
+(DISC-013). `run` now takes an explicit environment and every test passes an empty one.
+
+285 tests green across the JVM modules; `check`, `validateDocs` and `lintMemory` all pass, and all
+three CI stages pass locally with the CI environment set.
 
 ## Rationale / Context
 Session record (D13-R14).

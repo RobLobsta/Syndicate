@@ -10,6 +10,7 @@ import dev.syndicate.model.config.ConfigException;
 import dev.syndicate.model.config.LaunchConfig;
 import dev.syndicate.model.config.LaunchConfigResolver;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,9 +59,25 @@ public final class ServerMain {
      *     and still terminate.
      */
     public static ExitCode run(String[] args, long tickLimit) {
+        return run(args, tickLimit, System.getenv());
+    }
+
+    /**
+     * Runs the server against an explicit environment.
+     *
+     * <p>D03-R5 puts the environment between the config file and the CLI flags in the precedence
+     * chain, so a caller that does not choose its environment does not fully choose its
+     * configuration. The process passes {@link System#getenv()}; a test passes what it means to test,
+     * which is the difference between a test that asserts the non-strict asset path and a test that
+     * asserts it <em>unless the machine happens to export {@code SYNDICATE_STRICT_ASSETS}</em>
+     * (DISC-013).
+     *
+     * @param environment the environment variables to resolve from, never null
+     */
+    public static ExitCode run(String[] args, long tickLimit, Map<String, String> environment) {
         LaunchConfig config;
         try {
-            config = new LaunchConfigResolver(true, System.getenv()).resolve(args);
+            config = new LaunchConfigResolver(true, environment).resolve(args);
         } catch (ConfigException e) {
             LOG.error("{}", e.getMessage());
             return e.exitCode();

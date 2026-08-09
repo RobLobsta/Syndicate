@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import dev.syndicate.model.ExitCode;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -22,15 +23,24 @@ import org.junit.jupiter.api.io.TempDir;
  * loop, teardown — for a bounded number of ticks. That is the whole point: until this session the
  * simulation only ran inside a test scene that assembled its own schedule, and a bootstrap nobody
  * executes is a bootstrap that has never worked.
+ *
+ * <p>Every call passes an <b>empty environment</b>. D03-R5 lets environment variables override the
+ * config file, so a test resolving from {@link System#getenv()} asserts whatever the machine running
+ * it happens to export — which is how CI, where {@code SYNDICATE_STRICT_ASSETS=1} is set, failed the
+ * two tests below that exercise the non-strict path (DISC-013). What a test means to configure, it
+ * configures.
  */
 @Tag("integration")
 class ServerMainTest {
+
+    /** No ambient configuration: what each test asks for is what each test gets. */
+    private static final Map<String, String> NO_ENVIRONMENT = Map.of();
 
     /** AC-D03-7: a clean bounded run reports OK. */
     @Test
     @Timeout(60)
     void aBoundedRunStartsTicksAndShutsDownCleanly(@TempDir Path assetRoot) {
-        ExitCode exit = ServerMain.run(args(assetRoot), 5L);
+        ExitCode exit = ServerMain.run(args(assetRoot), 5L, NO_ENVIRONMENT);
 
         assertThat(exit).isEqualTo(ExitCode.OK);
     }
@@ -39,7 +49,8 @@ class ServerMainTest {
     @Test
     @Timeout(60)
     void anUnknownFlagIsUsage() {
-        assertThat(ServerMain.run(new String[] {"--not-a-flag"}, 1L)).isEqualTo(ExitCode.USAGE);
+        assertThat(ServerMain.run(new String[] {"--not-a-flag"}, 1L, NO_ENVIRONMENT))
+                .isEqualTo(ExitCode.USAGE);
     }
 
     /** D03-S4.4: a missing asset root is 66 (ASSETS_NOT_FOUND), not a stack trace. */
@@ -48,7 +59,7 @@ class ServerMainTest {
     void aMissingAssetRootIsAssetsNotFound(@TempDir Path parent) {
         Path missing = parent.resolve("no-such-directory");
 
-        assertThat(ServerMain.run(args(missing), 1L)).isEqualTo(ExitCode.ASSETS_NOT_FOUND);
+        assertThat(ServerMain.run(args(missing), 1L, NO_ENVIRONMENT)).isEqualTo(ExitCode.ASSETS_NOT_FOUND);
     }
 
     /** G18: a malformed material table degrades the load rather than refusing to start. */
@@ -57,7 +68,7 @@ class ServerMainTest {
     void aBadAssetDegradesRatherThanRefusingToStart(@TempDir Path assetRoot) throws Exception {
         writeBrokenMaterials(assetRoot);
 
-        assertThat(ServerMain.run(args(assetRoot), 5L)).isEqualTo(ExitCode.OK);
+        assertThat(ServerMain.run(args(assetRoot), 5L, NO_ENVIRONMENT)).isEqualTo(ExitCode.OK);
     }
 
     /** D03-S5.1: the same content under {@code --strict-assets} is 67 (ASSETS_INVALID). */
@@ -67,7 +78,7 @@ class ServerMainTest {
         writeBrokenMaterials(assetRoot);
 
         String[] args = {"--mode", "DEDICATED_SERVER", "--assets", assetRoot.toString(), "--strict-assets"};
-        assertThat(ServerMain.run(args, 5L)).isEqualTo(ExitCode.ASSETS_INVALID);
+        assertThat(ServerMain.run(args, 5L, NO_ENVIRONMENT)).isEqualTo(ExitCode.ASSETS_INVALID);
     }
 
     private static String[] args(Path assetRoot) {
