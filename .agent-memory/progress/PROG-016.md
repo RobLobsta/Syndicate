@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/08_asset_pipeline.md#D08-S4.1, docs/08_asset_pipeline.md#D08-S5.2, docs/03_runtime_modes.md#D03-S5.1
 
-**Status:** active
+**Status:** superseded (by PROG-017)
 
 ## Summary
 The blocker PROG-013 and PROG-015 both named is gone. `syndicate_dissect` cuts each whole-vehicle

@@ -14,6 +14,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.VertexAttribute;
 import com.badlogic.gdx.graphics.VertexAttributes.Usage;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 import dev.syndicate.core.asset.GltfImage;
@@ -65,12 +66,13 @@ public final class ModelRenderer implements Disposable {
             attribute vec3 a_normal;
             attribute vec2 a_texCoord0;
             uniform mat4 u_projView;
+            uniform mat4 u_model;
             varying vec3 v_normal;
             varying vec2 v_uv;
             void main() {
-                v_normal = a_normal;
+                v_normal = (u_model * vec4(a_normal, 0.0)).xyz;
                 v_uv = a_texCoord0;
-                gl_Position = u_projView * vec4(a_position, 1.0);
+                gl_Position = u_projView * u_model * vec4(a_position, 1.0);
             }
             """;
 
@@ -101,16 +103,56 @@ public final class ModelRenderer implements Disposable {
             }
             """;
 
-    /** One drawable: a mesh, the material it draws with, and the texture that material names. */
-    private record Piece(Mesh mesh, GltfMaterial material, Texture texture, Vector3 centroid) {}
+    /**
+     * One drawable: a mesh, the material it draws with, the texture that material names, and which
+     * uploaded model it belongs to.
+     */
+    private record Piece(Mesh mesh, GltfMaterial material, Texture texture, Vector3 centroid, int model) {}
+
+    /**
+     * One placement of an uploaded model.
+     *
+     * <p>Models and instances are separate because a car has two front wheels and one front-wheel
+     * mesh. Uploading that mesh twice would double the vertex buffers and the texture for no gain;
+     * what differs between the two wheels is a matrix, so a matrix is what an instance is.
+     */
+    private static final class Instance {
+        private final int model;
+        private final Matrix4 transform = new Matrix4();
+        private boolean visible = true;
+
+        private Instance(int model) {
+            this.model = model;
+        }
+    }
 
     private final ShaderProgram shader;
     private final PerspectiveCamera camera;
     private final Vector3 lightDirection = new Vector3(-0.5f, -0.8f, -0.32f).nor();
     private final List<Piece> opaque = new ArrayList<>();
     private final List<Piece> blended = new ArrayList<>();
+    private final List<Instance> instances = new ArrayList<>();
+    private int modelCount;
     private final List<Mesh> ownedMeshes = new ArrayList<>();
-    private final Map<Integer, Texture> textures = new HashMap<>();
+    /**
+     * Loaded textures, keyed by model <em>and</em> image index.
+     *
+     * <p>Not by image index alone. Every glTF numbers its own images from zero, so with more than
+     * one model loaded a wheel's image 0 and a chassis's image 0 are different pictures under the
+     * same key — and the second model silently wears the first one's paint.
+     */
+    private final Map<TextureKey, Texture> textures = new HashMap<>();
+
+    /** Which image of which uploaded model a texture came from. */
+    private record TextureKey(int model, int image) {}
+
+    private final Matrix4 identity = new Matrix4();
+    private final Vector3 scratchCentroid = new Vector3();
+
+    /** One blended piece of one instance, rebuilt each frame so the sort spans instances. */
+    private record Blended(Instance instance, Piece piece) {}
+
+    private final List<Blended> drawOrder = new ArrayList<>();
     private Mesh grid;
 
     public ModelRenderer(int width, int height) {
@@ -124,19 +166,51 @@ public final class ModelRenderer implements Disposable {
         camera.far = 400f;
     }
 
-    /** Uploads every primitive in the model, loading the textures its materials name. */
-    public void load(GltfModel model) {
+    /**
+     * Uploads a model and gives it one placement at the origin.
+     *
+     * @return the instance handle to pass to {@link #setTransform}, which is where a single-model
+     *     capture wants it
+     */
+    public int load(GltfModel model) {
+        return instantiate(upload(model));
+    }
+
+    /**
+     * Uploads every primitive in the model, loading the textures its materials name. Draws nothing
+     * until {@link #instantiate} places it.
+     *
+     * @return the model handle
+     */
+    public int upload(GltfModel model) {
+        return upload(model, name -> true);
+    }
+
+    /**
+     * Uploads the mesh nodes whose names {@code include} accepts.
+     *
+     * <p>The filter exists for one case and it is not cosmetic: a part's {@code mesh.glb} carries
+     * both the visual mesh and the {@code <partTypeId>_col} convex hull the physics reads (D08-R3).
+     * The hull has no material, so drawing it paints an untextured white shell around the car and
+     * hides everything inside it — a capture that looks like a lighting bug and is a node-selection
+     * one.
+     */
+    public int upload(GltfModel model, java.util.function.Predicate<String> include) {
+        int modelId = modelCount++;
         Path directory = model.source().toAbsolutePath().getParent();
         int skippedTextures = 0;
         for (GltfMeshNode node : model.meshNodes()) {
+            if (!include.test(node.name())) {
+                continue;
+            }
             for (GltfPrimitive primitive : node.primitives()) {
                 GltfMaterial material = model.materialFor(primitive);
-                Texture texture = textureFor(model, material, directory);
+                Texture texture = textureFor(modelId, model, material, directory);
                 if (material.hasBaseColorTexture() && texture == null) {
                     skippedTextures++;
                 }
                 for (Mesh mesh : build(primitive)) {
-                    Piece piece = new Piece(mesh, material, texture, centroidOf(primitive));
+                    Piece piece = new Piece(mesh, material, texture, centroidOf(primitive), modelId);
                     if ("BLEND".equals(material.alphaMode()) || material.baseColorFactor()[3] < 0.999f) {
                         blended.add(piece);
                     } else {
@@ -151,15 +225,38 @@ public final class ModelRenderer implements Disposable {
                 blended.size(),
                 textures.size(),
                 skippedTextures == 0 ? "" : " (" + skippedTextures + " unreadable)");
+        return modelId;
     }
 
-    private Texture textureFor(GltfModel model, GltfMaterial material, Path directory) {
+    /** Adds a placement of an uploaded model, at the origin and visible. */
+    public int instantiate(int modelId) {
+        instances.add(new Instance(modelId));
+        return instances.size() - 1;
+    }
+
+    /** Places an instance in the world. The matrix is copied. */
+    public void setTransform(int instance, Matrix4 worldMatrix) {
+        instances.get(instance).transform.set(worldMatrix);
+    }
+
+    /** Whether an instance is drawn. A part that has despawned is hidden, not unloaded. */
+    public void setVisible(int instance, boolean isVisible) {
+        instances.get(instance).visible = isVisible;
+    }
+
+    /** How many placements exist. */
+    public int instanceCount() {
+        return instances.size();
+    }
+
+    private Texture textureFor(int modelId, GltfModel model, GltfMaterial material, Path directory) {
         if (!material.hasBaseColorTexture()) {
             return null;
         }
         int index = material.baseColorImageIndex();
-        if (textures.containsKey(index)) {
-            return textures.get(index);
+        TextureKey key = new TextureKey(modelId, index);
+        if (textures.containsKey(key)) {
+            return textures.get(key);
         }
         Texture texture = null;
         try {
@@ -175,7 +272,7 @@ public final class ModelRenderer implements Disposable {
             // answers the shape-and-orientation questions it exists to answer.
             LOG.warn("texture {} could not be loaded: {}", index, e.toString());
         }
-        textures.put(index, texture);
+        textures.put(key, texture);
         return texture;
     }
 
@@ -331,20 +428,44 @@ public final class ModelRenderer implements Disposable {
         shader.setUniformf("u_lightDir", lightDirection);
 
         if (grid != null) {
+            shader.setUniformMatrix("u_model", identity);
             drawFlat(grid, new Color(0.20f, 0.22f, 0.27f, 1f), GL20.GL_LINES);
         }
-        for (Piece piece : opaque) {
-            draw(piece);
+        for (Instance instance : instances) {
+            if (!instance.visible) {
+                continue;
+            }
+            shader.setUniformMatrix("u_model", instance.transform);
+            for (Piece piece : opaque) {
+                if (piece.model() == instance.model) {
+                    draw(piece);
+                }
+            }
         }
 
         // Transparency after everything opaque, sorted far to near, with depth writes off — the
-        // minimum that makes glass look like glass rather than like a hole in the roof.
-        blended.sort(Comparator.comparingDouble((Piece p) -> -camera.position.dst2(p.centroid())));
+        // minimum that makes glass look like glass rather than like a hole in the roof. Sorted
+        // across instances rather than within one, so a detached wheel's glass and the car's
+        // interleave correctly when the two overlap.
+        drawOrder.clear();
+        for (Instance instance : instances) {
+            if (!instance.visible) {
+                continue;
+            }
+            for (Piece piece : blended) {
+                if (piece.model() == instance.model) {
+                    drawOrder.add(new Blended(instance, piece));
+                }
+            }
+        }
+        drawOrder.sort(Comparator.comparingDouble(b ->
+                -camera.position.dst2(scratchCentroid.set(b.piece().centroid()).mul(b.instance().transform))));
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         Gdx.gl.glDepthMask(false);
-        for (Piece piece : blended) {
-            draw(piece);
+        for (Blended entry : drawOrder) {
+            shader.setUniformMatrix("u_model", entry.instance().transform);
+            draw(entry.piece());
         }
         Gdx.gl.glDepthMask(true);
         Gdx.gl.glDisable(GL20.GL_BLEND);

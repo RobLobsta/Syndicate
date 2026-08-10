@@ -1,8 +1,8 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-10 (end of SESS-016)
-**Where we are:** two vehicles can hurt each other, there is an arena to do it in, and the cars are
-now five parts each with their own collision shapes. Nothing starts a match.
+**Last updated:** 2026-08-10 (end of SESS-017)
+**Where we are:** a car drives, its wheels turn, and one of them can be shot off while it does —
+and there are pictures of it. Nothing starts a match.
 
 > This file is maintained by the coding assistant and updated **at the end of every session**
 > (CLAUDE.md §5, step 14). It is allowed to change shape as the work demands — reorder phases, split
@@ -27,15 +27,16 @@ gantt
     A vehicle you can drive                 :done, p4, 11, 2
     Reading real art                        :done, p6a, 13, 1
     Combat - hits, damage, weapons          :done, p5, 14, 1
-    A world to fight in  (we are here)      :done, p6, 15, 1
+    A world to fight in                     :done, p6, 15, 1
+    A car that drives  (we are here)        :done, p6b, 16, 1
 
     section Next
-    Opponents - bots and match flow         :active, p8, 16, 3
-    A window - client, render, HUD          :p7, 19, 3
+    Opponents - bots and match flow         :active, p8, 17, 3
+    A window - client, render, HUD          :p7, 20, 3
 
     section Then
-    Multiplayer                             :p9, 23, 4
-    Production hardening                    :p10, 27, 3
+    Multiplayer                             :p9, 24, 4
+    Production hardening                    :p10, 28, 3
 ```
 
 Read the numbers as **sessions of work, roughly**, not dates. Everything before "we are here" is
@@ -60,8 +61,10 @@ done and green; everything after is an estimate that will move.
   │  │            glTF loads headlessly; two cars measured and drawn │
   │  ●  Phase 5   Combat                                             │
   │  │            Contacts become damage; weapons fire; parts die    │
-  │  ●  Phase 6   A world to fight in             ← THIS SESSION     │
+  │  ●  Phase 6   A world to fight in                                │
   │  │            An arena, an asset gate, and cars cut into parts   │
+  │  ●  Phase 6b  A car that drives               ← THIS SESSION     │
+  │  │            Wheels on the ground, spinning, and detachable     │
   └──┼───────────────────────────────────────────────────────────────┘
      │
   ┌──┼─ NEXT ──────────────────────────────────────────────────────────┐
@@ -78,12 +81,12 @@ done and green; everything after is an estimate that will move.
 
 ### The system catalogue, which is the honest progress bar
 
-`docs/04_entity_component_model.md#D04-S4.4` fixes 27 systems in a specific order. Fourteen exist.
+`docs/04_entity_component_model.md#D04-S4.4` fixes 27 systems in a specific order. Fifteen exist.
 
 ```
  1 InputCollection   ○   10 Physics          ●   19 NetworkReceive   ○
  2 InputReceive      ○   11 CollisionEvent   ●   20 Reconciliation   ○
- 3 BotDecision       ○   12 Damage           ●   21 Transform        ○
+ 3 BotDecision       ○   12 Damage           ●   21 Transform        ●
  4 MatchFlow         ○   13 Fracture         ●   22 Interpolation    ○
  5 Spawn             ●   14 Detach           ●   23 DamageVisual     ○
  6 VehicleStats      ●   15 MassProperty     ●   24 Effect           ○
@@ -91,102 +94,92 @@ done and green; everything after is an estimate that will move.
  8 Weapon            ●   17 Score            ●   26 Render           ○
  9 Projectile        ●   18 NetworkSend      ○   27 EntityDestroy    ●
 
- ●●●●●●●●●●●●●●○○○○○○○○○○○○○  14 / 27
+ ●●●●●●●●●●●●●●●○○○○○○○○○○○○  15 / 27
 ```
 
-The thirteen that remain fall into three groups: **networking** (18–20), **the client** (1, 22–26),
+The twelve that remain fall into three groups: **networking** (18–20), **the client** (1, 22–26),
 and the three that stop the game being a sandbox — `MatchFlow` (4), which starts and ends a match,
 `BotDecision` (3), which drives a vehicle without a human, and `InputReceive` (2), which needs a
 transport first.
 
 ---
 
-## 2. What happened this session (SESS-016)
+## 2. What happened this session (SESS-017)
 
-The cars are five parts each now, and the thing that had been called a Blender job for four sessions
-turned out to be a Blender job that could be done here.
+Last session cut the cars into parts. This one put those parts together into something that behaves
+like a car, and — for the first time in the project — looked at it.
 
-### Blender was installable all along
+### The car was 61 cm in the air
 
-Every plan since Phase 1 has been written around "there is no Blender in this environment". There is:
-the exact version the project pins ships on PyPI as a Python module and runs headless with no window
-and no graphics card. That assumption had been carried forward unexamined for four sessions and was,
-in the end, the whole of the blocker.
+Each chassis declared where its wheels attach. Every one of those declarations said "at ground
+level, on the centreline", which is not where a wheel is. The result was both cars floating two feet
+above the road with their wheels dangling underneath like a toy held up by a child.
 
-### Cutting a car into parts
+Nothing had caught this in four sessions of work, and the reason is worth stating plainly: how high
+a car's body sits does not affect how fast it accelerates or how quickly it stops, which is what
+every test measured. The suite was measuring the right things about a scene nobody had ever
+rendered, and tests like that will agree with each other forever.
 
-The tool that does it does not read any of the names in the file, and that is the interesting part.
-The two supplied cars name their pieces `Object_170` and
-`polySurface766_F:Ford_MustangGTD_2025_Callipers...`, and where one of them *does* have parts named
-"wheel", the two so named are the front-left and front-**right** — the author modelled one side and
-mirrored it, and the copy kept the original's name with a `.001` on the end. Anything trusting that
-would put both front wheels on the same side of the car.
+### Two more, underneath it
 
-So it works from shape instead. A wheel is never welded to the bodywork around it, so it is a
-separate connected lump of geometry; it sits outboard of the centreline; it sits low; and — the test
-that actually does the work — seen from the side it is **round**. Sills, wishbones and exhausts are
-all low and outboard. None of them is round.
+Fixing the wheel positions exposed two further problems that the first one had been hiding.
 
-Two of the thresholds were set by things that fooled an earlier version rather than by judgement. A
-wing mirror is outboard, sits at 75 cm, and is round enough in profile to pass a loose test; it
-dragged the Eclipse's front axle 30 cm backwards and reported its tyre as 1.31 m across. Both limits
-now sit where that mirror fails them, and there is a unit test named after it.
+**The mass was in the wrong place.** The code put each part's weight at the point where it bolts on
+rather than at the middle of the part. A car body bolts on at road level, so the whole vehicle's
+centre of gravity sat six centimetres off the ground instead of about seventy — and the physics
+engine spins a vehicle around its centre of gravity, so both cars were pivoting about a point under
+the tarmac. The specification had said to do it the right way all along; the code had quietly done
+something else.
 
-### It found a bug in something that was already shipped
+**The road was too big to hit accurately.** The test track was a single box 800 m long, and the
+physics engine finds a shape like that by an approximation whose error grows with the shape's size.
+Every wheel's contact with the ground came back up to 14 cm wrong, differently every tick — the body
+sat perfectly still while the wheels strobed through their arches. It reads exactly like a suspension
+that will not settle, which is what it was mistaken for twice. Roads and arena floors are now
+mathematical planes, which are hit exactly.
 
-The Eclipse's file turns out to contain *two* copies of the car. The author modelled the right-hand
-side and mirrored the whole thing, and the mirrored copy's position is stored in its skeleton rather
-than in the ordinary place. The game's mesh reader does not look at skeletons — a decision taken
-deliberately, and recorded at the time as safe for these models, "checked, not assumed".
+With all three fixed, a parked car puts its body within a **millimetre** of the road, each wheel
+exactly its own tyre's radius up, and then does not move again.
 
-It was not safe. Ten pieces of the car, the entire rear-left corner, are up to 2.65 m from where the
-reader puts them. Read the way the game reads it, the Eclipse has three wheels and a fourth floating
-over the front axle.
+### Wheels that turn
 
-The check that had backed the "checked" *counted* how many meshes used a skeleton; it never compared
-where one of them ended up against where it should be. The two automatic screenshots are three-quarter
-views from front and rear, and in both of them the misplaced wheel is hidden behind or inside the
-body. One number in the repository did record it — the car's measured height disagreed with itself by
-9.7 cm across two documents — and nobody had put the two side by side.
+A wheel's position is not in the vehicle's parts list at all — the physics engine owns it, because
+the wheel moves with the suspension, turns with the steering and spins as the car travels. The new
+`TransformSystem` (the 15th of the 27 the design calls for) works out where everything in the world
+is each tick, and for a wheel it asks the physics engine rather than the parts list. That single
+distinction is the difference between wheels that turn and wheels that slide silently along the road.
 
-Nothing shipped is broken by it today, because the parts the game now loads have no skeletons at all.
-The wrong claim in the art's documentation has been replaced with the correct one.
+There is now a test that drives a car 40 m and checks the front wheel went round the right number of
+times for its size, and another that checks a parked car's wheels do not.
 
-### Checked by reading it back, not by looking at it
+### A wheel that comes off at 30 m/s
 
-The measurements the tool reports are from inside Blender, and would agree with themselves whatever
-the export did. So the split parts are loaded again through the game's own reader and measured there
-against figures taken off the source art two sessions earlier by different code: each wheel has to be
-a disc of the right diameter, centred exactly on its own axle. They match to a tenth of a millimetre.
+The physics library has no way to remove a wheel from a vehicle. A previous session had worked
+around that by renumbering the remaining wheels — which turns out to be backwards, because those
+numbers are how the game addresses the library's own wheel list, and that list did not renumber. The
+survivors were each steering and driving their neighbour's corner. The empty corner is now switched
+off in place and the numbering left alone.
 
-The second car is the stronger evidence. The classifier was written against the Eclipse and never
-adjusted for the Mustang — which is modelled by a different artist in a different tool at a different
-scale with 1,101 pieces instead of 171 — and it reproduces that car's recorded wheelbase and track
-exactly.
+Destroy the front-left wheel of a car doing 30 m/s and it leaves as a body of its own carrying the
+car's speed, bounces down the road, and the car drives on with three wheels on the ground.
 
-### What it unblocked, and what it did not
+### Pictures of all of it
 
-The asset gate built last session went from 18 complaints about the shipped content to 6. The
-remaining six are the fracture data, which is now simply a matter of running the other tool.
+The verification harness gained a third mode. The first two photograph a *file*; this one
+photographs a *simulation* — it assembles a shipped car, drives it, takes a wheel off, and renders
+each part exactly where the game says that part is. Eight frames are in `docs/captures/`, including
+a pair of close-ups of the same front wheel three seconds apart with the rim at a visibly different
+angle, and the tyre's own sidewall lettering readable on it.
 
-What it did **not** do is move the wheels. Each chassis still declares its wheel positions where
-somebody estimated them, and the art says they are 10 cm further apart along the car and 36 cm higher
-than that. Correcting it changes the wheelbase and the ride height, which changes how the cars
-handle, which invalidates every published figure they were calibrated against. That is a deliberate
-change with a re-measurement attached, not a typo, so it is the next session's first job rather than
-this one's last.
+### One piece of content debt cleared by deletion
+
+All six parts claimed to have fracture data. None of them did, and the file has never existed — so
+a destroyed wheel silently vanished instead of detaching. The claim is removed until the tool that
+would produce it has been run.
 
 ## 3. What is next
 
-### First, half an hour of arithmetic and an afternoon of checking
-
-Move each chassis's declared wheel positions onto the axles the art actually has, then re-run the
-handling calibration and re-derive whatever moved. The numbers are already measured and written
-down; what takes the time is confirming that a car with a 10 cm longer wheelbase and 36 cm more ride
-height still accelerates, brakes and corners like the car it was derived from — and republishing the
-figures if it does not.
-
-### Then Phase 8 — Opponents ★ *the first thing that is actually a game*
+### Phase 8 — Opponents ★ *the first thing that is actually a game*
 
 Three systems and a bootstrap. A match that starts, keeps score and ends; bots that drive and shoot;
 and something that puts vehicles on the arena's spawn points. All three are headless and testable
@@ -200,13 +193,16 @@ play a game, but the game will be there.
 
 `game-client`: a window, a camera, rendering, and the damage morph targets nothing has yet displayed.
 Placed after opponents on the argument that a renderer is much more useful pointed at a match than at
-an empty arena.
+an empty arena — an argument that is weaker than it was, now that the verification harness can render
+a driving car and the client's job is starting to look like "the same thing, interactively".
 
 ### Loose content work, any time
 
+- **Fracture manifests** for the six parts, so a destroyed wheel breaks up rather than detaching
+  whole. This is now a tool run rather than a project, and it is the last thing between the asset
+  pipeline and being a CI gate.
 - **One weapon part**, so the eight weapon families have something in `assets/` to fire.
 - **One armour plate that covers something**, so the interception and exposure rules have content.
-- **Fracture manifests** for the six parts, which is now a tool run rather than a project.
 - **The JSON schemas**, so malformed content fails on its shape rather than on whichever field a
   hand-written check happens to read first.
 
@@ -240,7 +236,7 @@ None of these are decided. They are here so the options are visible when a sessi
   were derived from, which is a defensible starting point and a much better one than invented
   numbers. What nobody has decided is whether a *combat* game wants that: real cars are fragile,
   grippy and fast, and an arena brawl might want something heavier and more forgiving. The place to
-  find out is to drive them, which needs Phase 6.
+  find out is to drive them, which now needs only a window — the cars themselves are ready.
 - **Which vehicles next?** The two shipped are both fast, and now differ mainly in mass. A roster
   wants more contrast than that — a pickup, a van, something with six wheels. Each is an afternoon
   now that the profile machinery exists: pick a real vehicle, copy its published figures, author the
@@ -295,26 +291,29 @@ None of these are decided. They are here so the options are visible when a sessi
 
 **Technical debt worth naming**
 
-- **`DISC-011`** — the collision-filter trap that made every suspension ray miss the ground. The
-  hitscan and projectile rays added this session set their filter explicitly and are fine; the trap
-  is still waiting for the next ray anyone adds without thinking about it, which will most likely be
-  a bot sensor.
+- **`DISC-011`** — the collision-filter trap that made every suspension ray miss the ground. Still
+  waiting for the next ray anyone adds without thinking about it, which will most likely be a bot
+  sensor.
+- **`DISC-017`** — the physics engine's ray test is only accurate on small shapes, and the ray-cast
+  wheel is built entirely on ray tests. Ground surfaces are planes now, which are exact; the trap
+  returns the moment an arena is built out of large boxes.
 - **No JSON schemas.** `schemas/` is empty, so the one validation rule that catches a malformed file
   by its *shape* — rather than by whichever field a hand-written check happens to read first —
   cannot fire on either the loader or the pipeline. Both work; both are checking a list rather than
   a contract.
-- **The pipeline is still not a CI gate**, but the reason has shrunk. It went from 18 complaints to
-  6 when the meshes landed, and the six are fracture manifests. Generate those and it can be wired
-  into `check` in the same commit.
+- **The pipeline is still not a CI gate**, but the reason has shrunk again. It went from 18
+  complaints to 6 when the meshes landed, and this session removed the six false claims of fracture
+  data that caused them. Generating the real manifests is what remains before it can be wired into
+  `check`.
 - **The split meshes are 32 MB**, of which 19 MB is one chassis, because each `.glb` embeds its own
   copy of the textures it uses. Two cars is tolerable; a roster is not. The fix is shared texture
   files rather than embedded ones, and it should happen before a third vehicle is authored.
 - **`DISC-016`** — the mesh reader places a skinned mesh by its node transform, which is wrong
   whenever the placement lives in the skeleton instead. Nothing shipped depends on it today, because
   the split parts have no skeletons; the next downloaded model with a live skin will.
-- **The chassis wheel slots disagree with the art** by 10 cm along the car and 36 cm vertically. This
-  is the top of §3 and is listed here too, because it is the kind of thing that gets forgotten
-  precisely because everything still passes.
+- **Nothing renders except the harness.** This session's captures come from the verification tool,
+  not from a game client, and the one thing they cannot show is what driving feels like. Until Phase
+  7 the only way to judge the handling is a number.
 - **`DEC-034`** — the shipped vehicles still stop 11% and 25% longer than the cars they came from.
   That residue is the ray-cast tyre model, not the calibration, and closing it needs a tyre model
   rather than a bigger brake number.
@@ -335,25 +334,25 @@ None of these are decided. They are here so the options are visible when a sessi
 
 Plainly: it is a game with no players in it, and that is now the only thing wrong with it.
 
-Everything a fight is made of exists — cars that drive, armour that absorbs, parts that break off,
-weapons that fire, damage that spreads, a score that counts, a floor to do it on, and as of this
-session cars that are genuinely five separate breakable things rather than one lump. What does not
-exist is anything that *starts*. No match state machine to move a world out of the lobby, no bot to
-take a wheel, no bootstrap to put a vehicle on a spawn point. The simulation contains everything and
-runs empty.
+Everything a fight is made of exists — cars that drive on wheels that turn, armour that absorbs,
+parts that break off, weapons that fire, damage that spreads, a score that counts, and a floor to do
+it on. As of this session a car is not merely five breakable objects on paper; it sits on its
+suspension, rolls its tyres through the distance it travels, and keeps going when one of them is
+destroyed. What does not exist is anything that *starts*. No match state machine to move a world out
+of the lobby, no bot to take a wheel, no bootstrap to put a vehicle on a spawn point. The simulation
+contains everything and runs empty.
 
-The change worth noting is not the split itself but what it says about the last four sessions. The
-blocker was never the work; it was a belief about the environment that nobody had tested. One `pip
-install` produced the exact tool the specification pins, and eight seconds of it produced the assets
-three progress entries had been deferring. It is worth being suspicious of the next thing this
-project decides it cannot do.
+What this session actually demonstrated is narrower than the fixes and more useful than them. Three
+sessions of handling calibration ran against a car floating 61 cm in the air, on wheels whose contact
+with the road moved 14 cm at random every tick, and every published figure came out inside tolerance.
+Nothing was wrong with the tests; they measured acceleration and braking accurately, and neither
+depends on ride height. The gap was that nobody had drawn the thing being measured.
 
-The second thing worth noting is how the reader bug was found, because it is the same shape as the
-last two. Nothing failed. Every check agreed. The tell was one document's number disagreeing with
-another's — a car measured at 1.2365 m in one place and 1.3338 m in another — and it sat there for
-two sessions because nobody put the two side by side. The project has now had three placement bugs
-that were invisible to tests and visible to arithmetic, and the pattern is consistent enough to plan
-around: when a measurement is recorded in two places, something should compare them.
+That is the third distinct bug this project has had which was invisible to its tests, and the
+previous two were found by comparing two recorded numbers rather than by a failure. The pattern is
+now consistent enough to plan around, and it has two halves: when a quantity is written down twice,
+something should compare the copies — and when a system's output can be looked at, something should
+look at it. The `--vehicle` capture mode exists to make the second half cheap.
 
 There is still a category of thing that exists in code and not in content, and it has not moved. The
 coverage system — armour that intercepts hits aimed at what is behind it, and the bonus for hitting
