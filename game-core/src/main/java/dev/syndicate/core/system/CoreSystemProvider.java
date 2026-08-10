@@ -70,6 +70,8 @@ public final class CoreSystemProvider implements SystemProvider {
     @Override
     public EntitySystem create(SystemSlot slot, RuntimeMode mode) {
         return switch (slot) {
+            case BOT_DECISION -> new BotDecisionSystem(assets, assets.botDifficulties(), physics);
+            case MATCH_FLOW -> new MatchFlowSystem(assets, spawnQueue);
             case SPAWN -> new SpawnSystem(spawnQueue, assets, physics, shapes);
             case VEHICLE_STATS -> new VehicleStatsSystem(assets);
             case VEHICLE_CONTROL -> new VehicleControlSystem();

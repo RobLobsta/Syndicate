@@ -175,7 +175,11 @@ art-source/
 
 <!-- D08-S4.3 -->### 4.3 Material Definition Schema
 
-**R7.** `assets/materials/materials.json` — a single table, the authority for density and resistance. The Blender tool reads the same file (D09-S6.3), so density is defined once.
+**R7.** `assets/materials/materials.json` — a single table, the authority for density, resistance and acoustic family. The Blender tool reads the same file (D09-S6.3), so density is defined once.
+
+**R7a.** A material row answers exactly the questions about what a part is **made of**: `densityKgPerM3`, `resistance`, `fractureBrittleness`, and `audioMaterial` (`D15-S8`). How a part **fails** is not a material property — a chassis rail and a door skin can be the same steel and fail completely differently — so `destructionClass` (`D15-S5.7`) lives on the part, defaulting from its `category`.
+
+**R7b.** `audioMaterial` is deliberately coarser than `materialId`: `METAL`, `GLASS`, `RUBBER`, `PLASTIC`, `COMPOSITE`. Steel, hardened steel and lead are three things to a damage formula and one thing to an ear, and collapsing them is what keeps the sound bank at a size a person can author and mix (`D15-R37`).
 
 ```json
 {
@@ -186,7 +190,8 @@ art-source/
       "densityKgPerM3": 7850.0,
       "resistance": { "KINETIC": 1.0, "EXPLOSIVE": 1.0, "INCENDIARY": 1.0,
                       "ENERGY": 1.0, "COLLISION": 1.0 },
-      "fractureBrittleness": 0.5
+      "fractureBrittleness": 0.5,
+      "audioMaterial": "METAL"
     },
     {
       "materialId": "steel_hardened",

@@ -6,6 +6,7 @@ package dev.syndicate.core.system;
 
 import dev.syndicate.core.asset.AssemblyDef;
 import dev.syndicate.core.asset.AssetIndex;
+import dev.syndicate.core.component.ControlledVehicleComponent;
 import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.Phase;
@@ -110,7 +111,29 @@ public final class SpawnSystem implements EntitySystem {
                     tick);
             return;
         }
+        linkToDriver(world, request.ownerEntity(), vehicleEntity);
         spawnedCount++;
+    }
+
+    /**
+     * Points the owner's {@link ControlledVehicleComponent} at the vehicle just created.
+     *
+     * <p>{@code VehicleFactory} writes the vehicle's {@code OwnerComponent}, which is the link
+     * scoring walks at the instant of a kill. This is the other direction, which respawn walks every
+     * tick. Both are written here because this is the one place that holds the player id and the
+     * vehicle id at the same time; deriving either later would mean scanning every entity.
+     *
+     * <p>Silent when the owner has no such component: an unowned vehicle, and a test that spawns one
+     * without a player, are both legitimate.
+     */
+    private static void linkToDriver(World world, int ownerEntity, int vehicleEntity) {
+        if (ownerEntity == EntityId.NULL || !world.isAlive(ownerEntity)) {
+            return;
+        }
+        ControlledVehicleComponent controlled = world.getComponent(ownerEntity, ControlledVehicleComponent.class);
+        if (controlled != null) {
+            controlled.vehicleEntity = vehicleEntity;
+        }
     }
 
     /** How many vehicles this system has created, for diagnostics and tests. */

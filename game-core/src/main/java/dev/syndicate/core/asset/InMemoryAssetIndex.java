@@ -4,8 +4,10 @@
  */
 package dev.syndicate.core.asset;
 
+import dev.syndicate.core.ai.BotDifficultyTable;
 import dev.syndicate.model.AssetId;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -32,6 +34,8 @@ public final class InMemoryAssetIndex implements AssetIndex {
     private final Map<AssetId, MaterialDef> materials = new TreeMap<>();
 
     private final Map<AssetId, ArenaDef> arenas = new TreeMap<>();
+
+    private BotDifficultyTable botDifficulties = BotDifficultyTable.defaults();
 
     /** Registers a manifest under its own {@link FractureManifest#manifestId()}. */
     public InMemoryAssetIndex put(FractureManifest manifest) {
@@ -86,6 +90,24 @@ public final class InMemoryAssetIndex implements AssetIndex {
     @Override
     public ArenaDef arena(AssetId arenaId) {
         return arenaId == null ? null : arenas.get(arenaId);
+    }
+
+    /** Replaces the bot difficulty table. */
+    public InMemoryAssetIndex put(BotDifficultyTable table) {
+        botDifficulties = table == null ? BotDifficultyTable.defaults() : table;
+        return this;
+    }
+
+    @Override
+    public BotDifficultyTable botDifficulties() {
+        return botDifficulties;
+    }
+
+    @Override
+    public List<AssetId> assemblyIds() {
+        // The backing map is sorted by id, so the key order is already the order D11-R12's seeded
+        // choice needs; the copy is what stops a caller holding a view that changes under it.
+        return List.copyOf(assemblies.keySet());
     }
 
     /** Every loaded manifest, by ascending id. */

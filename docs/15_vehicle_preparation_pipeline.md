@@ -274,7 +274,7 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 
 | Event | Source | Notes |
 |---|---|---|
-| Engine loop | Per vehicle class, pitched by RPM | One loop per class, not per vehicle; `VehicleProfile` already carries the RPM band |
+| Engine loop | Per **engine configuration**, pitched by RPM | One loop per configuration (I4/I6/V6/V8/V10/V12), not per vehicle. See R37a — class is the wrong axis |
 | Tyre roll / skid | Per surface, blended by slip | The ray-cast wheel already computes slip |
 | Collision impact | Per material pair, by impulse | `CollisionEventSystem` (slot 11) already classifies both sides |
 | Part detach | Per destruction class | `sheet_metal` tears, `glass` shatters, `rigid` clangs |
@@ -284,7 +284,19 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 
 **R37.** Sounds are **per class and per material**, never per vehicle. Seven events over five destruction classes is a set of tens; per-vehicle sound would be a set of hundreds and would gate every new car on an audio pass.
 
+**R37a.** For an engine, the class in R37 is the **engine configuration**, not the vehicle class. `light`/`medium`/`heavy` describe how much a car weighs; what an engine sounds like is decided by how often it fires and how evenly, which is `cylinders × rpm / 120` and the arrangement's firing evenness. Keying engine loops on weight makes two different cars of the same weight sound identical, which is the specific complaint this rule exists to prevent. Six configurations cover every vehicle worth modelling and the set stays closed.
+
+**R37b.** Two vehicles sharing a configuration must still differ, and do so without a second asset. A vehicle carries an **engine voice** — configuration, idle and redline rpm, peak power — and the runtime derives from it: the playback pitch (`firingHz(rpm) / firingHz(REFERENCE_RPM)`), the gain, and how much the low harmonics are emphasised. Peak power is the same number the physics accelerates the car with, so a car that gets faster gets louder in the same commit and the two cannot drift apart.
+
+**R37c.** A more powerful engine must be *audibly* more powerful. Gain rises with power on a saturating curve rather than a linear one, and low-end weight rises with power and capacity — because a big engine is not a loud small engine, and the spectral difference survives a small speaker where the volume difference does not.
+
 **R38.** Sourcing, in order of preference: (a) permissively licensed libraries with attribution recorded beside the asset exactly as `license.txt` records model provenance today; (b) procedural synthesis for engine and tyre loops, which are parametric by nature and where a synthesiser removes a per-class asset; (c) commissioned or recorded audio. Generative audio models are viable for one-shots and are **not** for loops, where seam artefacts are audible.
+
+**R38a.** The shipped bank takes (b) for **every** family, not only the loops, and the deciding argument is R39's rather than R38's: the two shipped vehicle models are CC-BY-NC-SA, that constraint is already live, and a sampled bank would add a second differently-encumbered set of terms for somebody to discover later. A synthesised bank carries the repository's own licence, regenerates byte-identically from a seed, and — for the loops — has no seam to hide, because the buffer is constructed to contain a whole number of cycles rather than being cut from a recording.
+
+**R38b.** Impact and detachment one-shots are **modal**: a broadband strike transient over a handful of exponentially damped, inharmonic sinusoids whose frequencies and decay times are the material's. Filtering noise is cheaper to write and does not work, because the ear identifies material from decay time and partial spacing far more than from spectral tilt.
+
+**R38c.** Severity is authored, never pitched. Three impact variants per material (`light`, `medium`, `heavy`) differ in modal frequency, decay and brightness, because a hard hit excites a larger area and therefore rings *lower* and longer — pitching one recording up and down produces the single most recognisable sign of a cheap bank.
 
 **R39.** Every audio asset records its licence beside it, under the same rule as art. The two shipped models are CC-BY-NC-SA and that constraint is already live; audio must not add a second, differently-encumbered set of terms nobody tracked.
 

@@ -16,7 +16,7 @@ dependencies = ["jsonschema>=4.21"]
 dev = ["pytest>=8.0", "ruff>=0.5"]
 
 [tool.setuptools.packages.find]
-include = ["syndicate_fracture*"]
+include = ["syndicate_fracture*", "syndicate_dissect*", "syndicate_prepare*"]
 
 [tool.ruff]
 line-length = 100

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0.0",
+  "notes": [
+    "The D11-S4.2 table (docs/11_ai_bots_and_match_simulation.md#D11-S4.2), as content per D11-R4.",
+    "Every parameter here degrades perception or execution. D11-R6 forbids a difficulty level",
+    "granting damage, health, speed or armour: if a field appears here that changes what a bot's",
+    "vehicle can do rather than what the bot knows or how well it acts, that is a bug in this file.",
+    "BotDifficultyTable.defaults() holds the same numbers, and a test asserts the two agree — the",
+    "code copy exists so a file that fails to load leaves bots imperfect rather than flawless."
+  ],
+  "difficulties": {
+    "EASY": {
+      "reactionDelayS": 0.60,
+      "sensorUpdateHz": 4,
+      "aimErrorRad": 0.070,
+      "aimSettleRate": 1.2,
+      "leadPredictionQuality": 0.30,
+      "throttleAggression": 0.55,
+      "avoidanceLookaheadS": 0.5,
+      "targetSwitchCooldownS": 4.0,
+      "usesPartTargeting": false,
+      "retreatHealthFraction": 0.15,
+      "firingDisciplineRange": 1.30,
+      "usesCover": false,
+      "focusFireCoordination": false
+    },
+    "NORMAL": {
+      "reactionDelayS": 0.35,
+      "sensorUpdateHz": 8,
+      "aimErrorRad": 0.035,
+      "aimSettleRate": 2.2,
+      "leadPredictionQuality": 0.65,
+      "throttleAggression": 0.75,
+      "avoidanceLookaheadS": 0.9,
+      "targetSwitchCooldownS": 2.5,
+      "usesPartTargeting": false,
+      "retreatHealthFraction": 0.30,
+      "firingDisciplineRange": 1.10,
+      "usesCover": true,
+      "focusFireCoordination": false
+    },
+    "HARD": {
+      "reactionDelayS": 0.18,
+      "sensorUpdateHz": 15,
+      "aimErrorRad": 0.015,
+      "aimSettleRate": 3.5,
+      "leadPredictionQuality": 0.90,
+      "throttleAggression": 0.90,
+      "avoidanceLookaheadS": 1.4,
+      "targetSwitchCooldownS": 1.2,
+      "usesPartTargeting": true,
+      "retreatHealthFraction": 0.35,
+      "firingDisciplineRange": 1.00,
+      "usesCover": true,
+      "focusFireCoordination": true
+    },
+    "BRUTAL": {
+      "reactionDelayS": 0.08,
+      "sensorUpdateHz": 30,
+      "aimErrorRad": 0.005,
+      "aimSettleRate": 5.0,
+      "leadPredictionQuality": 1.00,
+      "throttleAggression": 1.00,
+      "avoidanceLookaheadS": 1.8,
+      "targetSwitchCooldownS": 0.6,
+      "usesPartTargeting": true,
+      "retreatHealthFraction": 0.40,
+      "firingDisciplineRange": 0.95,
+      "usesCover": true,
+      "focusFireCoordination": true
+    }
+  }
+}

@@ -18,15 +18,14 @@ import java.util.List;
  * here is a design decision, not a convenience.
  *
  * <p>Refreshed in place at {@code sensorUpdateHz} rather than reallocated: one snapshot per bot per
- * refresh would be steady-state garbage (D04-S5.6).
+ * refresh would be steady-state garbage (D04-S5.6). The {@link PerceivedTarget} instances are pooled
+ * for the same reason — {@link #beginTargets()} rewinds the list rather than clearing it, and
+ * {@link #addTarget()} hands back the next slot to overwrite.
  */
 public final class SensorSnapshot {
 
     /** The tick this view describes — always in the past by the bot's reaction delay. */
     public long capturedTick;
-
-    /** Targets that passed the range and line-of-sight tests, in ascending entity order (G3). */
-    public final List<PerceivedTarget> targets = new ArrayList<>();
 
     /** The bot's own vehicle position. Exact: a bot knows where it is. */
     public final Vector3 selfPosition = new Vector3();
@@ -43,13 +42,53 @@ public final class SensorSnapshot {
     /** Projectiles within {@code PROJECTILE_NOTICE_M}, in ascending entity order. */
     public final List<Vector3> incomingProjectiles = new ArrayList<>();
 
+    private final List<PerceivedTarget> targetPool = new ArrayList<>();
+
+    private int targetCount;
+
+    /** Targets that passed the range and line-of-sight tests, in ascending entity order (G3). */
+    public List<PerceivedTarget> targets() {
+        return targetPool.subList(0, targetCount);
+    }
+
+    /** How many targets are believed in. */
+    public int targetCount() {
+        return targetCount;
+    }
+
+    /** The belief about one entity, or null when it is not in this snapshot. */
+    public PerceivedTarget targetById(int entity) {
+        for (int i = 0; i < targetCount; i++) {
+            PerceivedTarget target = targetPool.get(i);
+            if (target.entity == entity) {
+                return target;
+            }
+        }
+        return null;
+    }
+
+    /** Starts a fresh set of beliefs, keeping the pooled instances. */
+    public void beginTargets() {
+        targetCount = 0;
+    }
+
+    /** The next pooled target slot, already reset. */
+    public PerceivedTarget addTarget() {
+        while (targetPool.size() <= targetCount) {
+            targetPool.add(new PerceivedTarget());
+        }
+        PerceivedTarget target = targetPool.get(targetCount++);
+        target.reset();
+        return target;
+    }
+
     /**
      * Clears the snapshot for reuse. The lists keep their backing arrays — that is the point of
      * clearing rather than replacing them.
      */
     public void reset() {
         capturedTick = 0L;
-        targets.clear();
+        targetCount = 0;
         selfPosition.set(0f, 0f, 0f);
         selfVelocity.set(0f, 0f, 0f);
         selfIntegrity = 1f;

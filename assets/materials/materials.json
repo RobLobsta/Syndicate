@@ -1,8 +1,25 @@
 {
   "schemaVersion": "1.0.0",
+  "notes": [
+    "The shared material table (docs/08_asset_pipeline.md#D08-S4.3).",
+    "One materialId answers three questions about what a part is MADE OF, asked by three tools:",
+    "  densityKgPerM3 -> what a part and its shards weigh (the game, and the Blender fracture tool)",
+    "  resistance     -> how it absorbs each damage type (the runtime damage formula, D07-S4.3)",
+    "  audioMaterial  -> which sound bank an impact, a tear or a shatter draws from (D15-S8, D15-R37)",
+    "They live together because the checks that matter compare numbers across tools: G7's mass",
+    "conservation only means something because a part and its shards share one density.",
+    "",
+    "How a part FAILS is not here. destructionClass follows from what a part is rather than what it",
+    "is made of (D15-R32) -- a chassis rail and a door skin can be the same steel -- so it lives on",
+    "part.json, defaulting from the part's category.",
+    "",
+    "audioMaterial is deliberately coarser than materialId: steel, hardened steel and lead are three",
+    "things to a damage formula and one thing to an ear."
+  ],
   "materials": [
     {
       "materialId": "steel",
+      "displayName": "Mild steel",
       "densityKgPerM3": 7850.0,
       "resistance": {
         "KINETIC": 1.0,
@@ -11,10 +28,13 @@
         "ENERGY": 1.0,
         "COLLISION": 1.0
       },
-      "fractureBrittleness": 0.5
+      "fractureBrittleness": 0.5,
+      "audioMaterial": "METAL",
+      "notes": "The reference material: every resistance is 1.0 by definition. Body panels, chassis rails, doors, bonnets -- how each of those fails is its part's destructionClass, not this row's business."
     },
     {
       "materialId": "steel_hardened",
+      "displayName": "Hardened steel",
       "densityKgPerM3": 7850.0,
       "resistance": {
         "KINETIC": 0.85,
@@ -23,10 +43,13 @@
         "ENERGY": 1.05,
         "COLLISION": 0.9
       },
-      "fractureBrittleness": 0.35
+      "fractureBrittleness": 0.35,
+      "audioMaterial": "METAL",
+      "notes": "Armour plate, brake discs, uprights and calipers. Resists kinetic well and heat badly, which is the trade that makes an incendiary loadout worth carrying."
     },
     {
       "materialId": "aluminium",
+      "displayName": "Aluminium",
       "densityKgPerM3": 2700.0,
       "resistance": {
         "KINETIC": 1.1,
@@ -35,10 +58,13 @@
         "ENERGY": 1.0,
         "COLLISION": 1.1
       },
-      "fractureBrittleness": 0.6
+      "fractureBrittleness": 0.6,
+      "audioMaterial": "METAL",
+      "notes": "Light panels, radiators, engine castings. A third of steel's mass for about a tenth more damage taken."
     },
     {
       "materialId": "composite",
+      "displayName": "Carbon composite",
       "densityKgPerM3": 1900.0,
       "resistance": {
         "KINETIC": 0.9,
@@ -47,10 +73,13 @@
         "ENERGY": 0.85,
         "COLLISION": 1.05
       },
-      "fractureBrittleness": 0.8
+      "fractureBrittleness": 0.8,
+      "audioMaterial": "COMPOSITE",
+      "notes": "Splitters, wings, monocoque panels. Light and stiff, and it does not dent so much as delaminate \u2014 which is why it is brittle and why its blast resistance is the worst on the table."
     },
     {
       "materialId": "rubber",
+      "displayName": "Rubber",
       "densityKgPerM3": 1100.0,
       "resistance": {
         "KINETIC": 1.0,
@@ -59,10 +88,13 @@
         "ENERGY": 1.0,
         "COLLISION": 0.7
       },
-      "fractureBrittleness": 0.1
+      "fractureBrittleness": 0.1,
+      "audioMaterial": "RUBBER",
+      "notes": "Tyres. Shrugs off a collision better than anything else here and burns better than anything else too."
     },
     {
       "materialId": "glass",
+      "displayName": "Laminated glass",
       "densityKgPerM3": 2500.0,
       "resistance": {
         "KINETIC": 1.6,
@@ -71,10 +103,13 @@
         "ENERGY": 1.2,
         "COLLISION": 1.7
       },
-      "fractureBrittleness": 1.0
+      "fractureBrittleness": 1.0,
+      "audioMaterial": "GLASS",
+      "notes": "Windscreen, side and rear glazing, lamp lenses. Intact or shattered, never dented \u2014 a deformed windscreen reads as a bug."
     },
     {
       "materialId": "plastic",
+      "displayName": "Plastic",
       "densityKgPerM3": 950.0,
       "resistance": {
         "KINETIC": 1.2,
@@ -83,10 +118,28 @@
         "ENERGY": 1.1,
         "COLLISION": 1.15
       },
-      "fractureBrittleness": 0.7
+      "fractureBrittleness": 0.7,
+      "audioMaterial": "PLASTIC",
+      "notes": "Bumper covers, lamp housings, mirrors, grille inserts."
+    },
+    {
+      "materialId": "trim",
+      "displayName": "Interior trim",
+      "densityKgPerM3": 700.0,
+      "resistance": {
+        "KINETIC": 1.0,
+        "EXPLOSIVE": 1.0,
+        "INCENDIARY": 1.5,
+        "ENERGY": 1.0,
+        "COLLISION": 1.0
+      },
+      "fractureBrittleness": 0.5,
+      "audioMaterial": "PLASTIC",
+      "notes": "Seats, dash, decals. Visible through glass and never hit (D15-S4.1): the NONE class is what keeps a hundred interior shells out of the destruction budget."
     },
     {
       "materialId": "lead",
+      "displayName": "Lead",
       "densityKgPerM3": 11340.0,
       "resistance": {
         "KINETIC": 0.8,
@@ -95,7 +148,9 @@
         "ENERGY": 0.9,
         "COLLISION": 0.85
       },
-      "fractureBrittleness": 0.2
+      "fractureBrittleness": 0.2,
+      "audioMaterial": "METAL",
+      "notes": "Ballast and dense armour inserts. On the table so a build can buy protection with mass, which is the one currency every other material spends."
     }
   ]
 }

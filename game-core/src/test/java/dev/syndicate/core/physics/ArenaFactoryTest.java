@@ -17,6 +17,7 @@ import dev.syndicate.core.asset.ValidationIssue;
 import dev.syndicate.core.component.RigidBodyComponent;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.GameMode;
+import dev.syndicate.model.config.LaunchConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -51,7 +52,9 @@ class ArenaFactoryTest {
 
         ArenaDef arena = index.arena(AssetId.of("arena_scrapyard_01"));
         assertThat(arena).isNotNull();
-        assertThat(arena.spawnPoints()).hasSize(6);
+        // One point per player at the D03-S4.2 default capacity. Fewer means two vehicles share a
+        // point on the starting grid, spawn inside each other, and are thrown apart by the solver.
+        assertThat(arena.spawnPoints()).hasSize(LaunchConfig.DEFAULT_MAX_PLAYERS);
         assertThat(arena.supports(GameMode.DEATHMATCH)).isTrue();
         assertThat(arena.supports(GameMode.PAYLOAD)).isFalse();
         // Every spawn point is inside the bounds and above the floor: A401's rule, asserted on the

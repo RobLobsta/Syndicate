@@ -214,8 +214,14 @@ public final class PhysicsWorld implements AutoCloseable {
      * <p>No pair outcome changes. The bit is {@code STATIC}'s, so the only pairing it newly admits is
      * static against static, which Bullet's dispatcher rejects before it reaches a manifold — two
      * bodies with no mass have nothing to solve.
+     *
+     * <p>Public because our own ray queries need it too. D06-S4.4's masks are pair masks and are not
+     * symmetric with {@code SENSOR_RAY}: a query issued on group {@code SENSOR_RAY.bit()} fails
+     * Bullet's bidirectional test against every vehicle, because no vehicle's mask contains that bit.
+     * A sensor ray therefore queries on <em>this</em> group with {@code SENSOR_RAY.mask()} as its
+     * mask, which is the same trap DISC-011 describes and the same remedy DEV-012 records.
      */
-    private static final int BULLET_DEFAULT_FILTER = 1;
+    public static final int BULLET_DEFAULT_FILTER = 1;
 
     /** Adds a body with an explicit filter group and mask, for the rare body that is not on a stock layer. */
     public void addBody(btRigidBody body, int filterGroup, int filterMask) {

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0.0",
+  "_notes": [
+    "Per-model overrides for the Stampede (docs/15_vehicle_preparation_pipeline.md#D15-S4.3).",
+    "",
+    "This model is the easy case DISC-019 describes: its materials are called Window, Callipers",
+    "and LightA, so the nominal cue labels most of it without help and syndicate-prepare clears",
+    "the D15-R13 gate on its own at 68.6%.",
+    "",
+    "Four names take it to about 90%. Every one is a paint or trim material whose token — Coloured,",
+    "Carbon, Base, Textured — says what it is *finished in* rather than what it *is*, which is",
+    "precisely the distinction no vocabulary can be made to cover and what D15-R9 exists for."
+  ],
+  "materialLabels": {
+    "FFord_MustangGTD_2025Coloured_Material1": "chassis",
+    "FFord_MustangGTD_2025Carbon1_Material1": "chassis",
+    "FFord_MustangGTD_2025Carbon1M_Material1": "chassis",
+    "FFord_MustangGTD_2025Base_Material1": "chassis"
+  }
+}
