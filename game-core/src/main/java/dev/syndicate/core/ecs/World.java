@@ -308,7 +308,7 @@ public final class World {
         currentTick = tickNumber;
         for (int i = 0; i < schedule.size(); i++) {
             EntitySystem system = schedule.get(i);
-            if (system.phase().isPerFrame()) {
+            if (system.isPerFrame()) {
                 continue;
             }
             system.update(this, dev.syndicate.model.SimulationConstants.TICK_DT, tickNumber);
@@ -325,7 +325,7 @@ public final class World {
     public void present(float alpha) {
         for (int i = 0; i < schedule.size(); i++) {
             EntitySystem system = schedule.get(i);
-            if (system.phase().isPerFrame()) {
+            if (system.isPerFrame()) {
                 system.update(this, alpha, currentTick);
             }
         }

@@ -12,6 +12,7 @@ import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
 import dev.syndicate.core.asset.AssemblyDef;
 import dev.syndicate.core.asset.InMemoryAssetIndex;
+import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.PlayerInputComponent;
 import dev.syndicate.core.component.RigidBodyComponent;
 import dev.syndicate.core.component.TeamComponent;
@@ -19,9 +20,13 @@ import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.component.WheelControllerComponent;
 import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.system.DetachSystem;
 import dev.syndicate.core.system.EntityDestroySystem;
+import dev.syndicate.core.system.FractureSystem;
+import dev.syndicate.core.system.LifetimeSystem;
 import dev.syndicate.core.system.MassPropertySystem;
 import dev.syndicate.core.system.PhysicsSystem;
+import dev.syndicate.core.system.TransformSystem;
 import dev.syndicate.core.system.VehicleControlSystem;
 import dev.syndicate.core.system.VehicleStatsSystem;
 import dev.syndicate.core.util.NativeResourceTracker;
@@ -29,6 +34,7 @@ import dev.syndicate.core.vehicle.ShippedContent;
 import dev.syndicate.core.vehicle.VehicleFactory;
 import dev.syndicate.core.vehicle.VehicleProfile;
 import dev.syndicate.model.CollisionLayer;
+import dev.syndicate.model.DamageState;
 import dev.syndicate.model.SimulationConstants;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,6 +80,7 @@ public final class ShippedContentScene implements AutoCloseable {
     private final List<btDefaultMotionState> roadMotionStates = new ArrayList<>();
     private final List<btStaticPlaneShape> roadShapes = new ArrayList<>();
 
+    private final DebrisFactory debrisFactory;
     private final EntityDestroySystem entityDestroySystem;
     private final dev.syndicate.core.ecs.Family embodied;
 
@@ -84,12 +91,20 @@ public final class ShippedContentScene implements AutoCloseable {
         physics = PhysicsWorld.create();
         shapes = new ShapeCache();
         assets = ShippedContent.load();
+        debrisFactory = new DebrisFactory(physics);
         entityDestroySystem = new EntityDestroySystem(physics, shapes);
+        // The destruction half of the schedule is here so a shipped car can lose a part while it is
+        // being driven. Damage and collision events are not: nothing in this scene shoots or crashes,
+        // and a test that wants a part gone marks it destroyed through destroyPart.
         world.registerSystems(List.<EntitySystem>of(
                 new VehicleStatsSystem(assets),
                 new VehicleControlSystem(),
                 new PhysicsSystem(physics),
+                new FractureSystem(assets, shapes, debrisFactory),
+                new DetachSystem(assets, shapes, debrisFactory, physics),
                 new MassPropertySystem(shapes),
+                new LifetimeSystem(),
+                new TransformSystem(),
                 entityDestroySystem));
         embodied = world.family(dev.syndicate.core.ecs.ComponentQuery.all(RigidBodyComponent.class));
         addRoad();
@@ -97,6 +112,23 @@ public final class ShippedContentScene implements AutoCloseable {
 
     public World world() {
         return world;
+    }
+
+    public PhysicsWorld physics() {
+        return physics;
+    }
+
+    /**
+     * Marks a part destroyed, which is what {@code DamageSystem} does in slot 12.
+     *
+     * <p>Cutting in at the state machine rather than by shooting the part keeps a test about
+     * detachment from also being a test about ballistics — and no shipped part is a weapon yet.
+     */
+    public void destroyPart(int partEntity) {
+        DamageStateComponent state = world.getComponent(partEntity, DamageStateComponent.class);
+        state.state = DamageState.DESTROYED;
+        state.stateEnteredTick = tick;
+        state.stateVersion++;
     }
 
     public InMemoryAssetIndex assets() {

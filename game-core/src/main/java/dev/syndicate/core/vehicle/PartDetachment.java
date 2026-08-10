@@ -6,6 +6,8 @@ package dev.syndicate.core.vehicle;
 
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.physics.bullet.dynamics.btRaycastVehicle;
+import com.badlogic.gdx.physics.bullet.dynamics.btWheelInfo;
 import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.PartRefComponent;
 import dev.syndicate.core.component.PartStatsComponent;
@@ -272,18 +274,25 @@ public final class PartDetachment {
     }
 
     /**
-     * Removes a wheel and re-densifies the remaining wheel indices (D05-R24).
+     * Takes a wheel off the vehicle: out of the ECS list, and neutralised in Bullet (D05-R24).
      *
-     * <p>{@code btRaycastVehicle} indexes wheels positionally and densely, so removing wheel 1 of 4
-     * shifts wheels 2 and 3 down to 1 and 2. Every {@code WheelControllerComponent.wheelIndex} must
-     * move with them in the same operation or the vehicle drives and steers the wrong wheels — a
-     * failure that is silent, intermittent, and looks like a suspension bug.
+     * <p>{@code btRaycastVehicle} has no {@code removeWheel} and never has — its wheel array is
+     * append-only in Bullet's own C++ API, not just in the binding (DEV-008). A wheel therefore
+     * cannot leave the native controller, and the two things that follow from that are the whole of
+     * this method.
      *
-     * <p>The native side of this is not done here. gdx-bullet 1.14.2's {@code btRaycastVehicle}
-     * exposes {@code addWheel} and no removal, so a wheel can only leave by rebuilding the
-     * controller — which belongs to {@code VehicleControlSystem} (slot 7), the class that builds it
-     * (DEV-008). This keeps the ECS bookkeeping correct so that rebuild has something correct to
-     * read.
+     * <p><b>Its native slot is disarmed rather than removed.</b> Suspension stiffness, both damping
+     * terms, the maximum suspension force and the friction coefficient all go to zero, and so do the
+     * engine force, brake and steering angle. The ray still gets cast — that is unavoidable and
+     * costs a ray — but it produces no force in any direction, so the car falls onto its remaining
+     * three corners instead of driving on a wheel that is bouncing down the road behind it.
+     *
+     * <p><b>The surviving wheels keep their indices.</b> D05-R24 asks for re-densification, and
+     * doing it would be actively wrong here: {@code WheelControllerComponent.wheelIndex} addresses
+     * the native array, which did not densify, so renumbering the survivors would point each of them
+     * at a neighbour's suspension. Everything that iterates wheels does so over
+     * {@code wheelEntities[0..wheelCount)} and addresses Bullet through {@code wheelIndex}, so a
+     * dense ECS list over a sparse native one is exactly the shape those loops already expect.
      */
     private static void removeWheel(World world, VehicleChassisComponent chassis, int wheelEntity) {
         if (chassis == null) {
@@ -299,18 +308,29 @@ public final class PartDetachment {
         if (removedIndex < 0) {
             return;
         }
+
+        WheelControllerComponent wheel = world.getComponent(wheelEntity, WheelControllerComponent.class);
+        btRaycastVehicle controller = chassis.vehicleController;
+        if (wheel != null
+                && controller != null
+                && wheel.wheelIndex >= 0
+                && wheel.wheelIndex < controller.getNumWheels()) {
+            btWheelInfo info = controller.getWheelInfo(wheel.wheelIndex);
+            info.setSuspensionStiffness(0f);
+            info.setWheelsDampingCompression(0f);
+            info.setWheelsDampingRelaxation(0f);
+            info.setMaxSuspensionForce(0f);
+            info.setFrictionSlip(0f);
+            info.setRollInfluence(0f);
+            info.setEngineForce(0f);
+            info.setBrake(0f);
+            info.setSteering(0f);
+        }
+
         for (int i = removedIndex; i < chassis.wheelCount - 1; i++) {
             chassis.wheelEntities[i] = chassis.wheelEntities[i + 1];
         }
         chassis.wheelEntities[chassis.wheelCount - 1] = EntityId.NULL;
         chassis.wheelCount--;
-
-        for (int i = 0; i < chassis.wheelCount; i++) {
-            WheelControllerComponent wheel =
-                    world.getComponent(chassis.wheelEntities[i], WheelControllerComponent.class);
-            if (wheel != null) {
-                wheel.wheelIndex = i;
-            }
-        }
     }
 }

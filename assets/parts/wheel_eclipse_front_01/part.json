@@ -28,8 +28,7 @@
   "slots": [],
   "assets": {
     "visualMesh": "mesh.glb",
-    "collisionSource": "mesh.glb#node=wheel_eclipse_front_01_col",
-    "fractureManifest": "fracture_manifest.json"
+    "collisionSource": "mesh.glb#node=wheel_eclipse_front_01_col"
   },
   "tags": [
     "road",

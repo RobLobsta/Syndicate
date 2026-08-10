@@ -83,8 +83,9 @@ public final class CoreSystemProvider implements SystemProvider {
             case MASS_PROPERTY -> new MassPropertySystem(shapes);
             case LIFETIME -> new LifetimeSystem();
             case SCORE -> new ScoreSystem();
+            case TRANSFORM -> new TransformSystem();
             case ENTITY_DESTROY -> new EntityDestroySystem(physics, shapes);
-                // The other 13 slots of D04-S4.4 are unwritten. Null rather than a throw: see the class
+                // The other 12 slots of D04-S4.4 are unwritten. Null rather than a throw: see the class
                 // note — an unimplemented slot leaves a gap in the schedule, not a process that refuses
                 // to boot.
             default -> null;

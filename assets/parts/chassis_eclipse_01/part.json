@@ -104,7 +104,6 @@
   "assets": {
     "visualMesh": "mesh.glb",
     "collisionSource": "mesh.glb#node=chassis_eclipse_01_col",
-    "fractureManifest": "fracture_manifest.json",
     "morphTargets": [
       "dmg_25",
       "dmg_50",
