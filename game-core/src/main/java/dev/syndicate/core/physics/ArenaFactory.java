@@ -34,9 +34,12 @@ import org.slf4j.LoggerFactory;
  *
  * <p><b>The collision is generated rather than loaded</b> (DEV-014). D08-S4.7 gives an arena a
  * {@code collision.glb}, and loading one needs a concave triangle-mesh shape with its own native
- * ownership rules, which no shape in {@link ShapeCache} is. Generating a box floor and box walls from
- * {@code boundsMin}/{@code boundsMax} produces a playable, exactly-specified arena from numbers that
- * are already in the file, and leaves the mesh path for the session that has an arena mesh to load.
+ * ownership rules, which no shape in {@link ShapeCache} is. Generating a plane floor and box walls
+ * from {@code boundsMin}/{@code boundsMax} produces a playable, exactly-specified arena from numbers
+ * that are already in the file, and leaves the mesh path for the session that has an arena mesh to
+ * load. The floor is a plane rather than a box for a reason that outlives the placeholder: a
+ * ray-cast wheel finds the ground with a ray, and Bullet's convex ray test is imprecise on shapes
+ * this large (DISC-017).
  *
  * <p><b>Native ownership (G19).</b> Each body belongs to the {@code RigidBodyComponent} of its own
  * entity and is disposed by {@code EntityDestroySystem} (27); the shapes belong to
@@ -87,16 +90,7 @@ public final class ArenaFactory {
         float wallCentreY = arena.groundY() + wallHalfHeight;
 
         List<Integer> entities = new ArrayList<>();
-        // The floor's top face sits at groundY, so a vehicle spawned above it lands on the height the
-        // arena file names rather than half a box thickness above it.
-        entities.add(surface(
-                world,
-                physics,
-                shapes,
-                arena.arenaId(),
-                0,
-                new Vector3(halfX, SURFACE_THICKNESS_M, halfZ),
-                new Vector3(centreX, arena.groundY() - SURFACE_THICKNESS_M, centreZ)));
+        entities.add(floor(world, physics, shapes, arena));
 
         // Four walls, inside the bounds by half their thickness so their inner faces are the bounds.
         entities.add(surface(
@@ -143,6 +137,25 @@ public final class ArenaFactory {
     }
 
     /**
+     * The floor: an entity, a cached infinite plane at {@code groundY}, a zero-mass static body.
+     *
+     * <p>A plane rather than a box because the floor is the one static surface a ray-cast wheel
+     * casts against sixty times a second, and Bullet's convex ray test is not accurate on a shape
+     * hundreds of metres across (DISC-017). Infinite is not a limitation here — the walls contain
+     * the arena in plan, and a vehicle that leaves through a gap in them was already outside the
+     * bounds {@code ArenaDef} checks.
+     */
+    private static int floor(World world, PhysicsWorld physics, ShapeCache shapes, ArenaDef arena) {
+        Entity entity = world.createEntity();
+        int entityId = entity.id();
+
+        ShapeCacheKey key = new ShapeCacheKey(arena.arenaId(), ShapeCacheKey.Variant.PRIMITIVE, 0);
+        btCollisionShape shape = shapes.planeFor(key, new Vector3(0f, 1f, 0f), arena.groundY());
+        addStaticBody(world, physics, entityId, shape, key, new Matrix4());
+        return entityId;
+    }
+
+    /**
      * One static box: an entity, a cached hull, a zero-mass body on the {@code STATIC} layer.
      *
      * <p>A convex hull over a box's eight corners rather than a {@code btBoxShape}, so the shape goes
@@ -163,8 +176,19 @@ public final class ArenaFactory {
 
         ShapeCacheKey key = new ShapeCacheKey(arenaId, ShapeCacheKey.Variant.PRIMITIVE, index);
         btCollisionShape shape = shapes.hullFor(key, boxMesh(halfExtents));
+        addStaticBody(world, physics, entityId, shape, key, new Matrix4().setToTranslation(centreWorld));
+        return entityId;
+    }
 
-        Matrix4 transform = new Matrix4().setToTranslation(centreWorld);
+    /** The body, components and physics-world membership every static surface gets. */
+    private static void addStaticBody(
+            World world,
+            PhysicsWorld physics,
+            int entityId,
+            btCollisionShape shape,
+            ShapeCacheKey key,
+            Matrix4 transform) {
+
         btDefaultMotionState motionState = new btDefaultMotionState(transform);
         NativeResourceTracker.register("btDefaultMotionState");
         btRigidBody.btRigidBodyConstructionInfo info =
@@ -190,9 +214,8 @@ public final class ArenaFactory {
         world.addComponent(entityId, staticCollision);
 
         TransformComponent transformComponent = new TransformComponent();
-        transformComponent.position.set(centreWorld);
+        transform.getTranslation(transformComponent.position);
         world.addComponent(entityId, transformComponent);
-        return entityId;
     }
 
     /** The eight corners of a box — the smallest mesh whose convex hull is exactly that box. */

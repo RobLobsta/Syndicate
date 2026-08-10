@@ -160,7 +160,11 @@ public final class AssemblyLayout {
         for (PlacedPart part : placed) {
             totalMassKg += part.type().massKg();
             powerBudget += part.type().powerCost();
-            part.chassisLocal().getTranslation(position);
+            // A part's mass acts at its own centre, not at the slot it hangs from — see
+            // PartType.centerOfMassLocal. Transforming the centre by the accumulated slot chain is
+            // the same arithmetic MassPropertySystem (15) does over the live vehicle, so a spawned
+            // vehicle and a recomputed one agree about where its mass is.
+            part.type().centerOfMassLocal(position).mul(part.chassisLocal());
             weighted.add(position.scl(part.type().massKg()));
         }
         Vector3 comLocal = totalMassKg > 0f ? weighted.scl(1f / totalMassKg) : new Vector3();

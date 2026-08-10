@@ -9,6 +9,7 @@ import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
 import com.badlogic.gdx.physics.bullet.collision.btCompoundShape;
 import com.badlogic.gdx.physics.bullet.collision.btConvexHullShape;
 import com.badlogic.gdx.physics.bullet.collision.btShapeHull;
+import com.badlogic.gdx.physics.bullet.collision.btStaticPlaneShape;
 import dev.syndicate.core.asset.MeshData;
 import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.core.util.NativeResourceTracker;
@@ -96,6 +97,15 @@ public final class ShapeCache implements AutoCloseable {
     private final Map<ShapeCacheKey, btCollisionShape> shapes = new TreeMap<>(KEY_ORDER);
 
     /**
+     * The Bullet class name each entry was registered under, so {@link #dispose()} releases the same
+     * name {@link NativeResourceTracker} was told about. Derived from the variant until a variant
+     * could hold more than one native type — {@code PRIMITIVE} is a hull or a plane depending on
+     * which factory built it, and a tracker that guessed would report a leak of one type and a
+     * double-free of another.
+     */
+    private final Map<ShapeCacheKey, String> nativeKinds = new TreeMap<>(KEY_ORDER);
+
+    /**
      * Live vehicle compounds by owning entity id. Sorted rather than hashed so teardown visits them
      * in a fixed order (G3), and keyed by entity rather than by assembly because two vehicles of the
      * same assembly have different compounds the moment either loses a part.
@@ -143,7 +153,44 @@ public final class ShapeCache implements AutoCloseable {
 
         btConvexHullShape shape = buildHull(key, mesh, maxVertices);
         shapes.put(key, shape);
+        nativeKinds.put(key, "btConvexHullShape");
         return shape;
+    }
+
+    /**
+     * The infinite plane for this key, building it on first request.
+     *
+     * <p>Reserved for ground: a {@code btStaticPlaneShape} has no extent to be wrong about, and
+     * Bullet ray-tests it by intersecting the ray with the plane rather than by iterating a convex
+     * cast to a tolerance. That distinction is the whole reason this method exists. A ray-cast
+     * wheel finds the road by casting a 0.65 m ray straight down; against a convex box 800 m long
+     * the subsimplex cast that {@code btCollisionWorld::rayTest} uses returns a hit point up to
+     * 14 cm off, per wheel, per tick, at random — the car's body stays put and its wheels strobe
+     * through the arches (DISC-017). Against a plane the same cast is exact to the last decimal.
+     *
+     * @param normal the plane's upward normal in world space; need not be normalised
+     * @param constantM the plane's signed distance from the origin along {@code normal} — the
+     *     ground's Y for a level floor
+     * @throws IllegalArgumentException if the key does not name a {@code PRIMITIVE}
+     */
+    public btStaticPlaneShape planeFor(ShapeCacheKey key, Vector3 normal, float constantM) {
+        checkOpen();
+        btCollisionShape cached = shapes.get(key);
+        if (cached != null) {
+            return (btStaticPlaneShape) cached;
+        }
+        if (key.variant() != ShapeCacheKey.Variant.PRIMITIVE) {
+            throw new IllegalArgumentException("a plane is a primitive, not " + key.variant() + " (D06-R6)");
+        }
+        btStaticPlaneShape plane = new btStaticPlaneShape(normal, constantM);
+        NativeResourceTracker.register("btStaticPlaneShape");
+        // A plane's margin is a skin the solver pushes contacts out by. It carries the same one as
+        // every other shape here (D06-R13) so a body resting on the ground sits at the same height
+        // whether the ground is a plane or a hull.
+        plane.setMargin(PhysicsWorld.COLLISION_MARGIN_M);
+        shapes.put(key, plane);
+        nativeKinds.put(key, "btStaticPlaneShape");
+        return plane;
     }
 
     /**
@@ -191,6 +238,7 @@ public final class ShapeCache implements AutoCloseable {
             return false;
         }
         shapes.remove(compound.key());
+        nativeKinds.remove(compound.key());
         compound.compound().dispose();
         NativeResourceTracker.release("btCompoundShape");
         return true;
@@ -215,6 +263,7 @@ public final class ShapeCache implements AutoCloseable {
         btCompoundShape compound = new btCompoundShape(true);
         NativeResourceTracker.register("btCompoundShape");
         shapes.put(key, compound);
+        nativeKinds.put(key, "btCompoundShape");
         return compound;
     }
 
@@ -313,12 +362,10 @@ public final class ShapeCache implements AutoCloseable {
         vehicleCompounds.clear();
         for (Map.Entry<ShapeCacheKey, btCollisionShape> entry : shapes.entrySet()) {
             entry.getValue().dispose();
-            NativeResourceTracker.release(
-                    entry.getKey().variant() == ShapeCacheKey.Variant.COMPOUND
-                            ? "btCompoundShape"
-                            : "btConvexHullShape");
+            NativeResourceTracker.release(nativeKinds.getOrDefault(entry.getKey(), "btConvexHullShape"));
         }
         shapes.clear();
+        nativeKinds.clear();
     }
 
     /** True once {@link #dispose()} has run. */

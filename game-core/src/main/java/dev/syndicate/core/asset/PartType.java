@@ -4,6 +4,7 @@
  */
 package dev.syndicate.core.asset;
 
+import com.badlogic.gdx.math.Vector3;
 import dev.syndicate.core.vehicle.DegradationRule;
 import dev.syndicate.core.vehicle.SlotType;
 import dev.syndicate.core.vehicle.StatBlock;
@@ -194,6 +195,32 @@ public final class PartType {
      */
     public MeshData collisionMesh() {
         return collisionMesh;
+    }
+
+    /**
+     * Where this part's mass acts, in part-local metres — the centre of its collision mesh's extent.
+     *
+     * <p>D08-R5 gives a part a mass but no centre for it, and the obvious reading of that silence is
+     * that the mass acts at the part's origin. For a wheel that reading is right: the dissection
+     * centres a wheel on its axle, so origin and centroid coincide to within a millimetre. For a
+     * chassis it is badly wrong. The chassis mesh's origin is on the road at the centreline — the
+     * space slot positions are authored in (D08-S4.2) — and a car's body does not sit at road level;
+     * it sits about half a metre above it. Taking the origin as the centre of mass puts three
+     * quarters of a tonne under the tarmac, and suspension pushing up from 0.59 m onto a mass at
+     * 0.0 m applies a couple to the body every time a spring extends. That rings instead of damping:
+     * the corners of a settled car were still 10 cm apart after four seconds, and the Stampede lost
+     * half a second off its 0–100 to wheels that kept unloading.
+     *
+     * <p>The AABB centre rather than a volume integral because a convex hull's AABB centre is within
+     * a few centimetres of its centroid for shapes as boxy as a car body, and because the alternative
+     * is authoring a {@code comLocal} per part — a field no artist would get right and no test could
+     * check. When a part's real centre matters more than that, D08-R5 is where it should be authored.
+     */
+    public Vector3 centerOfMassLocal(Vector3 out) {
+        Vector3 min = new Vector3();
+        Vector3 max = new Vector3();
+        collisionMesh.bounds(min, max);
+        return out.set(min).add(max).scl(0.5f);
     }
 
     @Override

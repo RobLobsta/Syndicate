@@ -7,7 +7,7 @@ package dev.syndicate.core.physics;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
-import com.badlogic.gdx.physics.bullet.collision.btBoxShape;
+import com.badlogic.gdx.physics.bullet.collision.btStaticPlaneShape;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
 import dev.syndicate.core.asset.AssemblyDef;
@@ -51,8 +51,16 @@ public final class ShippedContentScene implements AutoCloseable {
         Bullet.init(false);
     }
 
-    /** Half-extents of the road, metres. Long enough that a 0-100 run and a stop both fit on it. */
-    private static final Vector3 ROAD_HALF_EXTENTS = new Vector3(60f, 1f, 400f);
+    /**
+     * The road is an infinite plane at y=0 rather than a very long box.
+     *
+     * <p>Long enough for a 0-100 and a stop was the requirement, and a 800 m box met it while
+     * quietly breaking the suspension: Bullet ray-tests a convex shape with an iterative cast whose
+     * accuracy falls off with the shape's size, so each wheel's ground contact came back up to
+     * 14 cm out, differently every tick (DISC-017). A plane is intersected analytically and the
+     * same test is exact. {@code ArenaFactory} builds its floor the same way for the same reason.
+     */
+    private static final Vector3 ROAD_NORMAL = new Vector3(0f, 1f, 0f);
 
     /** Dry asphalt. Bullet multiplies body friction with the ray-cast wheel's own grip figure. */
     private static final float ROAD_FRICTION = 1.0f;
@@ -64,7 +72,7 @@ public final class ShippedContentScene implements AutoCloseable {
 
     private final List<btRigidBody> roadBodies = new ArrayList<>();
     private final List<btDefaultMotionState> roadMotionStates = new ArrayList<>();
-    private final List<btBoxShape> roadShapes = new ArrayList<>();
+    private final List<btStaticPlaneShape> roadShapes = new ArrayList<>();
 
     private final EntityDestroySystem entityDestroySystem;
     private final dev.syndicate.core.ecs.Family embodied;
@@ -221,12 +229,12 @@ public final class ShippedContentScene implements AutoCloseable {
 
     /** A static road whose top face is at {@code y = 0}. */
     private void addRoad() {
-        btBoxShape shape = new btBoxShape(ROAD_HALF_EXTENTS);
+        btStaticPlaneShape shape = new btStaticPlaneShape(ROAD_NORMAL, 0f);
         shape.setMargin(PhysicsWorld.COLLISION_MARGIN_M);
         roadShapes.add(shape);
-        NativeResourceTracker.register("btBoxShape");
+        NativeResourceTracker.register("btStaticPlaneShape");
 
-        btDefaultMotionState motionState = new btDefaultMotionState(new Matrix4().setToTranslation(0f, -1f, 0f));
+        btDefaultMotionState motionState = new btDefaultMotionState(new Matrix4());
         NativeResourceTracker.register("btDefaultMotionState");
         btRigidBody.btRigidBodyConstructionInfo info =
                 new btRigidBody.btRigidBodyConstructionInfo(0f, motionState, shape, Vector3.Zero);
@@ -270,9 +278,9 @@ public final class ShippedContentScene implements AutoCloseable {
             motionState.dispose();
             NativeResourceTracker.release("btDefaultMotionState");
         }
-        for (btBoxShape shape : roadShapes) {
+        for (btStaticPlaneShape shape : roadShapes) {
             shape.dispose();
-            NativeResourceTracker.release("btBoxShape");
+            NativeResourceTracker.release("btStaticPlaneShape");
         }
         shapes.dispose();
         physics.dispose();

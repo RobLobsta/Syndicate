@@ -312,6 +312,7 @@ public final class VehicleFactory {
         // for the debris body the part becomes (DEC-014).
         RigidBodyComponent rigidBody = new RigidBodyComponent();
         rigidBody.massKg = type.massKg();
+        type.centerOfMassLocal(rigidBody.centerOfMassLocal);
         rigidBody.shapeKey = ShapeCacheKey.of(type.partTypeId(), ShapeCacheKey.Variant.PART_HULL);
         rigidBody.layer = CollisionLayer.VEHICLE;
         rigidBody.mask = CollisionLayer.VEHICLE.mask();
