@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0.0",
+  "notes": [
+    "Input tuning, as content (dev.syndicate.client.input.InputBindings).",
+    "",
+    "A gamepad and a keyboard are peers here, not a primary and a fallback, and which one is",
+    "live is decided by which the player last touched rather than by a settings screen.",
+    "",
+    "The two blocks are separate because a stick and a key are different instruments. A stick",
+    "reports a continuous position and needs a dead zone and a response curve; a key reports on",
+    "or off and needs a ramp to become steering at all. Sharing one set of numbers makes one of",
+    "the two feel wrong, and which one depends on whose machine it was tuned on.",
+    "",
+    "InputBindings.defaults() holds these same values, and a test asserts the two agree \u2014 the",
+    "code copy exists so a missing file leaves a playable game rather than a car that ignores",
+    "the controls."
+  ],
+  "gamepad": {
+    "stickDeadZone": 0.18,
+    "triggerDeadZone": 0.1,
+    "steerExponent": 1.8,
+    "aimExponent": 2.0,
+    "aimRateRadPerSec": 3.2,
+    "invertAimY": false,
+    "_mapping": {
+      "throttle": "right trigger (analogue)",
+      "brake": "left trigger (analogue)",
+      "handbrake": "B",
+      "steer": "left stick X",
+      "aim": "right stick (as a rate, not a position)",
+      "weaponGroups": [
+        "RB",
+        "LB",
+        "A",
+        "X"
+      ]
+    },
+    "_why": [
+      "steerExponent above 1 buys precision where it is spent: full lock is a rare input and",
+      "the first ten degrees are most of the driving.",
+      "aimRate exists because a stick reports a position and aiming needs a velocity \u2014 treating",
+      "the position as an absolute angle snaps the reticle back to centre when you let go.",
+      "analogueTriggerAxis* default to -1, meaning the digital L2/R2 buttons every backend supports. gdx-controllers 2.x's portable mapping has no trigger axes and the real indices vary by pad and platform, so a machine with analogue triggers sets them here rather than the code guessing."
+    ],
+    "analogueTriggerAxisRight": -1,
+    "analogueTriggerAxisLeft": -1
+  },
+  "keyboardMouse": {
+    "steerRampPerSec": 2.6,
+    "steerReturnPerSec": 6.0,
+    "throttleRampPerSec": 3.0,
+    "mouseSensitivityRadPerPixel": 0.0032,
+    "invertAimY": false,
+    "_mapping": {
+      "throttle": "W or Up",
+      "reverse": "S or Down",
+      "steer": "A/D or Left/Right",
+      "handbrake": "Space",
+      "aim": "mouse",
+      "weaponGroups": [
+        "left mouse",
+        "right mouse",
+        "1",
+        "2"
+      ]
+    },
+    "_why": [
+      "Return is more than twice the ramp on purpose. Held input builds progressively and",
+      "letting go recentres immediately, which is what makes a keyboard driveable at speed",
+      "rather than a series of stabs the car never settles between."
+    ]
+  }
+}

@@ -13,6 +13,9 @@ gdx                  = "1.14.2"
 # D02-S4.1 originally said "3.x", which does not exist — see DEV-001 and the
 # amended D02-S4.1 table.
 gdxGltf              = "2.3.0"
+# gdx-controllers is a libGDX extension, versioned independently of gdx itself.
+# 2.2.3 is the current release and the one that supports gdx 1.12+.
+gdxControllers       = "2.2.3"
 jackson              = "2.17.2"
 jsonSchemaValidator  = "1.4.0"
 # KryoNet's only artifact on Maven Central is 2.22.0-RC1; it is the de-facto
@@ -39,6 +42,10 @@ gdx-backend-headless = { module = "com.badlogicgames.gdx:gdx-backend-headless", 
 gdx-bullet           = { module = "com.badlogicgames.gdx:gdx-bullet",           version.ref = "gdx" }
 gdx-bullet-platform  = { module = "com.badlogicgames.gdx:gdx-bullet-platform",  version.ref = "gdx" }
 gdx-gltf             = { module = "com.github.mgsx-dev.gdx-gltf:gltf",          version.ref = "gdxGltf" }
+# Gamepads. `core` is the API, `desktop` the LWJGL/Jamepad backend; both are client-only
+# because a dedicated server polls no devices (D03-S4.1).
+gdx-controllers-core = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-core",    version.ref = "gdxControllers" }
+gdx-controllers-desktop = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-desktop", version.ref = "gdxControllers" }
 
 # Data / contracts
 jackson-databind     = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
