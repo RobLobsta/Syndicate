@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/04_entity_component_model.md#D04-S4.4, docs/05_vehicle_part_system.md#D05-S5.6, docs/06_physics_simulation.md#D06-S5.5
 
-**Status:** active
+**Status:** superseded (by PROG-014)
 
 ## Summary
 `VehicleStatsSystem` (6) and `VehicleControlSystem` (7) exist, with the degradation model of

@@ -120,6 +120,14 @@ art-source/
     "suspensionDamping": 2.3,
     "rollInfluence": 0.15
   },
+  "weapon": {
+    "family": "AUTOCANNON",
+    "damageType": null,
+    "ammoCapacity": -1,
+    "blastRadiusM": 0.0,
+    "rangeM": 0.0,
+    "muzzleLocal": { "x": 0.0, "y": 0.2, "z": 0.9 }
+  },
   "slots": [
     {
       "slotId": "deco_mount_01",
@@ -157,6 +165,7 @@ art-source/
 | `powerCost` | number | `>= 0`; warned if >15% from the reference formula (D05-S5.7) |
 | `breakImpulseN` | number | `> 0`; **unit is N·s** (D06-R22) |
 | `stats` | object | keys must be known stat names (D05-S4.5); `decorative` may declare none |
+| `weapon` | object | required on a `weapon` part, absent on every other. `family` is one of the eight of D01-S4.4 and fixes delivery and primary damage type; `damageType` overrides that type or is null; `ammoCapacity` is rounds at spawn or `-1` for unlimited; `blastRadiusM` is 0 for a point hit; `rangeM` is 0 to take the family's D01-S4.4 range; `muzzleLocal` is where shots leave the part. The numbers D01-R8 also names — `baseFireIntervalS`, `damagePerShot`, `spreadRad`, `heatPerShot`, `projectileSpeedMps` — are **stats** rather than fields here, so degradation (D05-S5.4) and utility multipliers (D05-S5.6) reach them. A family is an identity and cannot be a stat, for the same reason `handling` exists (DEC-031, DEC-039). A part in category `weapon` with no block never fires. |
 | `handling` | object | optional; every field optional and defaulted from D06-S4.5's reference chassis. A chassis uses `dragCoefficient`, `rollingResistance` and `downforceCoefficient`; a wheel uses `suspensionCompression`, `suspensionDamping`, `rollInfluence`, `suspensionRestLengthM`, `maxSuspensionTravelCm` and `maxSuspensionForceN`. These are properties of one body or one corner rather than contributions to a vehicle-wide sum, which is why they are not stats — adding two chassis together must not add their drag coefficients. A field the loader cannot accept is reported `A210` and the whole block falls back to the reference. |
 | `slots[].slotId` | string | unique within the part; `^[a-z][a-z0-9_]{1,31}$` |
 | `slots[].localRotationDeg` | object | degrees with explicit `order` (D00-R17) |
@@ -305,6 +314,7 @@ assets/
   "displayName": "Scrapyard",
   "boundsMin": { "x": -200, "y": -30, "z": -200 },
   "boundsMax": { "x":  200, "y": 120, "z":  200 },
+  "groundY": 0.0,
   "killPlaneY": -25.0,
   "spawnPoints": [
     { "id": "sp_a_01", "team": 0, "position": {"x":-80,"y":2,"z":-60},
@@ -317,6 +327,8 @@ assets/
 ```
 
 **R15.** `clearanceRadiusM` must be ≥ `MIN_SPAWN_SEPARATION_M` (D06-E7). Spawn points are validated to be above the ground collision and inside bounds.
+
+**R15a.** `groundY` is the height of the drivable floor, metres. It is authored rather than derived from the collision mesh so that an arena's floor height is a number the simulation can read before any geometry is loaded — which is what lets `ArenaFactory` generate a floor when `assets.collision` is absent (DEV-014), and what lets a spawn point be validated as above the ground without a mesh to test against.
 
 ---
 

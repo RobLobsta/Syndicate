@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/08_asset_pipeline.md#D08-S5.3, docs/08_asset_pipeline.md#D08-S4.1, docs/03_runtime_modes.md#D03-S5.1
 
-**Status:** active
+**Status:** superseded (by PROG-015)
 
 ## Summary
 `game-core` reads glTF headlessly and the loader uses it, so DEV-010 is closed and a `.glb` in a part
