@@ -7,11 +7,12 @@ package dev.syndicate.core.physics;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
-import com.badlogic.gdx.physics.bullet.collision.btBoxShape;
+import com.badlogic.gdx.physics.bullet.collision.btStaticPlaneShape;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
 import dev.syndicate.core.asset.AssemblyDef;
 import dev.syndicate.core.asset.InMemoryAssetIndex;
+import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.PlayerInputComponent;
 import dev.syndicate.core.component.RigidBodyComponent;
 import dev.syndicate.core.component.TeamComponent;
@@ -19,9 +20,13 @@ import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.component.WheelControllerComponent;
 import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.system.DetachSystem;
 import dev.syndicate.core.system.EntityDestroySystem;
+import dev.syndicate.core.system.FractureSystem;
+import dev.syndicate.core.system.LifetimeSystem;
 import dev.syndicate.core.system.MassPropertySystem;
 import dev.syndicate.core.system.PhysicsSystem;
+import dev.syndicate.core.system.TransformSystem;
 import dev.syndicate.core.system.VehicleControlSystem;
 import dev.syndicate.core.system.VehicleStatsSystem;
 import dev.syndicate.core.util.NativeResourceTracker;
@@ -29,6 +34,7 @@ import dev.syndicate.core.vehicle.ShippedContent;
 import dev.syndicate.core.vehicle.VehicleFactory;
 import dev.syndicate.core.vehicle.VehicleProfile;
 import dev.syndicate.model.CollisionLayer;
+import dev.syndicate.model.DamageState;
 import dev.syndicate.model.SimulationConstants;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,8 +57,16 @@ public final class ShippedContentScene implements AutoCloseable {
         Bullet.init(false);
     }
 
-    /** Half-extents of the road, metres. Long enough that a 0-100 run and a stop both fit on it. */
-    private static final Vector3 ROAD_HALF_EXTENTS = new Vector3(60f, 1f, 400f);
+    /**
+     * The road is an infinite plane at y=0 rather than a very long box.
+     *
+     * <p>Long enough for a 0-100 and a stop was the requirement, and a 800 m box met it while
+     * quietly breaking the suspension: Bullet ray-tests a convex shape with an iterative cast whose
+     * accuracy falls off with the shape's size, so each wheel's ground contact came back up to
+     * 14 cm out, differently every tick (DISC-017). A plane is intersected analytically and the
+     * same test is exact. {@code ArenaFactory} builds its floor the same way for the same reason.
+     */
+    private static final Vector3 ROAD_NORMAL = new Vector3(0f, 1f, 0f);
 
     /** Dry asphalt. Bullet multiplies body friction with the ray-cast wheel's own grip figure. */
     private static final float ROAD_FRICTION = 1.0f;
@@ -64,8 +78,9 @@ public final class ShippedContentScene implements AutoCloseable {
 
     private final List<btRigidBody> roadBodies = new ArrayList<>();
     private final List<btDefaultMotionState> roadMotionStates = new ArrayList<>();
-    private final List<btBoxShape> roadShapes = new ArrayList<>();
+    private final List<btStaticPlaneShape> roadShapes = new ArrayList<>();
 
+    private final DebrisFactory debrisFactory;
     private final EntityDestroySystem entityDestroySystem;
     private final dev.syndicate.core.ecs.Family embodied;
 
@@ -76,12 +91,20 @@ public final class ShippedContentScene implements AutoCloseable {
         physics = PhysicsWorld.create();
         shapes = new ShapeCache();
         assets = ShippedContent.load();
+        debrisFactory = new DebrisFactory(physics);
         entityDestroySystem = new EntityDestroySystem(physics, shapes);
+        // The destruction half of the schedule is here so a shipped car can lose a part while it is
+        // being driven. Damage and collision events are not: nothing in this scene shoots or crashes,
+        // and a test that wants a part gone marks it destroyed through destroyPart.
         world.registerSystems(List.<EntitySystem>of(
                 new VehicleStatsSystem(assets),
                 new VehicleControlSystem(),
                 new PhysicsSystem(physics),
+                new FractureSystem(assets, shapes, debrisFactory),
+                new DetachSystem(assets, shapes, debrisFactory, physics),
                 new MassPropertySystem(shapes),
+                new LifetimeSystem(),
+                new TransformSystem(),
                 entityDestroySystem));
         embodied = world.family(dev.syndicate.core.ecs.ComponentQuery.all(RigidBodyComponent.class));
         addRoad();
@@ -89,6 +112,23 @@ public final class ShippedContentScene implements AutoCloseable {
 
     public World world() {
         return world;
+    }
+
+    public PhysicsWorld physics() {
+        return physics;
+    }
+
+    /**
+     * Marks a part destroyed, which is what {@code DamageSystem} does in slot 12.
+     *
+     * <p>Cutting in at the state machine rather than by shooting the part keeps a test about
+     * detachment from also being a test about ballistics — and no shipped part is a weapon yet.
+     */
+    public void destroyPart(int partEntity) {
+        DamageStateComponent state = world.getComponent(partEntity, DamageStateComponent.class);
+        state.state = DamageState.DESTROYED;
+        state.stateEnteredTick = tick;
+        state.stateVersion++;
     }
 
     public InMemoryAssetIndex assets() {
@@ -221,12 +261,12 @@ public final class ShippedContentScene implements AutoCloseable {
 
     /** A static road whose top face is at {@code y = 0}. */
     private void addRoad() {
-        btBoxShape shape = new btBoxShape(ROAD_HALF_EXTENTS);
+        btStaticPlaneShape shape = new btStaticPlaneShape(ROAD_NORMAL, 0f);
         shape.setMargin(PhysicsWorld.COLLISION_MARGIN_M);
         roadShapes.add(shape);
-        NativeResourceTracker.register("btBoxShape");
+        NativeResourceTracker.register("btStaticPlaneShape");
 
-        btDefaultMotionState motionState = new btDefaultMotionState(new Matrix4().setToTranslation(0f, -1f, 0f));
+        btDefaultMotionState motionState = new btDefaultMotionState(new Matrix4());
         NativeResourceTracker.register("btDefaultMotionState");
         btRigidBody.btRigidBodyConstructionInfo info =
                 new btRigidBody.btRigidBodyConstructionInfo(0f, motionState, shape, Vector3.Zero);
@@ -270,9 +310,9 @@ public final class ShippedContentScene implements AutoCloseable {
             motionState.dispose();
             NativeResourceTracker.release("btDefaultMotionState");
         }
-        for (btBoxShape shape : roadShapes) {
+        for (btStaticPlaneShape shape : roadShapes) {
             shape.dispose();
-            NativeResourceTracker.release("btBoxShape");
+            NativeResourceTracker.release("btStaticPlaneShape");
         }
         shapes.dispose();
         physics.dispose();

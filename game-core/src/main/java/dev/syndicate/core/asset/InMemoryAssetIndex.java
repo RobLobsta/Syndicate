@@ -31,6 +31,8 @@ public final class InMemoryAssetIndex implements AssetIndex {
 
     private final Map<AssetId, MaterialDef> materials = new TreeMap<>();
 
+    private final Map<AssetId, ArenaDef> arenas = new TreeMap<>();
+
     /** Registers a manifest under its own {@link FractureManifest#manifestId()}. */
     public InMemoryAssetIndex put(FractureManifest manifest) {
         manifests.put(manifest.manifestId(), manifest);
@@ -55,6 +57,12 @@ public final class InMemoryAssetIndex implements AssetIndex {
         return this;
     }
 
+    /** Registers an arena under its own {@link ArenaDef#arenaId()}. */
+    public InMemoryAssetIndex put(ArenaDef arena) {
+        arenas.put(arena.arenaId(), arena);
+        return this;
+    }
+
     @Override
     public FractureManifest fractureManifest(AssetId manifestId) {
         return manifestId == null ? null : manifests.get(manifestId);
@@ -75,6 +83,11 @@ public final class InMemoryAssetIndex implements AssetIndex {
         return materialId == null ? null : materials.get(materialId);
     }
 
+    @Override
+    public ArenaDef arena(AssetId arenaId) {
+        return arenaId == null ? null : arenas.get(arenaId);
+    }
+
     /** Every loaded manifest, by ascending id. */
     public Map<AssetId, FractureManifest> manifests() {
         return Collections.unmodifiableMap(manifests);
@@ -93,5 +106,10 @@ public final class InMemoryAssetIndex implements AssetIndex {
     /** Every loaded material, by ascending id. */
     public Map<AssetId, MaterialDef> materials() {
         return Collections.unmodifiableMap(materials);
+    }
+
+    /** Every loaded arena, by ascending id. */
+    public Map<AssetId, ArenaDef> arenas() {
+        return Collections.unmodifiableMap(arenas);
     }
 }

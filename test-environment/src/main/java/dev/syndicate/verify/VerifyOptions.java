@@ -17,14 +17,19 @@ import java.util.Set;
  * command work on a developer's laptop and in CI without a flag either place has to remember
  * (D14-S4.2).
  *
- * <p>Two subjects, exactly one per run. {@code --asset} is a processed part directory and drives the
- * destruction checks D14 is about. {@code --model} is a single glTF file and drives the source-art
- * checks of {@link dev.syndicate.verify.model.ModelInspector} — a mode that exists because the art
- * that becomes a part has to be checked before there is a part to check.
+ * <p>Three subjects, exactly one per run. {@code --asset} is a processed part directory and drives
+ * the destruction checks D14 is about. {@code --model} is a single glTF file and drives the
+ * source-art checks of {@link dev.syndicate.verify.model.ModelInspector} — a mode that exists
+ * because the art that becomes a part has to be checked before there is a part to check.
+ * {@code --vehicle} is a shipped vehicle type id, and drives a whole assembled car: the only mode in
+ * which what is rendered is the simulation's own output rather than a file's contents.
  */
 public record VerifyOptions(
         Path assetDir,
         Path modelPath,
+        String vehicleTypeId,
+        Path assetRoot,
+        float driveSeconds,
         Path reportPath,
         Set<Check.Category> categories,
         long seed,
@@ -38,6 +43,11 @@ public record VerifyOptions(
     /** True when this run inspects a single model file rather than a processed asset directory. */
     public boolean isModelMode() {
         return modelPath != null;
+    }
+
+    /** True when this run drives an assembled vehicle out of the shipped asset tree. */
+    public boolean isVehicleMode() {
+        return vehicleTypeId != null;
     }
 
     /** Default harness seed (D14-R1). */
@@ -54,6 +64,9 @@ public record VerifyOptions(
     public static VerifyOptions parse(String[] args) {
         Path assetDir = null;
         Path modelPath = null;
+        String vehicleTypeId = null;
+        Path assetRoot = Path.of("assets");
+        float driveSeconds = 3.0f;
         Path reportPath = null;
         Path capturePath = null;
         Set<Check.Category> categories = EnumSet.allOf(Check.Category.class);
@@ -70,6 +83,9 @@ public record VerifyOptions(
             switch (arg) {
                 case "--asset" -> assetDir = Path.of(require(args, ++i, "--asset"));
                 case "--model" -> modelPath = Path.of(require(args, ++i, "--model"));
+                case "--vehicle" -> vehicleTypeId = require(args, ++i, "--vehicle");
+                case "--assets" -> assetRoot = Path.of(require(args, ++i, "--assets"));
+                case "--drive-seconds" -> driveSeconds = Float.parseFloat(require(args, ++i, "--drive-seconds"));
                 case "--report" -> reportPath = Path.of(require(args, ++i, "--report"));
                 case "--capture" -> capturePath = Path.of(require(args, ++i, "--capture"));
                 case "--capture-tick" -> captureTick = Integer.parseInt(require(args, ++i, "--capture-tick"));
@@ -87,11 +103,16 @@ public record VerifyOptions(
         if (visual && headless) {
             throw new UsageException("--visual and --headless are mutually exclusive");
         }
-        if (assetDir == null && modelPath == null) {
-            throw new UsageException("--asset <dir> or --model <file> is required");
+        int subjects = (assetDir == null ? 0 : 1) + (modelPath == null ? 0 : 1) + (vehicleTypeId == null ? 0 : 1);
+        if (subjects == 0) {
+            throw new UsageException("--asset <dir>, --model <file> or --vehicle <vehicleTypeId> is required");
         }
-        if (assetDir != null && modelPath != null) {
-            throw new UsageException("--asset and --model are mutually exclusive");
+        if (subjects > 1) {
+            throw new UsageException("--asset, --model and --vehicle are mutually exclusive");
+        }
+        // A vehicle run exists to produce frames; headless it would drive a car nobody watches.
+        if (vehicleTypeId != null) {
+            visual = true;
         }
         // A capture is a rendered frame, so asking for one implies visual mode even without the
         // flag — the alternative is a run that silently produces no image.
@@ -99,14 +120,23 @@ public record VerifyOptions(
             visual = true;
         }
         if (reportPath == null) {
-            Path subject = assetDir != null ? assetDir : modelPath;
-            String name = assetDir != null ? subject.getFileName().toString() : stem(subject);
+            String name;
+            if (vehicleTypeId != null) {
+                name = vehicleTypeId;
+            } else if (assetDir != null) {
+                name = assetDir.getFileName().toString();
+            } else {
+                name = stem(modelPath);
+            }
             reportPath = Path.of("build", "verify", name + ".report.json");
         }
 
         return new VerifyOptions(
                 assetDir,
                 modelPath,
+                vehicleTypeId,
+                assetRoot,
+                driveSeconds,
                 reportPath,
                 categories,
                 seed,
@@ -122,7 +152,8 @@ public record VerifyOptions(
     public static String usage() {
         return """
             syndicate-verify [--visual | --headless]
-                             (--asset <dir> | --model <file.gltf|.glb>)
+                             (--asset <dir> | --model <file.gltf|.glb> | --vehicle <vehicleTypeId>)
+                             [--assets <root>] [--drive-seconds <f>]
                              [--categories asset,physics,progression]
                              [--report <out.json>]
                              [--seed <long>]

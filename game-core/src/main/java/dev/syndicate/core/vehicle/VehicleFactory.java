@@ -17,6 +17,7 @@ import dev.syndicate.core.asset.FractureManifest;
 import dev.syndicate.core.asset.HandlingBlock;
 import dev.syndicate.core.asset.MeshData;
 import dev.syndicate.core.asset.PartType;
+import dev.syndicate.core.asset.WeaponBlock;
 import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.FractureDataComponent;
 import dev.syndicate.core.component.HealthComponent;
@@ -204,6 +205,7 @@ public final class VehicleFactory {
         for (AssemblyLayout.PlacedPart placed : layout.parts()) {
             int partEntity = createPart(world, assets, vehicleEntity, placed);
             entityBySlotPath.put(placed.slotPath(), partEntity);
+            addPartTransform(world, vehicleEntity, entityBySlotPath, placed, partEntity, comLocal);
             if (placed.isChassis()) {
                 chassis.chassisPartEntity = partEntity;
             } else {
@@ -311,6 +313,7 @@ public final class VehicleFactory {
         // for the debris body the part becomes (DEC-014).
         RigidBodyComponent rigidBody = new RigidBodyComponent();
         rigidBody.massKg = type.massKg();
+        type.centerOfMassLocal(rigidBody.centerOfMassLocal);
         rigidBody.shapeKey = ShapeCacheKey.of(type.partTypeId(), ShapeCacheKey.Variant.PART_HULL);
         rigidBody.layer = CollisionLayer.VEHICLE;
         rigidBody.mask = CollisionLayer.VEHICLE.mask();
@@ -326,10 +329,20 @@ public final class VehicleFactory {
         }
 
         if (type.category() == PartCategory.WEAPON) {
+            WeaponBlock block = type.weapon();
             WeaponControllerComponent weapon = new WeaponControllerComponent();
             weapon.weaponTypeId = type.partTypeId();
-            weapon.baseFireIntervalS = type.stats().resolve(StatBlock.Stat.FIRE_INTERVAL_S, 0f);
+            // The stat's own add term is the interval, so it resolves against zero. A weapon that
+            // authored none would then fire on every tick, which is why the fallback is applied to
+            // the result rather than used as the base — using it as the base would add a second
+            // later, silently, to every weapon that did author one (D01-R8).
+            float authoredInterval = type.stats().resolve(StatBlock.Stat.FIRE_INTERVAL_S, 0f);
+            weapon.baseFireIntervalS = authoredInterval > 0f ? authoredInterval : WeaponBlock.DEFAULT_FIRE_INTERVAL_S;
             weapon.effectiveFireIntervalS = weapon.baseFireIntervalS;
+            weapon.ammoRemaining = block == null ? WeaponBlock.UNLIMITED_AMMO : block.ammoCapacity();
+            if (block != null) {
+                weapon.muzzleLocal.set(block.muzzleLocal());
+            }
             weapon.groupIndex = placed.overrides().weaponGroup() == null
                     ? 0
                     : placed.overrides().weaponGroup();
@@ -358,6 +371,35 @@ public final class VehicleFactory {
      * <p>The parent entity is looked up by slot path in the map the spawn loop has been filling.
      * Ascending slot path order is topological (D08-R11), so the parent is always in it already.
      */
+    /**
+     * Gives a part its {@code Transform (local)} from the D04-S4.2 {@code PART} archetype.
+     *
+     * <p>Parent-local, and which parent depends on the part. Every part but the chassis hangs off
+     * the part offering its slot, at that slot's offset. The chassis hangs off the vehicle entity
+     * at {@code -comLocal}, because the vehicle's rigid body has its origin at the centre of mass
+     * (D06-S5.7 step 2) and the chassis art is authored about the mesh origin. {@code TransformSystem}
+     * (21) rewrites that one offset every tick, since the COM moves whenever a part comes off.
+     */
+    private static void addPartTransform(
+            World world,
+            int vehicleEntity,
+            Map<String, Integer> entityBySlotPath,
+            AssemblyLayout.PlacedPart placed,
+            int partEntity,
+            Vector3 comLocal) {
+
+        TransformComponent transform = new TransformComponent();
+        if (placed.isChassis()) {
+            transform.parent = vehicleEntity;
+            transform.position.set(comLocal).scl(-1f);
+        } else {
+            transform.parent = entityBySlotPath.getOrDefault(placed.parentSlotPath(), EntityId.NULL);
+            transform.position.set(placed.slot().localTransform().position);
+            transform.rotation.set(placed.slot().localTransform().rotation);
+        }
+        world.addComponent(partEntity, transform);
+    }
+
     private static void attachToGraph(
             SlotGraphComponent graph,
             Map<String, Integer> entityBySlotPath,

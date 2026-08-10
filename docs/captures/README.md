@@ -62,3 +62,45 @@ xvfb-run -a -s "-screen 0 1600x900x24" \
   test-environment/build/install/syndicate-verify/bin/syndicate-verify \
   --model art-source/vehicles/eclipse/scene.gltf --capture build/captures/eclipse.png
 ```
+
+---
+
+## Assembled-vehicle captures
+
+Frames from `--vehicle` mode, which is the only one of the three that photographs a **simulation**
+rather than a file. A shipped assembly is spawned through `VehicleFactory`, driven under full
+throttle, and its front-left wheel destroyed mid-run; each part is drawn at the world matrix
+`TransformSystem` (schedule slot 21) computed for it that tick. Nothing in the frame is posed — the
+angle each rim has rolled to, the empty arch, the wheel bouncing down the road behind the car are
+all read back out of component state.
+
+| File | Moment | What it can falsify |
+|---|---|---|
+| `eclipse_drive_settled.png` | parked, 1.0 s | wheels in the arches; body on the road, not above it |
+| `eclipse_drive_wheel_parked.png` | parked, close-up | the tyre's own texture — sidewall lettering, rim, caliper |
+| `eclipse_drive_wheel_rolling.png` | 29 m/s, close-up | the same rim, rotated: a ray-cast wheel that spins |
+| `eclipse_drive_detach.png` | 0.25 s after the wheel is destroyed | it leaves as a body of its own, at the car's speed |
+| `eclipse_drive_threewheel.png` | 0.9 s later | three wheels on the road and the car still driving |
+| `stampede_drive_settled.png` | parked | the same, on the heavier car |
+| `stampede_drive_wheel_rolling.png` | 25 m/s, close-up | " |
+| `stampede_drive_threewheel.png` | after the detach | " |
+
+The two close-ups are the pair to compare: same wheel, same camera, 3 s apart, and the rim is at a
+different angle in the second. That is `getWheelTransformWS` reaching the renderer — a wheel resolved
+through the slot graph alone would be identical in both frames, because a slot transform does not
+know the car has moved.
+
+Every claim these frames illustrate is also asserted headlessly, in CI, where no display exists:
+`RideHeightTest` for the ride height, `WheelSpinTest` for the roll angle against distance travelled,
+`WheelDetachTest` for the detach and the three wheels that remain. The pictures are for the reader;
+the tests are the gate.
+
+```
+./gradlew :test-environment:installDist
+xvfb-run -a -s "-screen 0 1600x900x24" \
+  test-environment/build/install/syndicate-verify/bin/syndicate-verify \
+  --vehicle vehicle_eclipse_01 --capture build/captures/eclipse_drive.png
+```
+
+`--assets <root>` points at a different asset tree and `--drive-seconds <f>` changes how long the car
+accelerates before it loses the wheel.

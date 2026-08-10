@@ -162,6 +162,10 @@ Legend for **Auth**: `A` = authoritative (replicated, gameplay-relevant, G6); `C
 | | `armorValue` | `float` | — | A | Flat mitigation, D07-S5.2. |
 | | `lastDamageTick` | `TickNumber` | tick | A | For damage-over-time and scoring attribution. |
 | | `lastAttacker` | `EntityId` | — | A | |
+| | `lastHitNormalX/Y/Z` | `float` | — | A | The contact normal of the most recent direct hit, world space. Recorded by `DamageSystem` (12) and spent by `DetachSystem` (14) as the detach kick of D07-S5.7; a system field would be the cross-tick state D04-R3 prohibits. |
+| `BurnStackComponent` | `remainingS` | `float[5]` | s | A | Seconds left on each live incendiary stack (D07-R8). Per-stack rather than one refreshed timer, so one touch cannot keep five stacks alive. |
+| | `stackCount` | `int` | — | A | How many entries of `remainingS` are live; capped at 5. |
+| | `lastAttacker` | `EntityId` | — | A | Who lit it, so a part that burns down still credits somebody. |
 | `DamageStateComponent` | `state` | `DamageState` | enum | A | `INTACT/DAMAGED/CRITICAL/DESTROYED/DETACHED`. |
 | | `stateEnteredTick` | `TickNumber` | tick | A | |
 | | `stateVersion` | `int` | — | A | Increments on transition; drives delta replication (D10-S5.4). |
@@ -194,6 +198,12 @@ Legend for **Auth**: `A` = authoritative (replicated, gameplay-relevant, G6); `C
 | | `heat` | `float` | `[0,1]` | A | |
 | | `groupIndex` | `int` | — | A | Which `fireMask` bit fires it. |
 | | `muzzleLocal` | `Vector3` | m | A | |
+| `ProjectileComponent` | `damageType` | `DamageType` | enum | A | What the shot delivers on impact (D07-S4.3). |
+| | `damageAmount` | `float` | HP | A | Frozen at the muzzle, never re-read from the weapon: a shot in flight keeps its damage after its launcher is destroyed (D01-E6). |
+| | `blastRadiusM` | `float` | m | A | 0 for a point hit; positive for an explosive, which damages every part inside it (D07-E3). |
+| | `maxRangeM` / `travelledM` | `float` | m | A | A shot that reaches its range is spent (D06-S5.9). |
+| | `shooterVehicleEntity` | `EntityId` | — | A | For the friendly-fire test (D01-E9). |
+| | `sourceWeaponGroup` | `int` | — | A | For the damage ledger; `-1` when nothing fired it. |
 | `WheelControllerComponent` | `wheelIndex` | `int` | — | A | Index into `btRaycastVehicle`. |
 | | `isSteering` / `isDriven` | `boolean` | — | A | |
 | | `radiusM`, `suspensionRestLengthM` | `float` | m | A | D06-S5.5. |
@@ -229,6 +239,7 @@ Legend for **Auth**: `A` = authoritative (replicated, gameplay-relevant, G6); `C
 | `RandomSourceComponent` | `matchSeed` | `long` | — | A | D06-S5.5. |
 | | `streams` | `map<StreamId, PcgState>` | — | A | One deterministic stream per subsystem. |
 | `ScoreComponent` | `kills`, `assists`, `deaths`, `damageDealt`, `objectiveScore` | numeric | — | A | |
+| `DamageLedgerComponent` | `ledger` | `DamageLedger` | — | A | Who has damaged which vehicle, match-long and windowed over `ASSIST_WINDOW_TICKS` (D01-S5.4). On the match singleton, because it outlives every vehicle it records damage against — which is the point: the moment it is read is the moment a victim dies. |
 | `RenderModelComponent` (client) | `modelInstance` | handle | — | C | Never in `game-core`. |
 
 <!-- D04-S4.4 -->### 4.4 System Catalogue and Execution Order

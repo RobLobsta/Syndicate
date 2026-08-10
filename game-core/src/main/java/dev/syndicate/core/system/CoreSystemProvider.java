@@ -5,6 +5,9 @@
 package dev.syndicate.core.system;
 
 import dev.syndicate.core.asset.AssetIndex;
+import dev.syndicate.core.damage.DamageApplication;
+import dev.syndicate.core.damage.HitResolution;
+import dev.syndicate.core.damage.ProjectileImpact;
 import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.physics.DebrisFactory;
 import dev.syndicate.core.physics.PhysicsWorld;
@@ -23,9 +26,9 @@ import java.util.Objects;
  * through, and a system that cannot be constructed without one cannot be scheduled without one.
  *
  * <p>Slots this module has not implemented yet return null, which {@code SystemSetFactory} reports
- * once at startup. That is deliberately not a failure: the eight systems that do exist are a
- * simulation that runs, and refusing to start until all 27 are written would mean the schedule could
- * not be exercised until the last of them landed.
+ * once at startup. That is deliberately not a failure: the systems that do exist are a simulation
+ * that runs, and refusing to start until all 27 are written would mean the schedule could not be
+ * exercised until the last of them landed.
  */
 public final class CoreSystemProvider implements SystemProvider {
 
@@ -34,6 +37,19 @@ public final class CoreSystemProvider implements SystemProvider {
     private final AssetIndex assets;
     private final SpawnQueue spawnQueue;
     private final DebrisFactory debris;
+
+    /**
+     * The damage pipeline's shared collaborators, built once here.
+     *
+     * <p>Slots 8, 9, 11 and 12 all resolve hits and all apply damage, and doing so through one
+     * {@link HitResolution} and one {@link DamageApplication} is what makes a shotgun pellet, a
+     * rammed kerb and a rocket's blast reach the same armour formula. They also carry per-call
+     * scratch, so sharing them keeps four systems from allocating four sets of it.
+     */
+    private final HitResolution hits;
+
+    private final DamageApplication damage;
+    private final ProjectileImpact impacts;
 
     /**
      * @param debris the debris body factory shared by fracture and detachment, so both draw on one
@@ -46,6 +62,9 @@ public final class CoreSystemProvider implements SystemProvider {
         this.assets = Objects.requireNonNull(assets, "assets");
         this.spawnQueue = Objects.requireNonNull(spawnQueue, "spawnQueue");
         this.debris = Objects.requireNonNull(debris, "debris");
+        this.hits = new HitResolution(shapes);
+        this.damage = new DamageApplication(assets, hits);
+        this.impacts = new ProjectileImpact(physics, assets, hits);
     }
 
     @Override
@@ -54,13 +73,19 @@ public final class CoreSystemProvider implements SystemProvider {
             case SPAWN -> new SpawnSystem(spawnQueue, assets, physics, shapes);
             case VEHICLE_STATS -> new VehicleStatsSystem(assets);
             case VEHICLE_CONTROL -> new VehicleControlSystem();
+            case WEAPON -> new WeaponSystem(assets, impacts, mode.isAuthority());
+            case PROJECTILE -> new ProjectileSystem(impacts, mode.isAuthority());
             case PHYSICS -> new PhysicsSystem(physics);
+            case COLLISION_EVENT -> new CollisionEventSystem(physics, assets, hits);
+            case DAMAGE -> new DamageSystem(assets, damage);
             case FRACTURE -> new FractureSystem(assets, shapes, debris);
             case DETACH -> new DetachSystem(assets, shapes, debris, physics);
             case MASS_PROPERTY -> new MassPropertySystem(shapes);
             case LIFETIME -> new LifetimeSystem();
+            case SCORE -> new ScoreSystem();
+            case TRANSFORM -> new TransformSystem();
             case ENTITY_DESTROY -> new EntityDestroySystem(physics, shapes);
-                // The other 18 slots of D04-S4.4 are unwritten. Null rather than a throw: see the class
+                // The other 12 slots of D04-S4.4 are unwritten. Null rather than a throw: see the class
                 // note — an unimplemented slot leaves a gap in the schedule, not a process that refuses
                 // to boot.
             default -> null;

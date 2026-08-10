@@ -4,6 +4,7 @@
  */
 package dev.syndicate.core.asset;
 
+import com.badlogic.gdx.math.Vector3;
 import dev.syndicate.core.vehicle.DegradationRule;
 import dev.syndicate.core.vehicle.SlotType;
 import dev.syndicate.core.vehicle.StatBlock;
@@ -48,6 +49,7 @@ public final class PartType {
     private final boolean hangsBeforeFalling;
     private final StatBlock stats;
     private final HandlingBlock handling;
+    private final WeaponBlock weapon;
     private final Map<StatBlock.Stat, DegradationRule> degradationOverrides;
     private final Map<String, SlotDefinition> slots;
     private final AssetId fractureManifestRef;
@@ -66,6 +68,7 @@ public final class PartType {
         this.hangsBeforeFalling = builder.hangsBeforeFalling;
         this.stats = new StatBlock().set(builder.stats);
         this.handling = builder.handling;
+        this.weapon = builder.weapon;
         this.degradationOverrides = builder.degradationOverrides.isEmpty()
                 ? Map.of()
                 : Collections.unmodifiableMap(new EnumMap<>(builder.degradationOverrides));
@@ -145,6 +148,17 @@ public final class PartType {
     }
 
     /**
+     * What kind of weapon this part is, or null for a part that is not one (D08-R5, D01-R8).
+     *
+     * <p>Null rather than a neutral default: {@code WeaponSystem} (8) uses its presence to decide
+     * whether a part can fire at all, and a non-weapon carrying a default family would be a gun
+     * bolted to every armour plate.
+     */
+    public WeaponBlock weapon() {
+        return weapon;
+    }
+
+    /**
      * Per-stat degradation rules this part authors, overriding the D05-S5.4 table (D08-R5).
      *
      * <p>Usually empty: the table is the answer for almost every part, and an override exists so a
@@ -183,6 +197,32 @@ public final class PartType {
         return collisionMesh;
     }
 
+    /**
+     * Where this part's mass acts, in part-local metres — the centre of its collision mesh's extent.
+     *
+     * <p>D08-R5 gives a part a mass but no centre for it, and the obvious reading of that silence is
+     * that the mass acts at the part's origin. For a wheel that reading is right: the dissection
+     * centres a wheel on its axle, so origin and centroid coincide to within a millimetre. For a
+     * chassis it is badly wrong. The chassis mesh's origin is on the road at the centreline — the
+     * space slot positions are authored in (D08-S4.2) — and a car's body does not sit at road level;
+     * it sits about half a metre above it. Taking the origin as the centre of mass puts three
+     * quarters of a tonne under the tarmac, and suspension pushing up from 0.59 m onto a mass at
+     * 0.0 m applies a couple to the body every time a spring extends. That rings instead of damping:
+     * the corners of a settled car were still 10 cm apart after four seconds, and the Stampede lost
+     * half a second off its 0–100 to wheels that kept unloading.
+     *
+     * <p>The AABB centre rather than a volume integral because a convex hull's AABB centre is within
+     * a few centimetres of its centroid for shapes as boxy as a car body, and because the alternative
+     * is authoring a {@code comLocal} per part — a field no artist would get right and no test could
+     * check. When a part's real centre matters more than that, D08-R5 is where it should be authored.
+     */
+    public Vector3 centerOfMassLocal(Vector3 out) {
+        Vector3 min = new Vector3();
+        Vector3 max = new Vector3();
+        collisionMesh.bounds(min, max);
+        return out.set(min).add(max).scl(0.5f);
+    }
+
     @Override
     public boolean equals(Object o) {
         return o instanceof PartType other && partTypeId.equals(other.partTypeId);
@@ -206,7 +246,7 @@ public final class PartType {
     /**
      * Assembles a {@link PartType}.
      *
-     * <p>A builder rather than a record constructor because a part type has fourteen fields of which
+     * <p>A builder rather than a record constructor because a part type has fifteen fields of which
      * a caller usually sets five, and a fourteen-argument constructor is a call site where two
      * transposed floats compile silently.
      */
@@ -226,6 +266,7 @@ public final class PartType {
         private boolean hangsBeforeFalling;
         private final StatBlock stats = new StatBlock();
         private HandlingBlock handling = HandlingBlock.REFERENCE;
+        private WeaponBlock weapon;
         private final Map<StatBlock.Stat, DegradationRule> degradationOverrides = new EnumMap<>(StatBlock.Stat.class);
         private final Map<String, SlotDefinition> slots = new TreeMap<>();
         private AssetId fractureManifestRef;
@@ -291,6 +332,12 @@ public final class PartType {
         /** Replaces D06-S4.5's reference chassis figures for this part (D08-R5). */
         public Builder handling(HandlingBlock value) {
             this.handling = value == null ? HandlingBlock.REFERENCE : value;
+            return this;
+        }
+
+        /** Declares this part a weapon of the given family and configuration (D08-R5, D01-R8). */
+        public Builder weapon(WeaponBlock value) {
+            this.weapon = value;
             return this;
         }
 

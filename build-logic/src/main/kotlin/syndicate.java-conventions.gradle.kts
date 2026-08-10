@@ -81,6 +81,19 @@ tasks.withType<Test>().configureEach {
 
     // D12-S5.8 rule 1: there is no retry mechanism, deliberately. Do not add one.
     failFast = false
+
+    // The shipped content is an input to the tests that read it, and Gradle cannot know that:
+    // `assets/` is not on any source set, so a regenerated mesh leaves every test task
+    // UP-TO-DATE and the suite passes against the meshes it saw last time. That is not a
+    // hypothetical — a dissection change that dropped a wheel's lug nuts was green locally and
+    // failed six tests in CI, which had no cache to be stale (DISC-020).
+    //
+    // Declared on every module rather than only on the ones that read assets today: the cost of
+    // a directory hash is nothing, and the failure it prevents is silent.
+    inputs.dir(rootProject.layout.projectDirectory.dir("assets"))
+        .withPropertyName("shippedAssets")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+        .optional()
 }
 
 spotless {

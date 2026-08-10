@@ -51,6 +51,22 @@ public final class EventBus {
         sameTick.computeIfAbsent(event.getClass(), key -> new ArrayList<>()).add(event);
     }
 
+    /**
+     * Publishes an event to both paths at once: consumable this tick, and dispatched at its end.
+     *
+     * <p>The destruction events of D07-S5.9 need both. {@code ScoreSystem} (17) has to see a kill in
+     * the tick it happened, because the entities it names are queued for destruction and gone by the
+     * next one — while replication and presentation subscribe in the ordinary way and must not have
+     * the event consumed out from under them by whichever system drained it first.
+     *
+     * <p>Still part of the D04-R14 exception, not a widening of it: the same events, the same
+     * pipeline, delivered to two audiences with different lifetimes.
+     */
+    public void emitPipeline(Object event) {
+        emitSameTick(event);
+        emit(event);
+    }
+
     /** Drains the same-tick queue for a type. The caller consumes them; they are not redelivered. */
     @SuppressWarnings("unchecked")
     public <T> List<T> drainSameTick(Class<T> eventType) {

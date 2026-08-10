@@ -44,7 +44,7 @@ This document does not specify game systems directly. It constrains the document
 
 | Dependency | Kind | Notes |
 |---|---|---|
-| D01–D14 | Internal | This index summarises and constrains them. |
+| D01–D15 | Internal | This index summarises and constrains them. |
 | Markdown (CommonMark + GFM tables) | Format | All docs are GFM Markdown. |
 | Git | Tooling | Docs and `.agent-memory/` are version controlled. |
 
@@ -99,6 +99,7 @@ The section path `99.9` is **reserved and never allocated in any document**. It 
 | D12 | `12_testing_validation_ci.md` | Test strategy, CI pipeline, benchmarks |
 | D13 | `13_persistent_memory_system.md` | `.agent-memory/` structure, entry format, triggers |
 | D14 | `14_test_environment.md` | Verification harness, checks, tolerances, fixtures, report schema |
+| D15 | `15_vehicle_preparation_pipeline.md` | Vehicle segmentation, labelling, geometry repair, rigging, destruction authoring, audio inventory |
 
 <!-- D00-S4.3 -->### 4.3 Units and Numeric Conventions
 
@@ -257,7 +258,7 @@ This check is run by CI (D12-S5.4) and is a blocking gate.
 
 <!-- D00-S5.4 -->### 5.4 Required Section Structure
 
-**R23.** Every document D01–D14 MUST contain, in this order, sections titled:
+**R23.** Every document D01–D15 MUST contain, in this order, sections titled:
 
 1. Purpose
 2. Scope (including an explicit non-goals subsection)
@@ -279,6 +280,7 @@ Documents that currently carry extra top-level sections, and why:
 | D08 | `S6` Schema Catalogue | `S10` |
 | D09 | `S6` Mass Assignment and Material Data, `S7` Verification Pipeline, `S8` Determinism, `S9` Error Reporting | `S13` |
 | D14 | `S7` Test Fixtures | `S10` |
+| D15 | `S8` Audio Inventory | `S10` |
 
 ```pseudo
 function requiredSectionsPresent(doc):
@@ -455,18 +457,22 @@ Specifies `.agent-memory/`: the directory layout, the entry file template with r
 
 Specifies the verification harness that bridges the Blender tool and the game: asset-level verification (manifest ↔ mesh agreement, shard mass, morph validity, hull generation, mass conservation), physics-level verification (mass/COM/inertia, force response, resting behaviour), destruction progression verification (intact → morph interpolation → fracture → post-fracture → constraint break), vehicle integration verification, the visual inspection mode with debug overlays, the headless CI mode with exit code mapping, the five canonical test fixtures with golden manifests, the JSON verification report schema, the tolerance table with rationale, and the check registration pattern for extensibility.
 
+<!-- D00-S7.15 -->### 7.15 `15_vehicle_preparation_pipeline.md` (D15)
+
+Specifies how a downloaded whole-vehicle model becomes labelled game parts: the closed part-label taxonomy and the slot role and destruction class each label carries, the four-family cue ensemble (geometric, material-physical, material-nominal, structural) with its confidence model and precedence order, the per-model `parts.json` override keyed by material rather than by shell, connected-shell separation and the grouping rules that replace spatial clustering, the rotational-symmetry test that separates what turns with a wheel from what merely sits inside it, the geometry repair table and the rule that broken symmetry is reported and never repaired, hinge inference for doors and lids, the per-class destruction treatments, and the audio inventory a finished vehicle needs.
+
 ---
 
 <!-- D00-S8 -->## 8. Acceptance Criteria
 
 A conforming documentation set satisfies all of the following. Each is mechanically checkable.
 
-- [ ] **AC-D00-1.** Exactly 15 files exist in `docs/`, named per D00-S4.2.
+- [ ] **AC-D00-1.** Exactly 16 files exist in `docs/`, named per D00-S4.2.
 - [ ] **AC-D00-2.** Every `##`/`###`/`####` header in `docs/` is preceded by a stable ID comment matching the grammar in D00-S4.1.
 - [ ] **AC-D00-3.** Every ID's document number matches its containing file's numeric prefix.
 - [ ] **AC-D00-4.** All IDs are globally unique.
 - [ ] **AC-D00-5.** Every citation of the form `docs/*.md#Dxx-Sy` resolves to a declared ID in the named file.
-- [ ] **AC-D00-6.** Every document D01–D14 contains the nine required top-level sections in order (D00-S5.4).
+- [ ] **AC-D00-6.** Every document D01–D15 contains the nine required top-level sections in order (D00-S5.4).
 - [ ] **AC-D00-7.** Every glossary term used in another document carries the D00-S6 meaning; no document defines a conflicting meaning for a glossary term.
 - [ ] **AC-D00-8.** No document restates a constant from D00-S6.4 with a different value.
 - [ ] **AC-D00-9.** No document specifies a unit contradicting D00-S4.3.

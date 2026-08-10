@@ -30,6 +30,19 @@ public interface EntitySystem {
      */
     int order();
 
+    /**
+     * Whether this system runs in the render loop rather than the tick loop (D03-S5.3).
+     *
+     * <p>The phase answers this for every system but one. D04-R7 puts slot 21's
+     * {@code TransformSystem} in {@code PRESENT} and still runs it per tick, because a headless
+     * server has no frames and its hit resolution needs world matrices all the same (G17). Slot 27
+     * is in {@code CLEANUP} and so needs no exception. Overriding this is how a system declares
+     * itself the exception; nothing else should.
+     */
+    default boolean isPerFrame() {
+        return phase().isPerFrame();
+    }
+
     /** Called once when the system is registered, before the first tick. */
     default void initialize(World world) {
         // Most systems need no setup; those that cache families override this.

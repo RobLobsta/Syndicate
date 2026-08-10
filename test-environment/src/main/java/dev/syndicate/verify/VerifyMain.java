@@ -10,6 +10,7 @@ import dev.syndicate.core.asset.GltfException;
 import dev.syndicate.core.asset.GltfModel;
 import dev.syndicate.core.asset.GltfOptions;
 import dev.syndicate.core.asset.GltfReader;
+import dev.syndicate.model.AssetId;
 import dev.syndicate.verify.asset.FractureManifest;
 import dev.syndicate.verify.asset.GlbReader;
 import dev.syndicate.verify.asset.MeshData;
@@ -21,6 +22,8 @@ import dev.syndicate.verify.model.ModelImport;
 import dev.syndicate.verify.model.ModelInspector;
 import dev.syndicate.verify.model.ModelScene;
 import dev.syndicate.verify.render.VisualScene;
+import dev.syndicate.verify.vehicle.VehicleRun;
+import dev.syndicate.verify.vehicle.VehicleScene;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -75,6 +78,9 @@ public final class VerifyMain {
             return HARNESS_ERROR;
         }
 
+        if (options.isVehicleMode()) {
+            return runVehicle(options);
+        }
         return options.isModelMode() ? runModel(options) : runAsset(options);
     }
 
@@ -162,6 +168,66 @@ public final class VerifyMain {
         LOG.info("{}", ReportWriter.oneLine(report, file.getFileName().toString()));
         LOG.info("report written to {}", options.reportPath());
         return exitCode;
+    }
+
+    /**
+     * The vehicle mode: assemble a shipped car, drive it, take a wheel off, photograph all of it.
+     *
+     * <p>Not a check mode. Everything it would assert — that the wheels sit on the road, that they
+     * roll through the distance travelled, that a wheel comes off and the car drives on — is already
+     * asserted headlessly in {@code game-core}'s {@code RideHeightTest}, {@code WheelSpinTest} and
+     * {@code WheelDetachTest}, which run in CI where no display exists. What this adds is the one
+     * thing an assertion cannot give: a picture, from the same component state, that a person can
+     * look at. The report carries the measurements taken at each captured moment so the frames and
+     * the numbers can be compared afterwards.
+     */
+    private static int runVehicle(VerifyOptions options) {
+        long started = System.currentTimeMillis();
+        Path assetRoot = options.assetRoot();
+        if (!Files.isDirectory(assetRoot.resolve("parts"))) {
+            LOG.error("no shipped asset tree at {} (expected {}/parts)", assetRoot, assetRoot);
+            return INPUT_NOT_FOUND;
+        }
+
+        AssetId vehicleTypeId = AssetId.of(options.vehicleTypeId());
+        Map<String, Object> measurements;
+        List<Path> captures;
+        try (VehicleRun run = new VehicleRun(assetRoot, options.seed())) {
+            VehicleScene scene =
+                    new VehicleScene(run, vehicleTypeId, options.capturePath(), 1.0f, options.driveSeconds());
+            Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
+            config.setTitle("syndicate-verify — " + vehicleTypeId.value());
+            config.setWindowedMode(1600, 900);
+            config.setBackBufferConfig(8, 8, 8, 8, 24, 0, 0);
+            config.useVsync(false);
+            new Lwjgl3Application(scene, config);
+            measurements = scene.measurements();
+            captures = scene.captures();
+        } catch (IllegalArgumentException e) {
+            LOG.error("{}", e.getMessage());
+            return INPUT_NOT_FOUND;
+        } catch (RuntimeException e) {
+            LOG.error("vehicle mode failed", e);
+            return HARNESS_ERROR;
+        }
+        measurements.put("captures", captures.stream().map(Path::toString).toList());
+
+        Map<String, Object> target = new LinkedHashMap<>();
+        target.put("vehicleTypeId", vehicleTypeId.value());
+        target.put("assets", assetRoot.toString());
+        Map<String, Object> report = ReportWriter.build(
+                vehicleTypeId.value(),
+                target,
+                "visual",
+                options.seed(),
+                List.of(),
+                measurements,
+                new Tolerances(),
+                OK,
+                System.currentTimeMillis() - started);
+        ReportWriter.write(report, options.reportPath());
+        LOG.info("{} frames written; report at {}", captures.size(), options.reportPath());
+        return OK;
     }
 
     /** Renders a model in an LWJGL3 window, capturing a front and a rear three-quarter view. */

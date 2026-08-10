@@ -40,6 +40,24 @@ public final class HealthComponent implements Component {
     public int lastAttacker = EntityId.NULL;
 
     /**
+     * The contact normal of the most recent hit, world space, unit length — or zero if none.
+     *
+     * <p>D07-S5.7 gives a part detached by a hit a kick of up to {@code DETACH_KICK_MPS} along the
+     * direction it was struck from, so parts fly off the way they were hit rather than simply
+     * falling. That direction is known in slot 12 and needed in slot 14, and there is nowhere else
+     * to keep it: a field on {@code DamageSystem} would be the cross-tick system state D04-R3
+     * prohibits, and the event that carried it has been consumed by then.
+     *
+     * <p>Stored as three scalars rather than a {@code Vector3} to keep the component poolable
+     * without a nested mutable object, in the same style as {@code PartFracturedEvent}'s velocities.
+     */
+    public float lastHitNormalX;
+
+    public float lastHitNormalY;
+
+    public float lastHitNormalZ;
+
+    /**
      * Sets current hit points, clamping to {@code [0, maxHp]} and updating {@link #healthFraction}.
      *
      * <p>A zero {@link #maxHp} yields a fraction of 0 rather than a NaN. A part with no maximum is a
@@ -59,5 +77,8 @@ public final class HealthComponent implements Component {
         armorValue = 0f;
         lastDamageTick = 0L;
         lastAttacker = EntityId.NULL;
+        lastHitNormalX = 0f;
+        lastHitNormalY = 0f;
+        lastHitNormalZ = 0f;
     }
 }
