@@ -7,6 +7,7 @@ package dev.syndicate.server;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessFiles;
 import com.badlogic.gdx.physics.bullet.Bullet;
+import dev.syndicate.core.asset.ArenaDef;
 import dev.syndicate.core.asset.AssetLoader;
 import dev.syndicate.core.asset.GltfCollisionMeshSource;
 import dev.syndicate.core.asset.InMemoryAssetIndex;
@@ -14,6 +15,7 @@ import dev.syndicate.core.asset.ValidationIssue;
 import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.World;
 import dev.syndicate.core.ecs.WorldFactory;
+import dev.syndicate.core.physics.ArenaFactory;
 import dev.syndicate.core.physics.DebrisFactory;
 import dev.syndicate.core.physics.PhysicsWorld;
 import dev.syndicate.core.physics.ShapeCache;
@@ -99,12 +101,43 @@ final class ServerRuntime implements AutoCloseable {
                 config.mode(), new CoreSystemProvider(physics, shapes, assets, spawnQueue, debris));
         world.registerSystems(systems);
 
+        // Step 6 of D03-S5.1, and D04-S5.4's last line: the world gets a floor before anything is
+        // asked to stand on it.
+        loadArena(world, physics, shapes, assets, config);
+
         // Steps 7 and 8. Named rather than passed over: an operator reading the log should be able
         // to tell "this build has no networking" from "this server failed to bind".
         LOG.warn("no transport is implemented; this server accepts no connections (D03-S5.1 step 7)");
-        LOG.warn("no match bootstrap is implemented; the world starts empty (D03-S5.1 step 8)");
+        LOG.warn("no match bootstrap is implemented; no vehicle is spawned into the arena " + "(D03-S5.1 step 8)");
 
         return new ServerRuntime(world, physics, shapes, systems);
+    }
+
+    /**
+     * Puts the configured arena's static geometry into the world (D04-S5.4).
+     *
+     * <p>A missing arena is a warning rather than a startup failure. A server with no floor still
+     * ticks, still replicates, and still reports what it is missing — refusing to boot would make an
+     * asset problem look like a crash, and the mode that most needs to start regardless is the one
+     * an operator is using to debug the assets.
+     */
+    private static void loadArena(
+            World world, PhysicsWorld physics, ShapeCache shapes, InMemoryAssetIndex assets, LaunchConfig config) {
+
+        ArenaDef arena = assets.arena(config.arenaId());
+        if (arena == null) {
+            LOG.warn(
+                    "arena {} is not in the asset index; the world has no ground (D08-S4.7)",
+                    config.arenaId().value());
+            return;
+        }
+        if (!arena.supports(config.gameMode())) {
+            LOG.warn(
+                    "arena {} does not declare mode {}; loading it anyway",
+                    arena.arenaId().value(),
+                    config.gameMode());
+        }
+        ArenaFactory.load(world, physics, shapes, arena);
     }
 
     World world() {

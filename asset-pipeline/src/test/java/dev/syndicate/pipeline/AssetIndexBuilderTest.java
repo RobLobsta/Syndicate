@@ -1,0 +1,219 @@
+/*
+ * Syndicate — modular vehicular combat.
+ * Implementation of the blueprint suite in docs/ (docs/00_master_index.md#D00-S4.2).
+ */
+package dev.syndicate.pipeline;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.syndicate.model.ExitCode;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+/**
+ * The build-time asset gate of docs/08_asset_pipeline.md#D08-S5.2 and #D08-S5.4.
+ *
+ * <p>Two things are worth asserting about a validator: that it accepts what is correct, and that it
+ * rejects each specific thing it exists to reject with the code it is supposed to use. The second
+ * matters more — a gate that passes everything is indistinguishable from no gate, and only the code
+ * makes a failure actionable.
+ */
+@Tag("unit")
+class AssetIndexBuilderTest {
+
+    @Test
+    void theShippedAssetsProduceAnIndex(@TempDir Path temp) {
+        AssetIndexBuilder builder = new AssetIndexBuilder();
+        ObjectNode index = builder.build(Path.of("..", "assets"));
+
+        assertThat(index.path("materials")).isNotEmpty();
+        assertThat(index.path("parts")).hasSize(6);
+        assertThat(index.path("vehicles")).hasSize(2);
+        assertThat(index.path("arenas")).hasSize(1);
+
+        // The vehicle summaries carry what the runtime and the balance check both need.
+        ObjectNode eclipse = (ObjectNode) index.path("vehicles").get(0);
+        assertThat(eclipse.path("vehicleTypeId").asText()).isEqualTo("vehicle_eclipse_01");
+        assertThat(eclipse.path("wheelCount").asInt()).isEqualTo(4);
+        assertThat(eclipse.path("totalMassKg").asDouble()).isEqualTo(1500.0);
+        assertThat(eclipse.path("powerBudget").asDouble()).isEqualTo(74.0);
+
+        // The only blocking findings on the shipped content are the missing meshes PROG-013 records:
+        // the art is one model per car, not one per part, so no part directory has its own mesh yet.
+        assertThat(builder.blockingFindings())
+                .allSatisfy(finding -> assertThat(finding.code()).isEqualTo("A107"));
+
+        builder.write(index, temp.resolve("asset-index.json"));
+        assertThat(temp.resolve("asset-index.json")).exists();
+    }
+
+    /** A310: an assembly whose declared mass does not match the sum of its parts is rejected. */
+    @Test
+    void aWrongDeclaredMassIsCaught(@TempDir Path temp) throws Exception {
+        writeMinimalCatalogue(temp, 1500.0, "medium");
+        Files.writeString(
+                temp.resolve("vehicles/vehicle_test_01/assembly.json"), assembly("vehicle_test_01", "medium", 9999.0));
+
+        AssetIndexBuilder builder = new AssetIndexBuilder();
+        builder.build(temp);
+
+        assertThat(builder.findings()).extracting(Finding::code).contains("A310");
+    }
+
+    /** A312: a vehicle outside its class's power budget target fails the balance invariant. */
+    @Test
+    void aVehicleOutsideItsClassBudgetIsCaught(@TempDir Path temp) throws Exception {
+        writeMinimalCatalogue(temp, 1500.0, "medium");
+        Files.writeString(
+                temp.resolve("balance/classes.json"),
+                """
+                { "schemaVersion": "1.0.0",
+                  "classes": [ { "classId": "medium", "powerBudgetTarget": 500.0 } ] }
+                """);
+
+        AssetIndexBuilder builder = new AssetIndexBuilder();
+        builder.build(temp);
+
+        assertThat(builder.findings()).extracting(Finding::code).contains("A312");
+    }
+
+    /** A103: a schema major this build cannot read is FATAL, whatever else the file says. */
+    @Test
+    void anUnreadableSchemaVersionIsFatal(@TempDir Path temp) throws Exception {
+        Files.createDirectories(temp.resolve("materials"));
+        Files.writeString(
+                temp.resolve("materials/materials.json"), "{ \"schemaVersion\": \"9.0.0\", \"materials\": [] }");
+
+        AssetIndexBuilder builder = new AssetIndexBuilder();
+        builder.build(temp);
+
+        assertThat(builder.findings()).anySatisfy(finding -> {
+            assertThat(finding.code()).isEqualTo("A103");
+            assertThat(finding.severity()).isEqualTo(Finding.Severity.FATAL);
+        });
+    }
+
+    /** A101: a file that is not JSON is FATAL and stops the index being written at all. */
+    @Test
+    void malformedJsonFailsTheRun(@TempDir Path temp) throws Exception {
+        Files.createDirectories(temp.resolve("materials"));
+        Files.writeString(temp.resolve("materials/materials.json"), "{ this is not json");
+
+        assertThat(PipelineMain.run(new String[] {"--assets", temp.toString()})).isEqualTo(ExitCode.ASSETS_INVALID);
+        assertThat(temp.resolve("asset-index.json")).doesNotExist();
+    }
+
+    /** A missing asset root is ASSETS_NOT_FOUND (66), not a stack trace (D03-S4.4). */
+    @Test
+    void aMissingAssetRootIsReportedNotThrown(@TempDir Path temp) {
+        assertThat(PipelineMain.run(
+                        new String[] {"--assets", temp.resolve("nope").toString()}))
+                .isEqualTo(ExitCode.ASSETS_NOT_FOUND);
+    }
+
+    /** An unknown flag is USAGE (64): a typo is fatal, never a warning (D03-R6). */
+    @Test
+    void anUnknownFlagIsUsage() {
+        assertThat(PipelineMain.run(new String[] {"--nonsense"})).isEqualTo(ExitCode.USAGE);
+    }
+
+    /** Strict mode is what makes the gate a gate: the same content, two verdicts. */
+    @Test
+    void strictModeFailsOnErrorsThatLenientModeTolerates(@TempDir Path temp) throws Exception {
+        writeMinimalCatalogue(temp, 1500.0, "medium");
+        Files.writeString(
+                temp.resolve("vehicles/vehicle_test_01/assembly.json"), assembly("vehicle_test_01", "medium", 9999.0));
+
+        assertThat(PipelineMain.run(new String[] {"--assets", temp.toString()})).isEqualTo(ExitCode.OK);
+        assertThat(PipelineMain.run(new String[] {"--assets", temp.toString(), "--strict"}))
+                .isEqualTo(ExitCode.ASSETS_INVALID);
+    }
+
+    // ---- Fixtures --------------------------------------------------------------------
+
+    /** A catalogue with one material, one chassis, three wheels and one assembly that resolves. */
+    private static void writeMinimalCatalogue(Path root, double expectedMassKg, String vehicleClass) throws Exception {
+        Files.createDirectories(root.resolve("materials"));
+        Files.createDirectories(root.resolve("balance"));
+        Files.writeString(
+                root.resolve("materials/materials.json"),
+                """
+                { "schemaVersion": "1.0.0",
+                  "materials": [ { "materialId": "steel", "densityKgPerM3": 7850.0 } ] }
+                """);
+        Files.writeString(
+                root.resolve("balance/classes.json"),
+                """
+                { "schemaVersion": "1.0.0",
+                  "classes": [ { "classId": "medium", "powerBudgetTarget": 60.0 } ] }
+                """);
+
+        writePart(root, "chassis_test_01", "CHASSIS", 1200.0, 40.0, "wheel_a", "wheel_b", "wheel_c");
+        writePart(root, "wheel_test_01", "WHEEL", 100.0, 6.66);
+
+        Files.createDirectories(root.resolve("vehicles/vehicle_test_01"));
+        Files.writeString(
+                root.resolve("vehicles/vehicle_test_01/assembly.json"),
+                assembly("vehicle_test_01", vehicleClass, expectedMassKg));
+    }
+
+    private static void writePart(
+            Path root, String partTypeId, String category, double massKg, double powerCost, String... slotIds)
+            throws Exception {
+
+        Path directory = root.resolve("parts").resolve(partTypeId);
+        Files.createDirectories(directory);
+        StringBuilder slots = new StringBuilder();
+        for (int i = 0; i < slotIds.length; i++) {
+            if (i > 0) {
+                slots.append(",");
+            }
+            slots.append("{ \"slotId\": \"")
+                    .append(slotIds[i])
+                    .append("\", \"slotType\": \"WHEEL\", \"maxMassKg\": 200.0, \"covers\": [] }");
+        }
+        Files.writeString(
+                directory.resolve("part.json"),
+                """
+                {
+                  "schemaVersion": "1.0.0",
+                  "partTypeId": "%s",
+                  "category": "%s",
+                  "massKg": %s,
+                  "maxHp": 1000.0,
+                  "armorValue": 10.0,
+                  "materialId": "steel",
+                  "powerCost": %s,
+                  "breakImpulseN": 5000.0,
+                  "slots": [ %s ],
+                  "assets": {}
+                }
+                """
+                        .formatted(partTypeId, category, massKg, powerCost, slots));
+    }
+
+    private static String assembly(String vehicleTypeId, String vehicleClass, double expectedMassKg) {
+        return """
+                {
+                  "schemaVersion": "1.0.0",
+                  "vehicleTypeId": "%s",
+                  "vehicleClass": "%s",
+                  "chassis": "chassis_test_01",
+                  "parts": [
+                    { "slotPath": "root/wheel_a", "parentSlotPath": "root", "parentSlotId": "wheel_a",
+                      "partTypeId": "wheel_test_01" },
+                    { "slotPath": "root/wheel_b", "parentSlotPath": "root", "parentSlotId": "wheel_b",
+                      "partTypeId": "wheel_test_01" },
+                    { "slotPath": "root/wheel_c", "parentSlotPath": "root", "parentSlotId": "wheel_c",
+                      "partTypeId": "wheel_test_01" }
+                  ],
+                  "expected": { "totalMassKg": %s }
+                }
+                """
+                .formatted(vehicleTypeId, vehicleClass, expectedMassKg);
+    }
+}

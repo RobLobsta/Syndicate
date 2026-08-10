@@ -62,4 +62,16 @@ public interface AssetIndex {
      * @return the material, or null when none with that id is loaded
      */
     MaterialDef material(AssetId materialId);
+
+    /**
+     * The arena with this id (D08-S4.7).
+     *
+     * <p>Read by {@code ArenaFactory} at world construction (D04-S5.4) and by whatever chooses a
+     * spawn point.
+     *
+     * @return the arena, or null when none with that id is loaded. A process with no arena runs a
+     *     world with no ground rather than refusing to start, which is what {@code ServerMain} has
+     *     been doing since it became a process.
+     */
+    ArenaDef arena(AssetId arenaId);
 }

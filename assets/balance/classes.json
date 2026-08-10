@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0.0",
+  "classes": [
+    {
+      "classId": "light",
+      "displayName": "Light",
+      "powerBudgetTarget": 60.0,
+      "notes": "Fast, fragile, cheap to field. No vehicle ships in this class yet, so the target is a placeholder and nothing is checked against it."
+    },
+    {
+      "classId": "medium",
+      "displayName": "Medium",
+      "powerBudgetTarget": 74.0,
+      "notes": "The Eclipse is the only medium, so the target is its budget by definition. It becomes a real constraint the moment a second medium is authored — which is exactly what D01-R27 is for."
+    },
+    {
+      "classId": "heavy",
+      "displayName": "Heavy",
+      "powerBudgetTarget": 84.0,
+      "notes": "The Stampede is the only heavy. Same caveat as medium: one vehicle per class means the check confirms arithmetic rather than balance until the roster grows."
+    }
+  ]
+}

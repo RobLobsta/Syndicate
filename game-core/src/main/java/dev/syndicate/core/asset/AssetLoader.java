@@ -15,6 +15,7 @@ import dev.syndicate.core.vehicle.SlotType;
 import dev.syndicate.core.vehicle.StatBlock;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.DamageType;
+import dev.syndicate.model.GameMode;
 import dev.syndicate.model.PartCategory;
 import dev.syndicate.model.SimulationConstants;
 import java.io.IOException;
@@ -23,11 +24,14 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +64,18 @@ public final class AssetLoader {
 
     /** The schema major version this loader understands (D08-R6, A103). */
     public static final int SCHEMA_MAJOR = 1;
+
+    /**
+     * The fewest usable spawn points an arena may declare (A403).
+     *
+     * <p>D08-S5.4 words A403 as two per team named in {@code modes}. Two overall is what this checks:
+     * a free-for-all arena has no teams to count, and the failure the rule exists to prevent — a
+     * second vehicle with nowhere to go — happens at exactly two.
+     */
+    public static final int MIN_SPAWN_POINTS = 2;
+
+    /** Metres of clearance A405 wants between the kill plane and the arena's floor of the bounds. */
+    public static final float KILL_PLANE_CLEARANCE_M = 5.0f;
 
     /**
      * Supplies a part's collision hull source.
@@ -115,11 +131,15 @@ public final class AssetLoader {
         for (Path directory : childDirectories(assetRoot.resolve("vehicles"))) {
             loadAssembly(directory, index);
         }
+        for (Path directory : childDirectories(assetRoot.resolve("arenas"))) {
+            loadArena(directory, index);
+        }
         LOG.info(
-                "loaded {} materials, {} part types, {} assemblies from {} ({} findings)",
+                "loaded {} materials, {} part types, {} assemblies, {} arenas from {} ({} findings)",
                 index.materials().size(),
                 index.partTypes().size(),
                 index.assemblies().size(),
+                index.arenas().size(),
                 assetRoot,
                 issues.size());
         return index;
@@ -427,6 +447,116 @@ public final class AssetLoader {
                 }
             }
         }
+    }
+
+    // ---- Arenas (D08-S4.7) -----------------------------------------------------------
+
+    /**
+     * Reads one {@code assets/arenas/<arenaId>/arena.json} and validates it (D08-S5.4 A4xx).
+     *
+     * <p>The A4xx rules are about a player's first ten seconds in a match: a spawn point outside the
+     * bounds drops a vehicle through the world (A401), one with too little clearance spawns two
+     * vehicles inside each other (A402), too few of them means a team has nowhere to go (A403), and a
+     * kill plane sitting just under the floor kills anyone who drives over a bump (A405).
+     */
+    public void loadArena(Path arenaDirectory, InMemoryAssetIndex index) {
+        Path file = arenaDirectory.resolve("arena.json");
+        String directoryName = arenaDirectory.getFileName().toString();
+        JsonNode root = readJson(file, directoryName);
+        if (root == null || !checkSchemaVersion(root, file.toString())) {
+            return;
+        }
+        AssetId arenaId = assetId(root.path("arenaId").asText(null), directoryName);
+        if (arenaId == null) {
+            return;
+        }
+        if (!arenaId.value().equals(directoryName)) {
+            issues.add(ValidationIssue.error(
+                    "A105", arenaId.value(), "arenaId does not match its directory name " + directoryName));
+        }
+
+        Vector3 boundsMin = readVector(root.path("boundsMin"));
+        Vector3 boundsMax = readVector(root.path("boundsMax"));
+        float killPlaneY = (float) root.path("killPlaneY").asDouble(boundsMin.y);
+        float groundY = (float) root.path("groundY").asDouble(0d);
+
+        List<ArenaDef.SpawnPoint> spawnPoints = new ArrayList<>();
+        Set<String> seenIds = new TreeSet<>();
+        for (JsonNode node : root.path("spawnPoints")) {
+            String id = node.path("id").asText(null);
+            if (id == null || !seenIds.add(id)) {
+                issues.add(ValidationIssue.error(
+                        "A102", arenaId.value(), "a spawn point has a missing or duplicate id: " + id));
+                continue;
+            }
+            Vector3 position = readVector(node.path("position"));
+            float clearance = (float) node.path("clearanceRadiusM").asDouble(0d);
+            ArenaDef.SpawnPoint point = new ArenaDef.SpawnPoint(
+                    id,
+                    node.path("team").asInt(ArenaDef.SpawnPoint.ANY_TEAM),
+                    position,
+                    (float) node.path("yawDeg").asDouble(0d),
+                    clearance);
+            if (!withinBounds(position, boundsMin, boundsMax)) {
+                issues.add(ValidationIssue.error(
+                        "A401", arenaId.value(), "spawn point " + id + " at " + position + " is outside the bounds"));
+                continue;
+            }
+            if (clearance < ArenaDef.MIN_SPAWN_SEPARATION_M) {
+                issues.add(ValidationIssue.error(
+                        "A402",
+                        arenaId.value(),
+                        "spawn point " + id + " has clearanceRadiusM " + clearance + "; the minimum is "
+                                + ArenaDef.MIN_SPAWN_SEPARATION_M));
+                continue;
+            }
+            spawnPoints.add(point);
+        }
+        if (spawnPoints.size() < MIN_SPAWN_POINTS) {
+            issues.add(ValidationIssue.error(
+                    "A403",
+                    arenaId.value(),
+                    "declares " + spawnPoints.size() + " usable spawn points; at least " + MIN_SPAWN_POINTS
+                            + " are needed"));
+        }
+        if (killPlaneY > boundsMin.y - KILL_PLANE_CLEARANCE_M) {
+            issues.add(ValidationIssue.warn(
+                    "A405",
+                    arenaId.value(),
+                    "killPlaneY " + killPlaneY + " is within " + KILL_PLANE_CLEARANCE_M + " m of boundsMin.y "
+                            + boundsMin.y));
+        }
+
+        Set<GameMode> modes = EnumSet.noneOf(GameMode.class);
+        for (JsonNode node : root.path("modes")) {
+            GameMode mode = enumValue(GameMode.class, node.asText(null));
+            if (mode == null) {
+                issues.add(
+                        ValidationIssue.error("A102", arenaId.value(), "unknown game mode \"" + node.asText() + "\""));
+                continue;
+            }
+            modes.add(mode);
+        }
+
+        index.put(new ArenaDef(
+                arenaId,
+                root.path("displayName").asText(arenaId.value()),
+                boundsMin,
+                boundsMax,
+                killPlaneY,
+                groundY,
+                spawnPoints,
+                modes,
+                root.path("assets").path("collision").asText(null)));
+    }
+
+    private static boolean withinBounds(Vector3 point, Vector3 min, Vector3 max) {
+        return point.x >= min.x
+                && point.x <= max.x
+                && point.y >= min.y
+                && point.y <= max.y
+                && point.z >= min.z
+                && point.z <= max.z;
     }
 
     // ---- Assemblies (D08-S4.4) -------------------------------------------------------

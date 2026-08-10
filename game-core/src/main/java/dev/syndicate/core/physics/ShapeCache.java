@@ -131,6 +131,12 @@ public final class ShapeCache implements AutoCloseable {
                 switch (key.variant()) {
                     case PART_HULL -> MAX_HULL_VERTICES;
                     case SHARD_HULL -> MAX_SHARD_HULL_VERTICES;
+                        // A primitive is a box or a slab built from parameters rather than art —
+                        // arena floors and walls (D04-S5.4). It goes through the hull path so that
+                        // one thing owns every collision shape (G19), and it carries the part
+                        // budget because a primitive with more than 64 hull vertices is not a
+                        // primitive.
+                    case PRIMITIVE -> MAX_HULL_VERTICES;
                     default -> throw new IllegalArgumentException(
                             "variant " + key.variant() + " is not a convex hull (D06-R6)");
                 };
