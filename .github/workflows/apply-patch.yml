@@ -5,7 +5,8 @@ on:
     inputs:
       patch_url:
         description: 'Direct URL to the .patch file'
-        required: true
+        required: false
+        default: 'https://drive.google.com/uc?export=download&id=1vlMlKQv0q6zLOYE7C9-teGIBZcxWFb9l'
         type: string
       branch_name:
         description: 'Branch name for the patch changes'
@@ -22,7 +23,12 @@ jobs:
 
       - name: Download Patch File
         run: |
-          curl -sSL "${{ inputs.patch_url }}" -o incoming.patch
+          URL="${{ inputs.patch_url }}"
+          if [[ "$URL" =~ drive.google.com/file/d/([^/]+) ]]; then
+            FILE_ID="${BASH_REMATCH[1]}"
+            URL="https://drive.google.com/uc?export=download&id=${FILE_ID}"
+          fi
+          curl -sSL "$URL" -o incoming.patch
           echo "Downloaded patch file preview:"
           head -n 20 incoming.patch
 
