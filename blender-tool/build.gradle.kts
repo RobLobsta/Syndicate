@@ -86,7 +86,7 @@ val lint = tasks.register<Exec>("lint") {
     group = "verification"
     description = "ruff check syndicate_fracture tests (D02-S4.6)."
     workingDir = layout.projectDirectory.asFile
-    commandLine("ruff", "check", "syndicate_fracture", "tests")
+    commandLine("ruff", "check", "syndicate_fracture", "syndicate_dissect", "tests")
     // Hoisted into a local, and the spec uses the TASK's logger. An `onlyIf` lambda that
     // reads a script-level property or an unqualified `logger` captures the script object
     // itself, which the configuration cache cannot serialise.
@@ -210,6 +210,49 @@ tasks.register("processFixtures") {
                 )
             }
             this@register.logger.lifecycle("processFixtures: $name -> ${File(outRoot, name)}")
+        }
+    }
+}
+
+/**
+ * Cuts the whole-vehicle source art into per-part meshes (DEV-013's remaining half).
+ *
+ * Deliberately not wired into `check` or into any other task. It writes into `assets/parts/`,
+ * which is committed content: running it is a decision to re-cut the art, and it belongs in the
+ * commit that does so rather than in every build. `--dry-run` reports the classification without
+ * writing anything, which is the form worth running when the classifier's thresholds change.
+ */
+tasks.register("dissectVehicles") {
+    group = "build"
+    description = "Splits art-source/vehicles/* into assets/parts/* (chassis + wheels)."
+    val artRoot = rootProject.layout.projectDirectory.dir("art-source/vehicles").asFile
+    val partsRoot = rootProject.layout.projectDirectory.dir("assets/parts").asFile
+    val projectDir = layout.projectDirectory.asFile
+    val required = blenderRequired
+    doLast {
+        val vehicles = artRoot.listFiles()?.filter { it.isDirectory }?.sortedBy { it.name }.orEmpty()
+        if (vehicles.isEmpty()) {
+            logger.warn("SKIPPED :blender-tool:dissectVehicles — no models in $artRoot")
+            return@doLast
+        }
+        for (vehicle in vehicles) {
+            val result = providers.exec {
+                workingDir = projectDir
+                commandLine(
+                    "python3", "-m", "syndicate_dissect",
+                    "--model", vehicle.absolutePath,
+                    "--vehicle", vehicle.name,
+                    "--out", partsRoot.absolutePath,
+                )
+                isIgnoreExitValue = true
+            }
+            val code = result.result.get().exitValue
+            if (code != 0) {
+                val message = "dissect ${vehicle.name} exited $code"
+                if (required) throw GradleException(message) else logger.warn("SKIPPED — $message")
+                continue
+            }
+            logger.lifecycle("dissectVehicles: ${vehicle.name} -> $partsRoot")
         }
     }
 }

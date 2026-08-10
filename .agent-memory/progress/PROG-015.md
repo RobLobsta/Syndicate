@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/08_asset_pipeline.md#D08-S5.2, docs/08_asset_pipeline.md#D08-S4.7, docs/03_runtime_modes.md#D03-S5.1
 
-**Status:** active
+**Status:** superseded (by PROG-016)
 
 ## Summary
 An arena ships and loads: `ServerRuntime` now ticks a world with a floor, walls, a kill plane and six

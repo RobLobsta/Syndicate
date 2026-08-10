@@ -68,6 +68,23 @@ The node hierarchy is 11 deep and every mesh is a separate `polySurface<n>` node
 Maya-to-FBX-to-glTF path produces. It reads fine; it is worth knowing before anyone tries to select
 "the bonnet" by node name.
 
+## Split into parts
+
+Done, by `python3 -m syndicate_dissect --model art-source/vehicles/stampede --vehicle stampede`.
+1,101 mesh islands classified: 23 to the chassis and the rest to four wheels.
+
+| Part | Islands | Triangles | Measured |
+|---|---|---|---|
+| `chassis_stampede_01` | 23 | 195,429 | 4.9196 × 2.08 m hull, floor pan 0.07 m off the road |
+| `wheel_stampede_front_01` | 236 | 9,708 | Ø 0.6834 m tyre, 0.3527 m wide, axle at `±0.8540, 0.3578, +1.3904` |
+| `wheel_stampede_rear_01` | 303 | 9,606 | Ø 0.6994 m tyre, 0.3777 m wide, axle at `±0.8535, 0.3605, −1.3270` |
+
+The classifier reproduces this model's recorded wheelbase (2.7174 m) and track (1.708 front,
+1.707 rear) exactly, having been written against the Eclipse and never tuned against this one — which
+is the strongest evidence available that it is measuring wheels rather than fitting them.
+
+As with the Eclipse, the chassis part's authored wheel slots have not been moved to these axles yet.
+
 ## Not yet done
 
 The wheels are part of the body mesh. Splitting this into `chassis_stampede_01` and four wheel
