@@ -2,23 +2,162 @@
   "schemaVersion": "1.0.0",
   "arenaId": "arena_scrapyard_01",
   "displayName": "Scrapyard",
-  "boundsMin": { "x": -150.0, "y": -30.0, "z": -150.0 },
-  "boundsMax": { "x": 150.0, "y": 90.0, "z": 150.0 },
+  "boundsMin": {
+    "x": -150.0,
+    "y": -30.0,
+    "z": -150.0
+  },
+  "boundsMax": {
+    "x": 150.0,
+    "y": 90.0,
+    "z": 150.0
+  },
   "groundY": 0.0,
   "killPlaneY": -40.0,
   "spawnPoints": [
-    { "id": "sp_a_01", "team": 0, "position": { "x": -60.0, "y": 1.0, "z": -60.0 }, "yawDeg": 45.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_a_02", "team": 0, "position": { "x": -60.0, "y": 1.0, "z": -40.0 }, "yawDeg": 45.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_b_01", "team": 1, "position": { "x": 60.0, "y": 1.0, "z": 60.0 }, "yawDeg": 225.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_b_02", "team": 1, "position": { "x": 60.0, "y": 1.0, "z": 40.0 }, "yawDeg": 225.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_free_01", "team": -1, "position": { "x": -60.0, "y": 1.0, "z": 60.0 }, "yawDeg": 315.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_free_02", "team": -1, "position": { "x": 60.0, "y": 1.0, "z": -60.0 }, "yawDeg": 135.0, "clearanceRadiusM": 12.0 }
+    {
+      "id": "sp_a_01",
+      "team": 0,
+      "position": {
+        "x": -100.0,
+        "y": 1.0,
+        "z": -75.0
+      },
+      "yawDeg": 90.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_a_02",
+      "team": 0,
+      "position": {
+        "x": -100.0,
+        "y": 1.0,
+        "z": -55.0
+      },
+      "yawDeg": 90.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_a_03",
+      "team": 0,
+      "position": {
+        "x": -100.0,
+        "y": 1.0,
+        "z": -35.0
+      },
+      "yawDeg": 90.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_a_04",
+      "team": 0,
+      "position": {
+        "x": -100.0,
+        "y": 1.0,
+        "z": -15.0
+      },
+      "yawDeg": 90.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_b_01",
+      "team": 1,
+      "position": {
+        "x": 100.0,
+        "y": 1.0,
+        "z": 75.0
+      },
+      "yawDeg": 270.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_b_02",
+      "team": 1,
+      "position": {
+        "x": 100.0,
+        "y": 1.0,
+        "z": 55.0
+      },
+      "yawDeg": 270.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_b_03",
+      "team": 1,
+      "position": {
+        "x": 100.0,
+        "y": 1.0,
+        "z": 35.0
+      },
+      "yawDeg": 270.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_b_04",
+      "team": 1,
+      "position": {
+        "x": 100.0,
+        "y": 1.0,
+        "z": 15.0
+      },
+      "yawDeg": 270.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_free_01",
+      "team": -1,
+      "position": {
+        "x": 77.8,
+        "y": 1.0,
+        "z": 77.8
+      },
+      "yawDeg": 225.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_free_02",
+      "team": -1,
+      "position": {
+        "x": -77.8,
+        "y": 1.0,
+        "z": 77.8
+      },
+      "yawDeg": 315.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_free_03",
+      "team": -1,
+      "position": {
+        "x": -77.8,
+        "y": 1.0,
+        "z": -77.8
+      },
+      "yawDeg": 45.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_free_04",
+      "team": -1,
+      "position": {
+        "x": 77.8,
+        "y": 1.0,
+        "z": -77.8
+      },
+      "yawDeg": 135.0,
+      "clearanceRadiusM": 12.0
+    }
   ],
   "assets": {
     "collision": null,
     "visual": null,
     "navmesh": null
   },
-  "modes": ["DEATHMATCH", "TEAM_DEATHMATCH", "LAST_MACHINE", "TIME_TRIAL"],
+  "modes": [
+    "DEATHMATCH",
+    "TEAM_DEATHMATCH",
+    "LAST_MACHINE",
+    "TIME_TRIAL"
+  ],
   "payloadPath": null
 }

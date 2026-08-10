@@ -382,17 +382,35 @@ public final class World {
         entityPool.addLast(entity);
     }
 
-    /** Releases systems in reverse registration order, then every remaining entity (D03-S5.6). */
+    /**
+     * Tears the world down in the order D03-S5.6 fixes.
+     *
+     * <p><b>Entities first, through the CLEANUP phase, then the systems.</b> The order matters more
+     * than it looks. Native release — Bullet rigid bodies, ray-cast vehicle controllers, constraints
+     * — belongs to {@code EntityDestroySystem} in slot 27 (D02-S5.7, G19), and that system is part of
+     * the schedule. Disposing the schedule first and then recycling the entity records by hand, which
+     * is what this method used to do, freed every entity's <em>Java</em> object and leaked every one
+     * of its native ones: a match teardown left its vehicles' bodies and controllers in the physics
+     * world, and the census at shutdown said so every run.
+     *
+     * <p>So: queue every entity for destruction, run the CLEANUP systems once to release what they
+     * own, and only then dispose the schedule. Anything still queued after that had no system to
+     * release it and is recycled directly, which is the same fallback as before and now the
+     * exception rather than the rule.
+     */
     public void dispose() {
-        for (int i = schedule.size() - 1; i >= 0; i--) {
-            schedule.get(i).dispose();
-        }
-        schedule.clear();
         for (Entity entity : entities) {
             if (entity != null) {
                 destroyEntity(entity.id());
             }
         }
+        runCleanupPhase();
+
+        for (int i = schedule.size() - 1; i >= 0; i--) {
+            schedule.get(i).dispose();
+        }
+        schedule.clear();
+
         for (int i = 0; i < destroyQueueSize; i++) {
             recycleEntity(destroyQueue[i]);
         }
@@ -401,6 +419,28 @@ public final class World {
         families.clear();
         initialized = false;
     }
+
+    /**
+     * Runs the CLEANUP-phase systems once, outside a tick.
+     *
+     * <p>Repeated until the queue stops shrinking: tearing down a vehicle destroys its parts, and
+     * those parts land in the same queue. Bounded by a pass count rather than by "until empty",
+     * because an entity whose teardown re-creates something would otherwise spin here forever — and
+     * a shutdown that hangs is worse than one that leaks.
+     */
+    private void runCleanupPhase() {
+        for (int pass = 0; pass < MAX_CLEANUP_PASSES && destroyQueueSize > 0; pass++) {
+            for (int i = 0; i < schedule.size(); i++) {
+                EntitySystem system = schedule.get(i);
+                if (system.phase() == Phase.CLEANUP) {
+                    system.update(this, dev.syndicate.model.SimulationConstants.TICK_DT, currentTick);
+                }
+            }
+        }
+    }
+
+    /** How many times {@link #runCleanupPhase()} will drain a queue that keeps refilling. */
+    private static final int MAX_CLEANUP_PASSES = 8;
 
     /** Convenience for tests and factories that build a component lazily. */
     public <T extends Component> T addComponent(int entityId, Supplier<T> factory) {

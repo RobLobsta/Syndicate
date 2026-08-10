@@ -14,7 +14,9 @@ import dev.syndicate.core.ecs.ComponentQuery;
 import dev.syndicate.core.ecs.Family;
 import dev.syndicate.core.ecs.World;
 import dev.syndicate.core.util.StreamId;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Chooses where a vehicle enters the arena
@@ -47,6 +49,20 @@ public final class SpawnPointSelector {
     private final Vector3 scratch = new Vector3();
     private final Vector3 candidate = new Vector3();
 
+    /**
+     * Points already handed out for spawns that have been queued but not yet created.
+     *
+     * <p>Slot 5 creates vehicles one slot after slot 4 chooses their spawn points, so during a
+     * starting grid — every player queued in the same tick — the occupancy scan sees an empty world
+     * and every point looks clear. Six bots then take whichever point their seeded offset lands on,
+     * with nothing stopping two from landing on the same one. They spawn inside each other, Bullet
+     * resolves the overlap by throwing them apart, and one of them ends up somewhere it cannot
+     * drive out of. Claims are the memory that scan does not have.
+     */
+    private final Set<String> claimed = new HashSet<>();
+
+    private long claimTick = Long.MIN_VALUE;
+
     private Family vehicles;
 
     /**
@@ -66,25 +82,66 @@ public final class SpawnPointSelector {
         if (vehicles == null) {
             vehicles = world.family(ComponentQuery.all(VehicleChassisComponent.class, TransformComponent.class));
         }
+        expireClaims(world.currentTick());
 
         int start = world.random().stream(StreamId.SPAWN_SELECT).nextInt(points.size());
         int firstContested = -1;
         for (int step = 0; step < points.size(); step++) {
             int index = (start + step) % points.size();
             ArenaDef.SpawnPoint point = points.get(index);
+            if (claimed.contains(point.id())) {
+                continue;
+            }
             Occupancy occupancy = classify(world, point, teamId);
             if (occupancy == Occupancy.CLEAR) {
-                return transformOf(point, out);
+                return claim(point, out);
             }
             if (occupancy == Occupancy.CONTESTED && firstContested < 0) {
                 firstContested = index;
             }
         }
-        // Every point is either occupied or contested. Contested beats occupied — arriving next to an
-        // enemy is a fight, arriving inside a teammate is a physics explosion.
-        int fallback = firstContested >= 0 ? firstContested : start;
-        return transformOf(points.get(fallback), out);
+        if (firstContested >= 0) {
+            // Contested beats occupied: arriving next to an enemy is a fight, arriving inside
+            // another vehicle is a physics explosion.
+            return claim(points.get(firstContested), out);
+        }
+        // Nothing is free. More players than the arena has points is a content problem the arena
+        // should be fixed for; in the meantime, offsetting around the point is a great deal better
+        // than stacking two vehicles on it. The offset is derived from how many claims are already
+        // out, so a batch fans out rather than piling onto one displacement.
+        ArenaDef.SpawnPoint point = points.get(start);
+        return claim(point, out).trn(offsetFor(claimed.size()));
     }
+
+    /** Records a point as taken for this tick and returns its transform. */
+    private Matrix4 claim(ArenaDef.SpawnPoint point, Matrix4 out) {
+        claimed.add(point.id());
+        return transformOf(point, out);
+    }
+
+    /**
+     * Drops claims from earlier ticks.
+     *
+     * <p>A claim only has to outlive the gap between slot 4 choosing and slot 5 creating, which is
+     * one slot in the same tick. Holding them longer would make a respawn thirty seconds later
+     * refuse a point that is now empty.
+     */
+    private void expireClaims(long tick) {
+        if (tick != claimTick) {
+            claimed.clear();
+            claimTick = tick;
+        }
+    }
+
+    /** A ring of displacements around a point, one separation radius out. */
+    private Vector3 offsetFor(int index) {
+        double angle = index * 2.0 * Math.PI / OVERFLOW_RING_SIZE;
+        float radius = ArenaDef.MIN_SPAWN_SEPARATION_M;
+        return scratch.set((float) (Math.cos(angle) * radius), 0f, (float) (Math.sin(angle) * radius));
+    }
+
+    /** How many displacements the overflow ring has before it repeats. */
+    public static final int OVERFLOW_RING_SIZE = 8;
 
     private enum Occupancy {
         /** Nothing within the separation radius and no enemy nearby. */

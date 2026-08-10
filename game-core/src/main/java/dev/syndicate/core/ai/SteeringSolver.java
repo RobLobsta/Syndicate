@@ -43,11 +43,29 @@ public final class SteeringSolver {
     /** Fraction of top speed at which the bot lifts off. */
     public static final float SPEED_LIMIT_FRACTION = 0.95f;
 
+    /** Below this speed the throttle floor applies, so a stationary bot can start moving at all. */
+    public static final float CREEP_SPEED_MPS = 2.0f;
+
+    /** The floor itself. Above the stuck detector's threshold on purpose — see the solver. */
+    public static final float CREEP_THROTTLE = 0.6f;
+
+    /**
+     * How close to its destination a stationary bot may be and still be considered to have arrived.
+     *
+     * <p>Much smaller than {@link #ARRIVE_RADIUS_M}, which is the distance at which a moving bot
+     * starts <em>slowing</em>. A bot eight metres short of where it wants to be and doing nothing is
+     * not station-keeping, it is stuck; only inside this radius is standing still the right answer.
+     */
+    public static final float STATION_KEEPING_M = 3.0f;
+
     /** How close two allies get before the separation term pushes them apart (D11-S5.3). */
     public static final float SEPARATION_MIN_DIST_M = 6.0f;
 
-    /** How strongly an obstacle in the fan turns the desired direction away from it. */
+    /** How strongly an obstacle in the fan turns the desired direction around it. */
     public static final float AVOIDANCE_STRENGTH = 2.0f;
+
+    /** How much of that urgency also backs the bot straight off, relative to going round. */
+    public static final float AVOIDANCE_BACKOFF = 0.5f;
 
     /** The controls a bot wants this tick. */
     public record Controls(float throttle, float steer, float brake) {
@@ -58,6 +76,7 @@ public final class SteeringSolver {
 
     private final Vector3 desired = new Vector3();
     private final Vector3 away = new Vector3();
+    private final Vector3 lateral = new Vector3();
 
     /**
      * Steers toward a point, avoiding what the sensor fan found and keeping clear of allies.
@@ -106,6 +125,16 @@ public final class SteeringSolver {
             // reverse direction drives a wide arc into whatever it was running from.
             brake = 1f;
             throttle = 0f;
+        } else if (speedMps < CREEP_SPEED_MPS && distanceToGoal > STATION_KEEPING_M) {
+            // A car turns by driving. The turn slowdown above is right at speed and wrong at rest:
+            // a bot pointing 180° away from where it wants to be gets a throttle of 0.2, scaled by
+            // its difficulty's aggression to about 0.15, which does not overcome rolling resistance
+            // — so it creeps, never reaches the speed the slowdown assumes, and never trips the
+            // stuck detector either, because that watches for throttle above 0.5. The result is a
+            // bot parked on its spawn point for the whole match. A floor while stationary fixes
+            // both: it moves, it can steer, and if it still cannot move the detector now sees a bot
+            // asking for real throttle and getting nowhere.
+            throttle = Math.max(throttle, CREEP_THROTTLE);
         }
         if (maxSpeedMps > 0f && speedMps > maxSpeedMps * SPEED_LIMIT_FRACTION) {
             throttle = 0f;
@@ -114,25 +143,47 @@ public final class SteeringSolver {
     }
 
     /**
-     * Bends the desired direction away from each obstacle the fan found.
+     * Bends the desired direction around each obstacle the fan found.
      *
-     * <p>Weighted by closeness, so a wall two metres ahead dominates and one at the edge of the
-     * horizon barely registers. Vertical components are dropped: a car steers in the plane, and an
-     * obstacle above or below it is either the ground or something it cannot avoid by turning.
+     * <p><b>Around, not away from.</b> The obvious implementation — push along the vector from the
+     * obstacle to the vehicle — cannot steer past anything directly ahead: that vector is exactly
+     * anti-parallel to where the bot wants to go, so it shortens the desired direction and rotates
+     * it not at all. A bot driving at a wall keeps driving at the wall, slightly slower. What is
+     * needed is a <em>lateral</em> escape, which is the obstacle's bearing rotated a quarter turn.
+     *
+     * <p>Which of the two sides is picked matters for determinism, so it is decided by rule and never
+     * by a draw: whichever side the desired direction already leans toward, and left when it leans
+     * to neither. Two peers replaying the tick therefore go the same way round.
+     *
+     * <p>Weighted by closeness and by how squarely the obstacle sits in the path, so a wall two
+     * metres dead ahead dominates and one at the edge of the fan barely registers. Vertical
+     * components are dropped: a car steers in the plane, and an obstacle above or below it is either
+     * the ground or something it cannot avoid by turning.
      */
     private void applyObstacleAvoidance(Vector3 position, SensorSnapshot snapshot) {
         if (snapshot.nearbyObstacles.isEmpty()) {
             return;
         }
         for (Vector3 obstacle : snapshot.nearbyObstacles) {
-            away.set(position).sub(obstacle);
+            away.set(obstacle).sub(position);
             away.y = 0f;
             float distance = away.len();
             if (distance < 0.001f) {
                 continue;
             }
             away.scl(1f / distance);
-            desired.mulAdd(away, AVOIDANCE_STRENGTH / Math.max(1f, distance));
+            float alignment = away.dot(desired);
+            if (alignment <= 0f) {
+                // Behind the direction of travel. Not in the way, whatever it is.
+                continue;
+            }
+            lateral.set(-away.z, 0f, away.x);
+            if (lateral.dot(desired) < 0f) {
+                lateral.scl(-1f);
+            }
+            float urgency = alignment * AVOIDANCE_STRENGTH / Math.max(1f, distance);
+            desired.mulAdd(lateral, urgency);
+            desired.mulAdd(away, -urgency * AVOIDANCE_BACKOFF);
         }
     }
 

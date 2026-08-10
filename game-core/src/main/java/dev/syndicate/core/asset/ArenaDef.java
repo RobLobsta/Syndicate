@@ -104,8 +104,19 @@ public record ArenaDef(
         return modes.isEmpty() || modes.contains(mode);
     }
 
-    /** The spawn points a team may use, in id order. Falls back to every point when a team has none. */
+    /**
+     * The spawn points a team may use, in id order. Falls back to every point when a team has none.
+     *
+     * <p><b>A free-for-all uses every point.</b> {@link SpawnPoint#ANY_TEAM} and
+     * {@code TeamComponent.FREE_FOR_ALL} are both {@code -1}, so filtering on equality used to give a
+     * free-for-all only the points explicitly marked as neutral — two of the shipped arena's six.
+     * Six bots then spawned on two points, interpenetrated, and one of them spent the match wedged
+     * where Bullet had shoved it. A mode with no teams has no reason to reserve a team's grid.
+     */
     public List<SpawnPoint> spawnPointsFor(int teamId) {
+        if (teamId == SpawnPoint.ANY_TEAM) {
+            return spawnPoints;
+        }
         List<SpawnPoint> forTeam = spawnPoints.stream()
                 .filter(point -> point.team() == teamId || point.team() == SpawnPoint.ANY_TEAM)
                 .toList();
