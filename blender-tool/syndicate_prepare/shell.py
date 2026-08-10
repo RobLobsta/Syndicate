@@ -1,0 +1,125 @@
+"""A measured connected shell, independent of Blender.
+
+Everything the cue ensemble reads about a piece of geometry is on this record, which is what
+lets the whole of :mod:`syndicate_prepare.cues` be unit-tested with no Blender host. The
+Blender side's only job is to fill these in.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+
+
+@dataclass
+class Shell:
+    """One connected component of the model, measured in game space (metres, D00-R16).
+
+    :param index: a stable ordinal, assigned in the order shells were separated. Ties in every
+        ordering below are broken on it, so two runs agree (D15-R30's determinism).
+    :param name: the object name it came from. Diagnostic only — D15's whole premise is that
+        names are not reliable.
+    :param material: the material name it uses, or ``None``. This is the key ``parts.json``
+        overrides are written against (D15-R9), so it matters even when it is meaningless.
+    :param triangles: triangle count.
+    :param lo: minimum corner of its axis-aligned bounds, as ``(x, y, z)``.
+    :param hi: maximum corner.
+    :param centroid: area-weighted centroid, which is a better handle than the box centre for
+        a shell that is mostly at one end of its own bounds.
+    :param alpha_mode: the glTF material's alpha mode as Blender imported it — ``OPAQUE``,
+        ``BLEND`` or ``HASHED``.
+    :param base_alpha: base-colour alpha in ``[0,1]``.
+    :param transmission: ``KHR_materials_transmission`` strength in ``[0,1]``.
+    :param roughness: principled roughness in ``[0,1]``.
+    :param emissive: emissive strength, ``0`` for none.
+    :param double_sided: whether the material renders both faces.
+    """
+
+    index: int
+    name: str
+    material: str | None
+    triangles: int
+    lo: tuple[float, float, float]
+    hi: tuple[float, float, float]
+    centroid: tuple[float, float, float]
+    alpha_mode: str = "OPAQUE"
+    base_alpha: float = 1.0
+    transmission: float = 0.0
+    roughness: float = 0.5
+    emissive: float = 0.0
+    double_sided: bool = False
+
+    #: Filled in by the labelling stage.
+    label: str = "unclassified"
+
+    #: The winning label's summed weight.
+    confidence: float = 0.0
+
+    #: Every vote cast about this shell, for the report's cue-disagreement section.
+    votes: list = field(default_factory=list)
+
+    #: The shell this one was merged into, when it was below ``MIN_SHELL_TRIANGLES``.
+    merged_into: int | None = None
+
+    # ---- Derived measurements ----------------------------------------------------------
+
+    @property
+    def size(self) -> tuple[float, float, float]:
+        return (self.hi[0] - self.lo[0], self.hi[1] - self.lo[1], self.hi[2] - self.lo[2])
+
+    @property
+    def centre(self) -> tuple[float, float, float]:
+        return tuple((self.lo[i] + self.hi[i]) * 0.5 for i in range(3))
+
+    @property
+    def longest_extent(self) -> float:
+        return max(self.size)
+
+    @property
+    def shortest_extent(self) -> float:
+        return min(self.size)
+
+    @property
+    def volume(self) -> float:
+        """Bounding-box volume. A proxy for size, never for mass."""
+        sx, sy, sz = self.size
+        return sx * sy * sz
+
+    @property
+    def flatness(self) -> float:
+        """How plate-like the shell is: ``0`` is a cube, approaching ``1`` is a sheet.
+
+        The discriminator between a panel and a lump. A door skin, a windscreen and a decal
+        are all thin relative to their other two dimensions; an engine block and a caliper are
+        not.
+        """
+        longest = self.longest_extent
+        if longest <= 1e-9:
+            return 0.0
+        return 1.0 - self.shortest_extent / longest
+
+    @property
+    def roundness(self) -> float:
+        """How disc-like the shell is in side view, ``[0,1]``.
+
+        ``1`` when its Y and Z extents agree exactly, which is what a wheel looks like from
+        the side. The single most discriminating geometric test for a wheel — it rejects
+        wishbones, driveshafts and sill panels, all of which are low and outboard and none of
+        which is round.
+        """
+        _, sy, sz = self.size
+        larger = max(sy, sz)
+        if larger <= 1e-9:
+            return 0.0
+        return min(sy, sz) / larger
+
+    def mirrored_centroid(self) -> tuple[float, float, float]:
+        """This shell's centroid reflected about ``x = 0`` (D15-R20)."""
+        x, y, z = self.centroid
+        return (-x, y, z)
+
+    def distance_to(self, other: Shell) -> float:
+        return math.dist(self.centroid, other.centroid)
+
+    def contains_point(self, point: tuple[float, float, float], margin: float = 0.0) -> bool:
+        return all(self.lo[i] - margin <= point[i] <= self.hi[i] + margin for i in range(3))

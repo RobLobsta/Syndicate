@@ -46,32 +46,71 @@
     "durationSeconds" : 0.08,
     "audioMaterial" : "RUBBER"
   }, {
-    "soundId" : "engine_loop_heavy",
+    "soundId" : "engine_loop_i4",
     "event" : "ENGINE_LOOP",
-    "key" : "heavy",
-    "file" : "engine_loop_heavy.wav",
+    "key" : "I4",
+    "file" : "engine_loop_i4.wav",
     "loop" : true,
-    "durationSeconds" : 0.48,
-    "vehicleClass" : "heavy",
-    "referenceFiringHz" : 54.0
+    "durationSeconds" : 0.483,
+    "engineConfiguration" : "I4",
+    "cylinders" : 4,
+    "referenceRpm" : 4000.0,
+    "referenceFiringHz" : 133.33
   }, {
-    "soundId" : "engine_loop_light",
+    "soundId" : "engine_loop_i6",
     "event" : "ENGINE_LOOP",
-    "key" : "light",
-    "file" : "engine_loop_light.wav",
+    "key" : "I6",
+    "file" : "engine_loop_i6.wav",
     "loop" : true,
     "durationSeconds" : 0.48,
-    "vehicleClass" : "light",
-    "referenceFiringHz" : 96.0
+    "engineConfiguration" : "I6",
+    "cylinders" : 6,
+    "referenceRpm" : 4000.0,
+    "referenceFiringHz" : 200.0
   }, {
-    "soundId" : "engine_loop_medium",
+    "soundId" : "engine_loop_v10",
     "event" : "ENGINE_LOOP",
-    "key" : "medium",
-    "file" : "engine_loop_medium.wav",
+    "key" : "V10",
+    "file" : "engine_loop_v10.wav",
+    "loop" : true,
+    "durationSeconds" : 0.481,
+    "engineConfiguration" : "V10",
+    "cylinders" : 10,
+    "referenceRpm" : 4000.0,
+    "referenceFiringHz" : 333.33
+  }, {
+    "soundId" : "engine_loop_v12",
+    "event" : "ENGINE_LOOP",
+    "key" : "V12",
+    "file" : "engine_loop_v12.wav",
     "loop" : true,
     "durationSeconds" : 0.48,
-    "vehicleClass" : "medium",
-    "referenceFiringHz" : 78.0
+    "engineConfiguration" : "V12",
+    "cylinders" : 12,
+    "referenceRpm" : 4000.0,
+    "referenceFiringHz" : 400.0
+  }, {
+    "soundId" : "engine_loop_v6",
+    "event" : "ENGINE_LOOP",
+    "key" : "V6",
+    "file" : "engine_loop_v6.wav",
+    "loop" : true,
+    "durationSeconds" : 0.48,
+    "engineConfiguration" : "V6",
+    "cylinders" : 6,
+    "referenceRpm" : 4000.0,
+    "referenceFiringHz" : 200.0
+  }, {
+    "soundId" : "engine_loop_v8",
+    "event" : "ENGINE_LOOP",
+    "key" : "V8",
+    "file" : "engine_loop_v8.wav",
+    "loop" : true,
+    "durationSeconds" : 0.479,
+    "engineConfiguration" : "V8",
+    "cylinders" : 8,
+    "referenceRpm" : 4000.0,
+    "referenceFiringHz" : 266.67
   }, {
     "soundId" : "glass_shatter_large",
     "event" : "GLASS_SHATTER",

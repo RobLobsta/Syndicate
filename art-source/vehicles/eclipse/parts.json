@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0.0",
+  "_notes": [
+    "Per-model overrides for the Eclipse (docs/15_vehicle_preparation_pipeline.md#D15-S4.3).",
+    "",
+    "This file exists because of DISC-019: this model's materials are called bw00.001, bwfmp,",
+    "bwfgd and oyctp, so the nominal cue (C3) contributes almost nothing and the geometric and",
+    "material-physical cues cannot tell painted body metal from a painted door skin — nothing",
+    "can, from geometry alone. syndicate-prepare reported 74.6% of the triangles unclassified",
+    "and ranked the materials responsible; every entry below is copied from that ranking.",
+    "",
+    "Eight names, covering 45% of the model's triangles. That is D15-R9's claim made concrete:",
+    "an operator labels tens of things, never the 6,830 shells the separation stage produces.",
+    "",
+    "Everything here is 'chassis' unless the file gave a reason to say otherwise, which is the",
+    "correct-if-coarse answer D15-R2 describes: a shell that ends up in the chassis is a shell",
+    "in the right place with a coarser slot than it might deserve. Splitting the bodywork into",
+    "doors and wings needs regionLabels (D15-R10) and needs somebody to look at the model."
+  ],
+  "materialLabels": {
+    "bw00": "chassis",
+    "bw00.001": "chassis",
+    "bw00.003": "chassis",
+    "bw00.004": "chassis",
+    "bwfmp": "chassis",
+    "bwfgd": "chassis",
+    "bwpgh": "chassis",
+    "vehicle_generic_smallspecmap_PRIMARY": "chassis",
+    "light_d": "light"
+  }
+}

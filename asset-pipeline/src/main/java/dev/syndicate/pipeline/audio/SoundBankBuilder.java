@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.syndicate.model.AudioEvent;
 import dev.syndicate.model.AudioMaterial;
 import dev.syndicate.model.DestructionClass;
+import dev.syndicate.model.EngineConfiguration;
 import dev.syndicate.model.WeaponFamily;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,9 +25,15 @@ import java.util.Locale;
  * (docs/15_vehicle_preparation_pipeline.md#D15-S8, D15-R36 to D15-R39).
  *
  * <p><b>The inventory is per class and per material, never per vehicle</b> (D15-R37). That is what
- * keeps it at this size: nine event families over five audio materials, five destruction classes,
- * three vehicle classes and eight weapon families comes to a few dozen files, and adding a tenth car
- * to the roster adds none of them.
+ * keeps it at this size: nine event families over five audio materials, four destruction classes,
+ * six engine configurations, three surfaces and seven weapon families comes to a few dozen files,
+ * and adding a tenth car to the roster adds none of them.
+ *
+ * <p>Which is not the same as every car sounding alike. An engine loop is keyed on
+ * {@link EngineConfiguration} rather than on vehicle class, and a vehicle's own rev range and power
+ * decide the pitch, the gain and the low-end weight it is played at — so two cars sharing a
+ * configuration still differ, and a car with a different one differs a great deal (see
+ * {@code EngineVoice}).
  *
  * <p><b>Everything is synthesised, and the licence is the point.</b> D15-R39 requires every audio
  * asset to record its licence, and the two shipped car models are already CC-BY-NC-SA — a constraint
@@ -53,8 +60,14 @@ public final class SoundBankBuilder {
      */
     public static final long BANK_SEED = 0x5D1CA7EDL;
 
-    /** Vehicle classes an engine loop is authored for (D15-S8: one per class, not per vehicle). */
-    public static final List<String> VEHICLE_CLASSES = List.of("light", "medium", "heavy");
+    /**
+     * The rpm every engine loop is synthesised at.
+     *
+     * <p>Must equal {@code EngineVoice.REFERENCE_RPM}: the runtime's pitch ratio is
+     * {@code firingHz(rpm) / firingHz(REFERENCE_RPM)}, and if the two disagreed every engine in the
+     * game would be transposed by a constant nobody could find.
+     */
+    public static final float REFERENCE_RPM = 4000f;
 
     /** Surfaces a tyre loop is authored for. */
     public static final List<String> SURFACES = List.of("tarmac", "gravel", "metal");
@@ -181,26 +194,33 @@ public final class SoundBankBuilder {
     // ---- Engines ---------------------------------------------------------------------------
 
     /**
-     * One loop per vehicle class, recorded at a reference firing frequency the runtime pitches from.
+     * One loop per engine <em>configuration</em>, at a reference rpm the runtime pitches from.
      *
-     * <p>The reference is the middle of the class's usable band rather than idle, because pitching a
-     * loop is only convincing over about an octave either way and a loop recorded at idle spends the
-     * whole of a race being stretched upward.
+     * <p><b>Configuration, not vehicle class.</b> The first cut of this bank keyed engine loops on
+     * light/medium/heavy, and it was the wrong axis: those describe how much a car weighs, and what
+     * an engine sounds like is decided by how many times a second it fires and how evenly. Two
+     * different cars in the same weight class came out sounding identical.
+     *
+     * <p>It is still a closed set of six, so D15-R37 holds — a new car picks a configuration and
+     * commissions nothing. Two cars sharing one still sound different, because the rest of the
+     * character is theirs: firing frequency from their own rev range, gain and low-end weight from
+     * their own power (see {@code EngineVoice}).
+     *
+     * <p>The reference is the middle of a usable rev band rather than idle, because pitching a loop
+     * is only convincing over about an octave either way and a loop recorded at idle spends the whole
+     * of a race being stretched upward.
      */
     private void buildEngines() throws IOException {
-        record Engine(String vehicleClass, double firingHz, int harmonics, double roughness) {}
-        List<Engine> engines = List.of(
-                new Engine("light", 96.0, 14, 0.16),
-                new Engine("medium", 78.0, 16, 0.20),
-                new Engine("heavy", 54.0, 20, 0.28));
-
-        for (Engine engine : engines) {
-            String id = "engine_loop_" + engine.vehicleClass();
+        for (EngineConfiguration configuration : EngineConfiguration.values()) {
+            String id = "engine_loop_" + configuration.token();
+            double firingHz = configuration.firingHzAt(REFERENCE_RPM);
             Waveform wave =
-                    SoundSynth.engineLoop(engine.firingHz(), engine.harmonics(), engine.roughness(), seedFor(id));
-            write(id, wave, AudioEvent.ENGINE_LOOP, engine.vehicleClass(), true, node -> {
-                node.put("vehicleClass", engine.vehicleClass());
-                node.put("referenceFiringHz", engine.firingHz());
+                    SoundSynth.engineLoop(firingHz, configuration.harmonics(), configuration.roughness(), seedFor(id));
+            write(id, wave, AudioEvent.ENGINE_LOOP, configuration.name(), true, node -> {
+                node.put("engineConfiguration", configuration.name());
+                node.put("cylinders", configuration.cylinders());
+                node.put("referenceRpm", REFERENCE_RPM);
+                node.put("referenceFiringHz", Math.round(firingHz * 100d) / 100d);
             });
         }
     }

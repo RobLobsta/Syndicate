@@ -6,6 +6,7 @@ package dev.syndicate.core.vehicle;
 
 import dev.syndicate.core.asset.HandlingBlock;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.EngineConfiguration;
 import dev.syndicate.model.SimulationConstants;
 import java.util.Objects;
 
@@ -57,6 +58,9 @@ public record VehicleProfile(
         float wheelbaseM,
         String tyreFront,
         String tyreRear,
+        EngineConfiguration engineConfiguration,
+        float idleRpm,
+        float redlineRpm,
 
         // ---- Derived simulation parameters -------------------------------------------
         float chassisMassKg,
@@ -153,6 +157,18 @@ public record VehicleProfile(
     }
 
     /** Total mass: the chassis plus four wheels. Equals {@link #kerbMassKg} by construction. */
+    /**
+     * This vehicle's engine sound, as parameters (D15-S8, D15-R37).
+     *
+     * <p>Derived rather than authored separately, so a car cannot sound like something its own
+     * specification says it is not: the configuration and rev range are published facts about the
+     * reference car, and the power is the same {@code enginePowerW} the physics accelerates it with.
+     * A car that gets faster gets louder in the same commit.
+     */
+    public EngineVoice engineVoice() {
+        return new EngineVoice(engineConfiguration, idleRpm, redlineRpm, enginePowerW);
+    }
+
     public float totalMassKg() {
         return chassisMassKg + 4f * wheelMassKg;
     }
@@ -210,6 +226,9 @@ public record VehicleProfile(
         private float wheelbaseM;
         private String tyreFront = "";
         private String tyreRear = "";
+        private EngineConfiguration engineConfiguration = EngineConfiguration.V6;
+        private float idleRpm = 800f;
+        private float redlineRpm = 7000f;
         private float drivelineEfficiency = 0.90f;
         private float wheelMassKg = 38f;
         private float rollingResistance = HandlingBlock.REFERENCE_ROLLING_RESISTANCE;
@@ -289,6 +308,20 @@ public record VehicleProfile(
             return this;
         }
 
+        /**
+         * How the engine is arranged and how far it revs — what the car sounds like (D15-S8).
+         *
+         * <p>On the profile rather than in the audio bank, because it is a published fact about
+         * the reference car, and because it is the field that makes two vehicles of the same
+         * weight class sound like different cars rather than the same one twice.
+         */
+        public Builder engineVoice(EngineConfiguration configuration, float idleRpm, float redlineRpm) {
+            this.engineConfiguration = configuration;
+            this.idleRpm = idleRpm;
+            this.redlineRpm = redlineRpm;
+            return this;
+        }
+
         public Builder wheels(String tyreFront, String tyreRear, float radiusFrontM, float radiusRearM, float massKg) {
             this.tyreFront = tyreFront;
             this.tyreRear = tyreRear;
@@ -344,6 +377,9 @@ public record VehicleProfile(
                     wheelbaseM,
                     tyreFront,
                     tyreRear,
+                    engineConfiguration,
+                    idleRpm,
+                    redlineRpm,
                     kerbMassKg - 4f * wheelMassKg,
                     wheelMassKg,
                     engineForceN,

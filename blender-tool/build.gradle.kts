@@ -81,12 +81,21 @@ fun fractureCommand(vararg toolArgs: String): List<String> =
         listOf("python3", "-m", "syndicate_fracture") + toolArgs
     }
 
+/** The preparation tool's invocation, on whichever host is present — as `fractureCommand`. */
+fun prepareCommand(vararg toolArgs: String): List<String> =
+    if (blenderExeAvailable) {
+        listOf(blenderExe, "--background", "--factory-startup", "--python-expr",
+            "import syndicate_prepare.__main__ as m; import sys; sys.exit(m.main())", "--") + toolArgs
+    } else {
+        listOf("python3", "-m", "syndicate_prepare") + toolArgs
+    }
+
 /** `ruff check` — CI stage 0 (D12-S5.4). */
 val lint = tasks.register<Exec>("lint") {
     group = "verification"
     description = "ruff check syndicate_fracture tests (D02-S4.6)."
     workingDir = layout.projectDirectory.asFile
-    commandLine("ruff", "check", "syndicate_fracture", "syndicate_dissect", "tests")
+    commandLine("ruff", "check", "syndicate_fracture", "syndicate_dissect", "syndicate_prepare", "tests")
     // Hoisted into a local, and the spec uses the TASK's logger. An `onlyIf` lambda that
     // reads a script-level property or an unqualified `logger` captures the script object
     // itself, which the configuration cache cannot serialise.
@@ -259,4 +268,65 @@ tasks.register("dissectVehicles") {
 
 tasks.named("check") {
     dependsOn(lint, unitTest)
+}
+
+/**
+ * The vehicle preparation pipeline of D15, over every model in `art-source/vehicles/`.
+ *
+ * Strict: D15-R13 makes an under-labelled model a non-zero exit, and the point of running this
+ * from the build is to find out that a newly added car needs a `parts.json` before somebody
+ * spends an afternoon wondering why its doors are part of the chassis.
+ *
+ * Not wired into `check`, for the same reason `processFixtures` is not: it needs a Blender host,
+ * takes seventeen seconds a car, and a developer without Blender must still be able to build.
+ */
+tasks.register("prepareVehicles") {
+    group = "build"
+    description = "Runs syndicate-prepare over art-source/vehicles/ (D15-S5.1)."
+
+    val toolDir = layout.projectDirectory.asFile
+    val vehiclesDir = rootProject.layout.projectDirectory.dir("art-source/vehicles").asFile
+    val reportRoot = rootProject.layout.buildDirectory.dir("prepare-reports").get().asFile
+
+    // Resolved at configuration time into plain strings: a `doLast` that built the command
+    // would capture the script object, which the configuration cache cannot serialise (DISC-001).
+    val models: List<Pair<String, List<String>>> =
+        (vehiclesDir.listFiles()?.filter { it.isDirectory }?.sortedBy { it.name } ?: emptyList())
+            .map { dir ->
+                dir.name to prepareCommand(
+                    "--model", dir.absolutePath,
+                    "--vehicle", dir.name,
+                    "--strict",
+                    "--report", File(reportRoot, "${dir.name}.json").absolutePath,
+                )
+            }
+    val required = blenderRequired
+    val available = blenderAvailable
+    val exe = blenderExe
+
+    inputs.dir(vehiclesDir).withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.dir(reportRoot)
+
+    doLast {
+        if (!available) {
+            val message = "Blender not found; tried '$exe' on PATH and the bpy module (D02-R12)"
+            if (required) {
+                throw GradleException("$message — SYNDICATE_REQUIRE_BLENDER=1")
+            }
+            this@register.logger.warn("SKIPPED :blender-tool:prepareVehicles — $message")
+            return@doLast
+        }
+        for ((name, command) in models) {
+            val process = ProcessBuilder(command).directory(toolDir).redirectErrorStream(false).start()
+            val document = process.inputStream.bufferedReader().readText()
+            val exit = process.waitFor()
+            if (exit != 0) {
+                // 65 is D15-R13's "this model needs a parts.json", which is a report about the
+                // content rather than a tool failure — but it still fails the build, because a
+                // car nobody has prepared must not slip through as though it had been.
+                throw GradleException("syndicate-prepare on $name exited $exit\n$document")
+            }
+            this@register.logger.lifecycle("prepared $name")
+        }
+    }
 }
