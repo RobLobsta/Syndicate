@@ -1,6 +1,6 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-10 (end of SESS-017)
+**Last updated:** 2026-08-10 (end of SESS-018)
 **Where we are:** a car drives, its wheels turn, and one of them can be shot off while it does —
 and there are pictures of it. Nothing starts a match.
 
@@ -28,15 +28,16 @@ gantt
     Reading real art                        :done, p6a, 13, 1
     Combat - hits, damage, weapons          :done, p5, 14, 1
     A world to fight in                     :done, p6, 15, 1
-    A car that drives  (we are here)        :done, p6b, 16, 1
+    A car that drives  (we are here)        :done, p6b, 16, 2
 
     section Next
-    Opponents - bots and match flow         :active, p8, 17, 3
-    A window - client, render, HUD          :p7, 20, 3
+    Vehicle preparation pipeline            :active, p6c, 18, 4
+    Opponents - bots and match flow         :p8, 22, 3
+    A window - client, render, HUD          :p7, 25, 3
 
     section Then
-    Multiplayer                             :p9, 24, 4
-    Production hardening                    :p10, 28, 3
+    Multiplayer                             :p9, 28, 4
+    Production hardening                    :p10, 32, 3
 ```
 
 Read the numbers as **sessions of work, roughly**, not dates. Everything before "we are here" is
@@ -68,6 +69,8 @@ done and green; everything after is an estimate that will move.
   └──┼───────────────────────────────────────────────────────────────┘
      │
   ┌──┼─ NEXT ──────────────────────────────────────────────────────────┐
+  │  ○  Phase 6c  Vehicle preparation pipeline                         │
+  │  │            Doors, glass, panels; repair, hinges, destruction    │
   │  ○  Phase 8   Opponents                          ★ PLAYABLE HERE   │
   │  │            Bots, a match that starts, scores and ends           │
   │  ○  Phase 7   A window                                             │
@@ -104,78 +107,46 @@ transport first.
 
 ---
 
-## 2. What happened this session (SESS-017)
+## 2. What happened this session (SESS-018)
 
-Last session cut the cars into parts. This one put those parts together into something that behaves
-like a car, and — for the first time in the project — looked at it.
+Two things: a small visible bug fixed properly, and the answer to "can the separation tool be made
+to find *everything* — doors, glass, bonnet, mirrors, decals?" measured rather than guessed.
 
-### The car was 61 cm in the air
+### The brake caliper was spinning with the tyre
 
-Each chassis declared where its wheels attach. Every one of those declarations said "at ground
-level, on the centreline", which is not where a wheel is. The result was both cars floating two feet
-above the road with their wheels dangling underneath like a toy held up by a child.
+It was, and the fix is more interesting than the bug. A caliper is not a wheel, but nothing in the
+file reliably says so, and the tool had been bundling everything inside the wheel's cylinder into
+the wheel.
 
-Nothing had caught this in four sessions of work, and the reason is worth stating plainly: how high
-a car's body sits does not affect how fast it accelerates or how quickly it stops, which is what
-every test measured. The suite was measuring the right things about a scene nobody had ever
-rendered, and tests like that will agree with each other forever.
+The test that works needs no names at all: **a part bolted to a rotating wheel has to be
+rotationally symmetric about the axle**, or it would sweep through the bodywork once a revolution.
+So measure how much of the circle each piece occupies. On both cars every rotating piece — tyre,
+rim, hub, brake disc — covers the full 360°, and every caliper covers 90 to 150. Nothing sits near
+the line.
 
-### Two more, underneath it
+Two details mattered. The measurement has to come from the actual points of the mesh rather than
+from a bounding box, because a five-spoke wheel's box has four corners like everything else's. And
+the test has to run on the pieces that *seed* a wheel, not just the ones captured afterwards — on
+the Mustang, eight caliper fragments of one to forty triangles had seeded the front-right corner
+alongside the 4,516-triangle rim.
 
-Fixing the wheel positions exposed two further problems that the first one had been hiding.
+Every wheel's diameter, width and axle position came out unchanged to four decimal places, which is
+the point: the fix corrects what the wheel *contains* without moving anything the game measures.
 
-**The mass was in the wrong place.** The code put each part's weight at the point where it bolts on
-rather than at the middle of the part. A car body bolts on at road level, so the whole vehicle's
-centre of gravity sat six centimetres off the ground instead of about seventy — and the physics
-engine spins a vehicle around its centre of gravity, so both cars were pivoting about a point under
-the tarmac. The specification had said to do it the right way all along; the code had quietly done
-something else.
+### How far the separation tool can actually go
 
-**The road was too big to hit accurately.** The test track was a single box 800 m long, and the
-physics engine finds a shape like that by an approximation whose error grows with the shape's size.
-Every wheel's contact with the ground came back up to 14 cm wrong, differently every tick — the body
-sat perfectly still while the wheels strobed through their arches. It reads exactly like a suspension
-that will not settle, which is what it was mistaken for twice. Roads and arena floors are now
-mathematical planes, which are hit exactly.
+The honest answer is: further than it does, not as far as one might hope, and the gap is bridgeable
+by a person doing about two minutes of work per car. Details in §3 and in the new blueprint,
+`docs/15_vehicle_preparation_pipeline.md`. The headline is that the current tool was never really
+separating anything — it treated each *material group* as a part, and on these files one material
+group is the whole cabin, or both headlights and both tail lights at once.
 
-With all three fixed, a parked car puts its body within a **millimetre** of the road, each wheel
-exactly its own tyre's radius up, and then does not move again.
+### A new blueprint
 
-### Wheels that turn
-
-A wheel's position is not in the vehicle's parts list at all — the physics engine owns it, because
-the wheel moves with the suspension, turns with the steering and spins as the car travels. The new
-`TransformSystem` (the 15th of the 27 the design calls for) works out where everything in the world
-is each tick, and for a wheel it asks the physics engine rather than the parts list. That single
-distinction is the difference between wheels that turn and wheels that slide silently along the road.
-
-There is now a test that drives a car 40 m and checks the front wheel went round the right number of
-times for its size, and another that checks a parked car's wheels do not.
-
-### A wheel that comes off at 30 m/s
-
-The physics library has no way to remove a wheel from a vehicle. A previous session had worked
-around that by renumbering the remaining wheels — which turns out to be backwards, because those
-numbers are how the game addresses the library's own wheel list, and that list did not renumber. The
-survivors were each steering and driving their neighbour's corner. The empty corner is now switched
-off in place and the numbering left alone.
-
-Destroy the front-left wheel of a car doing 30 m/s and it leaves as a body of its own carrying the
-car's speed, bounces down the road, and the car drives on with three wheels on the ground.
-
-### Pictures of all of it
-
-The verification harness gained a third mode. The first two photograph a *file*; this one
-photographs a *simulation* — it assembles a shipped car, drives it, takes a wheel off, and renders
-each part exactly where the game says that part is. Eight frames are in `docs/captures/`, including
-a pair of close-ups of the same front wheel three seconds apart with the rim at a visibly different
-angle, and the tyre's own sidewall lettering readable on it.
-
-### One piece of content debt cleared by deletion
-
-All six parts claimed to have fracture data. None of them did, and the file has never existed — so
-a destroyed wheel silently vanished instead of detaching. The claim is removed until the tool that
-would produce it has been run.
+The pipeline you will be running on every future car now has a contract of its own: the label
+taxonomy, how each label is decided, how a human overrides a wrong decision, what geometry repairs
+are safe to automate (and which are not), how doors get hinges, what destruction treatment each
+class of part receives, and what sounds a finished vehicle needs.
 
 ## 3. What is next
 
@@ -196,6 +167,33 @@ Placed after opponents on the argument that a renderer is much more useful point
 an empty arena — an argument that is weaker than it was, now that the verification harness can render
 a driving car and the client's job is starting to look like "the same thing, interactively".
 
+### The vehicle preparation pipeline — now a named piece of work
+
+The dissection tool cuts a car into a chassis and four wheels. Getting doors, glass, bonnet, boot,
+mirrors and decals out of it is a bigger job than it looks, and this session measured exactly how
+much bigger. `docs/15_vehicle_preparation_pipeline.md` is the contract; the short version:
+
+- **Separation works and is cheap.** Splitting a car into genuinely connected pieces takes 16
+  seconds and yields about 6,000 of them. The current tool never did this — it treated each
+  *material group* as a part, which is why it could only ever see wheels.
+- **Two-thirds of those pieces are bolts and screws.** They have to be merged into whatever panel
+  they sit on, not treated as parts.
+- **Doors are findable.** Door-sized panels show up on both cars as exact mirrored pairs. A door is
+  not one piece though — it is a skin, an inner card and a frame — so the pieces have to be grouped
+  back together after labelling, not before.
+- **How much the file tells you varies enormously.** One of the two shipped cars names its materials
+  `Window` and `Callipers`; the other names them `bw00.001` and `oyctp`. Reading names labels 99% of
+  one car and 36% of the other. So the pipeline infers what geometry can prove, reads names when
+  they happen to be meaningful, and asks a human for the rest — **once per material, not once per
+  part**. The 64% of the difficult car that cannot be inferred is covered by six material names.
+
+That last point is what makes the whole thing practical rather than a research project. Preparing a
+new car should be: run the tool, read its report, and if it complains, write six lines of
+`parts.json`.
+
+The work splits into four sessions that each end with something demonstrable: separation and
+labelling with a report; geometry repair; hinges so doors open; per-class destruction authoring.
+
 ### Loose content work, any time
 
 - **Fracture manifests** for the six parts, so a destroyed wheel breaks up rather than detaching
@@ -205,6 +203,13 @@ a driving car and the client's job is starting to look like "the same thing, int
 - **One armour plate that covers something**, so the interception and exposure rules have content.
 - **The JSON schemas**, so malformed content fails on its shape rather than on whichever field a
   hand-written check happens to read first.
+- **Sound.** Nothing in this project makes a noise yet, and the inventory is smaller than it sounds:
+  seven event families across five material classes, keyed to events the simulation already emits
+  (`docs/15_vehicle_preparation_pipeline.md#D15-S8`). Sounds are per *class* and per *material*,
+  never per vehicle — otherwise every new car needs an audio pass. Engine and tyre loops are
+  parametric and are better synthesised than sampled; impacts and shatters are one-shots and can come
+  from permissively licensed libraries, with the licence recorded beside the asset exactly as the two
+  car models' licences already are.
 
 ### Phases 9–10 — Multiplayer, then hardening
 
@@ -273,11 +278,11 @@ None of these are decided. They are here so the options are visible when a sessi
 - **What is actually in the scrapyard?** The arena is a flat box, deliberately. Cover changes what
   weapons are good, what vehicles are good, and whether ramming is a tactic or a mistake. It should
   be decided by someone who has driven in the empty one.
-- **How much of a car is a part?** The split gives a chassis and four wheels because that is what the
-  assemblies declare. The doors, bonnet and boot are separately modelled in both cars and could each
-  be their own part — which is the difference between a car that loses wheels and a car that comes
-  apart. The tool would need one more classification rule; the design question of whether a bonnet
-  flying off is fun is the real cost.
+- **How much of a car is a part?** Now specified rather than speculative — see
+  `docs/15_vehicle_preparation_pipeline.md` and §3. The taxonomy has twelve labels; the open question
+  is which of them you actually want as *separable* parts. Every extra separable part is more
+  physics bodies, more network state and more art to verify, so "a car that comes apart into
+  fourteen pieces" is a gameplay choice with a cost, not a free upgrade.
 
 **Content and tooling**
 

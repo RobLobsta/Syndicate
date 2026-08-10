@@ -77,6 +77,29 @@ WHEEL_ROUNDNESS_TOLERANCE = 0.25
 #: Covers the caliper and the hub face, which stick out past the tyre's silhouette.
 WHEEL_CAPTURE_MARGIN = 1.12
 
+#: Degrees of the circle a piece must occupy, about the axle, to be treated as *rotating*
+#: with the wheel rather than merely sitting inside it.
+#:
+#: This is a physical test standing in for a semantic one. A part that turns with a wheel has
+#: to be rotationally symmetric about the axle, or it would sweep through the bodywork once a
+#: revolution — so tyre, rim, hub and brake disc all occupy the full circle. A brake caliper
+#: does not: it is a block clamped over one sector of the disc, and it stays put while the
+#: disc spins inside it. Measured over both shipped cars a caliper occupies 90-150 degrees and every
+#: rotating piece occupies 360°, so the bar sits far from either.
+#:
+#: Named parts would answer this on the Stampede (``…CallipersCalliperA_Zone…``) and not on
+#: the Eclipse (``calliperzone_d`` yes, but its rim is ``material_51`` and ``oyctp``). The
+#: geometry answers it on both.
+ROTATION_SYMMETRY_MIN_DEG = 300.0
+
+#: Sectors the circle is divided into when measuring that coverage. 24 gives 15° resolution,
+#: which is finer than the gap between a caliper's 150° and a rim's 360° by a wide margin.
+ROTATION_SECTORS = 24
+
+#: Vertices nearer the axle than this contribute no bearing — the hub face's centre sits on
+#: the axis, where the angle is undefined and numerically wild.
+ROTATION_MIN_RADIUS_M = 0.02
+
 
 @dataclass
 class Island:
@@ -111,10 +134,11 @@ class WheelGroup:
     corner: str
     seeds: list = field(default_factory=list)
     furniture: list = field(default_factory=list)
+    static: list = field(default_factory=list)
 
     @property
     def islands(self) -> list:
-        """Everything that leaves with this wheel."""
+        """Everything that rotates with this wheel, and therefore leaves with it."""
         return self.seeds + self.furniture
 
     def _bounds(self, islands):
@@ -334,11 +358,21 @@ def seed_wheels(islands: list[Island]) -> dict[str, WheelGroup]:
 
 
 def capture_wheel_furniture(islands: list[Island], groups: dict[str, WheelGroup]) -> None:
-    """Adds the brake disc, caliper and hub to the wheel they belong to.
+    """Adds the brake disc and hub to the wheel, and sets the caliper aside.
 
-    These fail the roundness test — a caliper is a block — but they turn with the wheel and
-    must leave with it, so they are captured by containment instead: an island that sits
-    wholly inside a wheel's own cylinder is that wheel's.
+    Two gates, and the second one is the point. Containment finds everything living inside a
+    wheel's cylinder — disc, hub, caliper, wheel bolts — because none of those passes the
+    roundness test on its own and all of them are part of the corner. Rotational symmetry then
+    decides which of them actually *turns*: a disc does and a caliper does not, and a caliper
+    exported inside the wheel spins with it, which is visible in any capture and wrong in a way
+    no measurement of the wheel would report (:data:`ROTATION_SYMMETRY_MIN_DEG`).
+
+    What is set aside lands in :attr:`WheelGroup.static` and goes back to the chassis. That is
+    an approximation and a documented one: a caliper is unsprung, so it should rise and fall
+    with the wheel and only decline to rotate. Leaving it on the chassis costs a few
+    centimetres of travel it will not follow and buys a caliper that stays where a caliper
+    stays. The exact answer is a non-rotating hub part at the axle, which needs a slot type
+    the part schema does not yet have.
     """
     claimed = {id(i.obj) for g in groups.values() for i in g.islands}
     # Every cylinder is measured before any of them captures anything, so what one wheel
@@ -362,16 +396,75 @@ def capture_wheel_furniture(islands: list[Island], groups: dict[str, WheelGroup]
             # subframe with the wheel.
             if not _inside_cylinder(island, centre, radius, half_width):
                 continue
-            group.furniture.append(island)
+            if angular_coverage_deg(island, centre) >= ROTATION_SYMMETRY_MIN_DEG:
+                group.furniture.append(island)
+            else:
+                group.static.append(island)
             claimed.add(id(island.obj))
 
 
+def prune_non_rotating_seeds(groups: dict[str, WheelGroup]) -> int:
+    """Moves seeds that turn out not to be rotationally symmetric into ``static``.
+
+    :func:`is_wheel_shaped` asks whether an island's silhouette is *square*, which a disc is
+    and so is a caliper bolt: on the Stampede eight caliper fragments of one to forty triangles
+    seeded the front-right corner alongside the 4,516-triangle rim. They are far too small to
+    move the axle the group's geometry is measured from, which is what makes a second pass
+    safe — the provisional axle is the rim's, and re-measuring against it is enough.
+
+    :return: how many seeds were reclassified
+    """
+    moved = 0
+    for group in groups.values():
+        if not group.seeds:
+            continue
+        axle = group.centre()
+        keep, reject = [], []
+        for island in group.seeds:
+            rotates = angular_coverage_deg(island, axle) >= ROTATION_SYMMETRY_MIN_DEG
+            (keep if rotates else reject).append(island)
+        # Never strip a corner bare: with nothing kept there is no axle and no wheel, and the
+        # honest failure is the one the report already knows how to describe.
+        if keep:
+            group.seeds = keep
+            group.static.extend(reject)
+            moved += len(reject)
+    return moved
+
+
+def angular_coverage_deg(island: Island, axle) -> float:
+    """How much of the circle about ``axle`` this island's geometry occupies, in degrees.
+
+    Measured from vertices rather than from the bounding box. A rim is spokes with gaps
+    between them, and its box corners land in four sectors however many spokes it has — the
+    box would report a five-spoke wheel and a caliper as equally partial.
+
+    ``axle`` is a point in game space; bearings are taken in the YZ plane, which is the plane
+    a wheel turns in (the axle runs along X, D06-S5.5).
+    """
+    occupied = set()
+    mw = island.obj.matrix_world
+    for v in island.obj.data.vertices:
+        g = _to_game(mw @ v.co)
+        dy, dz = g.y - axle.y, g.z - axle.z
+        if math.hypot(dy, dz) < ROTATION_MIN_RADIUS_M:
+            continue
+        bearing = math.degrees(math.atan2(dz, dy)) % 360.0
+        occupied.add(int(bearing // (360 / ROTATION_SECTORS)))
+    return len(occupied) * (360.0 / ROTATION_SECTORS)
+
+
 def classify(islands: list[Island]) -> tuple[dict[str, WheelGroup], list[Island]]:
-    """Splits every island into four wheel groups and the chassis remainder."""
+    """Splits every island into four wheel groups and the chassis remainder.
+
+    Anything captured into a corner but found not to rotate — the caliper — is returned to the
+    chassis rather than dropped, so no triangle of the source model goes missing.
+    """
     groups = seed_wheels(islands)
+    prune_non_rotating_seeds(groups)
     capture_wheel_furniture(islands, groups)
-    claimed = {id(i.obj) for g in groups.values() for i in g.islands}
-    chassis = [i for i in islands if id(i.obj) not in claimed]
+    rotating = {id(i.obj) for g in groups.values() for i in g.islands}
+    chassis = [i for i in islands if id(i.obj) not in rotating]
     return groups, chassis
 
 
