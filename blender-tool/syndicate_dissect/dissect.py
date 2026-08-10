@@ -358,21 +358,14 @@ def seed_wheels(islands: list[Island]) -> dict[str, WheelGroup]:
 
 
 def capture_wheel_furniture(islands: list[Island], groups: dict[str, WheelGroup]) -> None:
-    """Adds the brake disc and hub to the wheel, and sets the caliper aside.
+    """Adds everything living inside a wheel's cylinder to that wheel.
 
-    Two gates, and the second one is the point. Containment finds everything living inside a
-    wheel's cylinder — disc, hub, caliper, wheel bolts — because none of those passes the
-    roundness test on its own and all of them are part of the corner. Rotational symmetry then
-    decides which of them actually *turns*: a disc does and a caliper does not, and a caliper
-    exported inside the wheel spins with it, which is visible in any capture and wrong in a way
-    no measurement of the wheel would report (:data:`ROTATION_SYMMETRY_MIN_DEG`).
+    Containment, not proximity. Every corner of the island's box has to be inside the cylinder:
+    a wishbone reaching into the arch has its centroid next to the hub and its far end bolted to
+    the chassis, and capturing it would take the subframe with the wheel.
 
-    What is set aside lands in :attr:`WheelGroup.static` and goes back to the chassis. That is
-    an approximation and a documented one: a caliper is unsprung, so it should rise and fall
-    with the wheel and only decline to rotate. Leaving it on the chassis costs a few
-    centimetres of travel it will not follow and buys a caliper that stays where a caliper
-    stays. The exact answer is a non-rotating hub part at the axle, which needs a slot type
-    the part schema does not yet have.
+    What rotates and what merely sits there is decided afterwards, by
+    :func:`partition_rotating`, because it is not a question a single island can answer.
     """
     claimed = {id(i.obj) for g in groups.values() for i in g.islands}
     # Every cylinder is measured before any of them captures anything, so what one wheel
@@ -396,62 +389,110 @@ def capture_wheel_furniture(islands: list[Island], groups: dict[str, WheelGroup]
             # subframe with the wheel.
             if not _inside_cylinder(island, centre, radius, half_width):
                 continue
-            if angular_coverage_deg(island, centre) >= ROTATION_SYMMETRY_MIN_DEG:
-                group.furniture.append(island)
-            else:
-                group.static.append(island)
+            group.furniture.append(island)
             claimed.add(id(island.obj))
 
 
-def prune_non_rotating_seeds(groups: dict[str, WheelGroup]) -> int:
-    """Moves seeds that turn out not to be rotationally symmetric into ``static``.
+def partition_rotating(groups: dict[str, WheelGroup]) -> int:
+    """Splits each corner into what turns with the wheel and what only sits inside it.
 
-    :func:`is_wheel_shaped` asks whether an island's silhouette is *square*, which a disc is
-    and so is a caliper bolt: on the Stampede eight caliper fragments of one to forty triangles
-    seeded the front-right corner alongside the 4,516-triangle rim. They are far too small to
-    move the axle the group's geometry is measured from, which is what makes a second pass
-    safe — the provisional axle is the rim's, and re-measuring against it is enough.
+    **The unit of judgement is a material group, not an island**, and that distinction is the
+    whole of this function. A lug nut is at one clock position and a valve stem is at another,
+    yet both plainly rotate; measured alone each occupies 15° and each would be exiled to the
+    chassis. Measured together with the rest of the rim they share a material with, they are
+    part of a set that occupies the full circle.
 
-    :return: how many seeds were reclassified
+    That is not a trick to rescue small pieces — it is the correct statement of the physics.
+    Rotational symmetry is a property of an *assembly*: a wheel is symmetric under rotation by
+    360°/n where n is its spoke count, and every piece maps onto some other piece of the same
+    kind. What a caliper lacks is not size but a partner to be rotated onto, and the material a
+    piece was authored with is the best available proxy for "the same kind of thing".
+
+    Judging islands individually cost the Stampede its lug nuts, spoke details and valve stem —
+    177 shells of one rim material, most of them under 60 triangles — which shrank the exported
+    wheel hull by 1.2 mm and dropped tyre geometry onto the chassis floor pan. It passed every
+    check that measures a wheel, because the wheel's diameter is taken from its round seed
+    islands and those were never in doubt.
+
+    What is set aside lands in :attr:`WheelGroup.static` and goes back to the chassis. That is
+    an approximation and a documented one: a caliper is unsprung, so it should rise and fall
+    with the wheel and only decline to rotate. Leaving it on the chassis costs a few centimetres
+    of travel it will not follow and buys a caliper that stays where a caliper stays. The exact
+    answer is a non-rotating hub part at the axle, which needs a slot type the part schema does
+    not yet have.
+
+    :return: how many islands were reclassified as static
     """
     moved = 0
     for group in groups.values():
         if not group.seeds:
             continue
         axle = group.centre()
-        keep, reject = [], []
-        for island in group.seeds:
-            rotates = angular_coverage_deg(island, axle) >= ROTATION_SYMMETRY_MIN_DEG
-            (keep if rotates else reject).append(island)
-        # Never strip a corner bare: with nothing kept there is no axle and no wheel, and the
-        # honest failure is the one the report already knows how to describe.
-        if keep:
-            group.seeds = keep
-            group.static.extend(reject)
-            moved += len(reject)
+        by_material: dict[tuple, list] = {}
+        for island in group.seeds + group.furniture:
+            by_material.setdefault(_material_signature(island), []).append(island)
+
+        rotating = set()
+        for members in by_material.values():
+            occupied: set[int] = set()
+            for island in members:
+                occupied |= _angular_sectors(island, axle)
+            if len(occupied) * (360.0 / ROTATION_SECTORS) >= ROTATION_SYMMETRY_MIN_DEG:
+                rotating.update(id(i.obj) for i in members)
+
+        seeds = [i for i in group.seeds if id(i.obj) in rotating]
+        # Never strip a corner bare: with no seed there is no axle and no wheel, and the honest
+        # failure is the one the report already knows how to describe.
+        if not seeds:
+            continue
+        static = [i for i in group.seeds + group.furniture if id(i.obj) not in rotating]
+        group.seeds = seeds
+        group.furniture = [i for i in group.furniture if id(i.obj) in rotating]
+        group.static.extend(static)
+        moved += len(static)
     return moved
 
 
-def angular_coverage_deg(island: Island, axle) -> float:
-    """How much of the circle about ``axle`` this island's geometry occupies, in degrees.
+def _angular_sectors(island: Island, axle) -> set[int]:
+    """Which sectors of the circle about ``axle`` this island's vertices fall in.
 
-    Measured from vertices rather than from the bounding box. A rim is spokes with gaps
-    between them, and its box corners land in four sectors however many spokes it has — the
-    box would report a five-spoke wheel and a caliper as equally partial.
+    Vertices rather than the bounding box. A rim is spokes with gaps between them, and its box
+    corners land in four sectors however many spokes it has — a box-based measure reports a
+    five-spoke wheel and a caliper as equally partial.
 
-    ``axle`` is a point in game space; bearings are taken in the YZ plane, which is the plane
-    a wheel turns in (the axle runs along X, D06-S5.5).
+    ``axle`` is a point in game space; bearings are taken in the YZ plane, which is the plane a
+    wheel turns in (the axle runs along X, D06-S5.5).
     """
-    occupied = set()
+    sectors: set[int] = set()
+    width = 360.0 / ROTATION_SECTORS
     mw = island.obj.matrix_world
     for v in island.obj.data.vertices:
         g = _to_game(mw @ v.co)
         dy, dz = g.y - axle.y, g.z - axle.z
         if math.hypot(dy, dz) < ROTATION_MIN_RADIUS_M:
             continue
-        bearing = math.degrees(math.atan2(dz, dy)) % 360.0
-        occupied.add(int(bearing // (360 / ROTATION_SECTORS)))
-    return len(occupied) * (360.0 / ROTATION_SECTORS)
+        sectors.add(int((math.degrees(math.atan2(dz, dy)) % 360.0) // width))
+    return sectors
+
+
+def angular_coverage_deg(island: Island, axle) -> float:
+    """How much of the circle about ``axle`` one island occupies, in degrees.
+
+    Kept for reporting and for tests. The classification itself measures a *material group*
+    rather than an island — see :func:`partition_rotating` for why a lug nut on its own says
+    nothing about whether it turns.
+    """
+    return len(_angular_sectors(island, axle)) * (360.0 / ROTATION_SECTORS)
+
+
+def _material_signature(island: Island) -> tuple:
+    """The sorted material names on an island: the proxy for 'the same kind of part'.
+
+    An island with no material gets an empty signature, which groups the unmaterialled pieces
+    of a corner together — the right default, since a model that assigns no materials gives no
+    grounds to separate them.
+    """
+    return tuple(sorted({ms.material.name for ms in island.obj.material_slots if ms.material}))
 
 
 def classify(islands: list[Island]) -> tuple[dict[str, WheelGroup], list[Island]]:
@@ -461,8 +502,8 @@ def classify(islands: list[Island]) -> tuple[dict[str, WheelGroup], list[Island]
     chassis rather than dropped, so no triangle of the source model goes missing.
     """
     groups = seed_wheels(islands)
-    prune_non_rotating_seeds(groups)
     capture_wheel_furniture(islands, groups)
+    partition_rotating(groups)
     rotating = {id(i.obj) for g in groups.values() for i in g.islands}
     chassis = [i for i in islands if id(i.obj) not in rotating]
     return groups, chassis

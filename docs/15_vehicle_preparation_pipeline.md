@@ -175,15 +175,17 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 
 **R21.** A part attached to a rotating wheel rotates **only if it is rotationally symmetric about the axle**. Angular coverage is measured over vertices, in sectors of `360 / ROTATION_SECTORS` degrees, in the plane normal to the axle. Coverage at or above `ROTATION_SYMMETRY_MIN_DEG` ⇒ `wheel`; below ⇒ `hub`.
 
-**R22.** The test is applied to **seed** shells as well as captured ones. A caliper bolt is square in silhouette and therefore passes the roundness test that seeds a wheel; it fails this one.
+**R22.** The unit of judgement is a **material group within one corner**, never a single shell. Rotational symmetry is a property of an assembly: a wheel is symmetric under rotation by 360°/n and every piece maps onto another piece of the same kind. A lug nut occupies 15° and plainly rotates — what it lacks is not size but a partner to be rotated onto, and the material a piece was authored with is the best available proxy for "the same kind of part". Judged shell by shell, a rim loses its lug nuts, spoke details and valve stem to the chassis.
 
-**R23.** Measure coverage from vertices, never from a bounding box. A five-spoke rim's box corners land in four sectors, so a box-based measure cannot distinguish a spoked wheel from a caliper.
+**R23.** The test is applied to **seed** shells as well as captured ones. A caliper bolt is square in silhouette and therefore passes the roundness test that seeds a wheel; it fails this one.
+
+**R24.** Measure coverage from vertices, never from a bounding box. A five-spoke rim's box corners land in four sectors, so a box-based measure cannot distinguish a spoked wheel from a caliper.
 
 > Measured on both shipped cars: every rotating piece covers 360°; calipers cover 90–150°. The gap is wide enough that the threshold is not delicate.
 
 <!-- D15-S5.5 -->### 5.5 Geometry Repair
 
-**R24.** Repairs are applied in this order, each reported, none silent:
+**R25.** Repairs are applied in this order, each reported, none silent:
 
 | Check | Detection | Repair |
 |---|---|---|
@@ -196,27 +198,27 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 | **Degenerate topology** | Zero-area faces, doubled vertices, non-manifold edges | Merge by distance, delete degenerates |
 | **Detached fragments** | A shell far outside the body's hull | Report; drop only beyond `STRAY_SHELL_M` |
 
-**R25.** Broken symmetry is reported and never repaired automatically. Real cars are asymmetric on purpose — one exhaust, a fuel filler on one side, left-hand drive — and a pipeline that mirrors those away damages correct models to flatter incorrect ones.
+**R26.** Broken symmetry is reported and never repaired automatically. Real cars are asymmetric on purpose — one exhaust, a fuel filler on one side, left-hand drive — and a pipeline that mirrors those away damages correct models to flatter incorrect ones.
 
-**R26.** Every repair is recorded in the report as a before/after measurement. A repair nobody can see is indistinguishable from a bug.
+**R27.** Every repair is recorded in the report as a before/after measurement. A repair nobody can see is indistinguishable from a bug.
 
 <!-- D15-S5.6 -->### 5.6 Articulation Rigging
 
-**R27.** An articulated part is a part with a hinge: an axis, a pivot in chassis-local space, and an open angle. Doors, bonnet and boot are the expected cases.
+**R28.** An articulated part is a part with a hinge: an axis, a pivot in chassis-local space, and an open angle. Doors, bonnet and boot are the expected cases.
 
-**R28.** Hinge inference, in order of reliability:
+**R29.** Hinge inference, in order of reliability:
 
 1. **Declared** — `parts.json.hinges`. Always wins.
 2. **Panel-edge inference** — a door hinges about the vertical edge nearest the front of the car; a bonnet about its rear-most transverse edge; a boot about its forward-most transverse edge. The axis is the panel's longest edge in that direction, the pivot its midpoint.
 3. **None** — the part is rigid and detaches without opening.
 
-**R29.** A hinge is exported as **data on the part**, not as a Blender armature. The game already composes parts down a slot chain (D04-S4.3.1), so an opening door is a slot whose local rotation animates. An armature would add a second, redundant transform hierarchy that the runtime does not read.
+**R30.** A hinge is exported as **data on the part**, not as a Blender armature. The game already composes parts down a slot chain (D04-S4.3.1), so an opening door is a slot whose local rotation animates. An armature would add a second, redundant transform hierarchy that the runtime does not read.
 
-**R30.** Articulation and detachment are independent. A door may open, then later break off; the hinge angle is cosmetic state and the attachment is authoritative (G6).
+**R31.** Articulation and detachment are independent. A door may open, then later break off; the hinge angle is cosmetic state and the attachment is authoritative (G6).
 
 <!-- D15-S5.7 -->### 5.7 Destruction Authoring by Class
 
-**R31.** Each label maps to a destruction class, and each class to a treatment. This is where the pipeline decides *how a part fails* before anything hits it.
+**R32.** Each label maps to a destruction class, and each class to a treatment. This is where the pipeline decides *how a part fails* before anything hits it.
 
 | Class | Treatment | Rationale |
 |---|---|---|
@@ -226,9 +228,9 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 | `rigid` | No deformation. Detach whole, fracture only if authored | A caliper, a mirror, a lamp housing either survives or leaves |
 | `none` | Untouched | Decals ride their host; interiors are never hit |
 
-**R32.** A class's parameters are per-class constants, not per-part authoring. A part that needs different numbers is evidence the taxonomy is missing a class, not that the part needs hand-tuning.
+**R33.** A class's parameters are per-class constants, not per-part authoring. A part that needs different numbers is evidence the taxonomy is missing a class, not that the part needs hand-tuning.
 
-**R33.** The `structural` yield threshold is expressed as an impulse in newton-seconds, comparable with `breakImpulseN` (D08-R5), so "the frame buckles before the mounts shear" is a statement about two numbers in the same unit.
+**R34.** The `structural` yield threshold is expressed as an impulse in newton-seconds, comparable with `breakImpulseN` (D08-R5), so "the frame buckles before the mounts shear" is a statement about two numbers in the same unit.
 
 ---
 
@@ -266,9 +268,9 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 
 <!-- D15-S8 -->## 8. Audio Inventory
 
-**R34.** A prepared vehicle is not finished when it looks right. Sound is the half of destruction feedback the visual pipeline cannot deliver, and it is cheap to specify now and expensive to retrofit once a hundred parts exist.
+**R35.** A prepared vehicle is not finished when it looks right. Sound is the half of destruction feedback the visual pipeline cannot deliver, and it is cheap to specify now and expensive to retrofit once a hundred parts exist.
 
-**R35.** The inventory a vehicle needs, keyed to events that already exist in the simulation:
+**R36.** The inventory a vehicle needs, keyed to events that already exist in the simulation:
 
 | Event | Source | Notes |
 |---|---|---|
@@ -280,11 +282,11 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 | Debris settle | Per material, by mass | Driven by the existing debris lifetime |
 | Weapon fire / impact | Per weapon family (D01-R8) | Eight families, eight pairs |
 
-**R36.** Sounds are **per class and per material**, never per vehicle. Seven events over five destruction classes is a set of tens; per-vehicle sound would be a set of hundreds and would gate every new car on an audio pass.
+**R37.** Sounds are **per class and per material**, never per vehicle. Seven events over five destruction classes is a set of tens; per-vehicle sound would be a set of hundreds and would gate every new car on an audio pass.
 
-**R37.** Sourcing, in order of preference: (a) permissively licensed libraries with attribution recorded beside the asset exactly as `license.txt` records model provenance today; (b) procedural synthesis for engine and tyre loops, which are parametric by nature and where a synthesiser removes a per-class asset; (c) commissioned or recorded audio. Generative audio models are viable for one-shots and are **not** for loops, where seam artefacts are audible.
+**R38.** Sourcing, in order of preference: (a) permissively licensed libraries with attribution recorded beside the asset exactly as `license.txt` records model provenance today; (b) procedural synthesis for engine and tyre loops, which are parametric by nature and where a synthesiser removes a per-class asset; (c) commissioned or recorded audio. Generative audio models are viable for one-shots and are **not** for loops, where seam artefacts are audible.
 
-**R38.** Every audio asset records its licence beside it, under the same rule as art. The two shipped models are CC-BY-NC-SA and that constraint is already live; audio must not add a second, differently-encumbered set of terms nobody tracked.
+**R39.** Every audio asset records its licence beside it, under the same rule as art. The two shipped models are CC-BY-NC-SA and that constraint is already live; audio must not add a second, differently-encumbered set of terms nobody tracked.
 
 ---
 
@@ -294,6 +296,7 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 |---|---|---|
 | T-D15-1 | Run on both shipped cars | Four wheels each, axles within 1 mm of the recorded art |
 | T-D15-2 | Assert no caliper material in any exported wheel | Passes on both cars |
+| T-D15-2b | Assert a wheel keeps its lug nuts and valve stem | Triangle count unchanged by the symmetry pass |
 | T-D15-3 | Sum triangles across all output parts | Equals the source model's triangle count |
 | T-D15-4 | Add a `materialLabels` entry for one material | Exactly the shells using it change label |
 | T-D15-5 | Feed a model scaled ×100 | Repair reports the scale correction; measurements match the corrected run |
