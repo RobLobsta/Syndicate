@@ -17,6 +17,7 @@ import dev.syndicate.core.asset.FractureManifest;
 import dev.syndicate.core.asset.HandlingBlock;
 import dev.syndicate.core.asset.MeshData;
 import dev.syndicate.core.asset.PartType;
+import dev.syndicate.core.asset.WeaponBlock;
 import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.FractureDataComponent;
 import dev.syndicate.core.component.HealthComponent;
@@ -326,10 +327,20 @@ public final class VehicleFactory {
         }
 
         if (type.category() == PartCategory.WEAPON) {
+            WeaponBlock block = type.weapon();
             WeaponControllerComponent weapon = new WeaponControllerComponent();
             weapon.weaponTypeId = type.partTypeId();
-            weapon.baseFireIntervalS = type.stats().resolve(StatBlock.Stat.FIRE_INTERVAL_S, 0f);
+            // The stat's own add term is the interval, so it resolves against zero. A weapon that
+            // authored none would then fire on every tick, which is why the fallback is applied to
+            // the result rather than used as the base — using it as the base would add a second
+            // later, silently, to every weapon that did author one (D01-R8).
+            float authoredInterval = type.stats().resolve(StatBlock.Stat.FIRE_INTERVAL_S, 0f);
+            weapon.baseFireIntervalS = authoredInterval > 0f ? authoredInterval : WeaponBlock.DEFAULT_FIRE_INTERVAL_S;
             weapon.effectiveFireIntervalS = weapon.baseFireIntervalS;
+            weapon.ammoRemaining = block == null ? WeaponBlock.UNLIMITED_AMMO : block.ammoCapacity();
+            if (block != null) {
+                weapon.muzzleLocal.set(block.muzzleLocal());
+            }
             weapon.groupIndex = placed.overrides().weaponGroup() == null
                     ? 0
                     : placed.overrides().weaponGroup();

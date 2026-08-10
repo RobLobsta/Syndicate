@@ -4,6 +4,7 @@
  */
 package dev.syndicate.core.ecs;
 
+import dev.syndicate.core.component.DamageLedgerComponent;
 import dev.syndicate.core.component.MatchClockComponent;
 import dev.syndicate.core.component.MatchRulesComponent;
 import dev.syndicate.core.component.MatchStateComponent;
@@ -73,6 +74,11 @@ public final class WorldFactory {
         RandomSourceComponent random = new RandomSourceComponent();
         random.matchSeed = config.matchSeed();
         world.addComponent(matchEntity, random);
+
+        // The damage ledger outlives every vehicle it records damage against — which is the point of
+        // it, because the moment it is read is the moment a victim dies (D01-S5.4). The match entity
+        // is the only thing in the world guaranteed to still be here then.
+        world.addComponent(matchEntity, new DamageLedgerComponent());
 
         return matchEntity;
     }

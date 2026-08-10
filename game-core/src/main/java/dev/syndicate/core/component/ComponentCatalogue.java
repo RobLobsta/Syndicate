@@ -72,13 +72,17 @@ public final class ComponentCatalogue {
             MatchClockComponent.class,
             MatchRulesComponent.class,
             RandomSourceComponent.class,
-            ScoreComponent.class);
+            ScoreComponent.class,
+            // --- Appended for the combat systems of D04-S4.4 slots 8, 9, 11, 12 and 17 ---
+            ProjectileComponent.class,
+            BurnStackComponent.class,
+            DamageLedgerComponent.class);
 
     /**
      * How many types the catalogue holds. Asserted by a test, so appending a type without updating
      * this constant fails loudly rather than drifting.
      */
-    public static final int EXPECTED_SIZE = 31;
+    public static final int EXPECTED_SIZE = 34;
 
     private ComponentCatalogue() {}
 

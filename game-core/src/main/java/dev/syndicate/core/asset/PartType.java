@@ -48,6 +48,7 @@ public final class PartType {
     private final boolean hangsBeforeFalling;
     private final StatBlock stats;
     private final HandlingBlock handling;
+    private final WeaponBlock weapon;
     private final Map<StatBlock.Stat, DegradationRule> degradationOverrides;
     private final Map<String, SlotDefinition> slots;
     private final AssetId fractureManifestRef;
@@ -66,6 +67,7 @@ public final class PartType {
         this.hangsBeforeFalling = builder.hangsBeforeFalling;
         this.stats = new StatBlock().set(builder.stats);
         this.handling = builder.handling;
+        this.weapon = builder.weapon;
         this.degradationOverrides = builder.degradationOverrides.isEmpty()
                 ? Map.of()
                 : Collections.unmodifiableMap(new EnumMap<>(builder.degradationOverrides));
@@ -145,6 +147,17 @@ public final class PartType {
     }
 
     /**
+     * What kind of weapon this part is, or null for a part that is not one (D08-R5, D01-R8).
+     *
+     * <p>Null rather than a neutral default: {@code WeaponSystem} (8) uses its presence to decide
+     * whether a part can fire at all, and a non-weapon carrying a default family would be a gun
+     * bolted to every armour plate.
+     */
+    public WeaponBlock weapon() {
+        return weapon;
+    }
+
+    /**
      * Per-stat degradation rules this part authors, overriding the D05-S5.4 table (D08-R5).
      *
      * <p>Usually empty: the table is the answer for almost every part, and an override exists so a
@@ -206,7 +219,7 @@ public final class PartType {
     /**
      * Assembles a {@link PartType}.
      *
-     * <p>A builder rather than a record constructor because a part type has fourteen fields of which
+     * <p>A builder rather than a record constructor because a part type has fifteen fields of which
      * a caller usually sets five, and a fourteen-argument constructor is a call site where two
      * transposed floats compile silently.
      */
@@ -226,6 +239,7 @@ public final class PartType {
         private boolean hangsBeforeFalling;
         private final StatBlock stats = new StatBlock();
         private HandlingBlock handling = HandlingBlock.REFERENCE;
+        private WeaponBlock weapon;
         private final Map<StatBlock.Stat, DegradationRule> degradationOverrides = new EnumMap<>(StatBlock.Stat.class);
         private final Map<String, SlotDefinition> slots = new TreeMap<>();
         private AssetId fractureManifestRef;
@@ -291,6 +305,12 @@ public final class PartType {
         /** Replaces D06-S4.5's reference chassis figures for this part (D08-R5). */
         public Builder handling(HandlingBlock value) {
             this.handling = value == null ? HandlingBlock.REFERENCE : value;
+            return this;
+        }
+
+        /** Declares this part a weapon of the given family and configuration (D08-R5, D01-R8). */
+        public Builder weapon(WeaponBlock value) {
+            this.weapon = value;
             return this;
         }
 

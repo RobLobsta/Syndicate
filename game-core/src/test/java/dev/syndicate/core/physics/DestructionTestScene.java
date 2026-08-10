@@ -22,20 +22,28 @@ import dev.syndicate.core.component.RigidBodyComponent;
 import dev.syndicate.core.component.SlotGraphComponent;
 import dev.syndicate.core.component.TeamComponent;
 import dev.syndicate.core.component.VehicleChassisComponent;
+import dev.syndicate.core.damage.DamageApplication;
+import dev.syndicate.core.damage.HitResolution;
+import dev.syndicate.core.damage.ProjectileImpact;
 import dev.syndicate.core.ecs.ComponentQuery;
 import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.Family;
 import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.system.CollisionEventSystem;
+import dev.syndicate.core.system.DamageSystem;
 import dev.syndicate.core.system.DetachSystem;
 import dev.syndicate.core.system.EntityDestroySystem;
 import dev.syndicate.core.system.FractureSystem;
 import dev.syndicate.core.system.LifetimeSystem;
 import dev.syndicate.core.system.MassPropertySystem;
 import dev.syndicate.core.system.PhysicsSystem;
+import dev.syndicate.core.system.ProjectileSystem;
+import dev.syndicate.core.system.ScoreSystem;
 import dev.syndicate.core.system.SpawnSystem;
 import dev.syndicate.core.system.VehicleControlSystem;
 import dev.syndicate.core.system.VehicleStatsSystem;
+import dev.syndicate.core.system.WeaponSystem;
 import dev.syndicate.core.util.NativeResourceTracker;
 import dev.syndicate.core.util.Transform;
 import dev.syndicate.core.vehicle.SlotChain;
@@ -192,6 +200,11 @@ public final class DestructionTestScene implements AutoCloseable {
 
     private final PhysicsSystem physicsSystem;
     private final SpawnSystem spawnSystem;
+    private final WeaponSystem weaponSystem;
+    private final ProjectileSystem projectileSystem;
+    private final CollisionEventSystem collisionEventSystem;
+    private final DamageSystem damageSystem;
+    private final ScoreSystem scoreSystem;
     private final VehicleStatsSystem vehicleStatsSystem;
     private final VehicleControlSystem vehicleControlSystem;
     private final FractureSystem fractureSystem;
@@ -199,6 +212,10 @@ public final class DestructionTestScene implements AutoCloseable {
     private final MassPropertySystem massPropertySystem;
     private final LifetimeSystem lifetimeSystem;
     private final EntityDestroySystem entityDestroySystem;
+
+    private final HitResolution hitResolution;
+    private final DamageApplication damageApplication;
+    private final ProjectileImpact projectileImpact;
 
     private final Family embodied;
 
@@ -219,6 +236,14 @@ public final class DestructionTestScene implements AutoCloseable {
         spawnSystem = new SpawnSystem(spawnQueue, assets, physics, shapes);
         vehicleStatsSystem = new VehicleStatsSystem(assets);
         vehicleControlSystem = new VehicleControlSystem();
+        hitResolution = new HitResolution(shapes);
+        damageApplication = new DamageApplication(assets, hitResolution);
+        projectileImpact = new ProjectileImpact(physics, assets, hitResolution);
+        weaponSystem = new WeaponSystem(assets, projectileImpact, true);
+        projectileSystem = new ProjectileSystem(projectileImpact, true);
+        collisionEventSystem = new CollisionEventSystem(physics, assets, hitResolution);
+        damageSystem = new DamageSystem(assets, damageApplication);
+        scoreSystem = new ScoreSystem();
         fractureSystem = new FractureSystem(assets, shapes, debrisFactory);
         detachSystem = new DetachSystem(assets, shapes, debrisFactory, physics);
         massPropertySystem = new MassPropertySystem(shapes);
@@ -228,11 +253,16 @@ public final class DestructionTestScene implements AutoCloseable {
                 spawnSystem,
                 vehicleStatsSystem,
                 vehicleControlSystem,
+                weaponSystem,
+                projectileSystem,
                 physicsSystem,
+                collisionEventSystem,
+                damageSystem,
                 fractureSystem,
                 detachSystem,
                 massPropertySystem,
                 lifetimeSystem,
+                scoreSystem,
                 entityDestroySystem));
         embodied = world.family(ComponentQuery.all(RigidBodyComponent.class));
     }
@@ -298,6 +328,36 @@ public final class DestructionTestScene implements AutoCloseable {
         physics.addBody(body, CollisionLayer.STATIC);
         groundBodies.add(body);
         groundMotionStates.add(motionState);
+    }
+
+    public WeaponSystem weaponSystem() {
+        return weaponSystem;
+    }
+
+    public ProjectileSystem projectileSystem() {
+        return projectileSystem;
+    }
+
+    public CollisionEventSystem collisionEventSystem() {
+        return collisionEventSystem;
+    }
+
+    public DamageSystem damageSystem() {
+        return damageSystem;
+    }
+
+    public ScoreSystem scoreSystem() {
+        return scoreSystem;
+    }
+
+    /** The shared damage arithmetic, for a test that wants to apply one event directly. */
+    public DamageApplication damageApplication() {
+        return damageApplication;
+    }
+
+    /** The shared hit resolution, for a test that wants to resolve a contact by hand. */
+    public HitResolution hitResolution() {
+        return hitResolution;
     }
 
     public FractureSystem fractureSystem() {

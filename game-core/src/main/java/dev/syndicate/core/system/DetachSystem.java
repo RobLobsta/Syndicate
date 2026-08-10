@@ -79,12 +79,11 @@ import org.slf4j.LoggerFactory;
  * it left with (v + ω × r) on the part itself. That is what closes the gap where a subtree detached
  * below a fractured part was left bodyless and inert.
  *
- * <p><b>What is not implemented.</b> D07-S5.7 adds a kick of up to {@code DETACH_KICK_MPS} = 3.0 m/s
- * along the hit normal when a hit is what caused the detachment, so parts fly off in the direction
- * they were struck. No hit normal exists to read yet — {@code CollisionEventSystem} (11) and
- * {@code DamageSystem} (12) are unwritten — and inventing a direction would be worse than leaving
- * the part with exactly the momentum it had. The kick belongs to the session that gives a part a
- * recorded last hit.
+ * <p><b>The detach kick.</b> D07-S5.7 adds up to {@link #DETACH_KICK_MPS} along the direction a part
+ * was struck from when a hit is what caused the detachment, so parts fly off the way they were hit
+ * rather than simply falling. {@code DamageSystem} (12) records that direction on the part's
+ * {@code HealthComponent}, and {@link #addDetachKick} spends it — the piece PROG-006 recorded as
+ * missing because nothing yet produced a hit normal.
  */
 public final class DetachSystem implements EntitySystem {
 
@@ -100,6 +99,25 @@ public final class DetachSystem implements EntitySystem {
      * a constraint falls the moment that constraint breaks, and this is when it gives up waiting.
      */
     public static final int HANGING_TICKS = 60;
+
+    /**
+     * Metres per second a part is kicked along the direction it was struck from (D07-S5.7).
+     *
+     * <p>Deliberately small against the momentum a part already carries: at 30 m/s a vehicle's parts
+     * leave at 30 m/s, and this is the difference between a plate that drops and a plate that is
+     * knocked off. Larger values make every detachment look like an explosion, which stops the
+     * player reading <em>where</em> they were hit from the debris.
+     */
+    public static final float DETACH_KICK_MPS = 3.0f;
+
+    /**
+     * Ticks within which a recorded hit still counts as the cause of a detachment.
+     *
+     * <p>Without a window, a part damaged early in a match and detached three minutes later by its
+     * vehicle being wrecked would fly off along a normal from a hit nobody remembers. One second is
+     * the same bound {@link #HANGING_TICKS} uses for the other "the hit did this" question.
+     */
+    public static final int DETACH_KICK_WINDOW_TICKS = HANGING_TICKS;
 
     /**
      * Seconds a wrecked chassis stays in the world (D07-S5.8).
@@ -126,6 +144,7 @@ public final class DetachSystem implements EntitySystem {
     private final Vector3 scratchAngular = new Vector3();
     private final Vector3 scratchPosition = new Vector3();
     private final Vector3 scratchVelocity = new Vector3();
+    private final Vector3 scratchKick = new Vector3();
     private final List<SlotNode> scratchNodes = new ArrayList<>();
 
     public DetachSystem(AssetIndex assets, ShapeCache shapes, DebrisFactory debrisFactory, PhysicsWorld physics) {
@@ -323,7 +342,7 @@ public final class DetachSystem implements EntitySystem {
         int chassisPartEntity = chassis.chassisPartEntity;
         HealthComponent health = world.getComponent(chassisPartEntity, HealthComponent.class);
         world.events()
-                .emit(new VehicleDestroyedEvent(
+                .emitPipeline(new VehicleDestroyedEvent(
                         vehicleEntity, health == null ? EntityId.NULL : health.lastAttacker, tick));
 
         // Captured before anything leaves: every detach moves the centre of mass, and the chassis's
@@ -426,6 +445,7 @@ public final class DetachSystem implements EntitySystem {
             scratchWorld.idt().set(transform.position, transform.rotation);
             scratchVelocity.set(velocity == null ? Vector3.Zero : velocity.linear);
             scratchAngular.set(velocity == null ? Vector3.Zero : velocity.angular);
+            addDetachKick(world, partEntity, tick, scratchVelocity);
 
             spawnDebrisFor(
                     world,
@@ -436,6 +456,28 @@ public final class DetachSystem implements EntitySystem {
                     SimulationConstants.DEBRIS_LIFETIME_S);
             world.destroyEntity(partEntity);
         }
+    }
+
+    /**
+     * Adds the kick a part gets when a hit is what knocked it off (D07-S5.7).
+     *
+     * <p>The kick runs along the <em>negated</em> contact normal — the direction the hit was
+     * travelling, not the direction the surface faces — so a plate shot from the front leaves
+     * towards the back of the vehicle, which is the way a player expects to see it go.
+     *
+     * <p>This is the piece PROG-006 recorded as missing: the system had nothing to read a hit normal
+     * from until {@code DamageSystem} (12) began recording one on {@code HealthComponent}.
+     */
+    private void addDetachKick(World world, int partEntity, long tick, Vector3 velocity) {
+        HealthComponent health = world.getComponent(partEntity, HealthComponent.class);
+        if (health == null || tick - health.lastDamageTick > DETACH_KICK_WINDOW_TICKS) {
+            return;
+        }
+        scratchKick.set(health.lastHitNormalX, health.lastHitNormalY, health.lastHitNormalZ);
+        if (scratchKick.len2() <= 0f) {
+            return;
+        }
+        velocity.mulAdd(scratchKick.nor(), -DETACH_KICK_MPS);
     }
 
     /**
