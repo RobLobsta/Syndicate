@@ -141,6 +141,23 @@ by a person doing about two minutes of work per car. Details in §3 and in the n
 separating anything — it treated each *material group* as a part, and on these files one material
 group is the whole cabin, or both headlights and both tail lights at once.
 
+### The first version of the fix was wrong, and CI said so
+
+Judging each piece of geometry on its own turned out to be the wrong unit. Rotational symmetry is a
+property of an *assembly*: a wheel is symmetric under rotation by one spoke's worth, and every piece
+maps onto another piece of the same kind. A lug nut sits at one clock position and plainly rotates —
+what it lacks is not size but a partner to be rotated onto. Judged alone, it looks exactly like a
+caliper, and the Mustang lost its lug nuts, spoke details and valve stem to the chassis.
+
+The measurement now looks at all the pieces sharing a material within one corner, which is what the
+original prototype did and what the physics actually says.
+
+Worth noting how it was caught, because the local run said everything passed. Gradle had no idea
+that `assets/` affects the tests — the directory is on no source list — so regenerating the meshes
+left every test task marked up-to-date and the suite happily reported success against the meshes it
+had seen the run before. CI has no such cache and failed honestly. Test tasks now declare the asset
+tree as an input, which makes that class of false green impossible rather than a thing to remember.
+
 ### A new blueprint
 
 The pipeline you will be running on every future car now has a contract of its own: the label
