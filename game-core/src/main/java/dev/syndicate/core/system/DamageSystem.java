@@ -22,6 +22,7 @@ import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.Family;
 import dev.syndicate.core.ecs.Phase;
 import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.match.MatchFacts;
 import dev.syndicate.model.DamageState;
 import dev.syndicate.model.DamageType;
 import java.util.ArrayList;
@@ -89,6 +90,13 @@ public final class DamageSystem implements EntitySystem {
 
     @Override
     public void update(World world, float dtSeconds, long tick) {
+        if (!MatchFacts.isDamageEnabled(world)) {
+            // D01-R22: no damage before ACTIVE begins. The events are drained rather than left
+            // queued, so a vehicle that landed hard during COUNTDOWN does not take that hit the
+            // instant the match starts.
+            world.events().drainSameTick(DamageEvent.class);
+            return;
+        }
         boolean friendlyFire = friendlyFire(world);
         DamageLedger ledger = ledger(world);
         applyBurnStacks(world, dtSeconds, tick, friendlyFire, ledger);

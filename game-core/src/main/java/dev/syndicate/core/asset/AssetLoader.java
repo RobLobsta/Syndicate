@@ -8,12 +8,15 @@ import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.syndicate.core.ai.BotDifficultyParams;
+import dev.syndicate.core.ai.BotDifficultyTable;
 import dev.syndicate.core.util.Transform;
 import dev.syndicate.core.vehicle.DegradationProfile;
 import dev.syndicate.core.vehicle.DegradationRule;
 import dev.syndicate.core.vehicle.SlotType;
 import dev.syndicate.core.vehicle.StatBlock;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.BotDifficulty;
 import dev.syndicate.model.DamageType;
 import dev.syndicate.model.GameMode;
 import dev.syndicate.model.PartCategory;
@@ -134,6 +137,7 @@ public final class AssetLoader {
         for (Path directory : childDirectories(assetRoot.resolve("arenas"))) {
             loadArena(directory, index);
         }
+        loadBotDifficulties(assetRoot.resolve("balance").resolve("bot_difficulty.json"), index);
         LOG.info(
                 "loaded {} materials, {} part types, {} assemblies, {} arenas from {} ({} findings)",
                 index.materials().size(),
@@ -143,6 +147,55 @@ public final class AssetLoader {
                 assetRoot,
                 issues.size());
         return index;
+    }
+
+    // ---- Bot difficulty (D11-R4) -----------------------------------------------------
+
+    /**
+     * Reads {@code balance/bot_difficulty.json} into the index (D11-R4).
+     *
+     * <p>A missing or malformed file is a warning, not a blocking error, and the defaults of
+     * {@link BotDifficultyTable#defaults()} stand. The alternative — refusing to load, or loading an
+     * empty table — would give every bot zero reaction delay and perfect aim, which is a much worse
+     * failure than "the tuning file was not read".
+     */
+    public void loadBotDifficulties(Path difficultyFile, InMemoryAssetIndex index) {
+        if (!Files.isRegularFile(difficultyFile)) {
+            LOG.warn("{} is absent; bot difficulty falls back to the D11-S4.2 defaults", difficultyFile);
+            return;
+        }
+        JsonNode root = readJson(difficultyFile, "bot difficulty");
+        if (root == null || !checkSchemaVersion(root, difficultyFile.toString())) {
+            return;
+        }
+        EnumMap<BotDifficulty, BotDifficultyParams> rows = new EnumMap<>(BotDifficulty.class);
+        JsonNode levels = root.path("difficulties");
+        for (BotDifficulty level : BotDifficulty.values()) {
+            JsonNode node = levels.path(level.name());
+            if (node.isMissingNode()) {
+                issues.add(ValidationIssue.warn(
+                        "A320", level.name(), "no row in bot_difficulty.json; the D11-S4.2 default is used"));
+                continue;
+            }
+            BotDifficultyParams fallback = BotDifficultyTable.defaults().get(level);
+            rows.put(
+                    level,
+                    new BotDifficultyParams(
+                            (float) node.path("reactionDelayS").asDouble(fallback.reactionDelayS()),
+                            node.path("sensorUpdateHz").asInt(fallback.sensorUpdateHz()),
+                            (float) node.path("aimErrorRad").asDouble(fallback.aimErrorRad()),
+                            (float) node.path("aimSettleRate").asDouble(fallback.aimSettleRateRadPerS()),
+                            (float) node.path("leadPredictionQuality").asDouble(fallback.leadPredictionQuality()),
+                            (float) node.path("throttleAggression").asDouble(fallback.throttleAggression()),
+                            (float) node.path("avoidanceLookaheadS").asDouble(fallback.avoidanceLookaheadS()),
+                            (float) node.path("targetSwitchCooldownS").asDouble(fallback.targetSwitchCooldownS()),
+                            node.path("usesPartTargeting").asBoolean(fallback.usesPartTargeting()),
+                            (float) node.path("retreatHealthFraction").asDouble(fallback.retreatHealthFraction()),
+                            (float) node.path("firingDisciplineRange").asDouble(fallback.firingDisciplineRange()),
+                            node.path("usesCover").asBoolean(fallback.usesCover()),
+                            node.path("focusFireCoordination").asBoolean(fallback.focusFireCoordination())));
+        }
+        index.put(BotDifficultyTable.of(rows));
     }
 
     // ---- Materials (D08-S4.3) --------------------------------------------------------

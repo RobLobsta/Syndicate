@@ -4,7 +4,9 @@
  */
 package dev.syndicate.core.asset;
 
+import dev.syndicate.core.ai.BotDifficultyTable;
 import dev.syndicate.model.AssetId;
+import java.util.List;
 
 /**
  * The simulation's read-only view of loaded content (docs/08_asset_pipeline.md#D08-S5.3,
@@ -74,4 +76,23 @@ public interface AssetIndex {
      *     been doing since it became a process.
      */
     ArenaDef arena(AssetId arenaId);
+
+    /**
+     * Every loaded assembly id, sorted (D11-R12).
+     *
+     * <p>The one enumerating lookup on this interface, and it exists because {@code BotFactory} has
+     * to choose a vehicle from the same catalogue a human picks from. Sorted rather than in whatever
+     * order the index stores them: the choice is a seeded draw indexing into this list, and a list
+     * whose order depended on hash iteration would make a replay diverge from its own seed (G3, G4).
+     */
+    List<AssetId> assemblyIds();
+
+    /**
+     * The bot difficulty table (D11-R4).
+     *
+     * <p>Never null: a missing or unreadable {@code balance/bot_difficulty.json} yields
+     * {@link BotDifficultyTable#defaults()}, because the alternative is a bot with zero reaction
+     * delay and perfect aim — a content problem that would present as cheating.
+     */
+    BotDifficultyTable botDifficulties();
 }

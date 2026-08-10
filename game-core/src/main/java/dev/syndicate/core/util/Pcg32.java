@@ -85,6 +85,24 @@ public final class Pcg32 {
         return (nextInt() & 1) != 0;
     }
 
+    /**
+     * A standard normal draw, mean 0 and standard deviation 1.
+     *
+     * <p>Box-Muller, keeping one of the two values it produces and discarding the other. The polar
+     * method is cheaper and the usual choice, and it is wrong here: it caches its second value in a
+     * field, which would make {@link #state()} an incomplete description of the stream and a rollback
+     * during reconciliation (D10-S5.5) resume with a spare value it should not have. Two draws per
+     * call keeps the whole of this generator's state in one long.
+     *
+     * <p>The floor on {@code u1} exists because {@code nextFloat} can return exactly 0, and
+     * {@code log(0)} is negative infinity.
+     */
+    public float nextGaussian() {
+        float u1 = Math.max(nextFloat(), 1e-7f);
+        float u2 = nextFloat();
+        return (float) (Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2));
+    }
+
     /** The internal state, for serialising a stream into a snapshot (D04-S4.3.5). */
     public long state() {
         return state;

@@ -214,6 +214,13 @@ Legend for **Auth**: `A` = authoritative (replicated, gameplay-relevant, G6); `C
 | | `targetEntity` | `EntityId` | — | A | |
 | | `reactionDelayS` | `float` | s | A | |
 | | `perceivedWorld` | `SensorSnapshot` | — | A | Delayed view (D11-S5.2). |
+| | `memory` | `BotMemory` | — | A | Targets seen within `TARGET_MEMORY_S` but not currently visible (D11-R6). |
+| | `blackboard` | `BotBlackboard` | — | A | What the tree decided this tick, before the solvers read it (D11-R7). |
+| | `aimYawRad` / `aimPitchRad` | `float` | rad | A | Current aim, converging at `aimSettleRate`. |
+| | `aimErrorOffset` | `Vector3` | m | A | The bounded random walk of D11-E18. Authoritative because a rollback must reproduce it. |
+| | `lastTargetSwitchTick` | `TickNumber` | tick | A | Drives the re-target cooldown (D11-S5.2). |
+| | `stuckTicks`, `unstickTicksRemaining` | `int` | tick | A | The `unstick` branch's counters (D11-S5.1). |
+| | `patrolIndex` | `int` | — | A | Which arena point of interest the `patrol` branch is heading for. |
 | `TeamComponent` | `teamId` | `int` | — | A | `-1` = free-for-all. |
 | `OwnerComponent` | `ownerEntity` | `EntityId` | — | A | Attribution for kills/score. |
 | `LifetimeComponent` | `remainingS` | `float` | s | A | |
@@ -232,10 +239,27 @@ Legend for **Auth**: `A` = authoritative (replicated, gameplay-relevant, G6); `C
 | | `lastAckedTick` | `TickNumber` | tick | L | |
 | `MatchStateComponent` | `phase` | `MatchPhase` | enum | A | `LOBBY/COUNTDOWN/ACTIVE/ENDING/RESULTS` (D11-S5.7). |
 | | `phaseEnteredTick` | `TickNumber` | tick | A | |
-| `MatchClockComponent` | `tick` | `TickNumber` | tick | A | Authoritative tick counter. |
+| | `inputEnabled` | `boolean` | — | A | D01-R21/R23's input gate. D11-S5.7 writes it as `world.inputEnabled`; it is match state, because the offline simulator runs many matches in one process (D11-S5.8) and a process-wide flag could not. |
+| | `damageEnabled` | `boolean` | — | A | D01-R22's damage gate, same reasoning. |
+| | `outcome` | `MatchOutcome` | enum | A | `UNDECIDED` until the win condition fires (D01-S5.5). |
+| | `winnerPlayerEntity` / `winnerTeamId` | `EntityId` / `int` | — | A | Whichever the outcome names. |
+| | `suddenDeath` | `boolean` | — | A | Latched, because D01-E2 allows exactly one extension. |
+| `MatchClockComponent` | `tick` | `TickNumber` | tick | A | Authoritative tick counter. Counts ticks *in `ACTIVE`*, so a long lobby cannot consume the time limit (D11-E11). |
 | | `timeLimitTicks` | `int` | tick | A | |
 | `MatchRulesComponent` | `mode` | `GameMode` | enum | A | D01-S4.2. |
+| | `arenaId` | `AssetId` | — | A | Where the match is fought; a respawn needs the arena's spawn points and slot 4 has no launch configuration (D11-S5.7). |
 | | `scoreLimit`, `respawnDelayTicks`, `friendlyFire` | — | — | A | |
+| | `noRespawn` | `boolean` | — | A | Set on entering sudden death (D11-S5.7). |
+| | `warmupTicks`, `endingTicks`, `resultsTicks` | `int` | tick | A | Phase durations. Fields rather than the literals of D11-S5.7 so a 500-match sweep is not twenty minutes of scoreboard (D11-R14). |
+| | `suddenDeathTicks` | `int` | tick | A | Ticks the clock is extended by on a tie, or 0 to declare a draw (D01-E2). |
+| | `botCount`, `botDifficulty`, `autoStart` | — | — | A | What `MatchFlowSystem` fills the lobby with, and whether it waits (D11-S5.6, D03-S4.2). |
+| `PlayerIdentityComponent` | `playerId` | `int` | — | A | Ascending in join order. Separate from `EntityId` because D11-S5.7 orders players by it and an entity id carries a generation that changes when an index is recycled. |
+| | `displayName`, `isBot`, `botDifficulty` | — | — | A | `isBot` exists for the scoreboard and for D11-R11; no gameplay system reads it (G17). |
+| | `joinTick` | `TickNumber` | tick | A | D11-R11 removes bots oldest-first, which is lowest here. |
+| | `selectedAssemblyId` | `AssetId` | — | A | What this player respawns in. |
+| `ControlledVehicleComponent` | `vehicleEntity` | `EntityId` | — | A | The vehicle currently driven, mirrored by `OwnerComponent` on the vehicle. Both directions are stored because scoring walks one at the instant of a kill and respawn walks the other every tick. |
+| | `deathTick` | `TickNumber` | tick | A | When the last vehicle was lost, or `NEVER_DIED`. |
+| | `spawnRequestedTick` | `TickNumber` | tick | A | When a spawn was last queued, so a refused spawn backs off rather than re-queueing every tick. |
 | `RandomSourceComponent` | `matchSeed` | `long` | — | A | D06-S5.5. |
 | | `streams` | `map<StreamId, PcgState>` | — | A | One deterministic stream per subsystem. |
 | `ScoreComponent` | `kills`, `assists`, `deaths`, `damageDealt`, `objectiveScore` | numeric | — | A | |
