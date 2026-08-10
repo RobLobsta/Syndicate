@@ -36,3 +36,19 @@ tasks.register<JavaExec>("buildIndex") {
     classpath = sourceSets["main"].runtimeClasspath
     args("--assets", rootProject.layout.projectDirectory.dir("assets").asFile.absolutePath, "--strict")
 }
+
+/**
+ * Regenerates `assets/audio/` (D15-S8).
+ *
+ * Not wired into `check`: the bank is committed content, and a build task that rewrote committed
+ * files on every run would make `git status` dirty for anyone who merely built the project. A test
+ * asserts the committed bank matches what this task would produce, which catches drift without
+ * writing anything.
+ */
+tasks.register<JavaExec>("buildSoundBank") {
+    group = "build"
+    description = "Synthesises the D15-S8 sound bank into assets/audio/."
+    mainClass.set("dev.syndicate.pipeline.audio.SoundBankMain")
+    classpath = sourceSets["main"].runtimeClasspath
+    args("--assets", rootProject.layout.projectDirectory.dir("assets").asFile.absolutePath)
+}

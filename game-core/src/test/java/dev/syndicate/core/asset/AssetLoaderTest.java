@@ -76,7 +76,7 @@ class AssetLoaderTest {
         assertThat(steel.densityKgPerM3()).isEqualTo(7850f);
         assertThat(steel.resistanceTo(DamageType.KINETIC)).isEqualTo(0.85f);
         // An unlisted damage type is unmodified, never immune.
-        assertThat(new MaterialDef(AssetId.of("steel"), 7850f, null, 0.5f).resistanceTo(DamageType.ENERGY))
+        assertThat(new MaterialDef(AssetId.of("steel"), 7850f, null, 0.5f, null).resistanceTo(DamageType.ENERGY))
                 .isEqualTo(MaterialDef.NEUTRAL_RESISTANCE);
     }
 

@@ -16,8 +16,10 @@ import dev.syndicate.core.vehicle.DegradationRule;
 import dev.syndicate.core.vehicle.SlotType;
 import dev.syndicate.core.vehicle.StatBlock;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.AudioMaterial;
 import dev.syndicate.model.BotDifficulty;
 import dev.syndicate.model.DamageType;
+import dev.syndicate.model.DestructionClass;
 import dev.syndicate.model.GameMode;
 import dev.syndicate.model.PartCategory;
 import dev.syndicate.model.SimulationConstants;
@@ -198,6 +200,25 @@ public final class AssetLoader {
         index.put(BotDifficultyTable.of(rows));
     }
 
+    /**
+     * Reads an enum-valued field, reporting an unknown value rather than silently defaulting.
+     *
+     * <p>Absent is fine and takes the default; present-but-misspelled is a finding. A field that
+     * silently fell back would turn a typo into behaviour nobody can trace.
+     */
+    private <E extends Enum<E>> E enumOrDefault(Class<E> type, String raw, E fallback, AssetId subject, String field) {
+        if (raw == null || raw.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Enum.valueOf(type, raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            issues.add(ValidationIssue.error(
+                    "A204", subject.value(), field + " is \"" + raw + "\", which is not a " + type.getSimpleName()));
+            return fallback;
+        }
+    }
+
     // ---- Materials (D08-S4.3) --------------------------------------------------------
 
     /** Reads the single material table. Everything else resolves {@code materialId} against it. */
@@ -225,8 +246,17 @@ public final class AssetLoader {
                         "A203", materialId.value(), "densityKgPerM3 is " + density + "; it must be positive"));
                 continue;
             }
-            index.put(new MaterialDef(materialId, density, resistance, (float)
-                    node.path("fractureBrittleness").asDouble(0d)));
+            index.put(new MaterialDef(
+                    materialId,
+                    density,
+                    resistance,
+                    (float) node.path("fractureBrittleness").asDouble(0d),
+                    enumOrDefault(
+                            AudioMaterial.class,
+                            node.path("audioMaterial").asText(null),
+                            MaterialDef.DEFAULT_AUDIO_MATERIAL,
+                            materialId,
+                            "audioMaterial")));
         }
     }
 
@@ -292,6 +322,18 @@ public final class AssetLoader {
         AssetId materialId = optionalAssetId(root.path("materialId").asText(null), partTypeId.value());
         if (materialId != null) {
             builder.materialId(materialId);
+            // Absent is the normal case and defaults from the category; present-but-misspelled is a
+            // finding, because a windscreen that quietly became RIGID is a windscreen that does not
+            // shatter and nothing downstream would ever say why.
+            String declaredClass = root.path("destructionClass").asText(null);
+            if (declaredClass != null && !declaredClass.isBlank()) {
+                builder.destructionClass(enumOrDefault(
+                        DestructionClass.class,
+                        declaredClass,
+                        DestructionClass.forCategory(category),
+                        partTypeId,
+                        "destructionClass"));
+            }
             if (index.material(materialId) == null) {
                 issues.add(ValidationIssue.error(
                         "A203", partTypeId.value(), "materialId " + materialId.value() + " is not in the table"));

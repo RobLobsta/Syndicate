@@ -9,6 +9,7 @@ import dev.syndicate.core.vehicle.DegradationRule;
 import dev.syndicate.core.vehicle.SlotType;
 import dev.syndicate.core.vehicle.StatBlock;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.DestructionClass;
 import dev.syndicate.model.PartCategory;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -40,6 +41,7 @@ public final class PartType {
     private final AssetId partTypeId;
     private final PartCategory category;
     private final AssetId materialId;
+    private final DestructionClass destructionClass;
     private final SlotType slotTypeRequired;
     private final float massKg;
     private final float maxHp;
@@ -59,6 +61,9 @@ public final class PartType {
         this.partTypeId = Objects.requireNonNull(builder.partTypeId, "partTypeId");
         this.category = Objects.requireNonNull(builder.category, "category");
         this.materialId = builder.materialId;
+        this.destructionClass = builder.destructionClass == null
+                ? DestructionClass.forCategory(builder.category)
+                : builder.destructionClass;
         this.slotTypeRequired = Objects.requireNonNull(builder.slotTypeRequired, "slotTypeRequired");
         this.massKg = builder.massKg;
         this.maxHp = builder.maxHp;
@@ -90,6 +95,19 @@ public final class PartType {
     /** Resolves in the material table; drives density and the damage-type modifiers of D07-S4.3. */
     public AssetId materialId() {
         return materialId;
+    }
+
+    /**
+     * How this part fails, and therefore what the preparation pipeline authors for it
+     * (docs/15_vehicle_preparation_pipeline.md#D15-S5.7, D15-R32).
+     *
+     * <p>On the part rather than on the material, because it follows from what a part <em>is</em>:
+     * a chassis rail and a door skin can be the same steel and fail completely differently. Defaults
+     * from {@link PartCategory} when a part authors none, so every part has a treatment without
+     * every {@code part.json} having to name one.
+     */
+    public DestructionClass destructionClass() {
+        return destructionClass;
     }
 
     /** The slot type this part must occupy (D08-R6). */
@@ -257,6 +275,7 @@ public final class PartType {
         private final MeshData collisionMesh;
 
         private AssetId materialId;
+        private DestructionClass destructionClass;
         private SlotType slotTypeRequired;
         private float massKg = 1f;
         private float maxHp = 100f;
@@ -276,6 +295,12 @@ public final class PartType {
             this.category = category;
             this.collisionMesh = collisionMesh;
             this.slotTypeRequired = defaultSlotTypeFor(category);
+        }
+
+        /** Overrides the class {@link PartCategory} would give this part (D15-R32). */
+        public Builder destructionClass(DestructionClass value) {
+            this.destructionClass = value;
+            return this;
         }
 
         public Builder materialId(AssetId value) {
