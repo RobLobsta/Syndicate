@@ -4,11 +4,16 @@
  */
 package dev.syndicate.client;
 
+import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
+import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import dev.syndicate.model.ExitCode;
 import dev.syndicate.model.config.ConfigException;
 import dev.syndicate.model.config.LaunchConfig;
 import dev.syndicate.model.config.LaunchConfigResolver;
 import java.awt.GraphicsEnvironment;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,13 +25,20 @@ import org.slf4j.LoggerFactory;
  * listen server with zero remote peers over a loopback transport, which is what guarantees that
  * playing alone exercises the same replication logic multiplayer depends on (D02-R19).
  *
- * <p>Implements steps 1 and 2 of the startup sequence, including the display check that produces
- * {@link ExitCode#MODE_UNAVAILABLE}. Rendering, the world, and the client loop arrive with the
- * systems they drive.
+ * <p>Steps 1 and 2 of the startup sequence happen here, because they are the ones that can still
+ * fail with a diagnosis and an exit code. Everything from step 3 needs a GL context and lives in
+ * {@link SyndicateApplicationListener}.
+ *
+ * <p>Two arguments beyond {@link LaunchConfig}'s: {@code --capture FILE} and {@code --capture-frame
+ * N} run the real client for N frames, write a PNG and exit. That is how a machine with no display
+ * — CI, and this project's own sandbox — verifies that what was built actually draws.
  */
 public final class ClientMain {
 
     private static final Logger LOG = LoggerFactory.getLogger(ClientMain.class);
+
+    /** Frames to run before a capture when {@code --capture-frame} is not given. */
+    public static final int DEFAULT_CAPTURE_FRAME = 120;
 
     private ClientMain() {
         throw new AssertionError("no instances");
@@ -36,11 +48,23 @@ public final class ClientMain {
         System.exit(run(args).code());
     }
 
-    /** Runs the bootstrap and returns the exit code, so tests can assert it without forking. */
+    /** Runs the client and returns the exit code, so tests can assert it without forking. */
     public static ExitCode run(String[] args) {
+        List<String> remaining = new ArrayList<>();
+        Path capturePath = null;
+        int captureFrame = DEFAULT_CAPTURE_FRAME;
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "--capture" -> capturePath = Path.of(args[++i]);
+                case "--capture-frame" -> captureFrame = Math.max(1, Integer.parseInt(args[++i]));
+                default -> remaining.add(args[i]);
+            }
+        }
+
         LaunchConfig config;
         try {
-            config = new LaunchConfigResolver(false, System.getenv()).resolve(args);
+            config = new LaunchConfigResolver(false, System.getenv()).resolve(remaining.toArray(new String[0]));
+            config.validateCombination();
         } catch (ConfigException e) {
             LOG.error("{}", e.getMessage());
             return e.exitCode();
@@ -56,8 +80,32 @@ public final class ClientMain {
             return ExitCode.MODE_UNAVAILABLE;
         }
 
-        LOG.error("client bootstrap beyond configuration is not implemented yet "
-                + "(docs/03_runtime_modes.md#D03-S5.1 steps 3-9); see .agent-memory/progress/");
-        return ExitCode.INTERNAL_ERROR;
+        SyndicateApplicationListener listener = new SyndicateApplicationListener(config, capturePath, captureFrame);
+        try {
+            new Lwjgl3Application(listener, lwjgl3Config(config));
+        } catch (RuntimeException e) {
+            LOG.error("the application could not be created", e);
+            return ExitCode.MODE_UNAVAILABLE;
+        }
+        return listener.exitCode();
+    }
+
+    /** The window, from the display half of D03-S4.2's configuration. */
+    private static Lwjgl3ApplicationConfiguration lwjgl3Config(LaunchConfig config) {
+        Lwjgl3ApplicationConfiguration application = new Lwjgl3ApplicationConfiguration();
+        application.setTitle("Syndicate");
+        if (config.fullscreen()) {
+            application.setFullscreenMode(Lwjgl3ApplicationConfiguration.getDisplayMode());
+        } else {
+            application.setWindowedMode(config.windowWidth(), config.windowHeight());
+        }
+        application.useVsync(config.vsync());
+        // Zero means "as fast as the machine will go", which is what a maxFps of 0 asks for. The
+        // fixed-timestep loop makes an uncapped frame rate harmless to the simulation (D03-R10).
+        application.setForegroundFPS(config.maxFps());
+        // 24-bit depth: the arena is hundreds of metres across and the cars are centimetres thick,
+        // and 16 bits z-fights across that range badly enough to be visible on a bonnet.
+        application.setBackBufferConfig(8, 8, 8, 8, 24, 0, 0);
+        return application;
     }
 }

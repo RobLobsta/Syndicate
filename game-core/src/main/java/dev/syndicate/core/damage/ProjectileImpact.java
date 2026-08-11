@@ -215,8 +215,10 @@ public final class ProjectileImpact {
         if (!resolved.hasPart()) {
             return;
         }
+        // Pipeline, for the reason CollisionEventSystem gives: slot 12 drains the same-tick queue
+        // within the tick, and slots 24 and 25 subscribe to the deferred one.
         world.events()
-                .emitSameTick(DamageEvent.direct(
+                .emitPipeline(DamageEvent.direct(
                         resolved.partEntity(),
                         hitEntity,
                         attackerPlayerEntity,
@@ -303,7 +305,7 @@ public final class ProjectileImpact {
                     scratchBlastNormal.nor();
                 }
                 world.events()
-                        .emitSameTick(DamageEvent.direct(
+                        .emitPipeline(DamageEvent.direct(
                                 partEntity,
                                 shooterVehicleEntity,
                                 attackerPlayerEntity,

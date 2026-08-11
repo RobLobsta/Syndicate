@@ -1,0 +1,317 @@
+/*
+ * Syndicate — modular vehicular combat.
+ * Implementation of the blueprint suite in docs/ (docs/00_master_index.md#D00-S4.2).
+ */
+package dev.syndicate.client.render;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.g3d.ModelInstance;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.ScreenUtils;
+import dev.syndicate.client.LocalPlayer;
+import dev.syndicate.client.component.ParticleRefComponent;
+import dev.syndicate.client.component.RenderModelComponent;
+import dev.syndicate.client.component.RenderTransformComponent;
+import dev.syndicate.client.effect.EffectSystem;
+import dev.syndicate.client.input.InputDeviceKind;
+import dev.syndicate.core.component.HealthComponent;
+import dev.syndicate.core.component.MatchClockComponent;
+import dev.syndicate.core.component.MatchStateComponent;
+import dev.syndicate.core.component.PartRefComponent;
+import dev.syndicate.core.component.PlayerIdentityComponent;
+import dev.syndicate.core.component.ScoreComponent;
+import dev.syndicate.core.component.SlotGraphComponent;
+import dev.syndicate.core.component.VehicleChassisComponent;
+import dev.syndicate.core.component.VehicleStatsComponent;
+import dev.syndicate.core.component.VelocityComponent;
+import dev.syndicate.core.ecs.ComponentQuery;
+import dev.syndicate.core.ecs.EntityId;
+import dev.syndicate.core.ecs.EntitySystem;
+import dev.syndicate.core.ecs.Family;
+import dev.syndicate.core.ecs.Phase;
+import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.vehicle.SlotNode;
+import dev.syndicate.model.MatchOutcome;
+import dev.syndicate.model.MatchPhase;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Supplier;
+
+/**
+ * Schedule slot 26: the draw call (docs/04_entity_component_model.md#D04-S4.4 row 26).
+ *
+ * <p>The last system in the frame, and the only one in the project that produces something a person
+ * can look at. It draws the arena, then every part that has a mesh, then the effect bursts, then the
+ * HUD — in that order because each pass depends on the depth buffer the one before it left.
+ *
+ * <p><b>It reads render transforms, never simulation transforms.</b> Slot 22 has already placed
+ * every entity between the last two ticks; using {@code TransformComponent.worldMatrix} here would
+ * discard that and reintroduce the judder it exists to remove. The one exception is an entity that
+ * appeared this frame and has no render transform yet, which is drawn where the simulation says it
+ * is because that is the only place it has ever been.
+ *
+ * <p>Cosmetic in the strict sense of G6: this system writes nothing any other system reads.
+ */
+public final class RenderSystem implements EntitySystem {
+
+    /** This system's fixed slot in the D04-S4.4 catalogue. */
+    public static final int ORDER = 26;
+
+    /** Metres. Radius the overview camera frames when there is no vehicle to follow. */
+    public static final float OVERVIEW_RADIUS_M = 60f;
+
+    private final RenderContext context;
+    private final LocalPlayer localPlayer;
+    private final Supplier<InputDeviceKind> activeDevice;
+    private final EffectSystem effects;
+
+    private final Vector3 focus = new Vector3();
+    private final Vector3 arenaCentre = new Vector3();
+    private final List<Hud.ScoreRow> scoreboard = new ArrayList<>();
+
+    private Family drawable;
+    private Family undrawn;
+    private Family players;
+    private Family bursts;
+
+    private int drawnThisFrame;
+
+    /**
+     * @param effects slot 24, read for the bursts it owns. This is a constructor dependency rather
+     *     than a system-to-system call at update time (D04-R13): the renderer is told where the
+     *     particles are once, and never asks slot 24 to do anything.
+     */
+    public RenderSystem(
+            RenderContext context,
+            LocalPlayer localPlayer,
+            EffectSystem effects,
+            Supplier<InputDeviceKind> activeDevice) {
+        this.context = Objects.requireNonNull(context, "context");
+        this.localPlayer = Objects.requireNonNull(localPlayer, "localPlayer");
+        this.effects = Objects.requireNonNull(effects, "effects");
+        this.activeDevice = Objects.requireNonNull(activeDevice, "activeDevice");
+    }
+
+    @Override
+    public Phase phase() {
+        return Phase.PRESENT;
+    }
+
+    @Override
+    public int order() {
+        return ORDER;
+    }
+
+    @Override
+    public void initialize(World world) {
+        undrawn = world.family(ComponentQuery.all(PartRefComponent.class).exclude(RenderModelComponent.class));
+        drawable = world.family(ComponentQuery.all(RenderModelComponent.class, RenderTransformComponent.class));
+        players = world.family(ComponentQuery.all(PlayerIdentityComponent.class, ScoreComponent.class));
+        bursts = effects.bursts();
+    }
+
+    @Override
+    public void update(World world, float dtSeconds, long tick) {
+        attachModels(world);
+        aimCamera(world, dtSeconds);
+
+        ScreenUtils.clear(0.42f, 0.50f, 0.60f, 1f, true);
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+
+        drawScene(world);
+        drawParticles(world);
+        context.hud().render(buildHudFrame(world));
+    }
+
+    /** How many model instances the last frame drew, for a capture's log line. */
+    public int drawnThisFrame() {
+        return drawnThisFrame;
+    }
+
+    // ---- Model attachment -----------------------------------------------------------
+
+    /**
+     * Gives every part a drawable instance.
+     *
+     * <p>Done here rather than in {@code VehicleFactory} for the reason D03-R14 gives: the factory
+     * runs on a dedicated server, and a server that built {@code ModelInstance}s would need a GL
+     * context to do it. A part whose mesh will not load gets a component with a null instance, so
+     * the failed load is attempted once rather than every frame.
+     */
+    private void attachModels(World world) {
+        int[] entityIds = undrawn.snapshot();
+        int count = undrawn.size();
+        for (int i = 0; i < count; i++) {
+            int entityId = entityIds[i];
+            PartRefComponent part = world.getComponent(entityId, PartRefComponent.class);
+            RenderModelComponent model = new RenderModelComponent();
+            model.modelInstance = part == null ? null : context.partModels().instanceOf(part.partTypeId);
+            world.addComponent(entityId, model);
+        }
+    }
+
+    // ---- Camera ---------------------------------------------------------------------
+
+    private void aimCamera(World world, float dtSeconds) {
+        int vehicle = localPlayer.vehicleEntity(world);
+        RenderTransformComponent render =
+                vehicle == EntityId.NULL ? null : world.getComponent(vehicle, RenderTransformComponent.class);
+        if (render == null) {
+            context.camera().overview(arenaCentre, OVERVIEW_RADIUS_M, dtSeconds);
+            return;
+        }
+        render.renderMatrix.getTranslation(focus);
+
+        // Yaw straight off the render rotation rather than off the body's forward axis, so the
+        // camera is behind where the car is *drawn* and not where it was at the last tick.
+        float yawRad = (float) Math.toRadians(render.currentRotation.getYaw());
+        context.camera().follow(focus, yawRad, speedFraction(world, vehicle), dtSeconds);
+    }
+
+    private float speedFraction(World world, int vehicle) {
+        VelocityComponent velocity = world.getComponent(vehicle, VelocityComponent.class);
+        VehicleStatsComponent stats = world.getComponent(vehicle, VehicleStatsComponent.class);
+        if (velocity == null || stats == null || stats.maxSpeedMps <= 0f) {
+            return 0f;
+        }
+        return Math.min(1f, velocity.linear.len() / stats.maxSpeedMps);
+    }
+
+    /** Where the overview camera looks when nothing is being driven. */
+    public void setArenaCentre(Vector3 centre) {
+        arenaCentre.set(centre);
+    }
+
+    // ---- Passes ---------------------------------------------------------------------
+
+    private void drawScene(World world) {
+        drawnThisFrame = 0;
+        context.batch().begin(context.camera().camera());
+        ArenaModel arena = context.arenaModel();
+        if (arena != null) {
+            context.batch().render(arena.instance(), context.environment().environment());
+            drawnThisFrame++;
+        }
+        int[] entityIds = drawable.snapshot();
+        int count = drawable.size();
+        for (int i = 0; i < count; i++) {
+            int entityId = entityIds[i];
+            RenderModelComponent model = world.getComponent(entityId, RenderModelComponent.class);
+            RenderTransformComponent render = world.getComponent(entityId, RenderTransformComponent.class);
+            if (model == null || !model.visible || model.modelInstance == null || render == null) {
+                continue;
+            }
+            ModelInstance instance = model.modelInstance;
+            instance.transform.set(render.renderMatrix);
+            context.batch().render(instance, context.environment().environment());
+            drawnThisFrame++;
+        }
+        context.batch().end();
+    }
+
+    private void drawParticles(World world) {
+        context.particles().begin(context.camera().camera());
+        int[] entityIds = bursts.snapshot();
+        int count = bursts.size();
+        for (int i = 0; i < count; i++) {
+            int entityId = entityIds[i];
+            ParticleRefComponent particles = world.getComponent(entityId, ParticleRefComponent.class);
+            RenderTransformComponent render = world.getComponent(entityId, RenderTransformComponent.class);
+            if (particles == null) {
+                continue;
+            }
+            if (render != null) {
+                render.renderMatrix.getTranslation(focus);
+            } else {
+                focus.set(0f, 0f, 0f);
+            }
+            context.particles().add(particles, focus.x, focus.y, focus.z, EffectSystem.fade(particles));
+        }
+        context.particles().flush(context.camera().camera());
+    }
+
+    // ---- HUD ------------------------------------------------------------------------
+
+    private Hud.Frame buildHudFrame(World world) {
+        int vehicle = localPlayer.vehicleEntity(world);
+        boolean hasVehicle = vehicle != EntityId.NULL;
+
+        float speed = 0f;
+        float topSpeed = 0f;
+        float health = 0f;
+        int live = 0;
+        int total = 0;
+        if (hasVehicle) {
+            VelocityComponent velocity = world.getComponent(vehicle, VelocityComponent.class);
+            VehicleStatsComponent stats = world.getComponent(vehicle, VehicleStatsComponent.class);
+            VehicleChassisComponent chassis = world.getComponent(vehicle, VehicleChassisComponent.class);
+            speed = velocity == null ? 0f : velocity.linear.len();
+            topSpeed = stats == null ? 0f : stats.maxSpeedMps;
+            HealthComponent chassisHealth =
+                    chassis == null ? null : world.getComponent(chassis.chassisPartEntity, HealthComponent.class);
+            health = chassisHealth == null ? 0f : chassisHealth.healthFraction;
+
+            SlotGraphComponent graph = world.getComponent(vehicle, SlotGraphComponent.class);
+            if (graph != null) {
+                total = graph.nodes.size();
+                for (SlotNode node : graph.nodes) {
+                    if (world.isAlive(node.childEntity)) {
+                        live++;
+                    }
+                }
+            }
+        }
+
+        MatchStateComponent state = world.getComponent(EntityId.MATCH, MatchStateComponent.class);
+        MatchClockComponent clock = world.getComponent(EntityId.MATCH, MatchClockComponent.class);
+        int remaining =
+                clock == null || clock.timeLimitTicks <= 0 ? -1 : Math.max(0, clock.timeLimitTicks - (int) clock.tick);
+
+        return new Hud.Frame(
+                hasVehicle,
+                speed,
+                topSpeed,
+                health,
+                live,
+                total,
+                state == null ? MatchPhase.LOBBY : state.phase,
+                state == null ? MatchOutcome.UNDECIDED : state.outcome,
+                remaining,
+                buildScoreboard(world),
+                activeDevice.get(),
+                Gdx.graphics.getFramesPerSecond());
+    }
+
+    /**
+     * The scoreboard, highest score first then most kills.
+     *
+     * <p>Rows are collected in ascending entity order and {@code List.sort} is stable, so two players
+     * who are level stay in the same order from frame to frame rather than swapping places every
+     * time the list is rebuilt (G3's reason, applied to something a player is reading).
+     */
+    private List<Hud.ScoreRow> buildScoreboard(World world) {
+        scoreboard.clear();
+        int[] entityIds = players.snapshot();
+        int count = players.size();
+        for (int i = 0; i < count; i++) {
+            int entityId = entityIds[i];
+            PlayerIdentityComponent identity = world.getComponent(entityId, PlayerIdentityComponent.class);
+            ScoreComponent score = world.getComponent(entityId, ScoreComponent.class);
+            if (identity == null || score == null) {
+                continue;
+            }
+            scoreboard.add(new Hud.ScoreRow(
+                    identity.displayName,
+                    identity.isBot,
+                    entityId == localPlayer.playerEntity(),
+                    score.kills,
+                    score.deaths,
+                    score.objectiveScore));
+        }
+        scoreboard.sort((a, b) ->
+                a.score() != b.score() ? Integer.compare(b.score(), a.score()) : Integer.compare(b.kills(), a.kills()));
+        return scoreboard;
+    }
+}

@@ -4,9 +4,11 @@ import java.io.File
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -39,6 +41,17 @@ abstract class HeadlessSafetyCheckTask : DefaultTask() {
     @get:Classpath
     @get:Optional
     abstract val runtimeClasspath: ConfigurableFileCollection
+
+    /**
+     * The directory violation paths are reported relative to.
+     *
+     * Read from a property rather than from `project.rootDir`, because with the configuration
+     * cache on a project read at execution time fails the build — and this task only reaches
+     * the reporting path when it has a violation to report, so the failure would have arrived
+     * disguised as the first real violation anyone hit. See DISC-021.
+     */
+    @get:Internal
+    abstract val reportRoot: DirectoryProperty
 
     init {
         group = "verification"
@@ -90,5 +103,5 @@ abstract class HeadlessSafetyCheckTask : DefaultTask() {
         ModuleRules.allowedGraphicsTypes.any { imported == it || imported.startsWith("$it.") }
 
     private fun rel(file: File): String =
-        file.relativeToOrSelf(project.rootDir).invariantSeparatorsPath
+        file.relativeToOrSelf(reportRoot.get().asFile).invariantSeparatorsPath
 }

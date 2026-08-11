@@ -91,4 +91,23 @@ object ModuleRules {
         "com.badlogic.gdx.graphics.VertexAttribute",
         "com.badlogic.gdx.graphics.Mesh",
     )
+
+    /**
+     * Component types classified `C` in D04-S4.3 that live in `game-core` and must be read
+     * by nothing there (D07-R18, AC-D07-10, G6). They live in `game-core` because they are
+     * plain data with a wire-stable index (D04-R22), not because anything in it uses them.
+     */
+    val cosmeticOnlyTypes: List<String> = listOf(
+        "DamageVisualComponent",
+    )
+
+    /**
+     * The two files allowed to name a type in [cosmeticOnlyTypes]: its own declaration, and
+     * the append-only catalogue that has to list every component to number it. Named by file
+     * so a third exemption is a visible edit rather than a widened pattern.
+     */
+    val cosmeticReferenceExemptions: Set<String> = setOf(
+        "DamageVisualComponent.java",
+        "ComponentCatalogue.java",
+    )
 }
