@@ -1,3 +1,4 @@
+import dev.syndicate.build.CosmeticIsolationCheckTask
 import dev.syndicate.build.HeadlessSafetyCheckTask
 
 plugins {
@@ -31,8 +32,18 @@ dependencies {
 val checkHeadlessSafety = tasks.register<HeadlessSafetyCheckTask>("checkHeadlessSafety") {
     sources.from(sourceSets["main"].allJava.srcDirs)
     runtimeClasspath.from(configurations.named("runtimeClasspath"))
+    reportRoot.set(rootProject.layout.projectDirectory)
+}
+
+/**
+ * G6 is structural here too: `game-core` holds the cosmetic components because they need a
+ * wire-stable index (D04-R22), and nothing in it may read one (D07-R18, AC-D07-10).
+ */
+val checkCosmeticIsolation = tasks.register<CosmeticIsolationCheckTask>("checkCosmeticIsolation") {
+    sources.from(sourceSets["main"].allJava.srcDirs)
+    reportRoot.set(rootProject.layout.projectDirectory)
 }
 
 tasks.named("check") {
-    dependsOn(checkHeadlessSafety)
+    dependsOn(checkHeadlessSafety, checkCosmeticIsolation)
 }

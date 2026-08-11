@@ -53,6 +53,7 @@ public final class World {
     private int destroyQueueSize;
 
     private long currentTick;
+    private float renderAlpha;
     private boolean initialized;
 
     /**
@@ -90,6 +91,22 @@ public final class World {
     /** The tick currently executing. The only clock a simulation system may read (G5). */
     public long currentTick() {
         return currentTick;
+    }
+
+    /**
+     * How far the render frame sits between the last completed tick and the next, in {@code [0,1)}
+     * (docs/03_runtime_modes.md#D03-S5.3).
+     *
+     * <p><b>Only a PRESENT system may read this</b> (D03-R11). A gameplay system that did would let
+     * frame rate decide a simulation result, which is the whole of what G2 forbids. It is a field on
+     * the world rather than the {@code dtSeconds} argument because a PRESENT system needs both
+     * numbers and they are not the same one: slot 23 eases morph weights at a rate per *second* of
+     * real time (D07-S5.5), while slot 22 places a body a *fraction* of a tick along its last step.
+     * Passing alpha as the dt — which the single-argument {@code present} used to do — makes the
+     * morph ease run at a speed decided by where in the tick the frame landed.
+     */
+    public float renderAlpha() {
+        return renderAlpha;
     }
 
     /** Live entity count, excluding entities awaiting teardown. */
@@ -319,14 +336,19 @@ public final class World {
     /**
      * Runs the PRESENT systems once per rendered frame.
      *
-     * @param alpha the render interpolation factor in {@code [0,1)}. Only presentation may read it;
-     *     no gameplay system may (D03-R11), or frame rate would leak into simulation results.
+     * @param alpha the render interpolation factor in {@code [0,1)}, readable for the duration of
+     *     this call through {@link #renderAlpha()}. Only presentation may read it; no gameplay
+     *     system may (D03-R11), or frame rate would leak into simulation results.
+     * @param frameDtSeconds the wall-clock time this frame covers, which is what a PRESENT system
+     *     receives as its {@code dtSeconds}. It is real elapsed time rather than {@code TICK_DT}
+     *     precisely because presentation is the one place frame rate is allowed to matter.
      */
-    public void present(float alpha) {
+    public void present(float alpha, float frameDtSeconds) {
+        renderAlpha = alpha;
         for (int i = 0; i < schedule.size(); i++) {
             EntitySystem system = schedule.get(i);
             if (system.isPerFrame()) {
-                system.update(this, alpha, currentTick);
+                system.update(this, frameDtSeconds, currentTick);
             }
         }
     }

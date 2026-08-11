@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/04_entity_component_model.md#D04-S4.4, docs/11_ai_bots_and_match_simulation.md#D11-S5.7, docs/11_ai_bots_and_match_simulation.md#D11-S5.8
 
-**Status:** active
+**Status:** superseded (by PROG-020)
 
 ## Summary
 Slots 3 and 4 exist, and with them the simulation stops being a sandbox: `MatchSimulatorMain` plays complete matches with no window, eight bots driving four hundred metres each, and writes a report. Seventeen of D04-S4.4's 27 systems now exist, and slot 1 joins them from the client side.

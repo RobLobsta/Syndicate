@@ -72,8 +72,11 @@ class ScheduleTest {
         world.tick(0);
         assertThat(log).containsExactly("SIM#10");
 
-        world.present(0.5f);
+        world.present(0.5f, 1f / 120f);
         assertThat(log).containsExactly("SIM#10", "PRESENT#26");
+        // D03-R11: alpha is readable for the duration of the call and is not the dt a PRESENT
+        // system integrates with — the two are different numbers and were once the same argument.
+        assertThat(world.renderAlpha()).isEqualTo(0.5f);
     }
 
     @Test

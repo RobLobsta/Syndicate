@@ -11,6 +11,11 @@ dependencies {
     implementation(libs.gdx.backend.lwjgl3)
     implementation(libs.gdx.gltf)
 
+    // The sound bank's manifest (`assets/audio/audio.json`) is content, and the client is the
+    // only process that reads it — D03-R13 does not load audio banks headless. Jackson is
+    // already the project's JSON reader everywhere else; a second one would be worse.
+    implementation(libs.bundles.jackson)
+
     // A gamepad is a first-class input device here, not a fallback: see
     // `dev.syndicate.client.input`. `core` is the API the systems compile against; `desktop`
     // is the backend and is a runtime concern, so nothing in this module can accidentally

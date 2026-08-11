@@ -274,8 +274,12 @@ public final class CollisionEventSystem implements EntitySystem {
         if (flipNormal) {
             scratchNormal.scl(-1f);
         }
+        // Pipeline rather than same-tick only: slot 12 drains the same-tick queue in this tick, and
+        // presentation subscribes to the deferred one. Emitting only same-tick meant a hit that took
+        // health off a car threw no sparks and made no noise, because the event had already been
+        // consumed by the time slots 24 and 25 ran. Still D04-R14's exception, not a widening of it.
         world.events()
-                .emitSameTick(DamageEvent.direct(
+                .emitPipeline(DamageEvent.direct(
                         resolved.partEntity(),
                         isDamageable(world, attackerVehicle) ? attackerVehicle : EntityId.NULL,
                         ownerOf(world, attackerVehicle),

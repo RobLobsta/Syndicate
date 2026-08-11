@@ -1,8 +1,8 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-10 (end of SESS-019)
-**Where we are:** a whole match plays itself, start to finish, with no display — eight bots, a
-scoreboard, a winner, and a noise. Nobody can watch it.
+**Last updated:** 2026-08-11 (end of SESS-020)
+**Where we are:** it has a window. Eight cars, drawn from their own art, on an arena floor, with a
+camera behind one of them and a scoreboard in the corner. Nobody has driven it yet.
 
 > This file is maintained by the coding assistant and updated **at the end of every session**
 > (CLAUDE.md §5, step 14). It is allowed to change shape as the work demands — reorder phases, split
@@ -30,10 +30,11 @@ gantt
     A world to fight in                     :done, p6, 15, 1
     A car that drives                       :done, p6b, 16, 2
     Opponents - bots and match flow         :done, p8, 18, 1
-    Preparation pipeline, sound, input (here):done, p6c, 19, 1
+    Preparation pipeline, sound, input      :done, p6c, 19, 1
+    A window - client, render, HUD (here)   :done, p7, 20, 1
 
     section Next
-    A window - client, render, HUD          :active, p7, 20, 3
+    Driving it - tuning, balance, feel      :active, p11, 21, 2
     Preparation pipeline - stages 6 to 8    :p6d, 23, 3
 
     section Then
@@ -69,13 +70,15 @@ done and green; everything after is an estimate that will move.
   │  │            Wheels on the ground, spinning, and detachable     │
   │  ●  Phase 8   Opponents                     ★ PLAYABLE           │
   │  │            Bots, a match that starts, scores and ends         │
-  │  ●  Phase 6c  Parts, sound and input          ← THIS SESSION     │
+  │  ●  Phase 6c  Parts, sound and input                             │
   │  │            A car cut up by geometry; 52 sounds; a gamepad     │
+  │  ●  Phase 7   A window          ★ WATCHABLE   ← THIS SESSION     │
+  │  │            Rendering, camera, HUD, morphs, particles, audio   │
   └──┼───────────────────────────────────────────────────────────────┘
      │
   ┌──┼─ NEXT ──────────────────────────────────────────────────────────┐
-  │  ○  Phase 7   A window                           ★ WATCHABLE HERE  │
-  │  │            Rendering, damage morphs, camera, HUD, audio         │
+  │  ○  Phase 11  Driving it                          ★ IS IT ANY GOOD │
+  │  │            Handling, damage numbers, bot difficulty, match len  │
   │  ○  Phase 6d  Preparation pipeline, stages 6–8                     │
   │  │            Geometry repair, hinges, per-class destruction       │
   │  ○  Phase 9   Multiplayer                                          │
@@ -87,123 +90,119 @@ done and green; everything after is an estimate that will move.
 
 ### The system catalogue, which is the honest progress bar
 
-`docs/04_entity_component_model.md#D04-S4.4` fixes 27 systems in a specific order. Eighteen exist.
+`docs/04_entity_component_model.md#D04-S4.4` fixes 27 systems in a specific order. Twenty-three exist.
 
 ```
  1 InputCollection   ●   10 Physics          ●   19 NetworkReceive   ○
  2 InputReceive      ○   11 CollisionEvent   ●   20 Reconciliation   ○
  3 BotDecision       ●   12 Damage           ●   21 Transform        ●
- 4 MatchFlow         ●   13 Fracture         ●   22 Interpolation    ○
- 5 Spawn             ●   14 Detach           ●   23 DamageVisual     ○
- 6 VehicleStats      ●   15 MassProperty     ●   24 Effect           ○
- 7 VehicleControl    ●   16 Lifetime         ●   25 Audio            ○
- 8 Weapon            ●   17 Score            ●   26 Render           ○
+ 4 MatchFlow         ●   13 Fracture         ●   22 Interpolation    ●
+ 5 Spawn             ●   14 Detach           ●   23 DamageVisual     ●
+ 6 VehicleStats      ●   15 MassProperty     ●   24 Effect           ●
+ 7 VehicleControl    ●   16 Lifetime         ●   25 Audio            ●
+ 8 Weapon            ●   17 Score            ●   26 Render           ●
  9 Projectile        ●   18 NetworkSend      ○   27 EntityDestroy    ●
 
- ●●●●●●●●●●●●●●●●●●○○○○○○○○○  18 / 27
+ ●●●●●●●●●●●●●●●●●●●●●●●○○○○  23 / 27
 ```
 
-The nine that remain fall into exactly two groups now, which is the useful change: **the renderer**
-(22–26, plus `Audio` which has a bank waiting for it) and **networking** (2, 18–20). Nothing left is
-load-bearing for the game *working* — every one of the nine is about somebody else seeing it.
+The four that remain are **all networking** (2, 18, 19, 20). There is no longer a single
+unimplemented system that a single-player game needs. If multiplayer were cut tomorrow, the
+catalogue would be finished.
 
 ---
 
-## 2. What happened this session (SESS-019)
+## 2. What happened this session (SESS-020)
 
-The session the marker moves past ★ PLAYABLE. Four things landed: a match that plays itself, a car
-cut into parts by geometry rather than by material names, a sound bank in which different cars
-sound different, and a gamepad the game was built around rather than bolted onto.
+The session the marker moves past ★ WATCHABLE. One thing landed, and it is the one the last four
+sessions kept naming as the thing that had not: **there is a window**.
 
-### A match that plays itself
+### What it looks like
 
-`MatchFlowSystem` and `BotDecisionSystem` were the last two systems standing between a simulation
-that *contains* a fight and one that *has* one. Both exist, and the proof is not a unit test:
+The client boots a real window, builds the same world the dedicated server builds — same factories,
+same schedule, same physics — and puts five presentation systems on top of it. Run headless with a
+capture:
 
 ```
-$ MatchSimulatorMain --bots 8 --time-limit 60
-LOBBY → COUNTDOWN → ACTIVE → ENDING → RESULTS
-8 bots, 300–410 m driven each, mean tick 0.248 ms, no native leaks
+$ syndicate-client --assets assets --bots 7 --capture shot.png --capture-frame 400
+SINGLE_PLAYER runs 23 of 27 scheduled systems; 4 are not implemented yet:
+  [INPUT_RECEIVE, NETWORK_SEND, NETWORK_RECEIVE, RECONCILIATION]
+local player 0 joined as Player driving vehicle_eclipse_01
+match phase LOBBY -> COUNTDOWN at tick 0 ... COUNTDOWN -> ACTIVE at tick 180
+captured frame 400 at tick 3641: 41 models drawn, peak 98 particle quads, 0 dropped ticks
 ```
 
-Two design notes worth carrying forward. Input gating happens by **erasing intent** at slot 4 —
-after the two systems that write input, before the six that read it — rather than by a flag that six
-systems have to remember to check; the schedule order makes the single erase equivalent and
-unforgettable. And a headless runner that runs the *real* system set rather than a cut-down one is
-the only kind worth having: every bug below was found because the real thing ran.
+The picture is eight cars drawn from their own textured art, an arena floor gridded every five
+metres so speed reads, walls, a camera trailing the player's car, a health bar, a speedometer, a
+live scoreboard and a match clock.
 
-### Six bugs, all found by running rather than reading
+### Five slots, and what each one is actually for
 
-Not one of these was visible to the test suite, and every one was obvious within a second of
-something printing what it actually did.
+- **Interpolation (22)** — the simulation moves in sixty discrete steps a second and a display does
+  not. This places every car between the last two steps, so a 144 Hz monitor shows 144 distinct
+  positions rather than 60 positions shown twice.
+- **DamageVisual (23)** — health becomes shape key weights, blending between the four authored
+  damage states so a panel crumples continuously. It runs correctly today against meshes that carry
+  no damage morphs yet, which is what the preparation pipeline's stage 7 will add.
+- **Effect (24)** — sparks off a hit, shards off a fracture, a puff off a part tearing away, smoke
+  off a dead car. One entity per burst rather than per particle, so a firefight costs tens of
+  entities and not thousands.
+- **Audio (25)** — the 52-sound bank from last session finally has something to play it. Engines are
+  keyed on configuration and pitched from each car's own rev range and power, so the Eclipse's V6 and
+  the Stampede's V8 are audibly different engines and not the same one at two volumes.
+- **Render (26)** — one loaded mesh per part *type* shared across every car using it, the collision
+  hull dropped from what gets drawn, and everything placed from the interpolated transform.
 
-- `World.dispose` freed every entity's Java object and leaked every native one, because it disposed
-  the schedule before recycling entities — and native release belongs to slot 27.
-- A free-for-all got two of six spawn points, because `ANY_TEAM` and `FREE_FOR_ALL` are both `-1`
-  and the filter compared them for equality.
-- Slot 4 picks spawn points and slot 5 creates the vehicles, so a starting grid saw an empty world
-  and handed the same point out repeatedly.
-- A bot pointing away from its destination got 0.15 throttle and never tripped a stuck detector
-  watching for 0.5.
-- Obstacle avoidance pushed straight back from whatever was dead ahead, which is the one direction
-  that cannot steer round it. It escapes laterally now.
-- The preparation tool deleted 94% of a car — 283,192 triangles down to 15,381, reporting a Mustang
-  "0.734 m long" — because the load stages ran twice and one of them is not idempotent.
+Plus a chase camera that trails the car's heading rather than being bolted to its body — which is
+what lets a driver see the car rotate underneath them, and is the difference between "lively" and
+"uncontrollable" — and a HUD that answers the four things the 3D view cannot.
 
-### A car cut up by geometry
+### Two bugs, both found by running it
 
-`docs/15_vehicle_preparation_pipeline.md` stages 1–5 are implemented and run on both shipped cars.
-The cue ensemble does what the blueprint measured: geometry proves what it can, material names are
-read when they happen to mean something, and what is left is asked of a human **once per material**.
+The pattern from the previous four sessions held exactly.
 
-The practical claim in last session's roadmap — "run the tool, read its report, write six lines of
-`parts.json`" — is now demonstrated end to end rather than argued. The difficult car went from 48%
-labelled to fully labelled on four material overrides; the easy one needed nine and would have been
-fine with fewer.
+- **Every hit was silent and invisible.** Damage events were published on the same-tick channel,
+  which the damage system consumes within the tick — so the systems that draw sparks and play
+  impacts, which run *after* the tick, never saw a single one. A full match took a car from full
+  health to 78% and drew zero particles, with green unit tests for both systems, because a test
+  emits its own event through the other channel. (`DISC-022`)
+- **A build guardrail could not report a failure.** One of the checks formatted its error message
+  using a Gradle API that is illegal at that point — on the *error* path only. It had been green
+  since it was written, and would have failed for the first time on the commit that broke the rule
+  it exists to guard, disguised as an unrelated build error. (`DISC-021`)
 
-### Different cars sound different
+The second one generalises: a guardrail's failure path is the code least likely to have ever run.
+Both checks in `game-core` have now been run against a deliberate violation.
 
-52 sounds, all synthesised, no licence attached to any of them (`DEC-046` — the reason is the
-licence, not the convenience). Impacts and shatters are modal synthesis: damped inharmonic
-sinusoids per material, which is what metal, glass and rubber physically are.
+### Verification on a machine with no screen
 
-Engines are the part worth reading. They are keyed on **engine configuration**, not weight class
-(`DEC-047`), because that is what actually makes two cars sound unalike — an I4 fires four times
-per two revolutions and a V12 fires twelve, and no amount of pitching one gets you the other. Six
-configurations ship, I4 through V12, each with its own firing rate, low-end weight and harmonic
-spread. A more powerful car sounds more powerful because it *is* a different engine, not a louder
-copy of the same one.
-
-The shared material table was decided along the way (`DEC-045`): the material says what a part is
-made of, the part says how it fails. The first cut had `destructionClass` on the material, which
-falls apart the moment a chassis rail and a door skin are both steel.
-
-### A gamepad, and a keyboard that is not a consolation
-
-Neither device is the "real" one. The router polls both every frame and follows whichever the player
-last touched, with a threshold and a quiet period so a drifting stick cannot steal the game from
-somebody typing. Unplugging the active pad hands over immediately.
-
-The pad gets analogue triggers, a steering response curve and rate-based aim; the keyboard gets
-ramped steering and throttle, which is the thing that makes a keyboard competitive rather than
-merely usable — a key is on or off, and applying full lock the instant it goes down is undriveable.
-All of it is content in `assets/input/bindings.json`, because input feel is the thing most worth
-iterating on and least judgeable by inspection.
+`--capture FILE --capture-frame N` runs the real client for N frames, writes a PNG and exits. It is
+not a debug convenience: this project develops in a sandbox with no display, and every visual claim
+it has made since Phase 1 has been backed by a capture from the real thing rather than by an
+assertion about code that draws. The renderer also keeps a peak particle count across the whole run,
+because a single frame is one instant and a spark lasts under half a second — "zero particles in
+this frame" proves nothing, and "peak 98 over the run" proves the effect path works.
 
 ## 3. What is next
 
-### Phase 7 — A window ★ *the first time anybody sees it*
+### Phase 11 — Driving it ★ *is any of this good?*
 
-This is now the only thing standing between the project and a person forming an opinion about it.
-Six client slots: `Interpolation` (22), `DamageVisual` (23), `Effect` (24), `Audio` (25), `Render`
-(26) — slot 1 landed this session. A camera, the damage morph targets nothing has yet displayed, and
-a HUD.
+This is now the only question left that cannot be answered by writing more code, and for the first
+time it can be answered at all: build the client, run it, drive the car.
 
-Two of the six have most of their work already done elsewhere. The verification harness renders a
-driving car today, so `Render` is largely a relocation rather than an invention; and `Audio` has a
-52-file bank, an event enum and a per-vehicle engine voice waiting for something to call it.
+Everything it needs is in place and nothing in it has been tuned by a person. The handling is a real
+supercar's figures, which is a defensible starting point and possibly the wrong one for an arena
+brawl. The damage numbers are blueprint defaults nobody has been hit by. The bots have a difficulty
+scale nobody has lost to. The match is three minutes long because three minutes is a round number.
+None of that is a bug and none of it is settleable by reading.
 
-After this phase the answer to "is any of this fun" becomes answerable, which it has never been.
+Concretely, the numbers a session here would move: collision damage scale and threshold, the armour
+floors, the propagation fraction, the degradation curves, the steering rate and lock, the chase
+camera's two half-lives, bot reaction delay and aim error, and the match length and frag limit.
+
+The one piece of machinery that would pay for itself immediately is a **live tuning console** — those
+numbers are compiled in today, and a handling pass that needs a rebuild per value is a handling pass
+nobody finishes.
 
 ### Phase 6d — Preparation pipeline, stages 6 to 8
 
@@ -245,9 +244,9 @@ None of these are decided. They are here so the options are visible when a sessi
   A single-player-plus-bots game is a complete game, and the blueprints are written so that
   networking can be added later without re-architecting. This choice is now cheaper to make than it
   was: the single-player game exists and runs.
-- **What the first playable build is for.** There is now something to hand somebody. Whether the
-  next milestone is "a window so it can be watched" or "a balance pass so the match it plays is a
-  good one" is a real fork, and the second does not need the first — the runner emits a report.
+- **What the first playable build is for.** There is a build to hand somebody now, and it draws.
+  Whether the next milestone is "make the thing it does good" or "make more of it" is the fork, and
+  the first is cheaper and answers a question nobody has asked yet.
 - **Local multiplayer.** The input layer takes the first connected pad and ignores the rest, because
   assigning pads to players needs a UI that does not exist. Split-screen is a genuinely different
   product decision and the input code is one device-list loop away from it.
@@ -346,10 +345,16 @@ None of these are decided. They are here so the options are visible when a sessi
 - **`DISC-016`** — the mesh reader places a skinned mesh by its node transform, which is wrong
   whenever the placement lives in the skeleton instead. Nothing shipped depends on it today, because
   the split parts have no skeletons; the next downloaded model with a live skin will.
-- **Nothing renders except the harness**, and now nothing makes a sound either. There is a 52-file
-  bank, an event enum and a per-vehicle engine voice, and no `AudioSystem` to play any of it — the
-  content is ahead of the slot that consumes it, deliberately, but until slot 25 exists the bank is
-  verified only by its own tests.
+- **Three of the seven sound families are silent**, and not for want of a bank. Tyre roll and skid
+  need per-wheel slip and surface, which the ray-cast wheel computes and no component exposes; weapon
+  fire and impact need events slots 8 and 9 do not emit; debris settle needs a "came to rest" signal
+  the debris path does not produce. The files exist and are correct; the triggers do not.
+- **No damage morph targets exist yet**, so slot 23 is correct code driving nothing. Deformation
+  arrives with stage 7 of the preparation pipeline, and until then a damaged car looks undamaged
+  until a part comes off it entirely.
+- **The renderer is one draw call per part with no culling and no batching.** Forty-one instances at
+  eight cars is fine; a scrapyard full of debris on an integrated GPU has never been measured, and
+  D12's performance budgets have never been run against a real frame.
 - **The input layer has never met a physical pad.** Every line is tested through a fake device, which
   is what makes it testable at all in a headless sandbox, and no test can tell you whether the
   steering curve feels right or whether the trigger axis indices are correct on real hardware. The
@@ -372,35 +377,34 @@ None of these are decided. They are here so the options are visible when a sessi
 
 ## 5. Where the project actually stands
 
-It is a game. That sentence was not true at the end of the last session and it is true now, and it
-is the only genuinely new thing in this file.
+It is a game you can watch. Last session it was a game that could only be read about in a log file,
+and closing that gap is the whole of what changed.
 
-Eight bots take eight cars onto an arena floor, drive them 300 to 400 metres each, shoot at each
-other, lose wheels, and one of them wins. The match starts on its own, runs a countdown, keeps score,
-ends, and produces a report. It does this in a quarter of a millisecond per tick with no display, no
-window and no graphics driver, which means it does it on a server. The thing the previous version of
-this section called "a simulation that contains everything and runs empty" now runs full.
+Eight cars go onto an arena floor, drawn from real art with real paint on them. They drive, crash,
+take damage, throw sparks, lose parts, and one of them wins. A camera follows one of them, a HUD
+says how fast it is going and how broken it is, a scoreboard says who is ahead and a clock says how
+long is left. It makes noise, and two different cars make different noise, because they are different
+engines rather than the same engine at two volumes.
 
-What is missing is not machinery any more, it is *witnesses*. Nobody can see it. The only output is a
-log file and a report, the 52 sounds have nothing to play them, the damage morph targets have nothing
-to display them, and the input layer that would let a human take one of those eight cars has no
-window to receive events in. Every one of the nine unimplemented systems is about somebody else
-seeing the game, not about the game working.
+**Nobody has driven it.** That is now the entire remaining question, and it is a different kind of
+question from every one before it. Every prior session ended with something that did not exist yet.
+This one ends with everything existing and nothing being *judged*. The handling is a real supercar's
+published figures. The damage numbers are blueprint defaults. The bots ship at a difficulty nobody
+has lost to. The match is three minutes long because three minutes is a round number. None of that is
+a bug, and none of it can be settled by writing more code.
 
-That reframes the risk. For eight sessions the open question was whether the pieces would compose;
-that is answered, and the answer was yes, expensively — six bugs this session, none of which any test
-caught, all of which were obvious the moment something ran end to end and printed what it did. The
-pattern has now repeated so consistently that it should be treated as a property of this project
-rather than a run of bad luck: **the tests here verify that components are correct, and almost never
-that they are correct together.** The counter-measure that has worked every time is cheap and dull —
-make the real thing run, and make it say what it did.
+What is genuinely still missing is short and it is all networking: four systems, and a game that will
+never need them if multiplayer is cut. Everything else on the "not done" list is either content
+(damage morphs, weapons, fracture manifests) or tuning.
 
-The open question from here is different in kind, and it is the one nobody has been able to ask:
-**is it any good?** The handling is real-car handling nobody has driven. The damage numbers are
-blueprint defaults nobody has been hit by. The bots have a difficulty scale nobody has lost to. The
-match is three minutes long because three minutes is a round number. None of that is a bug and none
-of it can be settled by reading; it needs a person, a window, and an afternoon. That is Phase 7, and
-after it this file stops being about whether the game exists.
+The risk profile has changed with it. For eight sessions the open question was whether the pieces
+would compose; the answer was yes, expensively. This session's two bugs fit the same pattern as the
+six before them and it should now be treated as a property of this project rather than bad luck:
+**the tests here verify that components are correct and almost never that they are correct
+together.** Both were invisible to a green test suite and obvious within a second of the real client
+printing what it did. The counter-measure has worked every single time and is cheap and dull — make
+the real thing run, and make it say what it did. `--capture` and the renderer's peak-particle counter
+are this session's contribution to that, and they are worth more than either bug they found.
 
 ## 6. How this file gets maintained
 
