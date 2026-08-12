@@ -175,7 +175,31 @@ public final class VehicleControlSystem implements EntitySystem {
             // Per-wheel grip reflects that wheel's own degradation, so a vehicle with one dead
             // corner pulls to that side instead of losing grip evenly (D05-S5.4).
             controller.getWheelInfo(wheel.wheelIndex).setFrictionSlip(alive ? wheel.effectiveFrictionSlip : 0f);
+
+            mirrorContactState(controller, wheel);
         }
+    }
+
+    /**
+     * Copies a wheel's contact state out of Bullet and onto its component.
+     *
+     * <p>D15-R36 keys the tyre sounds on slip and surface, and observes that the ray-cast wheel
+     * "already computes what this needs". It does — and it computed it entirely inside
+     * {@code btWheelInfo}, where no system outside the physics step could reach it. That is why both
+     * tyre families sat in the bank with correct sounds and no trigger: the data existed and had no
+     * door out. Three fields is the whole of that door.
+     *
+     * <p>Read here rather than in a PRESENT system because {@code btWheelInfo} is native state owned
+     * by the physics world (G19), and a presentation system reaching into it would be reading the
+     * simulation's natives a phase after the simulation was entitled to free them.
+     */
+    private static void mirrorContactState(btRaycastVehicle controller, WheelControllerComponent wheel) {
+        var info = controller.getWheelInfo(wheel.wheelIndex);
+        wheel.suspensionLoadN = info.getWheelsSuspensionForce();
+        wheel.isInContact = wheel.suspensionLoadN > 0f;
+        // Bullet's skidInfo is 1.0 for full grip and falls toward 0 as the tyre slides; every
+        // consumer wants the opposite sense (DISC-012 is the neighbouring trap in this same API).
+        wheel.skid = wheel.isInContact ? Math.min(1f, Math.max(0f, 1f - info.getSkidInfo())) : 0f;
     }
 
     /**

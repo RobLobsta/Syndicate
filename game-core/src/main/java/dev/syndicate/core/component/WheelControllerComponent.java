@@ -54,6 +54,32 @@ public final class WheelControllerComponent implements Component {
     /** {@link #frictionSlip} after the degradation curve (D05-S5.4). */
     public float effectiveFrictionSlip;
 
+    // ---- Contact state, mirrored out of Bullet each tick -----------------------------------
+    //
+    // D15-R36 keys tyre roll and skid on "per surface, blended by slip", and notes that the ray-cast
+    // wheel already computes what that needs. It did — inside Bullet, where nothing outside the
+    // physics step could read it, which is why both tyre families had correct sounds in the bank and
+    // no way to trigger them. `VehicleControlSystem` (7) mirrors the three numbers out here after the
+    // step, in the same pass that writes engine force and steering in.
+    //
+    // Cosmetic in the G6 sense: written by the simulation, read by presentation, and never read back
+    // into a gameplay decision.
+
+    /** Whether this wheel's suspension ray found ground on the last step. */
+    public boolean isInContact;
+
+    /** The suspension force this wheel is carrying, in newtons. Zero when it is off the ground. */
+    public float suspensionLoadN;
+
+    /**
+     * How much this wheel is sliding rather than gripping, {@code [0,1]}.
+     *
+     * <p>Zero is full grip and one is a full slide. Bullet's own {@code skidInfo} runs the other way
+     * — 1.0 means no skid — and is inverted here, because every consumer wants "how much squeal",
+     * and a quantity whose name says skid but whose value falls as skidding rises is a trap.
+     */
+    public float skid;
+
     @Override
     public void reset() {
         wheelIndex = 0;
@@ -67,5 +93,8 @@ public final class WheelControllerComponent implements Component {
         frictionSlip = 0f;
         rollInfluence = 0f;
         effectiveFrictionSlip = 0f;
+        isInContact = false;
+        suspensionLoadN = 0f;
+        skid = 0f;
     }
 }

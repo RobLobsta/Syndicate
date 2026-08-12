@@ -4,10 +4,14 @@
  */
 package dev.syndicate.core.system;
 
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.CollisionConstants;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
+import dev.syndicate.core.component.DebrisTagComponent;
 import dev.syndicate.core.component.LifetimeComponent;
 import dev.syndicate.core.component.RigidBodyComponent;
+import dev.syndicate.core.component.TransformComponent;
+import dev.syndicate.core.damage.DebrisSettledEvent;
 import dev.syndicate.core.ecs.ComponentQuery;
 import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.Family;
@@ -86,10 +90,48 @@ public final class LifetimeSystem implements EntitySystem {
             // below; short-circuiting past it would leave a body's clock frozen behind the others'.
             boolean slept = lifetime.despawnPolicy == LifetimeComponent.DespawnPolicy.SLEEP_THEN_DESTROY
                     && hasSleptLongEnough(world, entityId, dtSeconds);
+            reportSettled(world, entityId, tick);
             if (expired || slept) {
                 world.destroyEntity(entityId);
             }
         }
+    }
+
+    /**
+     * Publishes a settle the first tick a debris body reaches rest.
+     *
+     * <p><b>The moment matters, and it is not the one this system already knew.</b>
+     * {@link #hasSleptLongEnough} answers "has this been still long enough to remove", which is three
+     * seconds after the interesting thing happened — a disappearance rather than a landing. D15-R36
+     * lists debris settle as an event family and the bank has had a sound per material since it was
+     * built; what was missing was a moment to play it on, and this is it: the transition into
+     * {@code ISLAND_SLEEPING}.
+     *
+     * <p>Fires once per body per settling. Bullet reactivates a sleeping body that is struck, so a
+     * shard kicked by a passing car settles again and legitimately makes the noise again — which is
+     * why the latch is cleared on wake rather than set permanently.
+     */
+    private void reportSettled(World world, int entityId, long tick) {
+        DebrisTagComponent tag = world.getComponent(entityId, DebrisTagComponent.class);
+        RigidBodyComponent rigidBody = world.getComponent(entityId, RigidBodyComponent.class);
+        if (tag == null || rigidBody == null || rigidBody.body == null) {
+            return;
+        }
+        boolean asleep = rigidBody.body.getActivationState() == CollisionConstants.ISLAND_SLEEPING;
+        if (!asleep) {
+            tag.hasSettled = false;
+            return;
+        }
+        if (tag.hasSettled) {
+            return;
+        }
+        tag.hasSettled = true;
+
+        TransformComponent transform = world.getComponent(entityId, TransformComponent.class);
+        Vector3 at = transform == null ? Vector3.Zero : transform.position;
+        // Deferred, because slot 25 is a PRESENT system and would never see a same-tick event
+        // (DISC-022).
+        world.events().emit(new DebrisSettledEvent(entityId, tag.materialId, at, tick));
     }
 
     /**

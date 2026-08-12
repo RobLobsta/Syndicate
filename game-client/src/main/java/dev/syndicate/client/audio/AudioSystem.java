@@ -10,15 +10,20 @@ import dev.syndicate.client.LocalPlayer;
 import dev.syndicate.core.asset.AssetIndex;
 import dev.syndicate.core.asset.MaterialDef;
 import dev.syndicate.core.asset.PartType;
+import dev.syndicate.core.component.BurnStackComponent;
 import dev.syndicate.core.component.PartRefComponent;
 import dev.syndicate.core.component.PlayerInputComponent;
 import dev.syndicate.core.component.TransformComponent;
 import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.component.VehicleStatsComponent;
 import dev.syndicate.core.component.VelocityComponent;
+import dev.syndicate.core.component.WheelControllerComponent;
 import dev.syndicate.core.damage.DamageEvent;
+import dev.syndicate.core.damage.DebrisSettledEvent;
 import dev.syndicate.core.damage.PartDestroyedEvent;
 import dev.syndicate.core.damage.PartDetachedEvent;
+import dev.syndicate.core.damage.WeaponFiredEvent;
+import dev.syndicate.core.damage.WeaponImpactEvent;
 import dev.syndicate.core.ecs.ComponentQuery;
 import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.core.ecs.EntitySystem;
@@ -28,9 +33,11 @@ import dev.syndicate.core.ecs.World;
 import dev.syndicate.core.vehicle.EngineVoice;
 import dev.syndicate.core.vehicle.VehicleProfile;
 import dev.syndicate.core.vehicle.VehicleProfiles;
+import dev.syndicate.model.AssetId;
 import dev.syndicate.model.AudioEvent;
 import dev.syndicate.model.AudioMaterial;
 import dev.syndicate.model.DestructionClass;
+import dev.syndicate.model.WeaponFamily;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -59,10 +66,17 @@ import org.slf4j.LoggerFactory;
  * eight bots idling at the far end of an arena are eight engines at full volume, and the one a
  * player is driving is inaudible inside them.
  *
- * <p>Two of D15-R36's families are not played here, and are named rather than quietly skipped:
- * {@code TYRE_ROLL}/{@code TYRE_SKID} need per-wheel slip and surface, which the ray-cast wheel
- * computes but no component yet exposes; {@code WEAPON_FIRE}/{@code WEAPON_IMPACT} need events slots
- * 8 and 9 do not emit. Both sets of files exist in the bank and are silent until those arrive.
+ * <p><b>Every family D15-R36 names now plays.</b> Three of them were silent for a session not for
+ * want of sounds — the files were in the bank and correct — but for want of anything to trigger them:
+ * tyre roll and skid needed per-wheel slip, which the ray-cast wheel computed inside Bullet where
+ * nothing could read it; weapon fire and impact needed events slots 8 and 9 did not emit; debris
+ * settle needed a came-to-rest signal the debris path did not produce. All three now exist, and this
+ * system is what they arrive at.
+ *
+ * <p><b>A vehicle can hold up to four looping voices at once</b> — engine, induction, tyre roll and
+ * tyre skid — plus a fire loop while it burns. They are started once and then only adjusted, never
+ * restarted: every restart is an audible discontinuity at the loop point, and doing it per frame is
+ * the single most reliable way to make a synthesised engine sound synthesised.
  */
 public final class AudioSystem implements EntitySystem {
 
@@ -92,11 +106,29 @@ public final class AudioSystem implements EntitySystem {
     /** One-shots started in a single frame, past which the rest are dropped. */
     public static final int MAX_ONE_SHOTS_PER_FRAME = 8;
 
+    /** Road speed above which tyre roll is at full voice. */
+    public static final float TYRE_ROLL_FULL_SPEED_MPS = 28f;
+
+    /** Road speed below which a tyre makes no rolling noise at all. */
+    public static final float TYRE_ROLL_MIN_SPEED_MPS = 1.5f;
+
+    /** Slip below which a tyre is gripping and does not squeal. */
+    public static final float SKID_THRESHOLD = 0.18f;
+
+    /** The surface every arena is made of today. Arenas do not yet declare one (DEV-014). */
+    public static final String DEFAULT_SURFACE = "tarmac";
+
+    /** Throttle above which a lift can later count as a lift, for the overrun. */
+    public static final float OVERRUN_ARM_THROTTLE = 0.55f;
+
+    /** Seconds between overrun one-shots, so a driver feathering the throttle does not machine-gun. */
+    public static final float OVERRUN_COOLDOWN_S = 1.4f;
+
     private final SoundBank bank;
     private final AssetIndex assets;
     private final LocalPlayer localPlayer;
 
-    private final Map<Integer, EngineLoop> engines = new TreeMap<>();
+    private final Map<Integer, VehicleVoices> engines = new TreeMap<>();
     private final List<OneShot> pending = new ArrayList<>();
     private final Vector3 listener = new Vector3();
     private final Vector3 scratch = new Vector3();
@@ -128,6 +160,9 @@ public final class AudioSystem implements EntitySystem {
         world.events().subscribe(DamageEvent.class, this::onDamage);
         world.events().subscribe(PartDetachedEvent.class, this::onDetach);
         world.events().subscribe(PartDestroyedEvent.class, this::onPartDestroyed);
+        world.events().subscribe(WeaponFiredEvent.class, this::onWeaponFired);
+        world.events().subscribe(WeaponImpactEvent.class, this::onWeaponImpact);
+        world.events().subscribe(DebrisSettledEvent.class, this::onDebrisSettled);
         if (!bank.isAvailable()) {
             LOG.warn("audio is unavailable; slot 25 runs and plays nothing (D15-S8)");
         }
@@ -141,8 +176,55 @@ public final class AudioSystem implements EntitySystem {
         }
         updateListener(world);
         playPending();
-        updateEngines(world);
+        updateEngines(world, dtSeconds);
     }
+
+    // ---- The three families that used to be silent -----------------------------------
+
+    /**
+     * A weapon fired. One of seven, chosen by family.
+     *
+     * <p>{@code RAM} is filtered rather than mapped: its "fire" is a collision, which the impact bank
+     * already covers, and the generator deliberately writes no {@code weapon_fire_ram.wav} for it.
+     * Letting it through would ask the bank for a sound that does not exist once per ram.
+     */
+    private void onWeaponFired(WeaponFiredEvent event) {
+        if (event.family() == WeaponFamily.RAM) {
+            return;
+        }
+        Vector3 at = event.muzzleWorld();
+        queue(AudioEvent.WEAPON_FIRE, event.family().name().toLowerCase(Locale.ROOT), at.x, at.y, at.z, 1f);
+    }
+
+    /** A shot arrived — on a car, on the floor, or on nothing. All three make a noise. */
+    private void onWeaponImpact(WeaponImpactEvent event) {
+        if (event.family() == WeaponFamily.RAM || !event.hitSomething()) {
+            return;
+        }
+        Vector3 at = event.pointWorld();
+        queue(AudioEvent.WEAPON_IMPACT, event.family().name().toLowerCase(Locale.ROOT), at.x, at.y, at.z, 1f);
+    }
+
+    /**
+     * A shard came to rest.
+     *
+     * <p>Quieter than the impact that produced it, because a settle is the end of an event rather
+     * than the event: a fracture throws dozens of shards, and playing each landing at full volume
+     * turns the tail of every explosion into a louder sound than the explosion.
+     */
+    private void onDebrisSettled(DebrisSettledEvent event) {
+        // A shard whose part named no material carries an empty id, which AssetId rejects outright
+        // rather than resolving to nothing — so the validity test comes before the lookup, and the
+        // default audio material carries the fallback.
+        MaterialDef material =
+                AssetId.isValid(event.materialId()) ? assets.material(AssetId.of(event.materialId())) : null;
+        AudioMaterial audio = material == null ? MaterialDef.DEFAULT_AUDIO_MATERIAL : material.audioMaterial();
+        Vector3 at = event.pointWorld();
+        queue(AudioEvent.DEBRIS_SETTLE, audio.token(), at.x, at.y, at.z, DEBRIS_SETTLE_GAIN);
+    }
+
+    /** How loud a shard's landing is relative to the hit that threw it. */
+    private static final float DEBRIS_SETTLE_GAIN = 0.45f;
 
     // ---- Listener -------------------------------------------------------------------
 
@@ -236,16 +318,17 @@ public final class AudioSystem implements EntitySystem {
         pending.clear();
     }
 
-    // ---- Engines --------------------------------------------------------------------
+    // ---- Per-vehicle looping voices --------------------------------------------------
 
     /**
-     * Starts, pitches and stops one looping voice per live vehicle.
+     * Starts, pitches and stops every looping voice a live vehicle has.
      *
-     * <p>The loop is started once and then only adjusted. Restarting it per frame — or per gear
-     * change, of which there are none — is the single most obvious way to make a synthesised engine
-     * sound synthesised, because every restart is an audible discontinuity at the loop point.
+     * <p>A car can be running up to four at once — exhaust, induction, tyre roll and tyre skid — and
+     * a burning one adds a fifth. Each is started once, silent, and then only adjusted. Restarting a
+     * loop per frame, or per state change, is the single most obvious way to make a synthesised
+     * engine sound synthesised, because every restart is an audible discontinuity at the loop point.
      */
-    private void updateEngines(World world) {
+    private void updateEngines(World world, float dtSeconds) {
         int[] entityIds = vehicles.snapshot();
         int count = vehicles.size();
         for (int i = 0; i < count; i++) {
@@ -254,63 +337,266 @@ public final class AudioSystem implements EntitySystem {
             if (chassis == null) {
                 continue;
             }
-            EngineLoop loop = engines.get(vehicle);
-            if (loop == null) {
-                loop = start(vehicle, chassis);
-                if (loop == null) {
+            VehicleVoices voices = engines.get(vehicle);
+            if (voices == null) {
+                voices = start(vehicle, chassis);
+                if (voices == null) {
                     continue;
                 }
-                engines.put(vehicle, loop);
+                engines.put(vehicle, voices);
             }
-            drive(world, vehicle, loop);
+            drive(world, vehicle, voices, dtSeconds);
         }
         stopDeadVehicles(world);
     }
 
-    private EngineLoop start(int vehicle, VehicleChassisComponent chassis) {
+    /**
+     * Brings a vehicle's voices up, and announces it with an ignition.
+     *
+     * <p>The start one-shot is the reason a match no longer opens with eight engines already idling.
+     * It is played at the car's own idle speed relative to the 800 rpm the bank authored, which costs
+     * no extra asset and is the same trick the loop uses for its rev range.
+     */
+    private VehicleVoices start(int vehicle, VehicleChassisComponent chassis) {
         VehicleProfile profile = VehicleProfiles.byId(chassis.assemblyId);
         if (profile == null) {
             return null;
         }
         EngineVoice voice = profile.engineVoice();
-        Sound sound = bank.get(voice.soundId());
-        if (sound == null) {
+        Sound engine = bank.get(voice.soundId());
+        if (engine == null) {
             return null;
         }
+        VehicleVoices voices = new VehicleVoices(voice);
         // Started silent: the first frame's pitch and gain are applied immediately below, and
         // starting at full volume would pop every engine in at the moment a match spawns.
-        long handle = sound.loop(0f);
-        return new EngineLoop(sound, handle, voice);
+        voices.engine = engine;
+        voices.engineHandle = engine.loop(0f);
+
+        if (voice.hasInductionVoice()) {
+            Sound induction = bank.get(voice.inductionSoundId());
+            if (induction != null) {
+                voices.induction = induction;
+                voices.inductionHandle = induction.loop(0f);
+            }
+        }
+        voices.tyreRoll = bank.forKey(AudioEvent.TYRE_ROLL, DEFAULT_SURFACE);
+        if (voices.tyreRoll != null) {
+            voices.tyreRollHandle = voices.tyreRoll.loop(0f);
+        }
+        voices.tyreSkid = bank.forKey(AudioEvent.TYRE_SKID, DEFAULT_SURFACE);
+        if (voices.tyreSkid != null) {
+            voices.tyreSkidHandle = voices.tyreSkid.loop(0f);
+        }
+
+        Sound ignition = bank.get(voice.startSoundId());
+        if (ignition != null) {
+            long handle = ignition.play(MASTER_GAIN * IGNITION_GAIN);
+            ignition.setPitch(handle, voice.transientPitch());
+        }
+        return voices;
     }
 
-    private void drive(World world, int vehicle, EngineLoop loop) {
+    /** How loud an ignition is. Below the engine, because it is an announcement and not the car. */
+    private static final float IGNITION_GAIN = 0.55f;
+
+    /** Adjusts every voice this vehicle is running to what it is doing this frame. */
+    private void drive(World world, int vehicle, VehicleVoices voices, float dtSeconds) {
         VelocityComponent velocity = world.getComponent(vehicle, VelocityComponent.class);
         VehicleStatsComponent stats = world.getComponent(vehicle, VehicleStatsComponent.class);
         PlayerInputComponent input = world.getComponent(vehicle, PlayerInputComponent.class);
         TransformComponent transform = world.getComponent(vehicle, TransformComponent.class);
+        VehicleChassisComponent chassis = world.getComponent(vehicle, VehicleChassisComponent.class);
 
         float speed = velocity == null ? 0f : velocity.linear.len();
         float topSpeed = stats == null ? 0f : stats.maxSpeedMps;
         float throttle = input == null ? 0f : Math.abs(input.throttle);
-        float rpm = loop.voice().rpmFor(speed, topSpeed, throttle);
+        EngineVoice voice = voices.voice;
+        float rpm = voice.rpmFor(speed, topSpeed, throttle);
 
         float attenuation = 1f;
         if (transform != null) {
             transform.worldMatrix.getTranslation(scratch);
             attenuation = attenuation(scratch.x, scratch.y, scratch.z);
         }
-        loop.sound().setPitch(loop.handle(), loop.voice().pitchAt(rpm));
-        loop.sound().setVolume(loop.handle(), MASTER_GAIN * loop.voice().gainAt(rpm) * attenuation);
+        float base = MASTER_GAIN * attenuation;
+
+        voices.engine.setPitch(voices.engineHandle, voice.pitchAt(rpm));
+        voices.engine.setVolume(voices.engineHandle, base * voice.gainAt(rpm));
+
+        if (voices.induction != null) {
+            voices.induction.setPitch(voices.inductionHandle, voice.inductionPitchAt(rpm));
+            voices.induction.setVolume(voices.inductionHandle, base * voice.inductionGainAt(rpm, throttle));
+        }
+
+        updateTyres(world, chassis, voices, speed, base);
+        updateLift(voice, voices, rpm, throttle, attenuation, dtSeconds);
+        updateFire(world, vehicle, voices, base);
+
+        voices.previousThrottle = throttle;
     }
 
+    /**
+     * Blends the two tyre loops from what the wheels are actually doing.
+     *
+     * <p>Roll rises with road speed; skid rises with the slip {@code VehicleControlSystem} (7) now
+     * mirrors off each {@code btWheelInfo}. Both are gated on a wheel being <em>in contact</em>,
+     * because a car in mid-air makes no tyre noise however fast its wheels are turning — and D06's
+     * ray-cast wheel will happily report grip on a wheel carrying no load at all (DISC-012), which is
+     * why the gate is on suspension force rather than on the contact flag alone.
+     */
+    private void updateTyres(
+            World world, VehicleChassisComponent chassis, VehicleVoices voices, float speed, float base) {
+
+        if (chassis == null) {
+            return;
+        }
+        int inContact = 0;
+        float worstSkid = 0f;
+        for (int i = 0; i < chassis.wheelCount; i++) {
+            WheelControllerComponent wheel =
+                    world.getComponent(chassis.wheelEntities[i], WheelControllerComponent.class);
+            if (wheel == null || !wheel.isInContact) {
+                continue;
+            }
+            inContact++;
+            worstSkid = Math.max(worstSkid, wheel.skid);
+        }
+        float grounded = chassis.wheelCount == 0 ? 0f : (float) inContact / chassis.wheelCount;
+
+        float rollFraction =
+                clamp01((speed - TYRE_ROLL_MIN_SPEED_MPS) / (TYRE_ROLL_FULL_SPEED_MPS - TYRE_ROLL_MIN_SPEED_MPS));
+        float skidFraction = clamp01((worstSkid - SKID_THRESHOLD) / (1f - SKID_THRESHOLD));
+
+        if (voices.tyreRoll != null) {
+            // A rolling tyre's pitch rises with speed as well as its volume, because the tread-block
+            // rate is a function of road speed. Held to a narrow range: a tyre is not an engine.
+            voices.tyreRoll.setPitch(voices.tyreRollHandle, 0.75f + 0.5f * rollFraction);
+            voices.tyreRoll.setVolume(voices.tyreRollHandle, base * grounded * rollFraction * TYRE_ROLL_GAIN);
+        }
+        if (voices.tyreSkid != null) {
+            voices.tyreSkid.setVolume(voices.tyreSkidHandle, base * grounded * skidFraction * TYRE_SKID_GAIN);
+        }
+    }
+
+    /** How loud tyre roll gets at full speed, under the engine. */
+    private static final float TYRE_ROLL_GAIN = 0.30f;
+
+    /** How loud a full slide gets. Above roll, because a squeal is information. */
+    private static final float TYRE_SKID_GAIN = 0.55f;
+
+    /**
+     * Fires the one-shots that belong to lifting off: the overrun crackle and the turbo's release.
+     *
+     * <p>Both need the previous frame's throttle, which is why {@link VehicleVoices} keeps it. A lift
+     * is a transition and there is no other way to see one.
+     */
+    private void updateLift(
+            EngineVoice voice, VehicleVoices voices, float rpm, float throttle, float attenuation, float dtSeconds) {
+
+        // The real frame delta, which slot 25 is handed (DEC-049) — not Gdx.graphics, which a
+        // capture run and a headless test both make a liar of.
+        voices.overrunCooldownS = Math.max(0f, voices.overrunCooldownS - dtSeconds);
+        boolean lifted = voices.previousThrottle > OVERRUN_ARM_THROTTLE && throttle <= EngineVoice.LIFT_THROTTLE;
+        if (!lifted) {
+            return;
+        }
+        if (voices.overrunCooldownS <= 0f) {
+            Sound overrun = bank.get(voice.overrunSoundId());
+            if (overrun != null) {
+                long handle = overrun.play(MASTER_GAIN * attenuation * OVERRUN_GAIN);
+                overrun.setPitch(handle, voice.pitchAt(rpm));
+                voices.overrunCooldownS = OVERRUN_COOLDOWN_S;
+            }
+        }
+        if (voice.shouldRelease(rpm, throttle, voices.previousThrottle)) {
+            Sound release = bank.get(voice.inductionReleaseSoundId());
+            if (release != null) {
+                release.play(MASTER_GAIN * attenuation * RELEASE_GAIN);
+            }
+        }
+    }
+
+    /** How loud an overrun crackle is. */
+    private static final float OVERRUN_GAIN = 0.5f;
+
+    /** How loud a blow-off is. */
+    private static final float RELEASE_GAIN = 0.6f;
+
+    /**
+     * Starts and stops the fire loop as a vehicle burns.
+     *
+     * <p>{@code DamageSystem} (12) has run a burn timer since Phase 5 with nothing audible attached
+     * to it, which meant an incendiary hit set a car alight and the car went on sounding exactly as
+     * before. The stack count drives the gain, so a car hit twice by a flamer roars rather than
+     * crackling.
+     */
+    private void updateFire(World world, int vehicle, VehicleVoices voices, float base) {
+        BurnStackComponent burn = world.getComponent(vehicle, BurnStackComponent.class);
+        int stacks = burn == null ? 0 : burn.stackCount;
+
+        if (stacks <= 0) {
+            if (voices.fire != null) {
+                voices.fire.stop(voices.fireHandle);
+                voices.fire = null;
+            }
+            return;
+        }
+        if (voices.fire == null) {
+            Sound fire = bank.get(FIRE_LOOP_SOUND_ID);
+            if (fire == null) {
+                return;
+            }
+            voices.fire = fire;
+            voices.fireHandle = fire.loop(0f);
+        }
+        float intensity = Math.min(1f, stacks / (float) FIRE_FULL_STACKS);
+        voices.fire.setVolume(voices.fireHandle, base * FIRE_GAIN * (0.45f + 0.55f * intensity));
+    }
+
+    /**
+     * The fire loop's asset id.
+     *
+     * <p>Spelled out rather than reconstructed through {@code forKey}, because this is the one sound
+     * in the bank with no key: there is a single fire, not one per material or per class, so its id
+     * is the bare event token and {@code forKey} with a key would ask for a file that does not exist.
+     */
+    private static final String FIRE_LOOP_SOUND_ID = "fire_loop";
+
+    /** Burn stacks at which a fire is at full voice. */
+    private static final int FIRE_FULL_STACKS = 3;
+
+    /** How loud a burning car is. */
+    private static final float FIRE_GAIN = 0.5f;
+
+    /**
+     * Silences and forgets every voice of a vehicle that has left the world.
+     *
+     * <p>A dead car gets its shutdown one-shot on the way out, which is the other half of the
+     * ignition — and the only moment in a match when an engine stopping is a thing a player hears
+     * rather than infers from a car that has stopped moving.
+     */
     private void stopDeadVehicles(World world) {
         engines.entrySet().removeIf(entry -> {
             if (world.isAlive(entry.getKey())) {
                 return false;
             }
-            entry.getValue().sound().stop(entry.getValue().handle());
+            VehicleVoices voices = entry.getValue();
+            Sound shutdown = bank.get(voices.voice.stopSoundId());
+            if (shutdown != null) {
+                long handle = shutdown.play(MASTER_GAIN * SHUTDOWN_GAIN);
+                shutdown.setPitch(handle, voices.voice.transientPitch());
+            }
+            voices.stopAll();
             return true;
         });
+    }
+
+    /** How loud a shutdown is. */
+    private static final float SHUTDOWN_GAIN = 0.5f;
+
+    private static float clamp01(float value) {
+        return value < 0f ? 0f : Math.min(value, 1f);
     }
 
     // ---- Lookups --------------------------------------------------------------------
@@ -348,13 +634,59 @@ public final class AudioSystem implements EntitySystem {
 
     @Override
     public void dispose() {
-        engines.values().forEach(loop -> loop.sound().stop(loop.handle()));
+        engines.values().forEach(VehicleVoices::stopAll);
         engines.clear();
         pending.clear();
     }
 
-    /** One vehicle's running engine: the sound, the voice instance playing it, and its parameters. */
-    private record EngineLoop(Sound sound, long handle, EngineVoice voice) {}
+    /**
+     * Every looping voice one vehicle is running, and the two scraps of state a transition needs.
+     *
+     * <p>A class rather than a record because it is mutable by design: the handles are assigned as
+     * loops start, and {@link #previousThrottle} and {@link #overrunCooldownS} exist precisely to be
+     * written every frame. A lift is a transition, and a transition cannot be detected without
+     * remembering the previous side of it.
+     */
+    private static final class VehicleVoices {
+
+        private final EngineVoice voice;
+
+        private Sound engine;
+        private long engineHandle;
+        private Sound induction;
+        private long inductionHandle;
+        private Sound tyreRoll;
+        private long tyreRollHandle;
+        private Sound tyreSkid;
+        private long tyreSkidHandle;
+        private Sound fire;
+        private long fireHandle;
+
+        private float previousThrottle;
+        private float overrunCooldownS;
+
+        VehicleVoices(EngineVoice voice) {
+            this.voice = voice;
+        }
+
+        void stopAll() {
+            if (engine != null) {
+                engine.stop(engineHandle);
+            }
+            if (induction != null) {
+                induction.stop(inductionHandle);
+            }
+            if (tyreRoll != null) {
+                tyreRoll.stop(tyreRollHandle);
+            }
+            if (tyreSkid != null) {
+                tyreSkid.stop(tyreSkidHandle);
+            }
+            if (fire != null) {
+                fire.stop(fireHandle);
+            }
+        }
+    }
 
     /** A one-shot waiting for the frame to play it. */
     private record OneShot(AudioEvent event, String key, float x, float y, float z, float gain) {}

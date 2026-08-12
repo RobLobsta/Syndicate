@@ -10,6 +10,7 @@ import dev.syndicate.core.component.OwnerComponent;
 import dev.syndicate.core.component.ProjectileComponent;
 import dev.syndicate.core.component.TransformComponent;
 import dev.syndicate.core.damage.ProjectileImpact;
+import dev.syndicate.core.damage.WeaponImpactEvent;
 import dev.syndicate.core.ecs.ComponentQuery;
 import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.core.ecs.EntitySystem;
@@ -124,6 +125,10 @@ public final class ProjectileSystem implements EntitySystem {
                         ownerOf(world, projectileEntity),
                         projectile.sourceWeaponGroup,
                         tick);
+                // The landing's own cosmetic trace. Separate from the damage events `deliver` just
+                // published, because a round that hits the floor or a shard damages nothing and still
+                // has to make a noise — keying the impact sound off damage silences every miss.
+                world.events().emit(new WeaponImpactEvent(projectile.family, sweep.point(), true, tick));
                 world.destroyEntity(projectileEntity);
                 continue;
             }

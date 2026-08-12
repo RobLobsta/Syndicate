@@ -51,66 +51,248 @@
     "key" : "I4",
     "file" : "engine_loop_i4.wav",
     "loop" : true,
-    "durationSeconds" : 0.483,
+    "durationSeconds" : 0.45,
     "engineConfiguration" : "I4",
     "cylinders" : 4,
     "referenceRpm" : 4000.0,
-    "referenceFiringHz" : 133.33
+    "referenceFiringHz" : 133.33,
+    "banks" : 1,
+    "bankFiringSpreadDeg" : 0.0
   }, {
     "soundId" : "engine_loop_i6",
     "event" : "ENGINE_LOOP",
     "key" : "I6",
     "file" : "engine_loop_i6.wav",
     "loop" : true,
-    "durationSeconds" : 0.48,
+    "durationSeconds" : 0.45,
     "engineConfiguration" : "I6",
     "cylinders" : 6,
     "referenceRpm" : 4000.0,
-    "referenceFiringHz" : 200.0
+    "referenceFiringHz" : 200.0,
+    "banks" : 1,
+    "bankFiringSpreadDeg" : 0.0
   }, {
     "soundId" : "engine_loop_v10",
     "event" : "ENGINE_LOOP",
     "key" : "V10",
     "file" : "engine_loop_v10.wav",
     "loop" : true,
-    "durationSeconds" : 0.481,
+    "durationSeconds" : 0.45,
     "engineConfiguration" : "V10",
     "cylinders" : 10,
     "referenceRpm" : 4000.0,
-    "referenceFiringHz" : 333.33
+    "referenceFiringHz" : 333.33,
+    "banks" : 2,
+    "bankFiringSpreadDeg" : 0.0
   }, {
     "soundId" : "engine_loop_v12",
     "event" : "ENGINE_LOOP",
     "key" : "V12",
     "file" : "engine_loop_v12.wav",
     "loop" : true,
-    "durationSeconds" : 0.48,
+    "durationSeconds" : 0.45,
     "engineConfiguration" : "V12",
     "cylinders" : 12,
     "referenceRpm" : 4000.0,
-    "referenceFiringHz" : 400.0
+    "referenceFiringHz" : 400.0,
+    "banks" : 2,
+    "bankFiringSpreadDeg" : 0.0
   }, {
     "soundId" : "engine_loop_v6",
     "event" : "ENGINE_LOOP",
     "key" : "V6",
     "file" : "engine_loop_v6.wav",
     "loop" : true,
-    "durationSeconds" : 0.48,
+    "durationSeconds" : 0.45,
     "engineConfiguration" : "V6",
     "cylinders" : 6,
     "referenceRpm" : 4000.0,
-    "referenceFiringHz" : 200.0
+    "referenceFiringHz" : 200.0,
+    "banks" : 2,
+    "bankFiringSpreadDeg" : 0.0
   }, {
     "soundId" : "engine_loop_v8",
     "event" : "ENGINE_LOOP",
     "key" : "V8",
     "file" : "engine_loop_v8.wav",
     "loop" : true,
-    "durationSeconds" : 0.479,
+    "durationSeconds" : 0.45,
     "engineConfiguration" : "V8",
     "cylinders" : 8,
     "referenceRpm" : 4000.0,
-    "referenceFiringHz" : 266.67
+    "referenceFiringHz" : 266.67,
+    "banks" : 2,
+    "bankFiringSpreadDeg" : 180.0
+  }, {
+    "soundId" : "engine_overrun_i4",
+    "event" : "ENGINE_OVERRUN",
+    "key" : "I4",
+    "file" : "engine_overrun_i4.wav",
+    "loop" : false,
+    "durationSeconds" : 1.2,
+    "engineConfiguration" : "I4",
+    "referenceRpm" : 3500.0
+  }, {
+    "soundId" : "engine_overrun_i6",
+    "event" : "ENGINE_OVERRUN",
+    "key" : "I6",
+    "file" : "engine_overrun_i6.wav",
+    "loop" : false,
+    "durationSeconds" : 1.2,
+    "engineConfiguration" : "I6",
+    "referenceRpm" : 3500.0
+  }, {
+    "soundId" : "engine_overrun_v10",
+    "event" : "ENGINE_OVERRUN",
+    "key" : "V10",
+    "file" : "engine_overrun_v10.wav",
+    "loop" : false,
+    "durationSeconds" : 1.2,
+    "engineConfiguration" : "V10",
+    "referenceRpm" : 3500.0
+  }, {
+    "soundId" : "engine_overrun_v12",
+    "event" : "ENGINE_OVERRUN",
+    "key" : "V12",
+    "file" : "engine_overrun_v12.wav",
+    "loop" : false,
+    "durationSeconds" : 1.2,
+    "engineConfiguration" : "V12",
+    "referenceRpm" : 3500.0
+  }, {
+    "soundId" : "engine_overrun_v6",
+    "event" : "ENGINE_OVERRUN",
+    "key" : "V6",
+    "file" : "engine_overrun_v6.wav",
+    "loop" : false,
+    "durationSeconds" : 1.2,
+    "engineConfiguration" : "V6",
+    "referenceRpm" : 3500.0
+  }, {
+    "soundId" : "engine_overrun_v8",
+    "event" : "ENGINE_OVERRUN",
+    "key" : "V8",
+    "file" : "engine_overrun_v8.wav",
+    "loop" : false,
+    "durationSeconds" : 1.2,
+    "engineConfiguration" : "V8",
+    "referenceRpm" : 3500.0
+  }, {
+    "soundId" : "engine_start_i4",
+    "event" : "ENGINE_START",
+    "key" : "I4",
+    "file" : "engine_start_i4.wav",
+    "loop" : false,
+    "durationSeconds" : 1.75,
+    "engineConfiguration" : "I4",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "engine_start_i6",
+    "event" : "ENGINE_START",
+    "key" : "I6",
+    "file" : "engine_start_i6.wav",
+    "loop" : false,
+    "durationSeconds" : 1.75,
+    "engineConfiguration" : "I6",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "engine_start_v10",
+    "event" : "ENGINE_START",
+    "key" : "V10",
+    "file" : "engine_start_v10.wav",
+    "loop" : false,
+    "durationSeconds" : 1.75,
+    "engineConfiguration" : "V10",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "engine_start_v12",
+    "event" : "ENGINE_START",
+    "key" : "V12",
+    "file" : "engine_start_v12.wav",
+    "loop" : false,
+    "durationSeconds" : 1.75,
+    "engineConfiguration" : "V12",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "engine_start_v6",
+    "event" : "ENGINE_START",
+    "key" : "V6",
+    "file" : "engine_start_v6.wav",
+    "loop" : false,
+    "durationSeconds" : 1.75,
+    "engineConfiguration" : "V6",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "engine_start_v8",
+    "event" : "ENGINE_START",
+    "key" : "V8",
+    "file" : "engine_start_v8.wav",
+    "loop" : false,
+    "durationSeconds" : 1.75,
+    "engineConfiguration" : "V8",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "engine_stop_i4",
+    "event" : "ENGINE_STOP",
+    "key" : "I4",
+    "file" : "engine_stop_i4.wav",
+    "loop" : false,
+    "durationSeconds" : 1.15,
+    "engineConfiguration" : "I4",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "engine_stop_i6",
+    "event" : "ENGINE_STOP",
+    "key" : "I6",
+    "file" : "engine_stop_i6.wav",
+    "loop" : false,
+    "durationSeconds" : 1.15,
+    "engineConfiguration" : "I6",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "engine_stop_v10",
+    "event" : "ENGINE_STOP",
+    "key" : "V10",
+    "file" : "engine_stop_v10.wav",
+    "loop" : false,
+    "durationSeconds" : 1.15,
+    "engineConfiguration" : "V10",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "engine_stop_v12",
+    "event" : "ENGINE_STOP",
+    "key" : "V12",
+    "file" : "engine_stop_v12.wav",
+    "loop" : false,
+    "durationSeconds" : 1.15,
+    "engineConfiguration" : "V12",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "engine_stop_v6",
+    "event" : "ENGINE_STOP",
+    "key" : "V6",
+    "file" : "engine_stop_v6.wav",
+    "loop" : false,
+    "durationSeconds" : 1.15,
+    "engineConfiguration" : "V6",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "engine_stop_v8",
+    "event" : "ENGINE_STOP",
+    "key" : "V8",
+    "file" : "engine_stop_v8.wav",
+    "loop" : false,
+    "durationSeconds" : 1.15,
+    "engineConfiguration" : "V8",
+    "referenceIdleRpm" : 800.0
+  }, {
+    "soundId" : "fire_loop",
+    "event" : "FIRE_LOOP",
+    "key" : "DEFAULT",
+    "file" : "fire_loop.wav",
+    "loop" : true,
+    "durationSeconds" : 2.34,
+    "seconds" : 2.4
   }, {
     "soundId" : "glass_shatter_large",
     "event" : "GLASS_SHATTER",
@@ -262,6 +444,36 @@
     "durationSeconds" : 0.154,
     "audioMaterial" : "RUBBER",
     "severity" : "medium"
+  }, {
+    "soundId" : "induction_loop_supercharged",
+    "event" : "INDUCTION_LOOP",
+    "key" : "SUPERCHARGED",
+    "file" : "induction_loop_supercharged.wav",
+    "loop" : true,
+    "durationSeconds" : 0.35,
+    "induction" : "SUPERCHARGED",
+    "driveRatio" : 9.6,
+    "referenceRpm" : 4000.0,
+    "referenceFundamentalHz" : 640.0
+  }, {
+    "soundId" : "induction_loop_turbo",
+    "event" : "INDUCTION_LOOP",
+    "key" : "TURBO",
+    "file" : "induction_loop_turbo.wav",
+    "loop" : true,
+    "durationSeconds" : 0.35,
+    "induction" : "TURBO",
+    "driveRatio" : 75.0,
+    "referenceRpm" : 4000.0,
+    "referenceFundamentalHz" : 5000.0
+  }, {
+    "soundId" : "induction_release_turbo",
+    "event" : "INDUCTION_RELEASE",
+    "key" : "TURBO",
+    "file" : "induction_release_turbo.wav",
+    "loop" : false,
+    "durationSeconds" : 0.42,
+    "induction" : "TURBO"
   }, {
     "soundId" : "part_detach_glass",
     "event" : "PART_DETACH",

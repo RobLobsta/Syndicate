@@ -7,6 +7,7 @@ package dev.syndicate.core.vehicle;
 import dev.syndicate.core.asset.HandlingBlock;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.EngineConfiguration;
+import dev.syndicate.model.Induction;
 import dev.syndicate.model.SimulationConstants;
 import java.util.Objects;
 
@@ -61,6 +62,7 @@ public record VehicleProfile(
         EngineConfiguration engineConfiguration,
         float idleRpm,
         float redlineRpm,
+        Induction induction,
 
         // ---- Derived simulation parameters -------------------------------------------
         float chassisMassKg,
@@ -166,7 +168,7 @@ public record VehicleProfile(
      * A car that gets faster gets louder in the same commit.
      */
     public EngineVoice engineVoice() {
-        return new EngineVoice(engineConfiguration, idleRpm, redlineRpm, enginePowerW);
+        return new EngineVoice(engineConfiguration, idleRpm, redlineRpm, enginePowerW, induction);
     }
 
     public float totalMassKg() {
@@ -229,6 +231,7 @@ public record VehicleProfile(
         private EngineConfiguration engineConfiguration = EngineConfiguration.V6;
         private float idleRpm = 800f;
         private float redlineRpm = 7000f;
+        private Induction induction = Induction.NATURALLY_ASPIRATED;
         private float drivelineEfficiency = 0.90f;
         private float wheelMassKg = 38f;
         private float rollingResistance = HandlingBlock.REFERENCE_ROLLING_RESISTANCE;
@@ -309,16 +312,24 @@ public record VehicleProfile(
         }
 
         /**
-         * How the engine is arranged and how far it revs — what the car sounds like (D15-S8).
+         * How the engine is arranged, how far it revs, and how it breathes — what the car sounds
+         * like (D15-S8).
          *
-         * <p>On the profile rather than in the audio bank, because it is a published fact about
-         * the reference car, and because it is the field that makes two vehicles of the same
-         * weight class sound like different cars rather than the same one twice.
+         * <p>On the profile rather than in the audio bank, because all three are published facts
+         * about the reference car, and because they are the fields that make two vehicles of the
+         * same weight class sound like different cars rather than the same one twice.
+         *
+         * <p>{@code induction} is the newest of the three and the most immediately audible. Both
+         * shipped cars are forced-induction and neither sounded like it while the bank had no
+         * second voice to give them: a supercharger whine is what a listener identifies the
+         * Stampede's reference car by before its exhaust note registers at all.
          */
-        public Builder engineVoice(EngineConfiguration configuration, float idleRpm, float redlineRpm) {
+        public Builder engineVoice(
+                EngineConfiguration configuration, float idleRpm, float redlineRpm, Induction induction) {
             this.engineConfiguration = configuration;
             this.idleRpm = idleRpm;
             this.redlineRpm = redlineRpm;
+            this.induction = induction;
             return this;
         }
 
@@ -380,6 +391,7 @@ public record VehicleProfile(
                     engineConfiguration,
                     idleRpm,
                     redlineRpm,
+                    induction,
                     kerbMassKg - 4f * wheelMassKg,
                     wheelMassKg,
                     engineForceN,

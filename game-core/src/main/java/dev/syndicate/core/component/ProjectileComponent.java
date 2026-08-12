@@ -7,6 +7,7 @@ package dev.syndicate.core.component;
 import dev.syndicate.core.ecs.Component;
 import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.model.DamageType;
+import dev.syndicate.model.WeaponFamily;
 
 /**
  * What a shot in flight will do when it lands
@@ -48,6 +49,17 @@ public final class ProjectileComponent implements Component {
     /** Which weapon group fired it, for the damage ledger. {@code -1} when nothing did. */
     public int sourceWeaponGroup = -1;
 
+    /**
+     * Which family fired it, carried so its landing can be given that family's sound.
+     *
+     * <p>Cosmetic only. The simulation resolves a landing entirely from {@link #damageType},
+     * {@link #damageAmount} and {@link #blastRadiusM}; the family has done its work by the time a
+     * round is in the air. It rides along because slot 9 is the only place that still knows which of
+     * the seven impact sounds a landing should make, and reconstructing it downstream from damage
+     * type and blast radius would be a guess that a shotgun and an autocannon defeat.
+     */
+    public WeaponFamily family = WeaponFamily.AUTOCANNON;
+
     @Override
     public void reset() {
         damageType = DamageType.KINETIC;
@@ -57,5 +69,6 @@ public final class ProjectileComponent implements Component {
         travelledM = 0f;
         shooterVehicleEntity = EntityId.NULL;
         sourceWeaponGroup = -1;
+        family = WeaponFamily.AUTOCANNON;
     }
 }

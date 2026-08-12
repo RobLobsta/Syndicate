@@ -12,6 +12,7 @@ import dev.syndicate.model.AudioEvent;
 import dev.syndicate.model.AudioMaterial;
 import dev.syndicate.model.DestructionClass;
 import dev.syndicate.model.EngineConfiguration;
+import dev.syndicate.model.Induction;
 import dev.syndicate.model.WeaponFamily;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -69,6 +70,21 @@ public final class SoundBankBuilder {
      */
     public static final float REFERENCE_RPM = 4000f;
 
+    /**
+     * The idle speed engine starts and stops are authored at.
+     *
+     * <p>A nominal figure rather than any shipped car's — the two on the roster idle at 850 and 750 —
+     * because these are one-shots keyed on configuration, and a car plays them at its own pitch the
+     * same way it plays the loop at its own pitch.
+     */
+    public static final float REFERENCE_IDLE_RPM = 800f;
+
+    /** The engine speed an overrun is authored at: where a driver actually lifts. */
+    public static final float REFERENCE_OVERRUN_RPM = 3500f;
+
+    /** How long the fire loop is. Long enough that its aperiodic swells do not read as a cycle. */
+    public static final double FIRE_LOOP_SECONDS = 2.4;
+
     /** Surfaces a tyre loop is authored for. */
     public static final List<String> SURFACES = List.of("tarmac", "gravel", "metal");
 
@@ -94,6 +110,9 @@ public final class SoundBankBuilder {
         buildShatters();
         buildDebrisSettles();
         buildEngines();
+        buildEngineTransients();
+        buildInduction();
+        buildFire();
         buildTyres();
         buildWeapons();
 
@@ -214,15 +233,122 @@ public final class SoundBankBuilder {
         for (EngineConfiguration configuration : EngineConfiguration.values()) {
             String id = "engine_loop_" + configuration.token();
             double firingHz = configuration.firingHzAt(REFERENCE_RPM);
-            Waveform wave =
-                    SoundSynth.engineLoop(firingHz, configuration.harmonics(), configuration.roughness(), seedFor(id));
+            Waveform wave = SoundSynth.engineLoop(configuration, REFERENCE_RPM, seedFor(id));
             write(id, wave, AudioEvent.ENGINE_LOOP, configuration.name(), true, node -> {
                 node.put("engineConfiguration", configuration.name());
                 node.put("cylinders", configuration.cylinders());
                 node.put("referenceRpm", REFERENCE_RPM);
                 node.put("referenceFiringHz", Math.round(firingHz * 100d) / 100d);
+                node.put("banks", configuration.bankCount());
+                // The number that says whether this arrangement burbles. Zero for every even-firing
+                // bank; 180 for the cross-plane V8.
+                node.put("bankFiringSpreadDeg", configuration.bankFiringSpreadDegrees());
             });
         }
+    }
+
+    /**
+     * Ignition, shutdown and overrun, one of each per configuration.
+     *
+     * <p>Per configuration for the same reason the loop is (D15-R37a): what a start sounds like is
+     * how many cylinders catch and in what pattern, which is the arrangement's, not the car's. They
+     * are one-shots rather than loops, so the pitch a vehicle plays them at is the only per-car term.
+     *
+     * <p>The rev figures are the reference points these are authored at, not any particular car's:
+     * a nominal 800 rpm idle for start and stop, and 3,500 rpm for the overrun, which is where a
+     * driver actually lifts.
+     */
+    private void buildEngineTransients() throws IOException {
+        for (EngineConfiguration configuration : EngineConfiguration.values()) {
+            String startId = "engine_start_" + configuration.token();
+            write(
+                    startId,
+                    SoundSynth.engineStart(configuration, REFERENCE_IDLE_RPM, seedFor(startId)),
+                    AudioEvent.ENGINE_START,
+                    configuration.name(),
+                    false,
+                    node -> {
+                        node.put("engineConfiguration", configuration.name());
+                        node.put("referenceIdleRpm", REFERENCE_IDLE_RPM);
+                    });
+
+            String stopId = "engine_stop_" + configuration.token();
+            write(
+                    stopId,
+                    SoundSynth.engineStop(configuration, REFERENCE_IDLE_RPM, seedFor(stopId)),
+                    AudioEvent.ENGINE_STOP,
+                    configuration.name(),
+                    false,
+                    node -> {
+                        node.put("engineConfiguration", configuration.name());
+                        node.put("referenceIdleRpm", REFERENCE_IDLE_RPM);
+                    });
+
+            String overrunId = "engine_overrun_" + configuration.token();
+            write(
+                    overrunId,
+                    SoundSynth.engineOverrun(configuration, REFERENCE_OVERRUN_RPM, seedFor(overrunId)),
+                    AudioEvent.ENGINE_OVERRUN,
+                    configuration.name(),
+                    false,
+                    node -> {
+                        node.put("engineConfiguration", configuration.name());
+                        node.put("referenceRpm", REFERENCE_OVERRUN_RPM);
+                    });
+        }
+    }
+
+    /**
+     * The second voice of a forced-induction engine, one loop per {@link Induction} member.
+     *
+     * <p>Both shipped cars are forced-induction and neither sounded like it until this existed: the
+     * Eclipse's reference is a twin-turbo V6, the Stampede's a supercharged V8, and a blower whine is
+     * the most identifiable thing about the latter. Two files cover every forced engine the roster
+     * will ever have, which is the same bargain the six engine loops make.
+     */
+    private void buildInduction() throws IOException {
+        for (Induction induction : Induction.values()) {
+            if (!induction.isForced()) {
+                continue;
+            }
+            String id = "induction_loop_" + induction.token();
+            double fundamental = REFERENCE_RPM / 60.0 * induction.driveRatio();
+            write(
+                    id,
+                    SoundSynth.inductionLoop(induction, REFERENCE_RPM, seedFor(id)),
+                    AudioEvent.INDUCTION_LOOP,
+                    induction.name(),
+                    true,
+                    node -> {
+                        node.put("induction", induction.name());
+                        node.put("driveRatio", induction.driveRatio());
+                        node.put("referenceRpm", REFERENCE_RPM);
+                        node.put("referenceFundamentalHz", Math.round(fundamental * 100d) / 100d);
+                    });
+
+            if (induction.hasRelease()) {
+                String releaseId = "induction_release_" + induction.token();
+                write(
+                        releaseId,
+                        SoundSynth.inductionRelease(seedFor(releaseId)),
+                        AudioEvent.INDUCTION_RELEASE,
+                        induction.name(),
+                        false,
+                        node -> node.put("induction", induction.name()));
+            }
+        }
+    }
+
+    /** One fire loop. A burning car burns the same way whatever it is made of. */
+    private void buildFire() throws IOException {
+        String id = "fire_loop";
+        write(
+                id,
+                SoundSynth.fireLoop(FIRE_LOOP_SECONDS, seedFor(id)),
+                AudioEvent.FIRE_LOOP,
+                "DEFAULT",
+                true,
+                node -> node.put("seconds", FIRE_LOOP_SECONDS));
     }
 
     // ---- Tyres -----------------------------------------------------------------------------
