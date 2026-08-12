@@ -23,6 +23,7 @@ import dev.syndicate.core.component.TransformComponent;
 import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.component.WeaponControllerComponent;
 import dev.syndicate.core.damage.ProjectileImpact;
+import dev.syndicate.core.damage.WeaponFiredEvent;
 import dev.syndicate.core.ecs.ComponentQuery;
 import dev.syndicate.core.ecs.Entity;
 import dev.syndicate.core.ecs.EntityId;
@@ -226,6 +227,11 @@ public final class WeaponSystem implements EntitySystem {
                     tick);
         }
 
+        // Deferred, not same-tick: PRESENT systems run after the tick, so an emitSameTick event is
+        // drained before slot 25 or slot 24 could ever see it (DISC-022). This is the shot's only
+        // cosmetic trace — the simulation reads none of it.
+        world.events().emit(new WeaponFiredEvent(partEntity, vehicleEntity, block.family(), scratchMuzzle, tick));
+
         weapon.cooldownRemainingS = block.family().isContinuous() ? 0f : Math.max(0f, weapon.effectiveFireIntervalS);
         weapon.heat = Math.min(HEAT_LOCKOUT, weapon.heat + heatPerShot);
         if (weapon.ammoRemaining > 0) {
@@ -266,6 +272,7 @@ public final class WeaponSystem implements EntitySystem {
         world.addComponent(projectileEntity, motion);
 
         ProjectileComponent projectile = new ProjectileComponent();
+        projectile.family = block.family();
         projectile.damageType = block.damageType();
         projectile.damageAmount = damageAmount;
         projectile.blastRadiusM = block.blastRadiusM();

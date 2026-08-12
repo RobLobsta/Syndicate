@@ -6,6 +6,7 @@ package dev.syndicate.core.vehicle;
 
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.EngineConfiguration;
+import dev.syndicate.model.Induction;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -51,7 +52,7 @@ public final class VehicleProfiles {
             .engine(463f, 730f)
             // A 3.0 L twin-turbo V6 revving to 8,000. Against the Stampede's supercharged V8 that
             // is two fewer cylinders and 1,000 rpm more: a higher, thinner, busier note.
-            .engineVoice(EngineConfiguration.V6, 850f, 8000f)
+            .engineVoice(EngineConfiguration.V6, 850f, 8000f, Induction.TURBO)
             .performance(2.88f, 325f, 33f)
             .aero(0.38f, 2.00f, 0.20f)
             .drivelineEfficiency(0.90f)
@@ -99,7 +100,7 @@ public final class VehicleProfiles {
             .engine(608f, 900f)
             // A supercharged 5.2 L cross-plane V8 past 7,500. Eight bigger cylinders firing
             // unevenly, 145 kW more, and 470 kg more car to move: lower, louder, and heavier.
-            .engineVoice(EngineConfiguration.V8, 750f, 7600f)
+            .engineVoice(EngineConfiguration.V8, 750f, 7600f, Induction.SUPERCHARGED)
             .performance(3.40f, 325f, 30.0f)
             .aero(0.54f, 2.15f, 1.30f)
             .drivelineEfficiency(0.90f)

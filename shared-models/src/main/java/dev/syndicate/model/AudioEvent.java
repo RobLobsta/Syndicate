@@ -5,7 +5,7 @@
 package dev.syndicate.model;
 
 /**
- * The seven event families a prepared vehicle needs a sound for
+ * The event families a prepared vehicle needs a sound for
  * (docs/15_vehicle_preparation_pipeline.md#D15-S8, D15-R36).
  *
  * <p>Every one of these is keyed to something the simulation <em>already emits</em>. That is the
@@ -21,6 +21,29 @@ public enum AudioEvent {
 
     /** Engine, pitched by RPM. Per vehicle class, never per vehicle (D15-R37). */
     ENGINE_LOOP(true),
+
+    /** Ignition: starter, catch, and the flare down to idle. Per configuration, as the loop is. */
+    ENGINE_START(false),
+
+    /** Shutdown: fuel cut, the last charges, and the rock back onto compression. */
+    ENGINE_STOP(false),
+
+    /** Off-throttle: the exhaust popping as the driver lifts. */
+    ENGINE_OVERRUN(false),
+
+    /**
+     * The second voice of a forced-induction engine: a supercharger's whine or a turbo's rush.
+     *
+     * <p>Keyed on {@link Induction}, which is the same kind of axis as {@link EngineConfiguration}
+     * and obeys the same rule (D15-R37): a closed set, one asset each, nothing per vehicle.
+     */
+    INDUCTION_LOOP(true),
+
+    /** A turbo letting go on lift. Only {@link Induction#TURBO} has one. */
+    INDUCTION_RELEASE(false),
+
+    /** A vehicle burning. `DamageSystem` (12) already runs the burn timer this rides on. */
+    FIRE_LOOP(true),
 
     /** Tyres rolling, blended by surface. The ray-cast wheel already computes what this needs. */
     TYRE_ROLL(true),

@@ -38,6 +38,7 @@ import dev.syndicate.core.vehicle.PartDetachment;
 import dev.syndicate.core.vehicle.PartPlacement;
 import dev.syndicate.core.vehicle.SlotChain;
 import dev.syndicate.core.vehicle.SlotNode;
+import dev.syndicate.model.AssetId;
 import dev.syndicate.model.DamageState;
 import dev.syndicate.model.SimulationConstants;
 import java.util.ArrayList;
@@ -519,7 +520,7 @@ public final class DetachSystem implements EntitySystem {
                     shapeKey);
             return false;
         }
-        debrisFactory.spawnDebris(
+        int debrisEntity = debrisFactory.spawnDebris(
                 world,
                 shapeKey,
                 hull,
@@ -529,6 +530,7 @@ public final class DetachSystem implements EntitySystem {
                 angularVelocity,
                 lifetimeSeconds,
                 partEntity);
+        stampMaterial(world, debrisEntity, partRef.partTypeId);
         return true;
     }
 
@@ -552,6 +554,23 @@ public final class DetachSystem implements EntitySystem {
             return null;
         }
         return shapes.hullFor(shapeKey, partType.collisionMesh());
+    }
+
+    /**
+     * Records on a debris body what it is made of, so its landing can sound like that material.
+     *
+     * <p>Stamped at spawn rather than looked up when it lands, because by then the part it came from
+     * has been destroyed and its id is a label rather than a handle (D04-E1).
+     */
+    private void stampMaterial(World world, int debrisEntity, AssetId partTypeId) {
+        DebrisTagComponent tag = world.getComponent(debrisEntity, DebrisTagComponent.class);
+        PartType partType = partTypeId == null ? null : assets.partType(partTypeId);
+        // A part type may name no material — the destruction fixtures build one directly rather than
+        // loading it from assets/. An empty id resolves to the default audio material downstream,
+        // which is a duller settle rather than a missing one.
+        if (tag != null && partType != null && partType.materialId() != null) {
+            tag.materialId = partType.materialId().value();
+        }
     }
 
     /** Gives an already-embodied part the tag and lifetime that make it despawnable debris. */

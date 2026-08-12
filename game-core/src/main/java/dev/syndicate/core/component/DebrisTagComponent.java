@@ -26,9 +26,31 @@ public final class DebrisTagComponent implements Component {
     /** The tick this debris entity was created; the debris budget evicts oldest-first. */
     public long spawnTick;
 
+    /**
+     * What this shard is made of, so its landing can be given that material's settle sound.
+     *
+     * <p>Carried here rather than looked up through {@link #sourcePartEntity} for the reason the
+     * field's own documentation gives: that id is stale almost immediately, and a settle happens
+     * seconds after the part that produced it stopped existing. Copying the one string at spawn is
+     * cheaper than keeping a dead part alive to be asked about it.
+     */
+    public String materialId = "";
+
+    /**
+     * Whether this shard has already reported coming to rest.
+     *
+     * <p>Settling is a transition, and the only way to detect a transition is to remember the last
+     * side of it. It lives on the component rather than in {@code LifetimeSystem} because D04-R3
+     * rules out per-entity state inside a system, and because a client rewinding across a landing
+     * has to rewind this with everything else.
+     */
+    public boolean hasSettled;
+
     @Override
     public void reset() {
         sourcePartEntity = EntityId.NULL;
         spawnTick = 0L;
+        materialId = "";
+        hasSettled = false;
     }
 }

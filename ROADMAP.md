@@ -1,8 +1,10 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-11 (end of SESS-020)
-**Where we are:** it has a window. Eight cars, drawn from their own art, on an arena floor, with a
-camera behind one of them and a scoreboard in the corner. Nobody has driven it yet.
+**Last updated:** 2026-08-12 (end of SESS-021)
+**Where we are:** it has a window and, for the first time, a soundtrack that belongs to the cars in
+it. Eight cars on an arena floor, a camera behind one of them, a scoreboard in the corner — and a
+supercharged V8 that burbles and a twin-turbo V6 that goes quiet when you lift. Nobody has driven it
+yet.
 
 > This file is maintained by the coding assistant and updated **at the end of every session**
 > (CLAUDE.md §5, step 14). It is allowed to change shape as the work demands — reorder phases, split
@@ -31,11 +33,12 @@ gantt
     A car that drives                       :done, p6b, 16, 2
     Opponents - bots and match flow         :done, p8, 18, 1
     Preparation pipeline, sound, input      :done, p6c, 19, 1
-    A window - client, render, HUD (here)   :done, p7, 20, 1
+    A window - client, render, HUD          :done, p7, 20, 1
+    Audio - engines, induction, triggers (here) :done, p7b, 21, 1
 
     section Next
-    Driving it - tuning, balance, feel      :active, p11, 21, 2
-    Preparation pipeline - stages 6 to 8    :p6d, 23, 3
+    Driving it - tuning, balance, feel      :active, p11, 22, 2
+    Preparation pipeline - stages 6 to 8    :p6d, 24, 3
 
     section Then
     Multiplayer                             :p9, 26, 4
@@ -72,8 +75,10 @@ done and green; everything after is an estimate that will move.
   │  │            Bots, a match that starts, scores and ends         │
   │  ●  Phase 6c  Parts, sound and input                             │
   │  │            A car cut up by geometry; 52 sounds; a gamepad     │
-  │  ●  Phase 7   A window          ★ WATCHABLE   ← THIS SESSION     │
+  │  ●  Phase 7   A window          ★ WATCHABLE                     │
   │  │            Rendering, camera, HUD, morphs, particles, audio   │
+  │  ●  Phase 7b  Audio             ★ AUDIBLE     ← THIS SESSION     │
+  │  │            Real engines, induction, every family triggered    │
   └──┼───────────────────────────────────────────────────────────────┘
      │
   ┌──┼─ NEXT ──────────────────────────────────────────────────────────┐
@@ -112,76 +117,78 @@ catalogue would be finished.
 
 ---
 
-## 2. What happened this session (SESS-020)
+## 2. What happened this session (SESS-021)
 
-The session the marker moves past ★ WATCHABLE. One thing landed, and it is the one the last four
-sessions kept naming as the thing that had not: **there is a window**.
+The marker moves past ★ AUDIBLE. The game had 52 sounds and a system playing them since last session;
+what it did not have was cars that sounded like *those* cars, or triggers for a third of the families
+it shipped.
 
-### What it looks like
+### The question that started it
 
-The client boots a real window, builds the same world the dedicated server builds — same factories,
-same schedule, same physics — and puts five presentation systems on top of it. Run headless with a
-capture:
+"Do my current car/engine sounds replicate the actual sounds for those cars?" The honest answer was
+no, and finding out why meant measuring the committed `.wav` files rather than reading the code that
+wrote them. Two things were right — the four-stroke firing maths and both cars' rev ranges — and
+almost everything else was not.
+
+- **The loops were sawtooths.** A stack of harmonics at the firing frequency with a 1/n falloff, no
+  resonance anywhere in the spectrum. Real engine character is mostly the exhaust: a few fixed
+  resonances that stay put while the harmonics slide up through them as the engine revs.
+- **A cross-plane V8 could not burble.** A harmonic stack is perfectly even by construction. The
+  burble comes from the two banks firing `90-180-180-270` — a timing property — and it was being
+  approximated by a noise gain, which makes an engine hissier rather than lumpier.
+- **Neither car breathed.** Both reference cars are forced-induction: the Eclipse's is a twin-turbo
+  V6, the Stampede's a supercharged V8. A grep for "supercharger" found the word only in code
+  comments *describing* the reference cars. There was nothing in the synthesiser and nothing in the
+  playback path.
+
+### What landed
+
+An engine is now built the way an engine works: one exhaust pulse per firing event, placed at its
+crank angle, routed to its own bank, run through three exhaust formants that scale with engine size.
+Forced induction is a second voice on a closed three-member axis, so a blower whines whenever the
+crank turns and a turbo is nearly silent off the throttle — the difference is structural rather than
+a volume setting. Ignition, shutdown and off-throttle overrun exist per configuration, and a burning
+car finally makes a noise, five months after `DamageSystem` started running the burn timer.
+
+The bank goes from 52 sounds to 74.
+
+**And the three silent families now have triggers.** They were never missing files. Tyre roll and
+skid needed per-wheel slip, which the ray-cast wheel computed inside Bullet where nothing could read
+it — three fields mirrored out after the physics step is the whole fix. Weapon fire and impact needed
+events slots 8 and 9 did not emit. Debris settle needed a came-to-rest signal, which turned out to be
+the transition into sleep rather than the despawn the code already knew about.
+
+### The bug, and the test that could never have caught it
+
+Half the engine loops were broken and had been since they were written. The synthesiser chose a
+buffer length holding a whole number of cycles — then trimmed a crossfade measured in *seconds* off
+the end, which is a whole number of cycles only if the frequency happens to divide neatly. Three of
+six did not:
 
 ```
-$ syndicate-client --assets assets --bots 7 --capture shot.png --capture-frame 400
-SINGLE_PLAYER runs 23 of 27 scheduled systems; 4 are not implemented yet:
-  [INPUT_RECEIVE, NETWORK_SEND, NETWORK_RECEIVE, RECONCILIATION]
-local player 0 joined as Player driving vehicle_eclipse_01
-match phase LOBBY -> COUNTDOWN at tick 0 ... COUNTDOWN -> ACTIVE at tick 180
-captured frame 400 at tick 3641: 41 models drawn, peak 98 particle quads, 0 dropped ticks
+cfg    firingHz   kept  cycles in kept  seam
+i4       133.33  23160          64.333  BROKEN
+v8       266.67  22980         127.667  BROKEN
+v10      333.33  23088         160.333  BROKEN
+i6/v6/v12  ...                          exact by luck
 ```
 
-The picture is eight cars drawn from their own textured art, an arena floor gridded every five
-metres so speed reads, walls, a camera trailing the player's car, a health bar, a speedometer, a
-live scoreboard and a match clock.
+The V8's harmonics smeared into sidebands 2 Hz wide — an audible warble once per loop, on the
+Stampede and not the Eclipse, from identical code.
 
-### Five slots, and what each one is actually for
+The existing loop test was green on all six. It measured the step in sample *value* at the join, and
+an equal-power crossfade removes that by construction — so the assertion could not fail however badly
+the phase lined up. **A smoothing operation applied to make a test pass makes that test unable to
+fail.** That is the third session running where the bug was invisible to a green suite and obvious
+the moment somebody measured the artefact instead of the code. The counter-measure is the same one
+that has worked every time: measure the thing that ships.
 
-- **Interpolation (22)** — the simulation moves in sixty discrete steps a second and a display does
-  not. This places every car between the last two steps, so a 144 Hz monitor shows 144 distinct
-  positions rather than 60 positions shown twice.
-- **DamageVisual (23)** — health becomes shape key weights, blending between the four authored
-  damage states so a panel crumples continuously. It runs correctly today against meshes that carry
-  no damage morphs yet, which is what the preparation pipeline's stage 7 will add.
-- **Effect (24)** — sparks off a hit, shards off a fracture, a puff off a part tearing away, smoke
-  off a dead car. One entity per burst rather than per particle, so a firefight costs tens of
-  entities and not thousands.
-- **Audio (25)** — the 52-sound bank from last session finally has something to play it. Engines are
-  keyed on configuration and pitched from each car's own rev range and power, so the Eclipse's V6 and
-  the Stampede's V8 are audibly different engines and not the same one at two volumes.
-- **Render (26)** — one loaded mesh per part *type* shared across every car using it, the collision
-  hull dropped from what gets drawn, and everything placed from the interpolated transform.
+### One thing could not be verified
 
-Plus a chase camera that trails the car's heading rather than being bolted to its body — which is
-what lets a driver see the car rotate underneath them, and is the difference between "lively" and
-"uncontrollable" — and a HUD that answers the four things the 3D view cannot.
-
-### Two bugs, both found by running it
-
-The pattern from the previous four sessions held exactly.
-
-- **Every hit was silent and invisible.** Damage events were published on the same-tick channel,
-  which the damage system consumes within the tick — so the systems that draw sparks and play
-  impacts, which run *after* the tick, never saw a single one. A full match took a car from full
-  health to 78% and drew zero particles, with green unit tests for both systems, because a test
-  emits its own event through the other channel. (`DISC-022`)
-- **A build guardrail could not report a failure.** One of the checks formatted its error message
-  using a Gradle API that is illegal at that point — on the *error* path only. It had been green
-  since it was written, and would have failed for the first time on the commit that broke the rule
-  it exists to guard, disguised as an unrelated build error. (`DISC-021`)
-
-The second one generalises: a guardrail's failure path is the code least likely to have ever run.
-Both checks in `game-core` have now been run against a deliberate violation.
-
-### Verification on a machine with no screen
-
-`--capture FILE --capture-frame N` runs the real client for N frames, writes a PNG and exits. It is
-not a debug convenience: this project develops in a sandbox with no display, and every visual claim
-it has made since Phase 1 has been backed by a capture from the real thing rather than by an
-assertion about code that draws. The renderer also keeps a peak particle count across the whole run,
-because a single frame is one instant and a spark lasts under half a second — "zero particles in
-this frame" proves nothing, and "peak 98 over the run" proves the effect path works.
+`game-client` does not build in this sandbox — `jitpack.io` is blocked by the network policy and
+`gdx-gltf` only lives there. The audio package was type-checked by hand against the cached jars
+instead, which caught three real defects, but **the client's own tests did not run**. CI is the first
+place that will be established.
 
 ## 3. What is next
 
@@ -227,6 +234,10 @@ decision wants making before the session that implements them starts.
   floors, the propagation fraction, the degradation curves — all implemented, all at blueprint
   defaults, and for the first time there is a thing to run them against: eight bots fighting for
   sixty seconds and a report at the end of it.
+- **Mixing.** Seventy-four sounds exist and every one of them plays, which is a different thing from
+  them playing *well together*. A car can now run five looping voices at once and nothing has ever
+  balanced them against each other with a person listening. The gains in `AudioSystem` are first
+  guesses.
 
 ### Phases 9–10 — Multiplayer, then hardening
 
@@ -345,10 +356,17 @@ None of these are decided. They are here so the options are visible when a sessi
 - **`DISC-016`** — the mesh reader places a skinned mesh by its node transform, which is wrong
   whenever the placement lives in the skeleton instead. Nothing shipped depends on it today, because
   the split parts have no skeletons; the next downloaded model with a live skin will.
-- **Three of the seven sound families are silent**, and not for want of a bank. Tyre roll and skid
-  need per-wheel slip and surface, which the ray-cast wheel computes and no component exposes; weapon
-  fire and impact need events slots 8 and 9 do not emit; debris settle needs a "came to rest" signal
-  the debris path does not produce. The files exist and are correct; the triggers do not.
+- **Nobody has heard any of it.** Seventy-four sounds, every family triggered, and the whole of it
+  verified by spectral measurement rather than by listening — because this sandbox has no audio
+  device any more than it has a screen. The measurements say the V8 burbles and the turbo goes quiet
+  off-throttle; whether the result is *good* is the same kind of open question as the handling.
+- **`game-client` does not build here** (`DISC-024`). `jitpack.io` is blocked by the sandbox network
+  policy and `gdx-gltf` is published nowhere else, so every client change since this session is
+  type-checked by hand and untested until CI runs it. This will bite every future session that
+  touches the client.
+- **Every arena is tarmac.** The tyre loops ship for tarmac, gravel and metal, and the surface a
+  wheel is on is hard-coded to the first because an arena declares none (`DEV-014`). The three files
+  are correct and two of them can never play until arenas carry a surface.
 - **No damage morph targets exist yet**, so slot 23 is correct code driving nothing. Deformation
   arrives with stage 7 of the preparation pipeline, and until then a damaged car looks undamaged
   until a part comes off it entirely.
@@ -377,34 +395,38 @@ None of these are decided. They are here so the options are visible when a sessi
 
 ## 5. Where the project actually stands
 
-It is a game you can watch. Last session it was a game that could only be read about in a log file,
-and closing that gap is the whole of what changed.
+It is a game you can watch and hear. Two sessions ago it could only be read about in a log file; last
+session it could be watched; this session the two cars stopped being one exhaust note at two pitches
+and became a supercharged V8 and a twin-turbo V6.
 
 Eight cars go onto an arena floor, drawn from real art with real paint on them. They drive, crash,
-take damage, throw sparks, lose parts, and one of them wins. A camera follows one of them, a HUD
-says how fast it is going and how broken it is, a scoreboard says who is ahead and a clock says how
-long is left. It makes noise, and two different cars make different noise, because they are different
-engines rather than the same engine at two volumes.
+take damage, throw sparks, lose parts, and one of them wins. A camera follows one, a HUD says how
+fast and how broken it is, a scoreboard says who is ahead. Every sound the design calls for now
+plays: engines that start and stop, tyres that squeal under slip, weapons that fire and land, shards
+that clatter as they settle, and a fire that keeps burning until somebody finishes the car off.
 
-**Nobody has driven it.** That is now the entire remaining question, and it is a different kind of
-question from every one before it. Every prior session ended with something that did not exist yet.
-This one ends with everything existing and nothing being *judged*. The handling is a real supercar's
-published figures. The damage numbers are blueprint defaults. The bots ship at a difficulty nobody
-has lost to. The match is three minutes long because three minutes is a round number. None of that is
-a bug, and none of it can be settled by writing more code.
+**Nobody has driven it, and nobody has heard it.** That remains the entire question, and this session
+sharpened rather than changed it. The handling is a real supercar's published figures. The damage
+numbers are blueprint defaults. The bots ship at a difficulty nobody has lost to. And now the mix is
+five voices per car whose relative gains are first guesses. None of that is a bug, and none of it can
+be settled by writing more code.
 
 What is genuinely still missing is short and it is all networking: four systems, and a game that will
-never need them if multiplayer is cut. Everything else on the "not done" list is either content
-(damage morphs, weapons, fracture manifests) or tuning.
+never need them if multiplayer is cut. Everything else on the "not done" list is content (damage
+morphs, weapons, fracture manifests), Blender pipeline stages 6–8, or tuning.
 
-The risk profile has changed with it. For eight sessions the open question was whether the pieces
-would compose; the answer was yes, expensively. This session's two bugs fit the same pattern as the
-six before them and it should now be treated as a property of this project rather than bad luck:
-**the tests here verify that components are correct and almost never that they are correct
-together.** Both were invisible to a green test suite and obvious within a second of the real client
-printing what it did. The counter-measure has worked every single time and is cheap and dull — make
-the real thing run, and make it say what it did. `--capture` and the renderer's peak-particle counter
-are this session's contribution to that, and they are worth more than either bug they found.
+The risk profile is unchanged and this session confirmed it again, for the third time running: **the
+tests here verify that components are correct and almost never that they are correct together.** Half
+the engine loops had been broken since the day they were written, under a green test that could not
+fail by construction — it measured the discontinuity a crossfade removes rather than the one a
+crossfade hides. Every bug this project has found the expensive way has had the same shape, and the
+counter-measure has worked every single time: build the real artefact, then measure the artefact
+rather than the code. A DFT over 74 committed `.wav` files is this session's contribution to that,
+and it is worth more than any single thing it found.
+
+There is one new structural risk worth naming. `game-client` cannot be built in this environment at
+all, so the largest module in the project is now the least verified — and the audio work landed
+squarely in it.
 
 ## 6. How this file gets maintained
 

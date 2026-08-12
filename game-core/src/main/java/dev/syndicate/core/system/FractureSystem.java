@@ -9,8 +9,10 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.btConvexHullShape;
 import dev.syndicate.core.asset.AssetIndex;
 import dev.syndicate.core.asset.FractureManifest;
+import dev.syndicate.core.asset.PartType;
 import dev.syndicate.core.asset.ShardDefinition;
 import dev.syndicate.core.component.DamageStateComponent;
+import dev.syndicate.core.component.DebrisTagComponent;
 import dev.syndicate.core.component.FractureDataComponent;
 import dev.syndicate.core.component.PartRefComponent;
 import dev.syndicate.core.component.RigidBodyComponent;
@@ -292,6 +294,18 @@ public final class FractureSystem implements EntitySystem {
         }
     }
 
+    /** What a part is made of, as a material id, or empty when it cannot be resolved. */
+    private String materialIdOf(World world, int partEntity) {
+        PartRefComponent partRef = world.getComponent(partEntity, PartRefComponent.class);
+        PartType partType = partRef == null ? null : assets.partType(partRef.partTypeId);
+        // A part type may name no material — the destruction fixtures build one directly rather than
+        // loading it from assets/. An empty id resolves to the default audio material downstream,
+        // which is a duller settle rather than a missing one.
+        return partType == null || partType.materialId() == null
+                ? ""
+                : partType.materialId().value();
+    }
+
     /**
      * Spawns one debris body per shard, in manifest order.
      *
@@ -307,6 +321,10 @@ public final class FractureSystem implements EntitySystem {
         Pcg32 random = world.random().stream(StreamId.FRACTURE_SCATTER);
         List<ShardDefinition> shards = manifest.shards();
         int spawned = 0;
+        // Resolved once, here, because the part is destroyed in this same tick: by the time a shard
+        // comes to rest its id is a label rather than a handle (D04-E1), and the settle sound needs
+        // to know what it is made of.
+        String materialId = materialIdOf(world, partEntity);
 
         for (int i = 0; i < shards.size(); i++) {
             ShardDefinition shard = shards.get(i);
@@ -349,7 +367,7 @@ public final class FractureSystem implements EntitySystem {
 
             btConvexHullShape hull =
                     shapes.hullFor(ShapeCacheKey.shard(manifest.manifestId(), shard.index()), shard.hullMesh());
-            debrisFactory.spawnDebris(
+            int debrisEntity = debrisFactory.spawnDebris(
                     world,
                     ShapeCacheKey.shard(manifest.manifestId(), shard.index()),
                     hull,
@@ -359,6 +377,12 @@ public final class FractureSystem implements EntitySystem {
                     scratchSpin,
                     SimulationConstants.DEBRIS_LIFETIME_S,
                     partEntity);
+            // What the shard is made of, recorded now because the part it broke off is destroyed in
+            // this same tick and cannot be asked later (D04-E1).
+            DebrisTagComponent tag = world.getComponent(debrisEntity, DebrisTagComponent.class);
+            if (tag != null) {
+                tag.materialId = materialId;
+            }
             spawned++;
         }
 

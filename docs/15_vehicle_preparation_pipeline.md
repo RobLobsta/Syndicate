@@ -281,10 +281,50 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 | Glass shatter | One-shot per `glass` part | The one sound a player will notice missing |
 | Debris settle | Per material, by mass | Driven by the existing debris lifetime |
 | Weapon fire / impact | Per weapon family (D01-R8) | Eight families, eight pairs |
+| Engine start / stop | Per **engine configuration** | Ignition and shutdown. Pitched by the vehicle's own idle speed |
+| Engine overrun | Per **engine configuration** | The exhaust popping on a lift. Fired by a throttle transition, not a state |
+| Induction loop | Per **induction type** | A supercharger's whine or a turbo's rush. See R36a |
+| Induction release | Per **induction type** that has one | A blow-off on lift. A supercharger has none, because it is geared |
+| Fire loop | One | A burning vehicle. `DamageSystem` (12) already runs the burn timer it rides on |
+
+**R36a.** **Induction is a second voice, and it is the axis on which a forced engine is recognised.**
+An exhaust note says how many cylinders are firing and how evenly; it says nothing about how the
+engine is breathing. Both of the vehicles this project ships are forced-induction — the Eclipse's
+reference is a twin-turbo V6 and the Stampede's a supercharged V8 — and a blower whine is what a
+listener identifies the latter by before its exhaust registers at all. Keyed on `Induction`
+(`NATURALLY_ASPIRATED`, `TURBO`, `SUPERCHARGED`), which is a closed set of three obeying R37 exactly
+as `EngineConfiguration` does: one asset per member, nothing per vehicle.
+
+**R36b.** The two forced types must differ **structurally**, not by tuning. A supercharger is geared
+to the crank, so it is a hard tone at a fixed order of engine speed and it is present whenever the
+engine turns. A turbocharger is spun by exhaust flow, so it is broadband rush that needs both revs
+and load, and it lets go audibly when the driver lifts — which is why only `TURBO` has a release.
+Rendering both as one loop at two gains reproduces the fault this rule exists to prevent.
+
+**R36c.** **Every family in this table needs a trigger that exists**, and a family whose sound ships
+without one is not delivered. Three of them shipped that way for a session: tyre roll and skid had
+correct files and no exposed wheel slip, weapon fire and impact had fourteen files and no events from
+slots 8 and 9, debris settle had five files and no came-to-rest signal. The files were never the hard
+half. An inventory is complete when a sound plays, not when a file exists.
 
 **R37.** Sounds are **per class and per material**, never per vehicle. Seven events over five destruction classes is a set of tens; per-vehicle sound would be a set of hundreds and would gate every new car on an audio pass.
 
 **R37a.** For an engine, the class in R37 is the **engine configuration**, not the vehicle class. `light`/`medium`/`heavy` describe how much a car weighs; what an engine sounds like is decided by how often it fires and how evenly, which is `cylinders × rpm / 120` and the arrangement's firing evenness. Keying engine loops on weight makes two different cars of the same weight sound identical, which is the specific complaint this rule exists to prevent. Six configurations cover every vehicle worth modelling and the set stays closed.
+
+**R37a1.** An engine is a **train of exhaust pulses at crank angles**, not a harmonic stack at the
+firing frequency. The two are not equivalent, and the difference is the whole character of a
+cross-plane V8: its banks fire at `90-180-180-270` while the engine as a whole fires evenly every
+90°, and what a listener calls the burble is the odd-order content that unevenness produces. A
+harmonic stack at `firingHz` is by construction perfectly even and cannot express it; approximating
+it with a noise gain makes an engine hissier rather than lumpier, because the ear locates unevenness
+in time and a noise gain puts it in the spectrum.
+
+**R37a2.** The burble is produced by that unevenness **failing to cancel**. A cross-plane V8's two
+bank patterns are time-reverses of each other, so summed perfectly coherently their odd orders cancel
+to zero and the engine is even at order 8 — which is why cross-connecting the banks audibly flattens
+a real one. Bank divergence is therefore a synthesis parameter with a physical meaning, and it must
+scale with how differently the banks fire: applied uniformly it makes even-firing arrangements lumpier
+than the one arrangement that should be lumpy.
 
 **R37b.** Two vehicles sharing a configuration must still differ, and do so without a second asset. A vehicle carries an **engine voice** — configuration, idle and redline rpm, peak power — and the runtime derives from it: the playback pitch (`firingHz(rpm) / firingHz(REFERENCE_RPM)`), the gain, and how much the low harmonics are emphasised. Peak power is the same number the physics accelerates the car with, so a car that gets faster gets louder in the same commit and the two cannot drift apart.
 
@@ -293,6 +333,15 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 **R38.** Sourcing, in order of preference: (a) permissively licensed libraries with attribution recorded beside the asset exactly as `license.txt` records model provenance today; (b) procedural synthesis for engine and tyre loops, which are parametric by nature and where a synthesiser removes a per-class asset; (c) commissioned or recorded audio. Generative audio models are viable for one-shots and are **not** for loops, where seam artefacts are audible.
 
 **R38a.** The shipped bank takes (b) for **every** family, not only the loops, and the deciding argument is R39's rather than R38's: the two shipped vehicle models are CC-BY-NC-SA, that constraint is already live, and a sampled bank would add a second differently-encumbered set of terms for somebody to discover later. A synthesised bank carries the repository's own licence, regenerates byte-identically from a seed, and — for the loops — has no seam to hide, because the buffer is constructed to contain a whole number of cycles rather than being cut from a recording.
+
+**R38a1.** A synthesised loop is seamless only if the buffer holds a **whole number of periods of
+everything periodic in it**, and a crossfade does not establish that — it hides the failure. A
+crossfade removes the discontinuity in sample *value*, which is what a click is; it does nothing
+about the discontinuity in *phase*, which is what a warble is. A buffer built to hold a whole number
+of cycles and then trimmed by a crossfade measured in seconds no longer holds a whole number of
+cycles, and its harmonics restart out of step on every pass. Any trim must be rounded to a cycle
+boundary of the lowest periodic component — for a pulse-train engine that is the **engine cycle**
+rate (`rpm/120`), not the firing rate, because an uneven bank pattern repeats once per 720°.
 
 **R38b.** Impact and detachment one-shots are **modal**: a broadband strike transient over a handful of exponentially damped, inharmonic sinusoids whose frequencies and decay times are the material's. Filtering noise is cheaper to write and does not work, because the ear identifies material from decay time and partial spacing far more than from spectral tilt.
 
