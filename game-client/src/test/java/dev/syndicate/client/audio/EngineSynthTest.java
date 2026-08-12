@@ -87,11 +87,13 @@ class EngineSynthTest {
      * resonance, and twice landed on the same frequency at two speeds by coincidence. The centroid
      * is where the energy actually is.
      *
-     * <p>The bounds are wide on purpose. Over a four-fold rpm change the centroid rises by between
-     * 2.85× and 3.51× across the six configurations — less than four, and it <em>should</em> be less
-     * than four, because the exhaust's resonances are fixed and hold some energy where they are.
-     * That sub-linearity is the thing that makes a big engine sound big at any speed. Only a design
-     * that had gone back to filtering everything else away would score near 1.
+     * <p><b>The lower bound is the guard; the upper one is only a sanity rail.</b> A pinned-formant
+     * design scores near 1, so anything comfortably above that catches the regression. The upper
+     * bound exists to notice a synthesiser that has stopped having fixed resonances at all, and it
+     * is deliberately loose: measured, a four-fold rpm change moves the centroid by 3.70× to 5.01×
+     * across the six configurations. More than four is not a fault — mass flow rises with rpm, so
+     * the turbulent component brightens faster than the harmonics move, which is what a real engine
+     * does as it comes on song.
      */
     @Test
     @Tag("unit")
@@ -101,7 +103,7 @@ class EngineSynthTest {
             double high = spectralCentroidHz(configuration, 6000);
             assertThat(high / low)
                     .as("%s: centroid %.0f Hz at 1500 rpm and %.0f Hz at 6000 rpm", configuration, low, high)
-                    .isBetween(2.0, 4.0);
+                    .isBetween(2.0, 6.5);
         }
     }
 
@@ -119,31 +121,59 @@ class EngineSynthTest {
     }
 
     /**
-     * A cross-plane V8 burbles and an even-firing V does not.
+     * A cross-plane V8 burbles and an even-firing arrangement does not.
      *
-     * <p>The same claim the old suite made, but measured against the firing order rather than in
-     * isolation — the burble is odd-order energy that is <em>audible next to</em> the firing order,
-     * and the previous version could be satisfied by an engine that had no firing order at all.
+     * <p><b>Stated as a contrast rather than as a count against a threshold</b>, because a threshold
+     * here is measured relative to the firing order and is therefore only as trustworthy as the
+     * firing order is. The previous version counted sub-orders louder than a quarter of the firing
+     * order, and it passed partly <em>because</em> the firing order was being notched — when that
+     * notch was fixed the same engine "stopped burbling" while its absolute sub-order content had
+     * barely moved. That is the DISC-025 mistake in miniature: a reference that the defect corrupts.
+     *
+     * <p>What is actually claimed is that one arrangement is unlike the others, so that is what is
+     * asserted. Measured at three speeds, the V8 carries its odd sub-orders at −4.6 to −12.6 dB
+     * relative to its own firing order, and every even-firing arrangement between −22.8 and
+     * −48.1 dB. The narrowest gap is 15 dB.
      */
     @Test
     @Tag("unit")
-    void aCrossPlaneV8BurblesAndAnEvenFiringVDoesNot() {
-        assertThat(subFiringOrderLines(EngineConfiguration.V8))
-                .as("a cross-plane V8 should carry a series of sub-firing orders")
-                .isGreaterThanOrEqualTo(3);
+    void aCrossPlaneV8BurblesAndAnEvenFiringOneDoesNot() {
+        for (double rpm : new double[] {2000, 3000, 4500}) {
+            double v8 = oddSubOrderDb(EngineConfiguration.V8, rpm);
+            for (EngineConfiguration configuration : EngineConfiguration.values()) {
+                if (configuration == EngineConfiguration.V8) {
+                    continue;
+                }
+                double even = oddSubOrderDb(configuration, rpm);
+                assertThat(v8 - even)
+                        .as(
+                                "at %.0f rpm the V8 (%.1f dB) must burble far more than %s (%.1f dB)",
+                                rpm, v8, configuration, even)
+                        .isGreaterThan(MIN_BURBLE_CONTRAST_DB);
+                assertThat(even)
+                        .as("%s fires evenly in every bank and must stay quiet below its firing order", configuration)
+                        .isLessThan(-20.0);
+            }
+        }
+    }
 
-        for (EngineConfiguration configuration :
-                new EngineConfiguration[] {EngineConfiguration.I4, EngineConfiguration.I6}) {
-            assertThat(subFiringOrderLines(configuration))
-                    .as("%s has one bank and fires evenly; it must not burble", configuration)
-                    .isZero();
+    /** How far a cross-plane V8's burble must stand clear of an even-firing arrangement's, in dB. */
+    private static final double MIN_BURBLE_CONTRAST_DB = 12.0;
+
+    /**
+     * Total energy in the odd orders below the firing order, relative to the firing order itself.
+     *
+     * <p>Odd orders only: an uneven bank pattern repeats once per 720°, so its extra content lands
+     * on the half-orders of the firing rate, and those are the odd orders of the engine cycle.
+     */
+    private static double oddSubOrderDb(EngineConfiguration configuration, double rpm) {
+        double[] orders = orderSpectrum(configuration, Induction.NATURALLY_ASPIRATED, rpm, 24);
+        int firing = configuration.cylinders();
+        double sum = 0.0;
+        for (int order = 1; order < firing; order += 2) {
+            sum += orders[order] * orders[order];
         }
-        for (EngineConfiguration configuration :
-                new EngineConfiguration[] {EngineConfiguration.V6, EngineConfiguration.V10, EngineConfiguration.V12}) {
-            assertThat(subFiringOrderLines(configuration))
-                    .as("%s fires evenly in both banks; at most a single offbeat line", configuration)
-                    .isLessThanOrEqualTo(1);
-        }
+        return 10.0 * Math.log10(sum / (orders[firing] * orders[firing]));
     }
 
     /**
@@ -264,27 +294,6 @@ class EngineSynthTest {
         }
         return block.clone();
     }
-
-    /**
-     * Counts sub-firing-order lines that are audible next to the firing order itself.
-     *
-     * <p>Half-orders only: a V8's burble lives at orders 1..7 against a firing order of 8, and an
-     * even-firing arrangement has nothing there at all.
-     */
-    private static int subFiringOrderLines(EngineConfiguration configuration) {
-        double[] orders = orderSpectrum(configuration, Induction.NATURALLY_ASPIRATED, 3000, 24);
-        int firing = configuration.cylinders();
-        int lines = 0;
-        for (int order = 1; order < firing; order++) {
-            if (orders[order] > orders[firing] * SUB_ORDER_THRESHOLD) {
-                lines++;
-            }
-        }
-        return lines;
-    }
-
-    /** Fraction of the firing order's magnitude at which a sub-order line counts as audible. */
-    private static final double SUB_ORDER_THRESHOLD = 0.25;
 
     private static double[] orderSpectrum(
             EngineConfiguration configuration, Induction induction, double rpm, int maxOrder) {

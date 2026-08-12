@@ -198,12 +198,40 @@ four-cylinder's fundamental genuinely sits below every exhaust resonance and its
 carries. Real engines do that. The test now says the firing order must never be *buried* — never more
 than 12 dB down, where the old bank was 25.
 
+### Then it was tuned against real engines
+
+The numbers above make an engine the right *pitch*. They say nothing about whether it has the right
+*texture*, and it did not. Almost every audio host is blocked from this sandbox, but GitHub's raw
+file server is not — and ESC-50, an openly licensed sound dataset, has forty engine recordings in it.
+Measuring those against the synthesiser turned up two things that were badly out:
+
+| | real engines | synth before | synth after |
+|---|---|---|---|
+| how fast harmonics fall | −7 dB/octave | **−22** | −7 to −11 |
+| how far they stand above the noise between them | +9 to +17 dB | **+37** | +19 to +23 |
+
+It was muffled, and it was almost noiseless. The second matters more than it looks: a real engine has
+turbulent gas moving through the pipe between the bangs, and one that does not sounds synthetic no
+matter how correct its firing geometry is. The muffler opened up and continuous flow noise was added.
+
+Brightening it then exposed something that had been hiding: the two exhaust banks were offset by
+1.4 ms, which cancels at 357 Hz — exactly where a V8 fires at 4,500 rpm. That offset was chosen last
+session to protect the burble, but part of the "burble" it was protecting was the firing order being
+notched out. Halved, the V8 keeps its burble and gets its fundamental back.
+
+The reference clips are CC BY-NC and are **never committed** — they are measured, and the constants
+they produce are what ships. `game-client/tools/engine_reference.py` re-runs the whole comparison so
+the next person does not have to take these numbers on trust.
+
 ### Still not verified here
 
-`game-client` does not build in this sandbox — `jitpack.io` is blocked by the network policy and
-`gdx-gltf` only lives there. But the three new DSP classes import no libGDX at all, so their 14 tests
-were compiled and run standalone, and all pass. The two classes that do touch libGDX are type-checked
-only. CI is the first place they run.
+`game-client` does not build in this sandbox, and it is not a stale dependency: CI builds it fine on
+every run. `jitpack.io`, where `gdx-gltf` lives, is simply blocked by this sandbox's network policy,
+along with `search.maven.org` and `github.com` itself. No version bump fixes that.
+
+The three new DSP classes import no libGDX at all, so their 14 tests were compiled and run standalone
+and all pass. The two classes that do touch libGDX are type-checked only. CI is the first place they
+run.
 
 One thing was deliberately left undone: the deleted overrun files carried exhaust crackle, and
 dropping the load reproduces the overrun but not the pops.
@@ -260,6 +288,10 @@ decision wants making before the session that implements them starts.
   somebody still has to turn them.
 - **The overrun pops.** The deleted overrun one-shots carried exhaust crackle. Dropping the load
   reproduces the overrun; it does not reproduce the bangs.
+- **Better reference recordings.** The engines are now tuned against forty openly licensed clips of
+  *generic* engines, which fixed the texture. Nothing has been matched against a Mustang GTD or an
+  MC20 specifically, because no openly licensed recording of either is reachable. If you can supply
+  a clean recording of each, the same harness will measure it and the constants can be moved.
 
 ### Phases 9–10 — Multiplayer, then hardening
 

@@ -69,10 +69,30 @@ public final class EngineSynth {
     private static final double[] FORMANT_Q = {2.5, 1.8, 1.2};
     private static final double[] FORMANT_GAIN = {1.30, 0.85, 0.40};
 
-    /** Muffler corner with the system intact, and with it torn completely open. */
-    private static final double MUFFLER_HZ_INTACT = 640.0;
+    /**
+     * Muffler corner with the system intact, and with it torn completely open.
+     *
+     * <p><b>Both were far too low, and it took real recordings to see it</b> (DISC-026). The first
+     * cut cascaded two low-passes at 640 Hz and 1,408 Hz, which is 24 dB per octave above the
+     * second corner. Measured against forty CC-licensed engine recordings, a real exhaust's
+     * harmonics fall at about 7 dB per octave between 100 Hz and 4 kHz; this synthesiser fell at
+     * 22. Everything above about 800 Hz was being thrown away, which is why it read as muffled
+     * rather than as loud.
+     */
+    private static final double MUFFLER_HZ_INTACT = 2600.0;
 
-    private static final double MUFFLER_HZ_BREACHED = 2600.0;
+    private static final double MUFFLER_HZ_BREACHED = 6000.0;
+
+    /**
+     * Turbulent flow noise in the pipe, as a fraction of the exhaust's own level.
+     *
+     * <p>Continuous rather than per-pulse, which is the point: the pulses already carry port
+     * turbulence scaled by their own envelope, and that produces a signal whose harmonics stand
+     * nearly 37 dB above everything between them. Real engines measure about 9 to 17 dB, and the
+     * gap is what makes a synthesised engine sound synthesised — too clean, not too dark. Gas is
+     * still moving through a pipe between blowdowns, and this is that.
+     */
+    private static final double FLOW_NOISE = 0.90;
 
     /** Where a breached exhaust's rasp sits, and how much of it there is at full breach. */
     private static final double RASP_HZ = 2400.0;
@@ -84,6 +104,7 @@ public final class EngineSynth {
     private final Biquad muffler2 = new Biquad();
     private final Biquad dcBlock = new Biquad();
     private final Biquad rasp = new Biquad();
+    private final Biquad flow = new Biquad();
 
     // ---- Pulse scheduling --------------------------------------------------------------------
 
@@ -111,9 +132,9 @@ public final class EngineSynth {
      * disappears. What stops them cancelling is the two banks reaching the listener differently,
      * which is why divergence scales with how unevenly a bank fires rather than being a constant.
      */
-    private static final double BANK_DETUNE_MAX = 0.06;
+    private static final double BANK_DETUNE_MAX = 0.10;
 
-    private static final double BANK_DELAY_MAX_SECONDS = 0.0014;
+    private static final double BANK_DELAY_MAX_SECONDS = 0.0007;
     private static final double BANK_DIVERGENCE_MIN = 0.10;
     private static final int BANK_DELAY_SAMPLES_MAX = 128;
 
@@ -191,6 +212,8 @@ public final class EngineSynth {
         // A blower's rush is broad and sits under its tone; a turbo's is narrow and is the sound.
         boolean geared = this.induction.tonality() > 0.5;
         inductionAir.bandPass(geared ? 1800.0 : 5200.0, geared ? 1.2 : 2.4);
+        // Broad and low-Q: pipe flow noise has no pitch, and giving it one would be a whistle.
+        flow.bandPass(900.0, 0.5);
         dcBlock.highPass(38.0, 0.707);
     }
 
@@ -264,8 +287,10 @@ public final class EngineSynth {
 
         double mufflerHz = mufflerHz(s.exhaustBreach());
         muffler1.lowPass(mufflerHz, 0.707);
-        muffler2.lowPass(mufflerHz * 2.2, 0.707);
+        muffler2.lowPass(mufflerHz * 4.0, 0.707);
         double raspGain = RASP_GAIN_MAX * s.exhaustBreach();
+        // Mass flow, roughly: how fast the engine is turning times how much it is drawing.
+        double flowGain = FLOW_NOISE * Math.sqrt(clamp01(s.rpm() / redlineRpm)) * (0.35 + 0.65 * s.load());
 
         double inductionHz = s.rpm() / 60.0 * induction.driveRatio();
         double inductionGain = inductionGain(s);
@@ -292,7 +317,9 @@ public final class EngineSynth {
             }
             ringPos = ringPos + 1 == RING ? 0 : ringPos + 1;
 
-            double exhaust = muffler2.process(muffler1.process(sample));
+            // Flow noise joins the excitation, so it is shaped by the same exhaust the pulses are
+            // — it is gas in the pipe, not hiss added to the output.
+            double exhaust = muffler2.process(muffler1.process(sample + flow.process(nextSample()) * flowGain));
             if (raspGain > 0.0) {
                 exhaust += rasp.process(sample) * raspGain;
             }

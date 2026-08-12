@@ -381,6 +381,18 @@ and neither test asked about it. The firing order need not be the single loudest
 at low rpm a four-cylinder's fundamental legitimately sits below every exhaust resonance and its
 second harmonic carries; it must not be buried.
 
+**R38a4.** A synthesised engine is tuned against **measured recordings of real engines**, not
+against taste, and two numbers carry most of the character. Its harmonics must fall at roughly
+**7 dB per octave** between 100 Hz and 4 kHz, and must stand roughly **15 dB** above the
+inter-harmonic floor. Both were far out before anybody measured them — 22 dB per octave and 37 dB —
+and the second matters more than it looks: an engine with no broadband content between its harmonics
+reads as synthetic however correct its firing geometry is. Real gas keeps moving through a pipe
+between blowdowns, so the flow noise is continuous and not gated by the pulse envelope.
+
+Reference recordings are **analysis inputs and never ship**. They inform constants in the
+synthesiser; no sample derived from them enters `assets/`, so R39's licence rule is satisfied by the
+bank carrying no third-party audio at all.
+
 **R38b.** Impact and detachment one-shots are **modal**: a broadband strike transient over a handful of exponentially damped, inharmonic sinusoids whose frequencies and decay times are the material's. Filtering noise is cheaper to write and does not work, because the ear identifies material from decay time and partial spacing far more than from spectral tilt.
 
 **R38c.** Severity is authored, never pitched. Three impact variants per material (`light`, `medium`, `heavy`) differ in modal frequency, decay and brightness, because a hard hit excites a larger area and therefore rings *lower* and longer — pitching one recording up and down produces the single most recognisable sign of a cheap bank.
@@ -409,6 +421,7 @@ second harmonic carries; it must not be buried.
 | T-D15-13 | Order spectrum of a V8 with and without a dead cylinder | Even-order nulls fill in by more than 5× (R37a3) |
 | T-D15-14 | A voice moving at ±60 m/s past the listener | Received frequency shifts by `c/(c∓v)` (R37a4) |
 | T-D15-15 | 24 voices at distinct positions, rendered together | Panned to their side, bus never clips (R37a4) |
+| T-D15-16 | Harmonic tilt and harmonic-to-floor ratio vs measured real engines | Within the measured range (R38a4) |
 
 ---
 
