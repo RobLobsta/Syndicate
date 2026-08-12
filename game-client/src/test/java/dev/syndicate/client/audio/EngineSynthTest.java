@@ -240,7 +240,7 @@ class EngineSynthTest {
     private static double inductionMagnitude(Induction induction, float throttle) {
         EngineConfiguration configuration =
                 induction == Induction.SUPERCHARGED ? EngineConfiguration.V8 : EngineConfiguration.V6;
-        EngineSynth synth = new EngineSynth(configuration, induction, 800f, 8000f, 4242L);
+        EngineSynth synth = new EngineSynth(configuration, induction, 800f, 8000f, 300_000f, 4242L);
         float[] block = new float[EngineMixer.BLOCK_FRAMES];
         float[] captured = new float[ANALYSIS_FRAMES];
         EngineSynth.State state = new EngineSynth.State(5000f, throttle, throttle, false, -1, 0f, 0f);
@@ -264,7 +264,7 @@ class EngineSynthTest {
     @Test
     @Tag("unit")
     void aStoppedEngineIsCompletelySilent() {
-        EngineSynth synth = new EngineSynth(EngineConfiguration.V8, Induction.SUPERCHARGED, 750f, 7600f, 99L);
+        EngineSynth synth = new EngineSynth(EngineConfiguration.V8, Induction.SUPERCHARGED, 750f, 7600f, 608_000f, 99L);
         float[] block = new float[EngineMixer.BLOCK_FRAMES];
         // Run it first, so the filters have something in them to keep ringing if anything would.
         for (int i = 0; i < 200; i++) {
@@ -287,7 +287,8 @@ class EngineSynthTest {
     }
 
     private static float[] firstBlock(long seed) {
-        EngineSynth synth = new EngineSynth(EngineConfiguration.V8, Induction.SUPERCHARGED, 750f, 7600f, seed);
+        EngineSynth synth =
+                new EngineSynth(EngineConfiguration.V8, Induction.SUPERCHARGED, 750f, 7600f, 608_000f, seed);
         float[] block = new float[EngineMixer.BLOCK_FRAMES];
         for (int i = 0; i < 20; i++) {
             synth.render(block, block.length, new EngineSynth.State(3000f, 0.8f, 0.8f, false, -1, 0f, 0f));
@@ -315,7 +316,7 @@ class EngineSynthTest {
     private static double[] orderSpectrum(
             EngineConfiguration configuration, Induction induction, double rpm, int maxOrder, EngineSynth.State state) {
 
-        EngineSynth synth = new EngineSynth(configuration, induction, 800f, 8000f, 12345L);
+        EngineSynth synth = new EngineSynth(configuration, induction, 800f, 8000f, 300_000f, 12345L);
         float[] block = new float[EngineMixer.BLOCK_FRAMES];
         float[] captured = new float[ANALYSIS_FRAMES];
 

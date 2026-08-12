@@ -22,7 +22,7 @@ class EngineMixerTest {
     }
 
     private static int acquireV8(EngineMixer mixer, long seed) {
-        return mixer.acquire(EngineConfiguration.V8, Induction.SUPERCHARGED, 750f, 7600f, seed);
+        return mixer.acquire(EngineConfiguration.V8, Induction.SUPERCHARGED, 750f, 7600f, 608_000f, seed);
     }
 
     /** A car to the right is louder in the right ear, and to the left in the left. */

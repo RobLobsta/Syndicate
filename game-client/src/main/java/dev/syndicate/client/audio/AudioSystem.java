@@ -52,13 +52,15 @@ import org.slf4j.LoggerFactory;
  * Schedule slot 25: what the match sounds like
  * (docs/04_entity_component_model.md#D04-S4.4 row 25, docs/15_vehicle_preparation_pipeline.md#D15-S8).
  *
- * <p>The bank has existed since the session before this one and had nothing to play it. This is the
- * thing that plays it, and the whole of its design is the two rules D15-S8 already fixed:
+ * <p><b>Two halves that fail independently.</b> Engines are synthesised live and mixed by
+ * {@link EngineMixer} onto their own stereo bus (DEC-056); everything else is a file from the
+ * {@link SoundBank}. On a machine with no audio device both are silent and this still runs (G18),
+ * and a missing sound bank does not take the engines with it.
  *
  * <ul>
- *   <li><b>Engines are keyed on configuration, not on the car</b> (D15-R37a, DEC-047). Six loops
- *       cover every vehicle; which one a car plays, at what pitch and what gain, comes from its
- *       {@link EngineVoice} — so two cars sharing a V8 still differ, and a new car adds no asset.
+ *   <li><b>An engine is not an asset</b> (D15-R37a3). This acquires a mixer slot per vehicle and
+ *       publishes what the car is doing into it every frame — rpm, throttle, load, and how badly
+ *       hurt it is. No file, no pitch ratio, and a new car adds nothing to the bank.
  *   <li><b>One-shots are keyed on material and class, not on the part</b> (D15-R37). A hit on steel
  *       sounds like steel wherever it lands.
  * </ul>
@@ -74,10 +76,10 @@ import org.slf4j.LoggerFactory;
  * settle needed a came-to-rest signal the debris path did not produce. All three now exist, and this
  * system is what they arrive at.
  *
- * <p><b>A vehicle can hold up to four looping voices at once</b> — engine, induction, tyre roll and
- * tyre skid — plus a fire loop while it burns. They are started once and then only adjusted, never
- * restarted: every restart is an audible discontinuity at the loop point, and doing it per frame is
- * the single most reliable way to make a synthesised engine sound synthesised.
+ * <p><b>The sampled loops a vehicle still holds</b> are tyre roll, tyre skid, and a fire loop while
+ * it burns. They are started once and then only adjusted, never restarted: every restart is an
+ * audible discontinuity at the loop point. The engine has no such constraint any more, because it
+ * has no loop point.
  */
 public final class AudioSystem implements EntitySystem {
 
@@ -394,8 +396,13 @@ public final class AudioSystem implements EntitySystem {
         VehicleVoices voices = new VehicleVoices(voice, vehicle);
         // A slot, not a file. The ignition that used to be a one-shot is the run state's first
         // phase, so the engine cranks and catches at this car's own idle rather than at 800 rpm.
-        voices.engineSlot =
-                mixer.acquire(voice.configuration(), voice.induction(), voice.idleRpm(), voice.redlineRpm(), vehicle);
+        voices.engineSlot = mixer.acquire(
+                voice.configuration(),
+                voice.induction(),
+                voice.idleRpm(),
+                voice.redlineRpm(),
+                voice.peakPowerW(),
+                vehicle);
 
         voices.tyreRoll = bank.forKey(AudioEvent.TYRE_ROLL, DEFAULT_SURFACE);
         if (voices.tyreRoll != null) {

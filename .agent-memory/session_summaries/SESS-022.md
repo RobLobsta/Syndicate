@@ -23,14 +23,14 @@ Three questions, each making the next one bigger.
 ## Rationale / Context
 `game-client` still cannot be built by Gradle here, and it is not the dependency's age: CI builds it fine, and jitpack is simply proxy-denied (DISC-024). A JDK 17 toolchain does install from apt, which is what made any Gradle task work at all. The three DSP classes import no libGDX, so their 14 tests ran standalone and all pass; `AudioSystem` and `EngineAudioOutput` are type-checked only.
 
-Then real recordings were found and the voicing tuned against them (DISC-026). Almost every audio host is proxy-blocked but `raw.githubusercontent.com` is not, and ESC-50 lives on GitHub. Real exhaust harmonics fall at 7 dB per octave where this fell at 22, and stand 9-17 dB above the floor between them where this stood 37: too dark and far too clean, and the second is what makes a synthesised engine sound synthesised. Brightening it then unmasked a comb notch from a bank delay chosen against the dark exhaust, and invalidated the burble test the same way — by measuring sub-orders against a firing order the defect suppresses.
+Then real recordings were found and the voicing tuned against them (DISC-026): real exhaust harmonics fall at 7 dB per octave where this fell at 22, and stand 9-17 dB above the floor between them where this stood 37. Too dark and far too clean. Brightening it unmasked a comb notch from a bank delay chosen against the dark exhaust, and invalidated the burble test the same way — sub-orders measured against a firing order the defect suppresses.
 
-One gap is deliberate: the deleted overrun files carried crackle, and dropping the load reproduces the overrun but not the pops.
+Three more came from listening. The starter was a bare sine at full amplitude from sample zero, and fixing that exposed a deeper fault (DISC-027): three of its periodic parts were free constants unconnected to the engine. Overrun pops and a power-scaled low shelf close the last two gaps.
 
 ## Impact
 - 27 audio files deleted; `AudioEvent` 15 → 9 members; `SoundSynth` loses ~370 lines.
 - New in `game-client` `audio`: `EngineSynth`, `EngineRunState`, `EngineMixer`, `EngineAudioOutput`.
-- D15-S8: R37a3, R37a4, R38a2, R38a3, R38a4 added; T-D15-11..16 added.
-- New memory: DEC-055, DEC-056, DISC-025, DISC-026, PROG-022.
-- 14 audio tests pass standalone; core, models and pipeline suites green.
+- D15-S8: R37a3, R37a4, R38a2-a7 added; T-D15-11..19 added.
+- New memory: DEC-055, DEC-056, DISC-025, DISC-026, DISC-027, PROG-022.
+- 17 audio tests pass standalone; core, models and pipeline suites green.
 

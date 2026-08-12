@@ -223,11 +223,38 @@ The reference clips are CC BY-NC and are **never committed** — they are measur
 they produce are what ships. `game-client/tools/engine_reference.py` re-runs the whole comparison so
 the next person does not have to take these numbers on trust.
 
+### Then three things you heard that no measurement had asked about
+
+The starter had a beep at the front of every sample: a bare 1,160 Hz sine at full amplitude from the
+first sample. Fixing the obvious part — fade it in, make it noise rather than a tone — exposed the
+real fault, which was that **three of the ignition's moving parts were not connected to the engine at
+all**:
+
+- the crank speed wobbled at a hardcoded 6 Hz, under a comment claiming it was the compression rate.
+  The real rate is `rpm / 120 x cylinders`: 8.7 Hz for a four, 17.3 for a V8, 26 for a V12.
+- the gear whine held one pitch while the crank speed swung 26% underneath it. A starter pinion is
+  geared to the ring gear; its pitch has to dip and recover with the labour.
+- a cranking engine made almost no exhaust noise, when in fact it is pumping air hard on every
+  stroke. That chuffing is most of what a start is.
+
+Tied to the crank, the same code now growls, and a four, a V8 and a V12 start audibly differently.
+The general lesson is worth keeping: **the ear detects a free constant long before it detects a wrong
+value.** 1,160 Hz was a perfectly plausible gear mesh; the problem was that it was connected to
+nothing.
+
+Two more, both asked for: powerful engines now get a low shelf that swells with the throttle and
+falls away on a lift (about 5 dB of swing on the Stampede, 1 dB on a small four), and lifting off at
+speed pops — armed by the throttle transition rather than the state, so a car that coasts for ten
+seconds pops for the first second and then just coasts.
+
 ### Still not verified here
 
 `game-client` does not build in this sandbox, and it is not a stale dependency: CI builds it fine on
-every run. `jitpack.io`, where `gdx-gltf` lives, is simply blocked by this sandbox's network policy,
-along with `search.maven.org` and `github.com` itself. No version bump fixes that.
+every run. `jitpack.io`, where `gdx-gltf` lives, is blocked by this sandbox's network policy, along
+with `search.maven.org`, `github.com` and `codeload`. No version bump fixes that, and gdx-gltf is not
+vestigial either — it supplies the GLB loader, the entire PBR shading path, image-based lighting, and
+the morph-target classes the damage deformation is built on. Removing it means reimplementing all
+four.
 
 The three new DSP classes import no libGDX at all, so their 14 tests were compiled and run standalone
 and all pass. The two classes that do touch libGDX are type-checked only. CI is the first place they
@@ -286,8 +313,6 @@ decision wants making before the session that implements them starts.
   synthesiser's own voicing — the blower level, the muffler corner, how far a wrecked exhaust opens
   up. Those are now numbers to turn rather than files to re-commission, which is the point, but
   somebody still has to turn them.
-- **The overrun pops.** The deleted overrun one-shots carried exhaust crackle. Dropping the load
-  reproduces the overrun; it does not reproduce the bangs.
 - **Better reference recordings.** The engines are now tuned against forty openly licensed clips of
   *generic* engines, which fixed the texture. Nothing has been matched against a Mustang GTD or an
   MC20 specifically, because no openly licensed recording of either is reachable. If you can supply

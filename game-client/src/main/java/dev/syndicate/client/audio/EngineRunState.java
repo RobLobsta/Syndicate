@@ -41,8 +41,23 @@ final class EngineRunState {
     /** How long the engine takes to pick itself up once it does. */
     private static final float CATCH_SECONDS = 0.30f;
 
-    /** Speed the starter turns a cold engine at. */
+    /** Speed the starter turns a cold engine at, once it has got it moving. */
     private static final float CRANK_RPM = 260f;
+
+    /** How long the starter takes to drag a cold engine up to cranking speed. */
+    private static final float CRANK_SPIN_UP_SECONDS = 0.18f;
+
+    /**
+     * How far the crank speed swings either side of {@link #CRANK_RPM} on each compression.
+     *
+     * <p><b>This is the growl, and it was the thing that made a start sound like a fault.</b> A
+     * starter does not turn an engine smoothly: every compression stroke loads it, the speed drops,
+     * the piston goes over the top and the speed recovers. The first version modulated at a fixed
+     * 6 Hz with a comment claiming it was the compression rate — it was not related to the engine at
+     * all. The real rate is {@code rpm / 120 × cylinders}, which is 8.7 Hz for a four and 26 Hz for
+     * a twelve, so a big engine grinds where a small one chugs.
+     */
+    private static final float CRANK_LABOUR_DEPTH = 0.26f;
 
     /** How far past idle a caught engine flares before settling. */
     private static final float FLARE_FACTOR = 1.45f;
@@ -123,16 +138,24 @@ final class EngineRunState {
 
         switch (phase) {
             case CRANKING -> {
-                // The starter labours slightly as each compression comes round.
-                rpm = CRANK_RPM * (0.88f + 0.12f * (float) Math.sin(2.0 * Math.PI * 6.0 * elapsed));
+                // Inertia first: a cold engine does not arrive at cranking speed, it is dragged there.
+                float spinUp = Math.min(1f, elapsed / CRANK_SPIN_UP_SECONDS);
+                float mean = CRANK_RPM * spinUp;
+                // Then the labour, once per compression. Computed from the mean speed rather than the
+                // modulated one, which would otherwise chase its own tail.
+                float compressionHz = mean / 120f * cylinders;
+                float labour = 1f - CRANK_LABOUR_DEPTH * (float) Math.sin(2.0 * Math.PI * compressionHz * elapsed);
+                rpm = Math.max(40f, mean * labour);
                 if (elapsed >= CRANK_SECONDS) {
                     phase = Phase.CATCHING;
                     elapsed = 0f;
                 }
-                // The first cylinders to catch fire weakly and not every time round, which is most
-                // of what a start actually sounds like.
+                // A cranking engine is pumping air hard through an open exhaust on every stroke, and
+                // that chuffing is most of what a start sounds like. It was near silent before,
+                // leaving nothing but the starter's own whine — which is why it read as a machine
+                // fault rather than as a car.
                 float catching = Math.max(0f, (elapsed - CRANK_SECONDS * 0.72f) / (CRANK_SECONDS * 0.28f));
-                return state(rpm, 0f, Math.min(0.35f, catching), true, healthFraction);
+                return state(rpm, 0f, CRANK_PUMPING + 0.35f * Math.min(1f, catching), true, healthFraction, 0f);
             }
             case CATCHING -> {
                 float u = Math.min(1f, elapsed / CATCH_SECONDS);
@@ -141,7 +164,10 @@ final class EngineRunState {
                     phase = Phase.RUNNING;
                     elapsed = 0f;
                 }
-                return state(rpm, 0.3f, 1f, false, healthFraction);
+                // Ragged on purpose: cylinders catch one at a time, so the engine stumbles before it
+                // picks itself up. Fed through the misfire parameter, which already means exactly
+                // "this cylinder did not burn properly".
+                return state(rpm, 0.3f, 0.45f + 0.55f * u, false, healthFraction, CATCH_MISFIRE * (1f - u));
             }
             case RUNNING -> {
                 rpm = slew(rpm, Math.max(idleRpm, demandRpm), dt);
@@ -173,10 +199,21 @@ final class EngineRunState {
         return delta < -maximum ? current - maximum : target;
     }
 
+    /** How hard a cranking engine pumps, as a load fraction. */
+    private static final float CRANK_PUMPING = 0.55f;
+
+    /** Misfire rate at the instant an engine catches, decaying to nothing as it picks up. */
+    private static final float CATCH_MISFIRE = 0.55f;
+
     private EngineSynth.State state(float atRpm, float throttle, float load, boolean starter, float health) {
+        return state(atRpm, throttle, load, starter, health, 0f);
+    }
+
+    private EngineSynth.State state(
+            float atRpm, float throttle, float load, boolean starter, float health, float extraMisfire) {
         float healthy = clamp01(health);
         float sick = HEALTHY_ABOVE <= 0f ? 0f : clamp01((HEALTHY_ABOVE - healthy) / HEALTHY_ABOVE);
-        float misfire = MAX_MISFIRE * sick * sick;
+        float misfire = clamp01(MAX_MISFIRE * sick * sick + extraMisfire);
         float breach = clamp01((BREACH_FROM - healthy) / (BREACH_FROM - BREACH_TO)) * MAX_BREACH;
         int dead = healthy < DEAD_CYLINDER_BELOW ? deadCylinderIndex : -1;
         return new EngineSynth.State(atRpm, throttle, load, starter, dead, misfire, breach);

@@ -94,6 +94,50 @@ public final class EngineSynth {
      */
     private static final double FLOW_NOISE = 0.90;
 
+    /**
+     * The low shelf a big engine gets on the throttle, and where it sits.
+     *
+     * <p><b>Power has to be audible as weight, not only as volume.</b> A 608 kW V8 does not sound
+     * like a 110 kW four played louder: it displaces far more gas per pulse, and that energy is
+     * low. The shelf is scaled by {@code sqrt(power)} and by load together, so it swells when the
+     * driver is actually on it and falls away on a lift — which is the half a listener feels rather
+     * than hears, and it survives a small speaker where a volume difference does not.
+     *
+     * <p>Below the low formant deliberately. That resonance is the pipe and stays where it is; this
+     * is the size of the engine breathing through it.
+     */
+    private static final double LOW_SHELF_HZ = 75.0;
+
+    private static final double LOW_SHELF_MAX_GAIN = 2.80;
+
+    /** Power at which the low shelf is at full lift. Matches {@code EngineVoice.REFERENCE_POWER_W}. */
+    private static final double REFERENCE_POWER_W = 500_000.0;
+
+    /**
+     * Overrun crackle: unburnt charge lighting off in a hot exhaust when the throttle shuts.
+     *
+     * <p>The deleted {@code engine_overrun_*} files carried these and nothing replaced them.
+     * Dropping the load reproduces the overrun's thin, hollow note but not the bangs, and the bangs
+     * are the part anybody actually notices. Armed by the transition rather than by the state: a
+     * car that coasts at zero load for ten seconds pops for the first second and then just coasts.
+     */
+    private static final double CRACKLE_DECAY_SECONDS = 1.30;
+
+    /** Cracks per second at full intensity, and the rev fraction below which a lift is too lazy. */
+    private static final double CRACKLE_RATE_HZ = 26.0;
+
+    private static final double CRACKLE_MIN_REV_FRACTION = 0.30;
+
+    /**
+     * How loud a bang is.
+     *
+     * <p>High, and it needs to be. The first cut let the crackle out at roughly the amplitude of the
+     * band-passed noise that makes it, which put it 0 dB above a coasting exhaust — measured, it was
+     * inaudible. An overrun pop is a detonation in a pipe; it is supposed to be the loudest thing
+     * the car does apart from a collision.
+     */
+    private static final double CRACKLE_GAIN = 4.0;
+
     /** Where a breached exhaust's rasp sits, and how much of it there is at full breach. */
     private static final double RASP_HZ = 2400.0;
 
@@ -105,6 +149,15 @@ public final class EngineSynth {
     private final Biquad dcBlock = new Biquad();
     private final Biquad rasp = new Biquad();
     private final Biquad flow = new Biquad();
+    private final Biquad lowShelf = new Biquad();
+    private final Biquad crackleFilter = new Biquad();
+
+    /** How much crackle is left to come, and the transient currently sounding. */
+    private double crackleArmed;
+
+    private double crackleEnvelope;
+    private double crackleDecay;
+    private double previousLoad;
 
     // ---- Pulse scheduling --------------------------------------------------------------------
 
@@ -164,8 +217,44 @@ public final class EngineSynth {
 
     // ---- Starter ------------------------------------------------------------------------------
 
+    /**
+     * How fast the starter fades in and out, in seconds.
+     *
+     * <p><b>A starter engages; it does not switch on.</b> Without this the gear whine began at full
+     * amplitude on the first sample, which is a step function — and a step into a near-sine reads
+     * as a beep before it reads as a motor. It was clearly audible at the head of every rendered
+     * sample and 25 dB above the body of the file.
+     */
+    private static final double STARTER_FADE_SECONDS = 0.07;
+
+    /**
+     * How much of the gear whine is tone rather than filtered noise.
+     *
+     * <p>Low on purpose. A starter's whine is a gear mesh under load, which is broadband with a
+     * pitch in it, and the first cut modelled it as a bare 1,160 Hz sinusoid. Two of those in a
+     * scene phase-lock into something that sounds like a reversing alarm.
+     */
+    private static final double STARTER_TONE_FRACTION = 0.30;
+
+    /**
+     * Ring-gear teeth: the whine is the pinion meshing this many times per crank revolution.
+     *
+     * <p><b>The whine is geared to the crank, so it must follow the crank.</b> Holding it at a fixed
+     * frequency was the other half of why a start sounded like a fault — the engine's speed swung
+     * 26% on every compression while the whine sat perfectly still above it, which is a combination
+     * no machine makes. Tied to rpm it dips and recovers with the labour, and the two together are
+     * what a listener recognises as an engine being turned over.
+     */
+    private static final double STARTER_RING_TEETH = 130.0;
+
     private double starterPhase;
     private double starterGearPhase;
+    private double starterEnvelope;
+
+    /** Per-vehicle variation on the ring gear, so two cars cranking together do not phase-lock. */
+    private final double starterGearScale;
+
+    private final Biquad starterGear = new Biquad();
 
     private long rng;
 
@@ -174,19 +263,29 @@ public final class EngineSynth {
 
     private final double redlineRpm;
 
+    /** How big this engine sounds, in {@code [0,1]}: {@code sqrt(power / REFERENCE_POWER_W)}. */
+    private final double weight;
+
     /**
      * @param configuration which arrangement to be; supplies the firing angles and the bank split
      * @param induction the forced-induction device, or {@link Induction#NATURALLY_ASPIRATED}
      * @param idleRpm the car's idle speed
      * @param redlineRpm the car's rev limit
+     * @param peakPowerW the engine's peak power, which decides how much low end it gets on throttle
      * @param seed the per-vehicle noise stream, so two identical cars are not sample-identical
      */
     public EngineSynth(
-            EngineConfiguration configuration, Induction induction, float idleRpm, float redlineRpm, long seed) {
+            EngineConfiguration configuration,
+            Induction induction,
+            float idleRpm,
+            float redlineRpm,
+            float peakPowerW,
+            long seed) {
         this.configuration = configuration == null ? EngineConfiguration.V6 : configuration;
         this.induction = induction == null ? Induction.NATURALLY_ASPIRATED : induction;
         this.idleRpm = Math.max(200.0, idleRpm);
         this.redlineRpm = Math.max(this.idleRpm + 500.0, redlineRpm);
+        this.weight = Math.sqrt(clamp01(Math.max(1f, peakPowerW) / REFERENCE_POWER_W));
         this.cylinders = this.configuration.cylinders();
         this.bankCount = this.configuration.bankCount();
         this.roughness = this.configuration.roughness();
@@ -214,6 +313,9 @@ public final class EngineSynth {
         inductionAir.bandPass(geared ? 1800.0 : 5200.0, geared ? 1.2 : 2.4);
         // Broad and low-Q: pipe flow noise has no pitch, and giving it one would be a whistle.
         flow.bandPass(900.0, 0.5);
+        // Bright and broad: an overrun bang is a sharp crack, not a thud.
+        crackleFilter.bandPass(1900.0, 0.8);
+        this.starterGearScale = 0.90 + nextUnit() * 0.20;
         dcBlock.highPass(38.0, 0.707);
     }
 
@@ -271,7 +373,7 @@ public final class EngineSynth {
      * <p>Adds nothing and allocates nothing: the caller owns the buffer and this overwrites it.
      */
     public void render(float[] out, int frames, State s) {
-        if (s.rpm() < 1f && !s.starter() && releaseEnvelope <= 0.0) {
+        if (s.rpm() < 1f && !s.starter() && releaseEnvelope <= 0.0 && crackleArmed <= 0.0 && crackleEnvelope <= 0.0) {
             java.util.Arrays.fill(out, 0, frames, 0f);
             return;
         }
@@ -291,6 +393,23 @@ public final class EngineSynth {
         double raspGain = RASP_GAIN_MAX * s.exhaustBreach();
         // Mass flow, roughly: how fast the engine is turning times how much it is drawing.
         double flowGain = FLOW_NOISE * Math.sqrt(clamp01(s.rpm() / redlineRpm)) * (0.35 + 0.65 * s.load());
+
+        // Weight on the throttle: a big engine leaning on it, falling away the moment it lifts.
+        lowShelf.lowShelf(LOW_SHELF_HZ, 1.0 + (LOW_SHELF_MAX_GAIN - 1.0) * weight * s.load());
+
+        // A lift is a transition, so it is detected as one. Arming on the state instead would have
+        // a coasting car popping forever.
+        double revFraction = clamp01((s.rpm() - idleRpm) / (redlineRpm - idleRpm));
+        if (previousLoad - s.load() > 0.35 && revFraction >= CRACKLE_MIN_REV_FRACTION) {
+            crackleArmed = Math.max(crackleArmed, revFraction * (0.55 + 0.45 * s.exhaustBreach()));
+        }
+        previousLoad = s.load();
+        double crackleRelease = Math.exp(-1.0 / (CRACKLE_DECAY_SECONDS * SAMPLE_RATE_HZ));
+        double crackleChance = CRACKLE_RATE_HZ / SAMPLE_RATE_HZ;
+
+        if (s.starter()) {
+            starterGear.bandPass(Math.max(40.0, s.rpm() / 60.0 * STARTER_RING_TEETH * starterGearScale), 5.0);
+        }
 
         double inductionHz = s.rpm() / 60.0 * induction.driveRatio();
         double inductionGain = inductionGain(s);
@@ -323,7 +442,20 @@ public final class EngineSynth {
             if (raspGain > 0.0) {
                 exhaust += rasp.process(sample) * raspGain;
             }
-            double result = dcBlock.process(exhaust);
+            double result = lowShelf.process(dcBlock.process(exhaust));
+
+            if (crackleArmed > 1e-3) {
+                if (nextUnit() < crackleChance * crackleArmed) {
+                    crackleEnvelope = crackleArmed * (0.35 + 0.65 * nextUnit());
+                    // Each bang is its own length; a uniform decay reads as a machine gun.
+                    crackleDecay = Math.exp(-1.0 / ((0.012 + 0.030 * nextUnit()) * SAMPLE_RATE_HZ));
+                }
+                crackleArmed *= crackleRelease;
+            }
+            if (crackleEnvelope > 1e-4) {
+                result += crackleFilter.process(nextSample()) * crackleEnvelope * CRACKLE_GAIN;
+                crackleEnvelope *= crackleDecay;
+            }
 
             if (inductionGain > 0.0) {
                 result += induction(inductionHz) * inductionGain;
@@ -332,9 +464,7 @@ public final class EngineSynth {
                 result += releaseFilter.process(nextSample()) * releaseEnvelope * 0.5;
                 releaseEnvelope *= releaseDecay;
             }
-            if (s.starter()) {
-                result += starter();
-            }
+            result += starter(s.starter(), s.rpm());
             out[n] = (float) result;
         }
     }
@@ -425,11 +555,25 @@ public final class EngineSynth {
         return tone * induction.tonality() + air * (1.0 - induction.tonality()) * 1.8;
     }
 
-    /** A starter motor: a low armature whirr with the gear whine riding on it. */
-    private double starter() {
-        starterPhase += 2.0 * Math.PI * 88.0 / SAMPLE_RATE_HZ;
-        starterGearPhase += 2.0 * Math.PI * 1160.0 / SAMPLE_RATE_HZ;
-        return (Math.sin(starterPhase) * 0.34 + Math.sin(starterGearPhase) * 0.30 + nextSample() * 0.22) * 0.30;
+    /**
+     * A starter motor: a low armature whirr with a gear whine riding on it.
+     *
+     * @param engaged whether the starter is turning this sample; the envelope does the rest
+     */
+    private double starter(boolean engaged, double rpm) {
+        double target = engaged ? 1.0 : 0.0;
+        starterEnvelope += (target - starterEnvelope) / (STARTER_FADE_SECONDS * SAMPLE_RATE_HZ);
+        if (starterEnvelope < 1e-4) {
+            return 0.0;
+        }
+        // Both follow the crank: the pinion through the ring gear, the armature through the drive.
+        double gearHz = Math.max(40.0, rpm / 60.0 * STARTER_RING_TEETH * starterGearScale);
+        starterPhase += 2.0 * Math.PI * (gearHz / 6.4) / SAMPLE_RATE_HZ;
+        starterGearPhase += 2.0 * Math.PI * gearHz / SAMPLE_RATE_HZ;
+        double whine = starterGear.process(nextSample()) * (1.0 - STARTER_TONE_FRACTION)
+                + Math.sin(starterGearPhase) * STARTER_TONE_FRACTION;
+        double armature = Math.sin(starterPhase) * 0.34;
+        return (armature + whine * 0.42 + nextSample() * 0.22) * 0.20 * starterEnvelope;
     }
 
     // ---- Deterministic noise -------------------------------------------------------------------
@@ -467,6 +611,7 @@ public final class EngineSynth {
         private double z2;
         private double lastHz = -1;
         private double lastQ = -1;
+        private double shelfGain = -1;
         private int lastKind = -1;
 
         void bandPass(double hz, double q) {
@@ -479,6 +624,31 @@ public final class EngineSynth {
 
         void highPass(double hz, double q) {
             set(2, hz, q);
+        }
+
+        /** Low shelf. {@code gain} is linear, so 2.0 lifts everything below {@code hz} by 6 dB. */
+        void lowShelf(double hz, double gain) {
+            if (gain == shelfGain && 3 == lastKind && hz == lastHz) {
+                return;
+            }
+            shelfGain = gain;
+            lastKind = 3;
+            lastHz = hz;
+            lastQ = -1;
+            double a = Math.sqrt(Math.max(1e-6, gain));
+            double omega = 2.0 * Math.PI * Math.min(hz, SAMPLE_RATE_HZ * 0.45) / SAMPLE_RATE_HZ;
+            double cos = Math.cos(omega);
+            // RBJ shelf at slope 1, where the alpha term collapses to sin(omega)/sqrt(2). The
+            // gentlest shelf there is, which is what "more weight" wants rather than a corner the
+            // ear can locate as an effect.
+            double alpha = Math.sin(omega) / Math.sqrt(2.0);
+            double twoSqrtAAlpha = 2.0 * Math.sqrt(a) * alpha;
+            double a0 = (a + 1.0) + (a - 1.0) * cos + twoSqrtAAlpha;
+            b0 = a * ((a + 1.0) - (a - 1.0) * cos + twoSqrtAAlpha) / a0;
+            b1 = 2.0 * a * ((a - 1.0) - (a + 1.0) * cos) / a0;
+            b2 = a * ((a + 1.0) - (a - 1.0) * cos - twoSqrtAAlpha) / a0;
+            a1 = -2.0 * ((a - 1.0) + (a + 1.0) * cos) / a0;
+            a2 = ((a + 1.0) + (a - 1.0) * cos - twoSqrtAAlpha) / a0;
         }
 
         private void set(int kind, double hz, double q) {

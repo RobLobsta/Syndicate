@@ -26,7 +26,9 @@ Engine audio moves out of the bank and into the runtime. `EngineSynth` renders a
 | Threading | done | Lock-free, allocation-free audio thread over `AtomicReferenceArray` snapshots (DEC-055) |
 | Bank | done | 27 files deleted, manifest regenerated, `AudioEvent` 15 → 9 |
 | Voicing vs real engines (D15-R38a4) | done | Tuned against 39 CC-licensed recordings: tilt −22 → −7 dB/oct, harmonic-to-floor +37 → +19 dB (DISC-026) |
-| Overrun crackle | not_started | The deleted `engine_overrun_*` files carried pops that nothing replaces yet |
+| Overrun crackle (D15-R38a7) | done | Armed by the throttle transition, not the state; bangs peak 2.3x a coast at the same rpm |
+| Low end on throttle (D15-R38a6) | done | 75 Hz shelf scaled by power and load: ~5 dB swing on the Stampede, ~1 dB on a 110 kW four |
+| Ignition (D15-R38a5) | done | Crank labour at the true compression rate, whine geared to the crank, cranking engine now pumps (DISC-027) |
 
 **Measured against the reference cars.** Checked against published specifications, not taste. The Predator 5.2 is cross-plane with a 2.65 L Roots blower and a 7,650 rpm limit (profile: 7,600); the Nettuno is a 90° V6 firing 1-6-3-4-2-5, redline 8,000. That order puts cylinders 1-3 and 4-6 on alternating events — `010101`, exactly what `EngineConfiguration.V6.bankOf` returns, so the even-firing V6 is right rather than lucky. Output matches the derived firing frequencies to 0.005% at idle, mid-range and redline for both cars.
 

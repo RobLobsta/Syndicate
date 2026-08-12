@@ -142,7 +142,12 @@ public final class EngineMixer {
      * the caller should treat as "this car is silent", not as an error.
      */
     public int acquire(
-            EngineConfiguration configuration, Induction induction, float idleRpm, float redlineRpm, long seed) {
+            EngineConfiguration configuration,
+            Induction induction,
+            float idleRpm,
+            float redlineRpm,
+            float peakPowerW,
+            long seed) {
         for (int slot = 0; slot < MAX_VOICES; slot++) {
             if (synths.get(slot) == null) {
                 // Cleared before the synth is installed, so the audio thread can never see a live
@@ -150,7 +155,7 @@ public final class EngineMixer {
                 // slot's liveness flag and is written last.
                 published.set(slot, null);
                 releases[slot].set(false);
-                EngineSynth synth = new EngineSynth(configuration, induction, idleRpm, redlineRpm, seed);
+                EngineSynth synth = new EngineSynth(configuration, induction, idleRpm, redlineRpm, peakPowerW, seed);
                 if (synths.compareAndSet(slot, null, synth)) {
                     return slot;
                 }

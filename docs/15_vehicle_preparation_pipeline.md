@@ -393,6 +393,28 @@ Reference recordings are **analysis inputs and never ship**. They inform constan
 synthesiser; no sample derived from them enters `assets/`, so R39's licence rule is satisfied by the
 bank carrying no third-party audio at all.
 
+**R38a5.** **Every periodic component of an engine is tied to the crank, and none of them may be a
+free constant.** Three were, and all three were audible as faults rather than as machinery:
+
+- The starter's crank-speed modulation ran at a fixed 6 Hz. A starter labours once per *compression*,
+  which is `rpm / 120 × cylinders` — 8.7 Hz for a four and 26 Hz for a twelve at cranking speed. A
+  rate unrelated to the engine is what makes a start sound like a machine fault.
+- The starter's gear whine held a fixed pitch while the crank speed swung 26% underneath it. The
+  pinion is geared to the ring gear, so the whine must dip and recover with the labour; the two
+  moving together is what a listener recognises as an engine being turned over.
+- A cranking engine was near silent apart from that whine. It is pumping air through an open exhaust
+  on every stroke, and that chuffing is most of what a start actually is.
+
+**R38a6.** Power must be audible as **weight on the throttle**, not only as volume. A low shelf below
+the exhaust's own resonances, scaled by peak power *and* by load together, so it swells when the
+driver is on it and falls away on a lift. Volume alone does not survive a small speaker; the low
+shelf does.
+
+**R38a7.** Lifting off at speed **pops**. Unburnt charge lights in a hot exhaust, so the crackle is
+armed by the throttle *transition* rather than by the off-throttle state — a car coasting for ten
+seconds pops for the first second and then just coasts — and scales with revs and with how open the
+exhaust is.
+
 **R38b.** Impact and detachment one-shots are **modal**: a broadband strike transient over a handful of exponentially damped, inharmonic sinusoids whose frequencies and decay times are the material's. Filtering noise is cheaper to write and does not work, because the ear identifies material from decay time and partial spacing far more than from spectral tilt.
 
 **R38c.** Severity is authored, never pitched. Three impact variants per material (`light`, `medium`, `heavy`) differ in modal frequency, decay and brightness, because a hard hit excites a larger area and therefore rings *lower* and longer — pitching one recording up and down produces the single most recognisable sign of a cheap bank.
@@ -422,6 +444,9 @@ bank carrying no third-party audio at all.
 | T-D15-14 | A voice moving at ±60 m/s past the listener | Received frequency shifts by `c/(c∓v)` (R37a4) |
 | T-D15-15 | 24 voices at distinct positions, rendered together | Panned to their side, bus never clips (R37a4) |
 | T-D15-16 | Harmonic tilt and harmonic-to-floor ratio vs measured real engines | Within the measured range (R38a4) |
+| T-D15-17 | Envelope modulation rate while cranking, per arrangement | Equals that engine's compression rate (R38a5) |
+| T-D15-18 | Low-band energy on throttle vs on a lift, powerful engine vs weak | Swings more on the powerful one (R38a6) |
+| T-D15-19 | High-band energy after a lift vs a steady coast at the same rpm | Raised, and decaying (R38a7) |
 
 ---
 
