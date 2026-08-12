@@ -11,6 +11,7 @@ import dev.syndicate.core.asset.AssetIndex;
 import dev.syndicate.core.asset.MaterialDef;
 import dev.syndicate.core.asset.PartType;
 import dev.syndicate.core.component.BurnStackComponent;
+import dev.syndicate.core.component.HealthComponent;
 import dev.syndicate.core.component.PartRefComponent;
 import dev.syndicate.core.component.PlayerInputComponent;
 import dev.syndicate.core.component.TransformComponent;
@@ -124,23 +125,41 @@ public final class AudioSystem implements EntitySystem {
     /** Seconds between overrun one-shots, so a driver feathering the throttle does not machine-gun. */
     public static final float OVERRUN_COOLDOWN_S = 1.4f;
 
+    /** Idle burn at no throttle, which fades out as revs rise into a genuine closed-throttle overrun. */
+    public static final float IDLE_LOAD = 0.12f;
+
     private final SoundBank bank;
     private final AssetIndex assets;
     private final LocalPlayer localPlayer;
+    private final EngineMixer mixer;
+    private final EngineAudioOutput engineOutput;
 
     private final Map<Integer, VehicleVoices> engines = new TreeMap<>();
     private final List<OneShot> pending = new ArrayList<>();
     private final Vector3 listener = new Vector3();
     private final Vector3 scratch = new Vector3();
+    private final Vector3 forward = new Vector3();
+    private final Vector3 right = new Vector3();
 
     private Family vehicles;
     private World world;
     private boolean warnedSilent;
 
     public AudioSystem(SoundBank bank, AssetIndex assets, LocalPlayer localPlayer) {
+        this(bank, assets, localPlayer, new EngineMixer(), null);
+    }
+
+    /**
+     * @param output the engine bus, or {@code null} to open one. Injectable so a test can drive the
+     *     mixer without an audio device.
+     */
+    AudioSystem(
+            SoundBank bank, AssetIndex assets, LocalPlayer localPlayer, EngineMixer mixer, EngineAudioOutput output) {
         this.bank = Objects.requireNonNull(bank, "bank");
         this.assets = Objects.requireNonNull(assets, "assets");
         this.localPlayer = Objects.requireNonNull(localPlayer, "localPlayer");
+        this.mixer = Objects.requireNonNull(mixer, "mixer");
+        this.engineOutput = output == null ? EngineAudioOutput.open(mixer) : output;
     }
 
     @Override
@@ -170,12 +189,14 @@ public final class AudioSystem implements EntitySystem {
 
     @Override
     public void update(World world, float dtSeconds, long tick) {
-        if (!bank.isAvailable()) {
-            pending.clear();
-            return;
-        }
+        // The two halves fail independently: the sample bank can be missing while the engine bus is
+        // open, and on a machine with no device at all both are silent and this still runs (G18).
         updateListener(world);
-        playPending();
+        if (bank.isAvailable()) {
+            playPending();
+        } else {
+            pending.clear();
+        }
         updateEngines(world, dtSeconds);
     }
 
@@ -232,9 +253,16 @@ public final class AudioSystem implements EntitySystem {
         int vehicle = localPlayer.vehicleEntity(world);
         TransformComponent transform =
                 vehicle == EntityId.NULL ? null : world.getComponent(vehicle, TransformComponent.class);
-        if (transform != null) {
-            transform.worldMatrix.getTranslation(listener);
+        if (transform == null) {
+            return;
         }
+        transform.worldMatrix.getTranslation(listener);
+        // The mixer pans against the car's own axes rather than the world's, so a rival coming up
+        // the inside is on the inside and not merely somewhere along +X.
+        forward.set(0f, 0f, -1f).rot(transform.worldMatrix).nor();
+        right.set(1f, 0f, 0f).rot(transform.worldMatrix).nor();
+        mixer.setListener(new EngineMixer.Listener(
+                listener.x, listener.y, listener.z, forward.x, forward.y, forward.z, right.x, right.y, right.z));
     }
 
     /**
@@ -347,7 +375,7 @@ public final class AudioSystem implements EntitySystem {
             }
             drive(world, vehicle, voices, dtSeconds);
         }
-        stopDeadVehicles(world);
+        stopDeadVehicles(world, dtSeconds);
     }
 
     /**
@@ -363,23 +391,12 @@ public final class AudioSystem implements EntitySystem {
             return null;
         }
         EngineVoice voice = profile.engineVoice();
-        Sound engine = bank.get(voice.soundId());
-        if (engine == null) {
-            return null;
-        }
-        VehicleVoices voices = new VehicleVoices(voice);
-        // Started silent: the first frame's pitch and gain are applied immediately below, and
-        // starting at full volume would pop every engine in at the moment a match spawns.
-        voices.engine = engine;
-        voices.engineHandle = engine.loop(0f);
+        VehicleVoices voices = new VehicleVoices(voice, vehicle);
+        // A slot, not a file. The ignition that used to be a one-shot is the run state's first
+        // phase, so the engine cranks and catches at this car's own idle rather than at 800 rpm.
+        voices.engineSlot =
+                mixer.acquire(voice.configuration(), voice.induction(), voice.idleRpm(), voice.redlineRpm(), vehicle);
 
-        if (voice.hasInductionVoice()) {
-            Sound induction = bank.get(voice.inductionSoundId());
-            if (induction != null) {
-                voices.induction = induction;
-                voices.inductionHandle = induction.loop(0f);
-            }
-        }
         voices.tyreRoll = bank.forKey(AudioEvent.TYRE_ROLL, DEFAULT_SURFACE);
         if (voices.tyreRoll != null) {
             voices.tyreRollHandle = voices.tyreRoll.loop(0f);
@@ -388,17 +405,8 @@ public final class AudioSystem implements EntitySystem {
         if (voices.tyreSkid != null) {
             voices.tyreSkidHandle = voices.tyreSkid.loop(0f);
         }
-
-        Sound ignition = bank.get(voice.startSoundId());
-        if (ignition != null) {
-            long handle = ignition.play(MASTER_GAIN * IGNITION_GAIN);
-            ignition.setPitch(handle, voice.transientPitch());
-        }
         return voices;
     }
-
-    /** How loud an ignition is. Below the engine, because it is an announcement and not the car. */
-    private static final float IGNITION_GAIN = 0.55f;
 
     /** Adjusts every voice this vehicle is running to what it is doing this frame. */
     private void drive(World world, int vehicle, VehicleVoices voices, float dtSeconds) {
@@ -412,28 +420,58 @@ public final class AudioSystem implements EntitySystem {
         float topSpeed = stats == null ? 0f : stats.maxSpeedMps;
         float throttle = input == null ? 0f : Math.abs(input.throttle);
         EngineVoice voice = voices.voice;
-        float rpm = voice.rpmFor(speed, topSpeed, throttle);
+        float demandRpm = voice.rpmFor(speed, topSpeed, throttle);
 
-        float attenuation = 1f;
+        scratch.set(0f, 0f, 0f);
         if (transform != null) {
             transform.worldMatrix.getTranslation(scratch);
-            attenuation = attenuation(scratch.x, scratch.y, scratch.z);
         }
+        float attenuation = attenuation(scratch.x, scratch.y, scratch.z);
         float base = MASTER_GAIN * attenuation;
 
-        voices.engine.setPitch(voices.engineHandle, voice.pitchAt(rpm));
-        voices.engine.setVolume(voices.engineHandle, base * voice.gainAt(rpm));
+        // Load, not throttle, is what decides whether a cylinder burns. They differ in exactly one
+        // place and it is the important one: a closed throttle at high rpm is an engine pumping air
+        // and not burning it, which is an overrun, while a closed throttle at idle is still a
+        // running engine. The idle term fades out as revs rise, which is that distinction.
+        float idleLoad = IDLE_LOAD * (1f - voice.revFraction(demandRpm));
+        float load = Math.max(throttle, idleLoad);
 
-        if (voices.induction != null) {
-            voices.induction.setPitch(voices.inductionHandle, voice.inductionPitchAt(rpm));
-            voices.induction.setVolume(voices.inductionHandle, base * voice.inductionGainAt(rpm, throttle));
+        float health = healthOf(world, chassis);
+        // Remembered so the shutdown can go on sounding from where the wreck is after the entity
+        // has gone and its transform with it.
+        voices.lastX = scratch.x;
+        voices.lastY = scratch.y;
+        voices.lastZ = scratch.z;
+        voices.lastHealth = health;
+        EngineSynth.State engineState = voices.run.advance(dtSeconds, demandRpm, throttle, load, health);
+        if (voices.engineSlot >= 0) {
+            mixer.publish(
+                    voices.engineSlot,
+                    new EngineMixer.VoiceUpdate(
+                            engineState, scratch.x, scratch.y, scratch.z, voice.gainAt(engineState.rpm())));
         }
 
         updateTyres(world, chassis, voices, speed, base);
-        updateLift(voice, voices, rpm, throttle, attenuation, dtSeconds);
+        updateLift(voice, voices, engineState.rpm(), throttle, dtSeconds);
         updateFire(world, vehicle, voices, base);
 
         voices.previousThrottle = throttle;
+    }
+
+    /**
+     * How healthy a vehicle's chassis is, in {@code [0,1]}.
+     *
+     * <p>The chassis stands for the whole car here. There is no engine part in the slot graph
+     * (D05-S4.2 has no such category), so the honest reading of "how badly hurt is this vehicle" is
+     * the part everything else hangs off. A car with a missing door does not misfire; a car whose
+     * chassis is at a third of its hit points has been hit enough that it should.
+     */
+    private float healthOf(World world, VehicleChassisComponent chassis) {
+        if (chassis == null || chassis.chassisPartEntity == EntityId.NULL) {
+            return 1f;
+        }
+        HealthComponent health = world.getComponent(chassis.chassisPartEntity, HealthComponent.class);
+        return health == null ? 1f : clamp01(health.healthFraction);
     }
 
     /**
@@ -491,9 +529,7 @@ public final class AudioSystem implements EntitySystem {
      * <p>Both need the previous frame's throttle, which is why {@link VehicleVoices} keeps it. A lift
      * is a transition and there is no other way to see one.
      */
-    private void updateLift(
-            EngineVoice voice, VehicleVoices voices, float rpm, float throttle, float attenuation, float dtSeconds) {
-
+    private void updateLift(EngineVoice voice, VehicleVoices voices, float rpm, float throttle, float dtSeconds) {
         // The real frame delta, which slot 25 is handed (DEC-049) — not Gdx.graphics, which a
         // capture run and a headless test both make a liar of.
         voices.overrunCooldownS = Math.max(0f, voices.overrunCooldownS - dtSeconds);
@@ -501,27 +537,14 @@ public final class AudioSystem implements EntitySystem {
         if (!lifted) {
             return;
         }
-        if (voices.overrunCooldownS <= 0f) {
-            Sound overrun = bank.get(voice.overrunSoundId());
-            if (overrun != null) {
-                long handle = overrun.play(MASTER_GAIN * attenuation * OVERRUN_GAIN);
-                overrun.setPitch(handle, voice.pitchAt(rpm));
-                voices.overrunCooldownS = OVERRUN_COOLDOWN_S;
-            }
-        }
-        if (voice.shouldRelease(rpm, throttle, voices.previousThrottle)) {
-            Sound release = bank.get(voice.inductionReleaseSoundId());
-            if (release != null) {
-                release.play(MASTER_GAIN * attenuation * RELEASE_GAIN);
-            }
+        // The overrun is no longer a one-shot laid over the engine: dropping the load *is* the
+        // overrun, and the synthesiser is already doing it by the time this runs. What remains is
+        // the blow-off, which is a genuine transient and has to be triggered.
+        voices.overrunCooldownS = OVERRUN_COOLDOWN_S;
+        if (voices.engineSlot >= 0 && voice.shouldRelease(rpm, throttle, voices.previousThrottle)) {
+            mixer.triggerRelease(voices.engineSlot);
         }
     }
-
-    /** How loud an overrun crackle is. */
-    private static final float OVERRUN_GAIN = 0.5f;
-
-    /** How loud a blow-off is. */
-    private static final float RELEASE_GAIN = 0.6f;
 
     /**
      * Starts and stops the fire loop as a vehicle burns.
@@ -576,24 +599,29 @@ public final class AudioSystem implements EntitySystem {
      * ignition — and the only moment in a match when an engine stopping is a thing a player hears
      * rather than infers from a car that has stopped moving.
      */
-    private void stopDeadVehicles(World world) {
+    private void stopDeadVehicles(World world, float dtSeconds) {
         engines.entrySet().removeIf(entry -> {
+            VehicleVoices voices = entry.getValue();
             if (world.isAlive(entry.getKey())) {
                 return false;
             }
-            VehicleVoices voices = entry.getValue();
-            Sound shutdown = bank.get(voices.voice.stopSoundId());
-            if (shutdown != null) {
-                long handle = shutdown.play(MASTER_GAIN * SHUTDOWN_GAIN);
-                shutdown.setPitch(handle, voices.voice.transientPitch());
+            // A dead car does not fall silent, it winds down — so the voice outlives the entity by
+            // the length of a shutdown, still in the place the wreck is, and is only then released.
+            voices.run.beginShutdown();
+            voices.stopSampledLoops();
+            if (voices.engineSlot >= 0) {
+                EngineSynth.State state = voices.run.advance(dtSeconds, 0f, 0f, 0f, voices.lastHealth);
+                mixer.publish(
+                        voices.engineSlot,
+                        new EngineMixer.VoiceUpdate(state, voices.lastX, voices.lastY, voices.lastZ, 1f));
             }
-            voices.stopAll();
+            if (!voices.run.isFinished()) {
+                return false;
+            }
+            mixer.release(voices.engineSlot);
             return true;
         });
     }
-
-    /** How loud a shutdown is. */
-    private static final float SHUTDOWN_GAIN = 0.5f;
 
     private static float clamp01(float value) {
         return value < 0f ? 0f : Math.min(value, 1f);
@@ -634,7 +662,13 @@ public final class AudioSystem implements EntitySystem {
 
     @Override
     public void dispose() {
-        engines.values().forEach(VehicleVoices::stopAll);
+        // The bus goes first: its thread is still pulling on the mixer, and releasing slots out
+        // from under a live render is the one ordering that can produce a torn block (G19).
+        engineOutput.dispose();
+        for (VehicleVoices voices : engines.values()) {
+            voices.stopSampledLoops();
+            mixer.release(voices.engineSlot);
+        }
         engines.clear();
         pending.clear();
     }
@@ -650,11 +684,11 @@ public final class AudioSystem implements EntitySystem {
     private static final class VehicleVoices {
 
         private final EngineVoice voice;
+        private final EngineRunState run;
 
-        private Sound engine;
-        private long engineHandle;
-        private Sound induction;
-        private long inductionHandle;
+        /** This vehicle's slot in the mixer, or {@code -1} when every slot was taken. */
+        private int engineSlot = -1;
+
         private Sound tyreRoll;
         private long tyreRollHandle;
         private Sound tyreSkid;
@@ -664,26 +698,29 @@ public final class AudioSystem implements EntitySystem {
 
         private float previousThrottle;
         private float overrunCooldownS;
+        private float lastX;
+        private float lastY;
+        private float lastZ;
+        private float lastHealth = 1f;
 
-        VehicleVoices(EngineVoice voice) {
+        VehicleVoices(EngineVoice voice, int vehicle) {
             this.voice = voice;
+            this.run = new EngineRunState(voice.configuration().cylinders(), voice.idleRpm(), vehicle);
         }
 
-        void stopAll() {
-            if (engine != null) {
-                engine.stop(engineHandle);
-            }
-            if (induction != null) {
-                induction.stop(inductionHandle);
-            }
+        /** Stops the loops that are still files. The engine is the mixer's and outlives this. */
+        void stopSampledLoops() {
             if (tyreRoll != null) {
                 tyreRoll.stop(tyreRollHandle);
+                tyreRoll = null;
             }
             if (tyreSkid != null) {
                 tyreSkid.stop(tyreSkidHandle);
+                tyreSkid = null;
             }
             if (fire != null) {
                 fire.stop(fireHandle);
+                fire = null;
             }
         }
     }

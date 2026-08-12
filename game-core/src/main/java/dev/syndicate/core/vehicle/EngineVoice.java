@@ -8,47 +8,35 @@ import dev.syndicate.model.EngineConfiguration;
 import dev.syndicate.model.Induction;
 
 /**
- * What one vehicle's engine sounds like, as numbers rather than as a recording
+ * What one vehicle's engine is, as numbers rather than as a recording
  * (docs/15_vehicle_preparation_pipeline.md#D15-S8, D15-R37).
  *
  * <p><b>Two cars must not sound the same, and neither may cost an audio pass.</b> Those pull in
- * opposite directions if a sound is an asset, and not at all if it is a parameterised one. The bank
- * holds one loop per {@link EngineConfiguration} — six files, a closed set, no new file for a new
- * car — and this record holds the numbers that make a particular car's engine *that* engine:
+ * opposite directions if a sound is an asset, and not at all if it is a parameterised one. This
+ * record holds the numbers that make a particular car's engine *that* engine, and the client's
+ * synthesiser turns them into sound:
  *
  * <ul>
  *   <li><b>Configuration.</b> A V8 fires eight times per two revolutions and a V6 six, so at the
  *       same rpm they are a musical fourth apart before anything else is done. It also decides how
  *       evenly each bank fires, which is what a cross-plane V8's burble actually is.
- *   <li><b>Idle and redline.</b> The rev range the loop is pitched across. A road car spinning to
+ *   <li><b>Idle and redline.</b> The rev range the engine works across. A road car spinning to
  *       6,500 and a race engine to 9,000 sound different at full throttle even sharing a
  *       configuration, because the second one gets a whole extra fifth of pitch.
- *   <li><b>Power.</b> A more powerful engine is louder and weightier, and both are audible.
- *       {@link #gainAt} and {@link #lowEndWeight()} are where "more powerful sounds like it" is
- *       actually cashed out, rather than being left as an intention.
+ *   <li><b>Power.</b> A more powerful engine is louder, and {@link #gainAt} is where that is
+ *       actually cashed out rather than being left as an intention.
  *   <li><b>Induction.</b> The second voice, and on a forced engine the one a listener names the car
- *       by. Both shipped cars are forced-induction and for two sessions neither sounded like it —
- *       the bank had one exhaust note per configuration and nothing else, so a supercharged V8 and a
- *       naturally aspirated one were the same file at the same pitch. {@link #inductionGainAt} is
- *       where a geared blower and an exhaust-driven turbo stop being the same sound.
+ *       by. A geared blower whines whenever the crank turns; an exhaust-driven turbo goes quiet the
+ *       moment the driver lifts, and that hole is most of what makes a turbo car sound like one.
  * </ul>
  *
- * <p>The playback rate is {@code firingHz(rpm) / referenceFiringHz}, which is a pitch ratio — the
- * one thing that has to be right, because an engine that revs is an engine whose fundamental moves.
- * Nothing else can substitute for it.
+ * <p><b>No sound ids and no pitch ratio</b> (DEC-056). Both were here when an engine was six files
+ * played faster or slower, and both are gone now that it is synthesised as it runs: there is no
+ * file to name and no reference rpm to pitch away from, because the synthesiser is simply told the
+ * rpm. What remains is the description of the engine — which is all this record was ever for.
  */
 public record EngineVoice(
         EngineConfiguration configuration, float idleRpm, float redlineRpm, float peakPowerW, Induction induction) {
-
-    /**
-     * The rpm each configuration's loop is synthesised at.
-     *
-     * <p>The middle of a usable rev band rather than idle. A loop recorded at idle spends the whole
-     * of a race being stretched upward, and pitch-shifting is only convincing over about an octave
-     * either way — so the reference sits where the stretch is smallest at the speeds a car is
-     * actually driven at.
-     */
-    public static final float REFERENCE_RPM = 4000f;
 
     /** Power at which an engine is at full voice. Above it, gain saturates rather than growing. */
     public static final float REFERENCE_POWER_W = 500_000f;
@@ -72,11 +60,6 @@ public record EngineVoice(
         idleRpm = Math.max(200f, idleRpm);
         redlineRpm = Math.max(idleRpm + 500f, redlineRpm);
         peakPowerW = Math.max(1f, peakPowerW);
-    }
-
-    /** The firing frequency the configuration's loop was synthesised at. */
-    public float referenceFiringHz() {
-        return configuration.firingHzAt(REFERENCE_RPM);
     }
 
     /**
@@ -104,20 +87,9 @@ public record EngineVoice(
         return idleRpm + span * clamp01(speedFraction + blip);
     }
 
-    /**
-     * The playback pitch ratio at an engine speed.
-     *
-     * <p>Clamped to a factor of four either way. Beyond that, resampling a loop stops sounding like
-     * an engine and starts sounding like a tape being abused — and a ratio outside that range means
-     * the rev range and the reference disagree, which is a content bug worth hearing rather than
-     * hiding.
-     */
-    public float pitchAt(float rpm) {
-        float reference = referenceFiringHz();
-        if (reference <= 0f) {
-            return 1f;
-        }
-        return clamp(configuration.firingHzAt(rpm) / reference, 0.25f, 4f);
+    /** Where in the rev range an engine speed sits, in {@code [0,1]}. */
+    public float revFraction(float rpm) {
+        return clamp01((rpm - idleRpm) / Math.max(1f, redlineRpm - idleRpm));
     }
 
     /**
@@ -130,91 +102,18 @@ public record EngineVoice(
      * engine deafening long before it is the fastest.
      */
     public float gainAt(float rpm) {
-        float revFraction = clamp01((rpm - idleRpm) / Math.max(1f, redlineRpm - idleRpm));
-        float revGain = IDLE_GAIN + (1f - IDLE_GAIN) * revFraction;
+        float revGain = IDLE_GAIN + (1f - IDLE_GAIN) * revFraction(rpm);
         float powerGain = (float) Math.sqrt(clamp01(peakPowerW / REFERENCE_POWER_W));
         return clamp01(revGain * (0.7f + 0.3f * powerGain));
     }
-
-    /**
-     * How much the low harmonics are emphasised, in {@code [0,1]}.
-     *
-     * <p>The other half of power being audible, and the more convincing one. A big engine is not
-     * simply a loud small engine: it has more mass moving and its energy sits lower in the spectrum,
-     * which is what makes a large-capacity car sound *heavy* through a small speaker where the
-     * volume difference is lost.
-     */
-    public float lowEndWeight() {
-        float power = clamp01(peakPowerW / REFERENCE_POWER_W);
-        float capacity = configuration.cylinders() / 12f;
-        return clamp01(0.35f + 0.4f * power + 0.25f * capacity);
-    }
-
-    /** The sound id in the bank this voice plays, e.g. {@code engine_loop_v8}. */
-    public String soundId() {
-        return "engine_loop_" + configuration.token();
-    }
-
-    // ---- Induction: the second voice -----------------------------------------------------
 
     /** Whether this engine has a forced-induction voice at all. */
     public boolean hasInductionVoice() {
         return induction.isForced();
     }
 
-    /** The induction loop in the bank, e.g. {@code induction_loop_supercharged}. */
-    public String inductionSoundId() {
-        return "induction_loop_" + induction.token();
-    }
-
-    /** The release one-shot, or {@code null} for a device that has none. */
-    public String inductionReleaseSoundId() {
-        return induction.hasRelease() ? "induction_release_" + induction.token() : null;
-    }
-
     /**
-     * The playback pitch ratio of the induction loop at an engine speed.
-     *
-     * <p>Identical in form to {@link #pitchAt} and identical in value, which is not a coincidence
-     * worth hiding: both the firing frequency and a crank-geared blower are fixed multiples of engine
-     * rotation, so both scale with {@code rpm / REFERENCE_RPM} and the multiplier cancels. Keeping it
-     * as its own method is what lets a turbo diverge — its speed follows exhaust flow rather than the
-     * crank, so {@link #inductionGainAt} carries load and this does not.
-     */
-    public float inductionPitchAt(float rpm) {
-        return clamp(rpm / REFERENCE_RPM, 0.25f, 4f);
-    }
-
-    /**
-     * How loud the induction voice is, in {@code [0,1]}.
-     *
-     * <p><b>The two devices differ here rather than in the asset</b>, which is the point of keying
-     * the bank on {@link Induction} and letting the runtime do the rest. A supercharger is geared to
-     * the crank, so it whines whenever the engine turns and its volume tracks revs almost alone. A
-     * turbo is driven by exhaust flow, so it is nearly silent off the throttle however fast the
-     * engine is spinning, and that lag is most of what makes a turbo car sound like one.
-     *
-     * @param throttle the driver's throttle in {@code [0,1]}
-     */
-    public float inductionGainAt(float rpm, float throttle) {
-        if (!induction.isForced()) {
-            return 0f;
-        }
-        float revFraction = clamp01((rpm - idleRpm) / Math.max(1f, redlineRpm - idleRpm));
-        float load = clamp01(throttle);
-        float base = induction == Induction.SUPERCHARGED
-                // Geared: present at idle, rising steeply with revs, only lightly gated by throttle.
-                ? (0.28f + 0.72f * revFraction) * (0.72f + 0.28f * load)
-                // Exhaust-driven: needs both revs and load, and multiplying them is what produces
-                // the hole a turbo car has off-boost.
-                : revFraction * revFraction * load;
-        // A bigger engine moves more air and its blower is bigger with it.
-        float powerTerm = 0.75f + 0.25f * (float) Math.sqrt(clamp01(peakPowerW / REFERENCE_POWER_W));
-        return clamp01(base * powerTerm);
-    }
-
-    /**
-     * Whether lifting off at this moment should fire the release one-shot.
+     * Whether lifting off at this moment should fire the blow-off.
      *
      * <p>Both conditions are needed. Without the rev floor a car blows off every time it rolls to a
      * halt, which is the single most obvious way to make a turbo sound like a toy; without the
@@ -224,40 +123,8 @@ public record EngineVoice(
         if (!induction.hasRelease()) {
             return false;
         }
-        float revFraction = clamp01((rpm - idleRpm) / Math.max(1f, redlineRpm - idleRpm));
-        return revFraction >= LIFT_MIN_REV_FRACTION && previousThrottle > 0.45f && throttle <= LIFT_THROTTLE;
+        return revFraction(rpm) >= LIFT_MIN_REV_FRACTION && previousThrottle > 0.45f && throttle <= LIFT_THROTTLE;
     }
-
-    // ---- Start, stop and overrun ---------------------------------------------------------
-
-    /** The ignition one-shot for this engine, e.g. {@code engine_start_v8}. */
-    public String startSoundId() {
-        return "engine_start_" + configuration.token();
-    }
-
-    /** The shutdown one-shot. */
-    public String stopSoundId() {
-        return "engine_stop_" + configuration.token();
-    }
-
-    /** The off-throttle overrun one-shot. */
-    public String overrunSoundId() {
-        return "engine_overrun_" + configuration.token();
-    }
-
-    /**
-     * The pitch to play a start or stop at.
-     *
-     * <p>Authored at a nominal 800 rpm idle, so a car that idles at 750 plays them slightly low and
-     * one that idles at 900 slightly high — which is the same trick the loop uses and costs no extra
-     * asset.
-     */
-    public float transientPitch() {
-        return clamp(idleRpm / REFERENCE_IDLE_RPM, 0.5f, 2f);
-    }
-
-    /** The idle speed the start and stop one-shots were synthesised at. */
-    public static final float REFERENCE_IDLE_RPM = 800f;
 
     private static float clamp01(float value) {
         return clamp(value, 0f, 1f);

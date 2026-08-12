@@ -274,18 +274,18 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 
 | Event | Source | Notes |
 |---|---|---|
-| Engine loop | Per **engine configuration**, pitched by RPM | One loop per configuration (I4/I6/V6/V8/V10/V12), not per vehicle. See R37a — class is the wrong axis |
 | Tyre roll / skid | Per surface, blended by slip | The ray-cast wheel already computes slip |
 | Collision impact | Per material pair, by impulse | `CollisionEventSystem` (slot 11) already classifies both sides |
 | Part detach | Per destruction class | `sheet_metal` tears, `glass` shatters, `rigid` clangs |
 | Glass shatter | One-shot per `glass` part | The one sound a player will notice missing |
 | Debris settle | Per material, by mass | Driven by the existing debris lifetime |
 | Weapon fire / impact | Per weapon family (D01-R8) | Eight families, eight pairs |
-| Engine start / stop | Per **engine configuration** | Ignition and shutdown. Pitched by the vehicle's own idle speed |
-| Engine overrun | Per **engine configuration** | The exhaust popping on a lift. Fired by a throttle transition, not a state |
-| Induction loop | Per **induction type** | A supercharger's whine or a turbo's rush. See R36a |
-| Induction release | Per **induction type** that has one | A blow-off on lift. A supercharger has none, because it is geared |
 | Fire loop | One | A burning vehicle. `DamageSystem` (12) already runs the burn timer it rides on |
+
+Everything an engine makes — the exhaust note, ignition, shutdown, overrun, induction and its release
+— is **not in this table and is not an asset**. It is synthesised in the client from the engine's
+live state (R37a3). Those six families were assets for two sessions and the reasons they stopped
+being so are in R37a3 and R38a2.
 
 **R36a.** **Induction is a second voice, and it is the axis on which a forced engine is recognised.**
 An exhaust note says how many cylinders are firing and how evenly; it says nothing about how the
@@ -326,9 +326,33 @@ a real one. Bank divergence is therefore a synthesis parameter with a physical m
 scale with how differently the banks fire: applied uniformly it makes even-firing arrangements lumpier
 than the one arrangement that should be lumpy.
 
-**R37b.** Two vehicles sharing a configuration must still differ, and do so without a second asset. A vehicle carries an **engine voice** — configuration, idle and redline rpm, peak power — and the runtime derives from it: the playback pitch (`firingHz(rpm) / firingHz(REFERENCE_RPM)`), the gain, and how much the low harmonics are emphasised. Peak power is the same number the physics accelerates the car with, so a car that gets faster gets louder in the same commit and the two cannot drift apart.
+**R37a3.** **An engine is synthesised as it runs, not played back.** The crank angle integrates
+forward at whatever rpm the simulation reports and a cylinder fires when its angle comes round, a
+block at a time, from the audio callback. Three things follow that a sampled bank cannot deliver at
+any file count:
 
-**R37c.** A more powerful engine must be *audibly* more powerful. Gain rises with power on a saturating curve rather than a linear one, and low-end weight rises with power and capacity — because a big engine is not a loud small engine, and the spectral difference survives a small speaker where the volume difference does not.
+- **Condition.** A damaged engine misfires, loses a cylinder, and loses its exhaust. All three are
+  changes to *when* the cylinders fire and *what happens to the pulse afterwards*, and neither
+  survives resampling. A dropped cylinder is not a filter setting — it is one pulse not laid down,
+  and the even-order nulls of the bank's own geometry filling in is the lope a listener hears.
+- **Transients stop being assets.** Ignition and shutdown were twelve files only because a loop
+  cannot change speed. Cranking is 260 rpm with nothing catching; shutting down is the same engine
+  running out of rotation. Both are phases of the one voice, at the car's own idle rather than at a
+  nominal one no car on the roster has.
+- **No reference rpm.** There is no loop to pitch away from, so the pitch ratio, the reference rpm,
+  and the clamp that stopped it running away all cease to exist. Below 1,000 rpm the clamped ratio
+  had stopped tracking revs at all.
+
+**R37a4.** Synthesised engines are **mono and positionless**, so the runtime must place them: a
+fixed set of voices mixed to stereo with distance attenuation, panning against the listener's own
+axes, air absorption, and propagation delay. The delay is not decoration — reading a voice out of a
+delay line `distance / 343 m·s⁻¹` late produces doppler at exactly the right ratio for free, and a
+doppler modelled as a pitch multiplier instead would have to be applied to the rpm, which changes the
+engine's speed rather than its pitch and leaves the exhaust resonances behind.
+
+**R37b.** Two vehicles sharing a configuration must still differ, and do so without a second asset. A vehicle carries an **engine voice** — configuration, idle and redline rpm, peak power, induction — and the runtime synthesises from it. Peak power is the same number the physics accelerates the car with, so a car that gets faster gets louder in the same commit and the two cannot drift apart.
+
+**R37c.** A more powerful engine must be *audibly* more powerful. Gain rises with power on a saturating curve rather than a linear one, and a larger engine's exhaust resonances sit lower — because a big engine is not a loud small engine, and the spectral difference survives a small speaker where the volume difference does not.
 
 **R38.** Sourcing, in order of preference: (a) permissively licensed libraries with attribution recorded beside the asset exactly as `license.txt` records model provenance today; (b) procedural synthesis for engine and tyre loops, which are parametric by nature and where a synthesiser removes a per-class asset; (c) commissioned or recorded audio. Generative audio models are viable for one-shots and are **not** for loops, where seam artefacts are audible.
 
@@ -342,6 +366,20 @@ of cycles and then trimmed by a crossfade measured in seconds no longer holds a 
 cycles, and its harmonics restart out of step on every pass. Any trim must be rounded to a cycle
 boundary of the lowest periodic component — for a pulse-train engine that is the **engine cycle**
 rate (`rpm/120`), not the firing rate, because an uneven bank pattern repeats once per 720°.
+
+**R38a2.** **The exhaust colours the pulse train; it must not replace it.** A bank of band-pass
+resonators summed alone is not a filter, it is a gate: everything between the formants is attenuated
+by the sum of their skirts *and* by the phase cancellation between them, which for the shipped
+105/560/1750 Hz set put a 25 dB hole at 267 Hz — a V8's firing frequency at 4,000 rpm. Measured, four
+of six loops peaked at a frequency unrelated to their engine, the V8 at 0.375× its firing frequency
+and the V6 at 3×. The dry signal must reach the output, with the resonances added over it.
+
+**R38a3.** The verifying test is that **the firing order survives**, at more than one engine speed.
+"Has resonant peaks" and "carries sub-firing orders" are both satisfied by the defect R38a2
+describes — a gate creates peaks and creates sub-orders; what it destroys is the firing frequency,
+and neither test asked about it. The firing order need not be the single loudest component, because
+at low rpm a four-cylinder's fundamental legitimately sits below every exhaust resonance and its
+second harmonic carries; it must not be buried.
 
 **R38b.** Impact and detachment one-shots are **modal**: a broadband strike transient over a handful of exponentially damped, inharmonic sinusoids whose frequencies and decay times are the material's. Filtering noise is cheaper to write and does not work, because the ear identifies material from decay time and partial spacing far more than from spectral tilt.
 
@@ -366,6 +404,11 @@ rate (`rpm/120`), not the firing rate, because an uneven bank pattern repeats on
 | T-D15-8 | Two runs, same seed | Byte-identical `.glb` output |
 | T-D15-9 | A model with one deliberately asymmetric part | Reported, not repaired |
 | T-D15-10 | Open every inferred hinge to its authored angle | No part intersects the chassis |
+| T-D15-11 | Firing-order magnitude vs the loudest order, six configurations × five speeds | Never more than 12 dB below (R38a3) |
+| T-D15-12 | Spectral centroid at 1,500 rpm vs 6,000 rpm | Rises by 2×–4×; a fixed formant scores 1× (R38a2) |
+| T-D15-13 | Order spectrum of a V8 with and without a dead cylinder | Even-order nulls fill in by more than 5× (R37a3) |
+| T-D15-14 | A voice moving at ±60 m/s past the listener | Received frequency shifts by `c/(c∓v)` (R37a4) |
+| T-D15-15 | 24 voices at distinct positions, rendered together | Panned to their side, bus never clips (R37a4) |
 
 ---
 

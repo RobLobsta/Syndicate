@@ -1,10 +1,10 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-12 (end of SESS-021)
-**Where we are:** it has a window and, for the first time, a soundtrack that belongs to the cars in
-it. Eight cars on an arena floor, a camera behind one of them, a scoreboard in the corner — and a
-supercharged V8 that burbles and a twin-turbo V6 that goes quiet when you lift. Nobody has driven it
-yet.
+**Last updated:** 2026-08-12 (end of SESS-022)
+**Where we are:** it has a window, and the engines are no longer recordings — they are synthesised
+live from what each car is doing and what state it is in. Eight cars on an arena floor, a camera
+behind one of them, a scoreboard in the corner, and a supercharged V8 that burbles, misfires when you
+wreck it, and doppler-shifts as it goes past. Nobody has driven it yet.
 
 > This file is maintained by the coding assistant and updated **at the end of every session**
 > (CLAUDE.md §5, step 14). It is allowed to change shape as the work demands — reorder phases, split
@@ -34,10 +34,11 @@ gantt
     Opponents - bots and match flow         :done, p8, 18, 1
     Preparation pipeline, sound, input      :done, p6c, 19, 1
     A window - client, render, HUD          :done, p7, 20, 1
-    Audio - engines, induction, triggers (here) :done, p7b, 21, 1
+    Audio - engines, induction, triggers    :done, p7b, 21, 1
+    Real-time engine synthesis (here)       :done, p7c, 22, 1
 
     section Next
-    Driving it - tuning, balance, feel      :active, p11, 22, 2
+    Driving it - tuning, balance, feel      :active, p11, 23, 2
     Preparation pipeline - stages 6 to 8    :p6d, 24, 3
 
     section Then
@@ -117,78 +118,95 @@ catalogue would be finished.
 
 ---
 
-## 2. What happened this session (SESS-021)
+## 2. What happened this session (SESS-022)
 
-The marker moves past ★ AUDIBLE. The game had 52 sounds and a system playing them since last session;
-what it did not have was cars that sounded like *those* cars, or triggers for a third of the families
-it shipped.
+You listened to the engine loops and said they could not possibly be a V8. You were right, and the
+reason turned out to be one line of DSP topology.
 
-### The question that started it
+### What was actually wrong
 
-"Do my current car/engine sounds replicate the actual sounds for those cars?" The honest answer was
-no, and finding out why meant measuring the committed `.wav` files rather than reading the code that
-wrote them. Two things were right — the four-stroke firing maths and both cars' rev ranges — and
-almost everything else was not.
+Measured on the committed bytes rather than read from the code that wrote them:
 
-- **The loops were sawtooths.** A stack of harmonics at the firing frequency with a 1/n falloff, no
-  resonance anywhere in the spectrum. Real engine character is mostly the exhaust: a few fixed
-  resonances that stay put while the harmonics slide up through them as the engine revs.
-- **A cross-plane V8 could not burble.** A harmonic stack is perfectly even by construction. The
-  burble comes from the two banks firing `90-180-180-270` — a timing property — and it was being
-  approximated by a noise gain, which makes an engine hissier rather than lumpier.
-- **Neither car breathed.** Both reference cars are forced-induction: the Eclipse's is a twin-turbo
-  V6, the Stampede's a supercharged V8. A grep for "supercharger" found the word only in code
-  comments *describing* the reference cars. There was nothing in the synthesiser and nothing in the
-  playback path.
+| | firing frequency | loudest thing in the file | ratio |
+|---|---|---|---|
+| I4 | 133 Hz | 133 Hz | 1.00 |
+| V6 | 200 Hz | 600 Hz | 3.00 |
+| **V8** | **267 Hz** | **100 Hz** | **0.375** |
+| V12 | 400 Hz | 400 Hz | 1.00 |
 
-### What landed
+Four of six loops sounded at a pitch unrelated to their engine. The V8's own firing frequency was
+25 dB down — effectively inaudible — and 95% of the file's energy sat in two narrow bands that did
+not move when the engine revved.
 
-An engine is now built the way an engine works: one exhaust pulse per firing event, placed at its
-crank angle, routed to its own bank, run through three exhaust formants that scale with engine size.
-Forced induction is a second voice on a closed three-member axis, so a blower whines whenever the
-crank turns and a turbo is nearly silent off the throttle — the difference is structural rather than
-a volume setting. Ignition, shutdown and off-throttle overrun exist per configuration, and a burning
-car finally makes a noise, five months after `DamageSystem` started running the burn timer.
+The pulse train feeding it was correct. The exhaust stage was a bank of three band-pass filters
+summed with nothing else, which is not a filter but a gate: everything between the formants was
+thrown away, and a V8's fundamental at the reference rpm landed squarely in the gap. In the game
+that meant the Stampede ran nearly an octave and a half flat across its whole rev range while the
+Eclipse ran three times sharp — two cars that are a musical fourth apart in reality, nearly three
+octaves apart in the build.
 
-The bank goes from 52 sounds to 74.
+### What landed instead
 
-**And the three silent families now have triggers.** They were never missing files. Tyre roll and
-skid needed per-wheel slip, which the ray-cast wheel computed inside Bullet where nothing could read
-it — three fields mirrored out after the physics step is the whole fix. Weapon fire and impact needed
-events slots 8 and 9 did not emit. Debris settle needed a came-to-rest signal, which turned out to be
-the transition into sleep rather than the despawn the code already knew about.
+The engine stopped being a file. It is synthesised as it runs: the crank angle integrates forward at
+whatever rpm the simulation reports, cylinders fire as they come round, and the exhaust *colours*
+that pulse train instead of replacing it.
 
-### The bug, and the test that could never have caught it
+That change paid for itself three times over, because a live synthesiser can do things a recording
+cannot at any file count:
 
-Half the engine loops were broken and had been since they were written. The synthesiser chose a
-buffer length holding a whole number of cycles — then trimmed a crossfade measured in *seconds* off
-the end, which is a whole number of cycles only if the frequency happens to divide neatly. Three of
-six did not:
+- **A wrecked engine sounds wrecked.** Damage drops a cylinder, adds misfire and tears the exhaust
+  open. Nobody wrote the lope that results — a missing pulse breaks the symmetry that was nulling the
+  even orders, and they come up 30 dB on their own.
+- **Ignition and shutdown stopped being twelve files.** They were only ever separate assets because a
+  loop cannot change speed. Cranking is 260 rpm with nothing catching; shutting down is the same
+  engine running out of rotation. Both now happen at each car's own idle rather than a nominal 800
+  rpm that neither shipped car has.
+- **The reference rpm and its pitch clamp are gone.** Both cars idle below the clamp, which meant
+  every engine in the game idled at the same note regardless of its rev range.
 
-```
-cfg    firingHz   kept  cycles in kept  seam
-i4       133.33  23160          64.333  BROKEN
-v8       266.67  22980         127.667  BROKEN
-v10      333.33  23088         160.333  BROKEN
-i6/v6/v12  ...                          exact by luck
-```
+**And engines now have places.** They are mixed by our own stereo bus — 24 voices, distance
+attenuation, panning against the listener's own axes, air absorption, and true propagation delay.
+The doppler as a car goes past is not an effect; it is the delay line being read faster than it is
+written, which is what actually happens to air.
 
-The V8's harmonics smeared into sidebands 2 Hz wide — an audible warble once per loop, on the
-Stampede and not the Eclipse, from identical code.
+The bank goes from 74 files to 47. Engine audio costs 24% of one core with all 24 voices sounding.
 
-The existing loop test was green on all six. It measured the step in sample *value* at the join, and
-an equal-power crossfade removes that by construction — so the assertion could not fail however badly
-the phase lined up. **A smoothing operation applied to make a test pass makes that test unable to
-fail.** That is the third session running where the bug was invisible to a green suite and obvious
-the moment somebody measured the artefact instead of the code. The counter-measure is the same one
-that has worked every time: measure the thing that ships.
+### Checked against the real cars
 
-### One thing could not be verified
+Not by taste — against published specifications. The Mustang GTD's Predator 5.2 is confirmed
+cross-plane with a Roots blower and a 7,650 rpm limit; the MC20's Nettuno is a 90° V6 with firing
+order 1-6-3-4-2-5. That order puts its two banks on alternating events, which is exactly the split
+the code already had — so the V6 being smooth and the V8 burbling is right rather than lucky. The
+synthesised output matches both cars' derived firing frequencies to within 0.005% at idle, in the
+mid-range and at the limiter.
+
+### The tests could not fail, again
+
+Two tests covered the engine loops. One wanted three or more sub-firing-order lines; a gate *creates*
+sub-order lines, so the defect satisfied it. The other wanted two spectral peaks; there were three
+band-pass filters, so it could only fail if somebody deleted them. Neither asked whether the engine's
+firing frequency was in the file.
+
+That is the third session running where the suite was green and the artefact was obviously wrong the
+moment it was measured. Both of these tests were written by asking *what does this code produce?*
+rather than *what is an engine?* — and the answers to the first question were "peaks" and
+"sub-orders", both of which were there.
+
+Worth noting how the replacement went, because the obvious fix was also wrong: the first version
+asserted the firing order is the *loudest* thing, and it failed honestly. At 1,200 rpm a
+four-cylinder's fundamental genuinely sits below every exhaust resonance and its second harmonic
+carries. Real engines do that. The test now says the firing order must never be *buried* — never more
+than 12 dB down, where the old bank was 25.
+
+### Still not verified here
 
 `game-client` does not build in this sandbox — `jitpack.io` is blocked by the network policy and
-`gdx-gltf` only lives there. The audio package was type-checked by hand against the cached jars
-instead, which caught three real defects, but **the client's own tests did not run**. CI is the first
-place that will be established.
+`gdx-gltf` only lives there. But the three new DSP classes import no libGDX at all, so their 14 tests
+were compiled and run standalone, and all pass. The two classes that do touch libGDX are type-checked
+only. CI is the first place they run.
+
+One thing was deliberately left undone: the deleted overrun files carried exhaust crackle, and
+dropping the load reproduces the overrun but not the pops.
 
 ## 3. What is next
 
@@ -234,10 +252,14 @@ decision wants making before the session that implements them starts.
   floors, the propagation fraction, the degradation curves — all implemented, all at blueprint
   defaults, and for the first time there is a thing to run them against: eight bots fighting for
   sixty seconds and a report at the end of it.
-- **Mixing.** Seventy-four sounds exist and every one of them plays, which is a different thing from
-  them playing *well together*. A car can now run five looping voices at once and nothing has ever
-  balanced them against each other with a person listening. The gains in `AudioSystem` are first
-  guesses.
+- **Mixing, and the engine's own voicing.** Forty-seven sounds plus a live synthesiser, which is a
+  different thing from them playing *well together*. Nothing has ever been balanced with a person
+  listening: the gains in `AudioSystem` and `EngineMixer` are first guesses, and so is the
+  synthesiser's own voicing — the blower level, the muffler corner, how far a wrecked exhaust opens
+  up. Those are now numbers to turn rather than files to re-commission, which is the point, but
+  somebody still has to turn them.
+- **The overrun pops.** The deleted overrun one-shots carried exhaust crackle. Dropping the load
+  reproduces the overrun; it does not reproduce the bangs.
 
 ### Phases 9–10 — Multiplayer, then hardening
 
@@ -396,33 +418,38 @@ None of these are decided. They are here so the options are visible when a sessi
 ## 5. Where the project actually stands
 
 It is a game you can watch and hear. Two sessions ago it could only be read about in a log file; last
-session it could be watched; this session the two cars stopped being one exhaust note at two pitches
-and became a supercharged V8 and a twin-turbo V6.
+session it could be watched; this session its engines stopped being recordings and became machines
+that are simulated, so a car sounds like what it is doing and what has been done to it.
 
 Eight cars go onto an arena floor, drawn from real art with real paint on them. They drive, crash,
 take damage, throw sparks, lose parts, and one of them wins. A camera follows one, a HUD says how
 fast and how broken it is, a scoreboard says who is ahead. Every sound the design calls for now
-plays: engines that start and stop, tyres that squeal under slip, weapons that fire and land, shards
-that clatter as they settle, and a fire that keeps burning until somebody finishes the car off.
+plays: engines that crank, catch, rev, misfire and die, tyres that squeal under slip, weapons that
+fire and land, shards that clatter as they settle, and a fire that keeps burning until somebody
+finishes the car off. Each engine is in a place, so they pan, fade with distance and doppler past.
 
 **Nobody has driven it, and nobody has heard it.** That remains the entire question, and this session
 sharpened rather than changed it. The handling is a real supercar's published figures. The damage
-numbers are blueprint defaults. The bots ship at a difficulty nobody has lost to. And now the mix is
-five voices per car whose relative gains are first guesses. None of that is a bug, and none of it can
-be settled by writing more code.
+numbers are blueprint defaults. The bots ship at a difficulty nobody has lost to. And the mix — now
+including the synthesiser's own voicing — is a set of first guesses. None of that is a bug, and none
+of it can be settled by writing more code.
 
 What is genuinely still missing is short and it is all networking: four systems, and a game that will
 never need them if multiplayer is cut. Everything else on the "not done" list is content (damage
 morphs, weapons, fracture manifests), Blender pipeline stages 6–8, or tuning.
 
-The risk profile is unchanged and this session confirmed it again, for the third time running: **the
-tests here verify that components are correct and almost never that they are correct together.** Half
-the engine loops had been broken since the day they were written, under a green test that could not
-fail by construction — it measured the discontinuity a crossfade removes rather than the one a
-crossfade hides. Every bug this project has found the expensive way has had the same shape, and the
-counter-measure has worked every single time: build the real artefact, then measure the artefact
-rather than the code. A DFT over 74 committed `.wav` files is this session's contribution to that,
-and it is worth more than any single thing it found.
+The risk profile is unchanged and this session confirmed it for the third time running, with a
+sharper version of the same lesson. It is not only that **the tests verify components rather than
+their combination** — it is that a test written from the implementation's vocabulary tests that the
+implementation *ran*, not that its output is right. Two tests covered the engine loops; both were
+satisfied by the very defect that made them wrong, because both asked what the code produces rather
+than what an engine is. The counter-measure has worked every single time: build the real artefact,
+then measure the artefact rather than the code. This session that meant a DFT over the committed
+`.wav` files, and then — the part worth keeping — replacing those two tests with ones that fail on
+the old bank.
+
+It is also worth recording that a user's ear beat the entire suite. The loops were committed,
+documented, measured and green. Somebody listened to them and said no.
 
 There is one new structural risk worth naming. `game-client` cannot be built in this environment at
 all, so the largest module in the project is now the least verified — and the audio work landed
