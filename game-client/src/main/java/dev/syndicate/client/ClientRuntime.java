@@ -250,6 +250,11 @@ public final class ClientRuntime implements AutoCloseable {
         // GL and audio first: they hold references into the models and sounds the world's components
         // point at, and disposing the world first would leave the batch drawing freed meshes.
         render.dispose();
+        // Before the sound bank and before the world: the engine bus runs a thread that is still
+        // pulling on the mixer, and it reads vehicle state the world is about to tear down (G19).
+        if (provider.audioSystem() != null) {
+            provider.audioSystem().dispose();
+        }
         sounds.dispose();
         world.dispose();
         physics.close();

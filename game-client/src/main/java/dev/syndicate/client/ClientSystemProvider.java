@@ -107,6 +107,17 @@ public final class ClientSystemProvider implements SystemProvider {
         return render;
     }
 
+    /**
+     * The audio system, or null when this provider was built without presentation.
+     *
+     * <p>Exposed because it owns a native audio device and the thread feeding it (DEC-055), and
+     * something has to close them. Nothing did before, and nothing needed to — the sounds it played
+     * were the {@code SoundBank}'s to dispose.
+     */
+    public AudioSystem audioSystem() {
+        return audio;
+    }
+
     @Override
     public EntitySystem create(SystemSlot slot, RuntimeMode mode) {
         return switch (slot) {
