@@ -35,15 +35,16 @@ gantt
     Preparation pipeline, sound, input      :done, p6c, 19, 1
     A window - client, render, HUD          :done, p7, 20, 1
     Audio - engines, induction, triggers    :done, p7b, 21, 1
-    Real-time engine synthesis (here)       :done, p7c, 22, 1
+    Real-time engine synthesis              :done, p7c, 22, 1
+    The rumble - pulse fusion (here)        :done, p7d, 23, 1
 
     section Next
-    Driving it - tuning, balance, feel      :active, p11, 23, 2
-    Preparation pipeline - stages 6 to 8    :p6d, 24, 3
+    Driving it - tuning, balance, feel      :active, p11, 24, 2
+    Preparation pipeline - stages 6 to 8    :p6d, 25, 3
 
     section Then
-    Multiplayer                             :p9, 26, 4
-    Production hardening                    :p10, 30, 3
+    Multiplayer                             :p9, 27, 4
+    Production hardening                    :p10, 31, 3
 ```
 
 Read the numbers as **sessions of work, roughly**, not dates. Everything before "we are here" is
@@ -78,8 +79,10 @@ done and green; everything after is an estimate that will move.
   │  │            A car cut up by geometry; 52 sounds; a gamepad     │
   │  ●  Phase 7   A window          ★ WATCHABLE                     │
   │  │            Rendering, camera, HUD, morphs, particles, audio   │
-  │  ●  Phase 7b  Audio             ★ AUDIBLE     ← THIS SESSION     │
+  │  ●  Phase 7b  Audio             ★ AUDIBLE                        │
   │  │            Real engines, induction, every family triggered    │
+  │  ●  Phase 7c  The rumble                      ← THIS SESSION     │
+  │  │            Pulses fuse; the V8 lopes; a tool that measures it │
   └──┼───────────────────────────────────────────────────────────────┘
      │
   ┌──┼─ NEXT ──────────────────────────────────────────────────────────┐
@@ -118,179 +121,81 @@ catalogue would be finished.
 
 ---
 
-## 2. What happened this session (SESS-022)
+## 2. What happened this session (SESS-023)
 
-You listened to the engine loops and said they could not possibly be a V8. You were right, and the
-reason turned out to be one line of DSP topology.
+You said the rumble was not right, sent two more recordings, and asked for the engine-only part of
+the problem to be solved properly. It is, and the interesting part is that the thing we had been
+fixing for two sessions was not broken.
 
-### What was actually wrong
+### The diagnosis was backwards
 
-Measured on the committed bytes rather than read from the code that wrote them:
+An engine's lope is not something you can see in a spectrum. It lives in how the *loudness* rises
+and falls: a real engine varies its volume a lot at rates slower than one-per-cylinder, and hardly
+at all at one-per-cylinder itself. Measured against your Mustang clip:
 
-| | firing frequency | loudest thing in the file | ratio |
+| | slow variation (the lope) | one-per-cylinder (the buzz) | ratio |
 |---|---|---|---|
-| I4 | 133 Hz | 133 Hz | 1.00 |
-| V6 | 200 Hz | 600 Hz | 3.00 |
-| **V8** | **267 Hz** | **100 Hz** | **0.375** |
-| V12 | 400 Hz | 400 Hz | 1.00 |
+| real Mustang GT, idling | 27% | 1.6% | 17.4 |
+| the same car, a second later | 79% | 4.4% | 18.2 |
+| **ours, before** | **28%** | **20.3%** | **1.4** |
+| ours, after | 30% | 4.0% | 7.6 |
 
-Four of six loops sounded at a pitch unrelated to their engine. The V8's own firing frequency was
-25 dB down — effectively inaudible — and 95% of the file's energy sat in two narrow bands that did
-not move when the engine revved.
+Look at the left column. Our lope was already the same size as the real car's. Every effort so far —
+making the cylinders differ, making the two banks differ, reshaping the pulses — had been aimed at
+the half that was already correct. What was wrong was one number on the right: the engine thumped
+once per cylinder twelve times harder than a real one, and a thump at 60 Hz reads as a buzz.
 
-The pulse train feeding it was correct. The exhaust stage was a bank of three band-pass filters
-summed with nothing else, which is not a filter but a gate: everything between the formants was
-thrown away, and a V8's fundamental at the reference rpm landed squarely in the gap. In the game
-that meant the Stampede ran nearly an octave and a half flat across its whole rev range while the
-Eclipse ran three times sharp — two cars that are a musical fourth apart in reality, nearly three
-octaves apart in the build.
+### What fixed it
 
-### What landed instead
+**A cylinder empties twice, and we were only modelling the first half.** The bang when the valve
+cracks open is short and violent, and that is all there was. But the piston then spends a whole
+half-turn of the crank pushing the rest of the burnt gas out — four times longer, much quieter, and
+completely smooth. Because that sweep lasts a quarter of the engine's cycle, a quarter of the
+cylinders are always doing it, so they overlap and fill the silence between the bangs. What is left
+moving is the difference between one cylinder and the next, which repeats once per cycle. That
+difference *is* the rumble.
 
-The engine stopped being a file. It is synthesised as it runs: the crank angle integrates forward at
-whatever rpm the simulation reports, cylinders fire as they come round, and the exhaust *colours*
-that pulse train instead of replacing it.
+**Then the bangs themselves have to blur into each other.** The obvious way to do this is to bounce
+the sound around inside a modelled tailpipe — and that turned out to be a trap, because a pipe of
+fixed length has resonances at fixed pitches, so pushing it hard enough to work brought back exactly
+the "engine that does not change pitch when it revs" bug that started this whole rewrite. The tool
+that cannot do that is an all-pass filter: it smears sound in time and is mathematically incapable
+of changing which frequencies come out. Eight of them in a row, with their delays measured in
+*firing intervals* rather than milliseconds, so the car sounds like itself at every engine speed.
 
-That change paid for itself three times over, because a live synthesiser can do things a recording
-cannot at any file count:
+### One of your reference clips was not usable
 
-- **A wrecked engine sounds wrecked.** Damage drops a cylinder, adds misfire and tears the exhaust
-  open. Nobody wrote the lope that results — a missing pulse breaks the symmetry that was nulling the
-  even orders, and they come up 30 dB on their own.
-- **Ignition and shutdown stopped being twelve files.** They were only ever separate assets because a
-  loop cannot change speed. Cranking is 260 rpm with nothing catching; shutting down is the same
-  engine running out of rotation. Both now happen at each car's own idle rather than a nominal 800
-  rpm that neither shipped car has.
-- **The reference rpm and its pitch clamp are gone.** Both cars idle below the clamp, which meant
-  every engine in the game idled at the same note regardless of its rev range.
+The clip of several cars starting was measured as though it were one four-cylinder, and a target was
+taken from it and chased for hours. It is not one engine — its peaks do not line up on any single
+series, which is what several engines at slightly different speeds looks like. The tool now checks
+this before anything else, and says so plainly.
 
-**And engines now have places.** They are mixed by our own stereo bus — 24 voices, distance
-attenuation, panning against the listener's own axes, air absorption, and true propagation delay.
-The doppler as a car goes past is not an effect; it is the delay line being read faster than it is
-written, which is what actually happens to air.
+Your single-car Mustang recording is the only engine reference this project has, and it is a good
+one. Nothing derived from either clip is committed.
 
-The bank goes from 74 files to 47. Engine audio costs 24% of one core with all 24 voices sounding.
+### Where it landed
 
-### Checked against the real cars
+Through the actual game mixer, at the listener distance the game uses, the V8 at idle now measures a
+lope ratio of 9.9 against the real car's 17-18, with its buzz at 1.8% against the real 1.6-4.4%.
+Harmonic tilt and the noise between harmonics both sit inside the real car's range.
 
-Not by taste — against published specifications. The Mustang GTD's Predator 5.2 is confirmed
-cross-plane with a Roots blower and a 7,650 rpm limit; the MC20's Nettuno is a 90° V6 with firing
-order 1-6-3-4-2-5. That order puts its two banks on alternating events, which is exactly the split
-the code already had — so the V6 being smooth and the V8 burbling is right rather than lucky. The
-synthesised output matches both cars' derived firing frequencies to within 0.005% at idle, in the
-mid-range and at the limiter.
+It is not all the way there. The remaining gap is entirely in the left column — our lope is 18%
+where the real car's is 27-79% — and the two knobs that would raise it are both held down by tests
+that exist for good reasons: one stops a V6 loping like a V8, the other stops a start sounding like
+a fault. Rather than loosen either, the gap is written down.
 
-### The tests could not fail, again
+### The tool you asked for
 
-Two tests covered the engine loops. One wanted three or more sub-firing-order lines; a gate *creates*
-sub-order lines, so the defect satisfied it. The other wanted two spectral peaks; there were three
-band-pass filters, so it could only fail if somebody deleted them. Neither asked whether the engine's
-firing frequency was in the file.
-
-That is the third session running where the suite was green and the artefact was obviously wrong the
-moment it was measured. Both of these tests were written by asking *what does this code produce?*
-rather than *what is an engine?* — and the answers to the first question were "peaks" and
-"sub-orders", both of which were there.
-
-Worth noting how the replacement went, because the obvious fix was also wrong: the first version
-asserted the firing order is the *loudest* thing, and it failed honestly. At 1,200 rpm a
-four-cylinder's fundamental genuinely sits below every exhaust resonance and its second harmonic
-carries. Real engines do that. The test now says the firing order must never be *buried* — never more
-than 12 dB down, where the old bank was 25.
-
-### Then it was tuned against real engines
-
-The numbers above make an engine the right *pitch*. They say nothing about whether it has the right
-*texture*, and it did not. Almost every audio host is blocked from this sandbox, but GitHub's raw
-file server is not — and ESC-50, an openly licensed sound dataset, has forty engine recordings in it.
-Measuring those against the synthesiser turned up two things that were badly out:
-
-| | real engines | synth before | synth after |
-|---|---|---|---|
-| how fast harmonics fall | −7 dB/octave | **−22** | −7 to −11 |
-| how far they stand above the noise between them | +9 to +17 dB | **+37** | +19 to +23 |
-
-It was muffled, and it was almost noiseless. The second matters more than it looks: a real engine has
-turbulent gas moving through the pipe between the bangs, and one that does not sounds synthetic no
-matter how correct its firing geometry is. The muffler opened up and continuous flow noise was added.
-
-Brightening it then exposed something that had been hiding: the two exhaust banks were offset by
-1.4 ms, which cancels at 357 Hz — exactly where a V8 fires at 4,500 rpm. That offset was chosen last
-session to protect the burble, but part of the "burble" it was protecting was the firing order being
-notched out. Halved, the V8 keeps its burble and gets its fundamental back.
-
-The reference clips are CC BY-NC and are **never committed** — they are measured, and the constants
-they produce are what ships. `game-client/tools/engine_reference.py` re-runs the whole comparison so
-the next person does not have to take these numbers on trust.
-
-### Then three things you heard that no measurement had asked about
-
-The starter had a beep at the front of every sample: a bare 1,160 Hz sine at full amplitude from the
-first sample. Fixing the obvious part — fade it in, make it noise rather than a tone — exposed the
-real fault, which was that **three of the ignition's moving parts were not connected to the engine at
-all**:
-
-- the crank speed wobbled at a hardcoded 6 Hz, under a comment claiming it was the compression rate.
-  The real rate is `rpm / 120 x cylinders`: 8.7 Hz for a four, 17.3 for a V8, 26 for a V12.
-- the gear whine held one pitch while the crank speed swung 26% underneath it. A starter pinion is
-  geared to the ring gear; its pitch has to dip and recover with the labour.
-- a cranking engine made almost no exhaust noise, when in fact it is pumping air hard on every
-  stroke. That chuffing is most of what a start is.
-
-Tied to the crank, the same code now growls, and a four, a V8 and a V12 start audibly differently.
-The general lesson is worth keeping: **the ear detects a free constant long before it detects a wrong
-value.** 1,160 Hz was a perfectly plausible gear mesh; the problem was that it was connected to
-nothing.
-
-Two more, both asked for: powerful engines now get a low shelf that swells with the throttle and
-falls away on a lift (about 5 dB of swing on the Stampede, 1 dB on a small four), and lifting off at
-speed pops — armed by the throttle transition rather than the state, so a car that coasts for ten
-seconds pops for the first second and then just coasts.
-
-### And then you sent a real Mustang
-
-One recording of an actual V8 was worth more than the forty generic clips together, because it let
-the synthesiser be checked order by order against a car rather than against a category.
-
-Its harmonic comb reads at **6.6 Hz** — the *cycle* rate, not the firing rate. That spacing is itself
-the cross-plane signature, so the arrangement model was right. What was not:
-
-| relative to the firing order | Mustang | ours before | ours after |
-|---|---|---|---|
-| odd sub-orders | −37.3 dB | −44.1 | −37.4 |
-| even sub-orders | −37.4 dB | −51.2 | −41.1 |
-
-**The even orders were 14 dB light**, because our two exhaust banks were near-perfect mirrors of one
-another and cancelled them. Real cylinders are not identical, so nothing cancels cleanly. Giving each
-cylinder a small fixed difference in charge and timing fills them back in — and because those come
-from the vehicle's own seed, two of the same car now measurably differ from each other.
-
-Its ignition was just as useful. The catch is a single step from silence to full voice; our flare
-collapsed in one frame where the real one holds for a fifth of a second and eases down; and our flare
-was three times too loud relative to idle — which turned out not to be the flare at all, but idle
-being modelled as almost no fuelling. Crank length and speed now scale with cylinder count, so a four
-cranks briskly at 7.5 Hz and a twelve labours at 19.
-
-Two things worth being straight about. **Matching the even orders exactly costs the V8 its identity** —
-pushed that far, the V10 out-burbles it — so it is left 3.7 dB light on purpose. And **two test
-thresholds were weakened**, because engines whose cylinders differ have no exact nulls left to
-destroy. Both are honest consequences, and both are recorded rather than quietly absorbed.
+`game-client/tools/engine_reference.py` now does the whole comparison in one command: point it at a
+recording and a rendered sample and it prints them side by side, order by order, with the real car's
+ranges underneath. `--identify` is the check that would have saved the hours above.
 
 ### Still not verified here
 
 `game-client` does not build in this sandbox, and it is not a stale dependency: CI builds it fine on
-every run. `jitpack.io`, where `gdx-gltf` lives, is blocked by this sandbox's network policy, along
-with `search.maven.org`, `github.com` and `codeload`. No version bump fixes that, and gdx-gltf is not
-vestigial either — it supplies the GLB loader, the entire PBR shading path, image-based lighting, and
-the morph-target classes the damage deformation is built on. Removing it means reimplementing all
-four.
-
-The three new DSP classes import no libGDX at all, so their 14 tests were compiled and run standalone
-and all pass. The two classes that do touch libGDX are type-checked only. CI is the first place they
-run.
-
-One thing was deliberately left undone: the deleted overrun files carried exhaust crackle, and
-dropping the load reproduces the overrun but not the pops.
+every run. `jitpack.io`, where `gdx-gltf` lives, is blocked by this sandbox's network policy. The
+three DSP classes import no libGDX, so their 17 tests were compiled and run standalone and all pass;
+none of them was relaxed to get there. The two classes that touch libGDX are type-checked only.
 
 ## 3. What is next
 
@@ -517,7 +422,8 @@ fire and land, shards that clatter as they settle, and a fire that keeps burning
 finishes the car off. Each engine is in a place, so they pan, fade with distance and doppler past.
 
 **Nobody has driven it, and nobody has heard it.** That remains the entire question, and this session
-sharpened rather than changed it. The handling is a real supercar's published figures. The damage
+sharpened rather than changed it — though you have now heard six rendered takes, which is the closest
+anyone has come. The handling is a real supercar's published figures. The damage
 numbers are blueprint defaults. The bots ship at a difficulty nobody has lost to. And the mix — now
 including the synthesiser's own voicing — is a set of first guesses. None of that is a bug, and none
 of it can be settled by writing more code.
@@ -526,8 +432,11 @@ What is genuinely still missing is short and it is all networking: four systems,
 never need them if multiplayer is cut. Everything else on the "not done" list is content (damage
 morphs, weapons, fracture manifests), Blender pipeline stages 6–8, or tuning.
 
-The risk profile is unchanged and this session confirmed it for the third time running, with a
-sharper version of the same lesson. It is not only that **the tests verify components rather than
+The risk profile is unchanged, and this session added a fourth version of the same lesson with a new
+edge on it: **measure both halves of a ratio before tuning either.** Two sessions were spent raising
+the engine's lope, which was already the right size, because "not enough rumble" was assumed to mean
+"not enough of the slow stuff" when it actually meant "far too much of the fast stuff". The related
+older lesson is that **the tests verify components rather than
 their combination** — it is that a test written from the implementation's vocabulary tests that the
 implementation *ran*, not that its output is right. Two tests covered the engine loops; both were
 satisfied by the very defect that made them wrong, because both asked what the code produces rather

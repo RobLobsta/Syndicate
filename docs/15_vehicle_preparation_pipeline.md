@@ -430,6 +430,51 @@ instant collapse and 12 dB step a first guess produces. Crank duration and crank
 cylinder count, because a bigger engine is more inertia and more compressions for a starter to drag
 over, and that is most of what makes two arrangements start differently.
 
+<!-- D15-R38a10 -->**R38a10.** **The rumble is an envelope property, and a spectrum cannot see it.** What a listener
+calls an engine's lope is the ratio between how much its loudness varies at rates *below* its firing
+order and how much it varies *at* the firing order. Measured on two steady windows of a real
+cross-plane V8 idling, the sub-orders modulate by 27% and 79% while the firing order modulates by
+1.6% and 4.4% — ratios of 17.4 and 18.2. A synthesiser built from a correct firing geometry does the
+opposite by default: this one measured 28.1% of sub-order modulation, which was already right, and
+20.3% at the firing order, which was twelve times too much. It read as a buzz because it pumped once
+per cylinder, and no spectral measurement in this document would have found it. Any change to the
+exhaust path is checked against this ratio, at more than one engine speed.
+
+<!-- D15-R38a11 -->**R38a11.** **Pulses are fused by an all-pass chain, never by a comb.** Successive blowdowns have to
+overlap until the ripple between them fills in, and the obvious way to do it — feeding the exhaust
+into delay lines and mixing the reflections back — reintroduces R38a2's defect by a different route:
+fixed delays have fixed resonances, and driven hard enough to fuse the pulses they pin the spectrum
+(the I4's centroid stopped tracking engine speed at ×1.8 against a ×2.0 bound). An all-pass has unity
+magnitude at every frequency by construction, so it disperses in time and *cannot* colour. Two
+further constraints follow from measurement: the chain needs enough stages that no single one can
+align with the firing period — with four, the V8's firing-order modulation swung from 1.6% at 900 rpm
+to 16.8% at 1,100 — and its delays are expressed **in firing intervals rather than in milliseconds**,
+so the engine has the same character at every speed. The pipe's own fixed resonances are the
+formants, and those are the part that must not move.
+
+<!-- D15-R38a12 -->**R38a12.** **A cylinder's exhaust event is a blowdown and then a 180° sweep.** Modelling only the
+blowdown — a third of a firing interval, violent, then nothing — leaves the gaps between firings
+empty and is most of why R38a10's ratio inverts. Once cylinder pressure has equalised the piston
+still displaces the remainder over its whole exhaust stroke: four times longer, lower, smooth, and
+carrying no transient. Because 180° is a quarter of the cycle, a quarter of any engine's cylinders
+are always sweeping, and their overlap is what leaves the differences *between* cylinders as the only
+thing still modulating — which repeats once per cycle, and is therefore the rumble.
+
+<!-- D15-R38a13 -->**R38a13.** **A cranking engine is not heard through its exhaust**, and the exhaust model is backed
+off while the starter is engaged. There is no combustion and gas velocity is a fraction of an idle's;
+measured on a recording of an engine failing to catch, 72% of the energy sits above 1.3 kHz, which is
+not a tailpipe. Left at full strength R38a11's smear runs to half a compression stroke and washes the
+chuff out — the four's crank measured 4.0 Hz against its true 7.5 — and a start that does not chug is
+the fault sound R38a5 exists to prevent.
+
+<!-- D15-R38a14 -->**R38a14.** **A recording is not a reference until its orders have been checked.** Before any number
+is taken from a clip, its envelope-modulation peaks must be shown to lie on one series: a single
+engine puts most of them on multiples of one cycle rate, and several engines put them nowhere. A clip
+of multiple cars starting was used as a four-cylinder reference for most of a session, and the ratio
+taken from it was chased through a parameter search before the check showed its peaks form no series
+at all. `game-client/tools/engine_reference.py --identify` performs this check and is the first thing
+run on an unfamiliar recording.
+
 **R38b.** Impact and detachment one-shots are **modal**: a broadband strike transient over a handful of exponentially damped, inharmonic sinusoids whose frequencies and decay times are the material's. Filtering noise is cheaper to write and does not work, because the ear identifies material from decay time and partial spacing far more than from spectral tilt.
 
 **R38c.** Severity is authored, never pitched. Three impact variants per material (`light`, `medium`, `heavy`) differ in modal frequency, decay and brightness, because a hard hit excites a larger area and therefore rings *lower* and longer — pitching one recording up and down produces the single most recognisable sign of a cheap bank.
@@ -463,6 +508,8 @@ over, and that is most of what makes two arrangements start differently.
 | T-D15-18 | Low-band energy on throttle vs on a lift, powerful engine vs weak | Swings more on the powerful one (R38a6) |
 | T-D15-19 | High-band energy after a lift vs a steady coast at the same rpm | Raised, and decaying (R38a7) |
 | T-D15-20 | Odd and even sub-order energy vs a measured real V8 at matched rpm | Both within a few dB (R38a8) |
+| T-D15-21 | Sub-order over firing-order envelope modulation, V8 at two matched idle speeds | Within an order of magnitude of the real V8's 17.4–18.2, and consistent between the two (R38a10) |
+| T-D15-22 | Firing-order envelope modulation across 700–3,000 rpm | No speed more than a few times any other; a tenfold swing is one diffuser stage aligning (R38a11) |
 
 ---
 

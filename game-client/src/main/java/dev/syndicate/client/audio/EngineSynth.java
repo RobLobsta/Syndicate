@@ -169,6 +169,120 @@ public final class EngineSynth {
      */
     private static final double CRACKLE_GAIN = 4.0;
 
+    /**
+     * The tailpipe: reflections inside the exhaust, as a short feedback network.
+     *
+     * <p><b>This is where the rumble was missing, and filters could never have supplied it.</b>
+     * Measured against a real V8 idling, the reference modulates its loudness by 5 to 22% at every
+     * order <em>below</em> the firing order and only 4.9% at the firing order itself — that spread
+     * is what a listener calls the rumble or the lope. This synthesiser did the opposite: 33% at the
+     * firing order and about 1% everywhere else, which is a machine pulsing evenly rather than an
+     * engine.
+     *
+     * <p>The cause is that an exhaust is not a filter, it is a system of pipes and chambers with
+     * multiple reflections, and a biquad's memory is a handful of samples. Real pulses arrive into a
+     * cavity that is still ringing from the last three, so they partly fuse — which lowers the
+     * firing-order modulation — while the cavity's memory carries the pattern of the whole 720°
+     * cycle forward, which raises everything below it. A dry pulse train through a filter has no way
+     * to do either.
+     *
+     * <p>Delays are the round trips a real system has: about 6, 11 and 20 ms for a manifold, a
+     * silencer chamber and the run to the tip, scaled by engine size.
+     */
+    /** How much of the firing interval the blowdown itself occupies. */
+    private static final double PULSE_WIDTH_FRACTION = 0.34;
+
+    /** Decay of the blowdown across its own width, in e-folds. Low overlaps the next cylinder. */
+    private static final double PULSE_DECAY = 3.6;
+
+    /**
+     * The exhaust stroke: the piston pushing the burnt charge out, in crank degrees.
+     *
+     * <p><b>This is what was missing, and it is why the engine pumped instead of rumbling.</b> A
+     * cylinder's contribution to the pipe was modelled as the blowdown alone — a third of a firing
+     * interval, violent, and then nothing. Measured that way this synthesiser modulated its own
+     * loudness by 29% at the firing order where a real four manages 2.2% and a real V8 1.5%: eight
+     * separable bangs a cycle rather than an engine.
+     *
+     * <p>Blowdown is only the first part of an exhaust event. Once cylinder pressure has equalised
+     * the piston still has 180° of crank to sweep the rest of the charge out, and that flow is
+     * smooth, low, and <em>four times longer than the blowdown</em>. Because 180° is a quarter of
+     * the 720° cycle, however many cylinders an engine has, a quarter of them are always sweeping —
+     * two on a V8, three on a V12. Their overlap is what fills the gaps between blowdowns, and what
+     * is left modulating is no longer the firing rate but the differences between the cylinders
+     * themselves, which repeat once per cycle. That is the rumble, and it is a sub-order by
+     * construction.
+     *
+     * <p>Expressed in crank degrees rather than in seconds or in intervals, so it stays the same
+     * stroke at every engine speed and on every arrangement.
+     */
+    private static final double SCAVENGE_DEGREES = 180.0;
+
+    /** How loud the sweep is against the blowdown that precedes it. */
+    private static final double SCAVENGE_LEVEL = 0.20;
+
+    /**
+     * The exhaust system as a diffuser: an all-pass chain, not a comb.
+     *
+     * <p><b>This is where the rumble was, and why every earlier attempt at it broke something
+     * else.</b> Measured against a real Mustang GT idling, this synthesiser's sub-orders were
+     * already right — 28.1% against the reference's 27.0% — and every order it had below the firing
+     * order stood clear of the floor. What was wrong was one number: the modulation <em>at</em> the
+     * firing order, 20.3% against the reference's 1.6%. A real engine's loudness barely moves
+     * between one cylinder and the next; this one pumped once per firing, and a pump at 60 Hz is a
+     * buzz where a lope is what the ear is listening for.
+     *
+     * <p>Only time-smearing fixes that: successive blowdowns have to overlap until the ripple
+     * between them fills in, while the 5 to 30 Hz pattern of the whole cycle — which is the rumble —
+     * passes through untouched because its period is ten times longer than the smear.
+     *
+     * <p><b>A feedback comb was tried first and cannot be used.</b> Driven hard enough to fuse the
+     * pulses it does raise the rumble, and it also pins the spectrum: fixed delays have fixed peaks,
+     * so the I4's spectral centroid stopped tracking engine speed (×1.8 against a ×2.0 bound) —
+     * which is DISC-025's defect, reintroduced by a different mechanism. An all-pass has unity
+     * magnitude at every frequency by construction. It <em>cannot</em> pin a spectrum, and that is
+     * the whole reason it is the right component: it disperses in time and does nothing else.
+     *
+     * <p><b>Eight stages, and measured in firing intervals rather than in milliseconds.</b> Both
+     * choices are corrections to a version that had neither. With four fixed delays the smear worked
+     * at some engine speeds and inverted at others: an all-pass whose delay lands near the firing
+     * period returns each echo on top of the <em>next</em> cylinder instead of into the gap before
+     * it, and so reinforces the pumping it exists to remove. Measured, the V8's firing-order
+     * modulation was 1.6% at 900 rpm and 16.8% at 1,100 — a tenfold swing across a fifth of the rev
+     * range, which is one stage coming into alignment and nothing else. Eight delays cannot all
+     * align at once, and expressing them as fractions of the firing interval means none of them ever
+     * does: the whole system is scale-invariant in time, so the engine has the same character at
+     * every speed, which is the one thing a real engine reliably does.
+     *
+     * <p>The fractions are irregular on purpose — no two in a simple ratio, and none near 1.0.
+     *
+     * <p><b>This is a model of pulse fusion, not a pipe.</b> A real exhaust is a fixed length and
+     * its resonances do sit still; what scales with engine speed is the valve overlap, which is
+     * fixed in crank degrees and therefore in firing intervals. Those resonances are already here,
+     * as the formants, and they are the part that should not move.
+     */
+    private static final double[] DIFFUSER_FRACTIONS = {0.13, 0.21, 0.31, 0.44, 0.61, 0.83, 1.13, 1.47};
+
+    /** Longest smear any stage may hold, in seconds. Sized for an idle no car actually has. */
+    private static final double DIFFUSER_MAX_SECONDS = 0.085;
+
+    /** How much of each stage is dispersed. Higher spreads a pulse over more of its own tail. */
+    private static final double DIFFUSER_GAIN = 0.80;
+
+    private static final double DIFFUSER_MIX = 1.0;
+
+    /**
+     * How much of the diffuser is left while the starter is turning the engine over.
+     *
+     * <p>A cranking engine is not heard through its exhaust. There is no combustion, gas velocity is
+     * a fraction of even an idle's, and what reaches a bystander is the starter and the block —
+     * measured on a recording of an engine failing to catch, 72% of the energy sits above 1.3 kHz,
+     * which is not a tailpipe. Left at full the smear ran to half a compression stroke and washed
+     * the chuff out: the four's crank measured 4.0 Hz against its true 7.5, and a start that does
+     * not chug is the fault sound this synthesiser was rewritten to stop making.
+     */
+    private static final double DIFFUSER_CRANK_MIX = 0.20;
+
     /** Where a breached exhaust's rasp sits, and how much of it there is at full breach. */
     private static final double RASP_HZ = 2400.0;
 
@@ -181,6 +295,18 @@ public final class EngineSynth {
     private final Biquad rasp = new Biquad();
     private final Biquad flow = new Biquad();
     private final Biquad lowShelf = new Biquad();
+
+    /** One delay line per diffuser stage, each long enough for the slowest speed it will see. */
+    private final double[][] diffuser = new double[DIFFUSER_FRACTIONS.length][];
+
+    private final int[] diffuserPos = new int[DIFFUSER_FRACTIONS.length];
+
+    /** Current delay of each stage in samples, chased towards the target so a rev does not click. */
+    private final int[] diffuserDelay = new int[DIFFUSER_FRACTIONS.length];
+
+    /** Chased rather than switched, so the engine catching is not also a step in the exhaust. */
+    private double diffuserMix = DIFFUSER_MIX;
+
     private final Biquad crackleFilter = new Biquad();
 
     /** How much crackle is left to come, and the transient currently sounding. */
@@ -195,11 +321,12 @@ public final class EngineSynth {
     /**
      * Excitation ring per bank, in samples.
      *
-     * <p>Must hold one whole blowdown pulse at the slowest speed the engine ever turns. A starter
-     * spins at about 250 rpm, where a V8's pulse is 20 ms — 980 samples — so 4,096 is comfortable
-     * for every arrangement and costs 32 kB a voice.
+     * <p>Must hold one whole exhaust event at the slowest speed the engine ever turns, and the
+     * event is now the 180° sweep rather than the blowdown. A starter spins at about 200 rpm, where
+     * 180° of crank takes 150 ms — 7,200 samples — so 16,384 covers every arrangement down to
+     * 90 rpm and costs 128 kB a bank.
      */
-    private static final int RING = 4096;
+    private static final int RING = 16_384;
 
     private final double[][] ring;
     private int ringPos;
@@ -232,15 +359,23 @@ public final class EngineSynth {
      * engine, which has only one bank, and without making every arrangement lumpy the way cylinder
      * scatter does.
      *
-     * <p><b>Scaled by {@link #bankDivergence}, and DEC-054 is why.</b> Applied flat to every V it
-     * repeated that entry's original mistake exactly: the even-firing V10 came out burbling harder
-     * than the cross-plane V8 at 2,000 rpm, because banks that fire identically should stay matched
-     * and a constant does not know that. Every asymmetry between banks in this synthesiser has to
-     * scale with how differently they fire.
+     * <p><b>Scaled by how unevenly the banks fire, and DEC-054 is why.</b> Applied flat to every V
+     * it repeated that entry's original mistake exactly: the even-firing V10 came out burbling
+     * harder than the cross-plane V8 at 2,000 rpm, because banks that fire identically should stay
+     * matched and a constant does not know that.
+     *
+     * <p><b>With no floor under the scaling, unlike the detune and the delay.</b> Those two
+     * decorrelate two banks without inventing structure, so a small amount of them belongs on every
+     * V. A gain difference is not like that: two banks firing the <em>same</em> pattern at different
+     * levels still sum to that same pattern, so an imbalance between them creates no sub-orders at
+     * all — it only changes the total. The 10% floor was therefore giving the V6 and the V10 a lope
+     * that has no physical source, and it capped the V8's: measured, the V6's odd sub-orders crossed
+     * the −12 dB bound the moment the ceiling went past 0.22, which is a limit imposed by an
+     * even-firing engine on the one arrangement that is supposed to be uneven.
      */
-    private static final double BANK_GAIN_IMBALANCE_MAX = 0.22;
+    private static final double BANK_GAIN_IMBALANCE_MAX = 0.45;
 
-    private static final int BANK_DELAY_SAMPLES_MAX = 128;
+    private static final int BANK_DELAY_SAMPLES_MAX = 512;
 
     private final double[] bankDelayLine = new double[BANK_DELAY_SAMPLES_MAX];
     private int bankDelayPos;
@@ -345,9 +480,9 @@ public final class EngineSynth {
         this.rng = seed == 0L ? 0x9E3779B97F4A7C15L : seed;
         this.ring = new double[bankCount][RING];
 
-        double divergence = BANK_DIVERGENCE_MIN
-                + (1.0 - BANK_DIVERGENCE_MIN) * Math.min(1.0, this.configuration.bankFiringSpreadDegrees() / 180.0);
-        this.bankGainImbalance = BANK_GAIN_IMBALANCE_MAX * divergence;
+        double unevenness = Math.min(1.0, this.configuration.bankFiringSpreadDegrees() / 180.0);
+        double divergence = BANK_DIVERGENCE_MIN + (1.0 - BANK_DIVERGENCE_MIN) * unevenness;
+        this.bankGainImbalance = BANK_GAIN_IMBALANCE_MAX * unevenness;
         this.bankDelaySamples = Math.min(
                 BANK_DELAY_SAMPLES_MAX - 1, (int) Math.round(BANK_DELAY_MAX_SECONDS * divergence * SAMPLE_RATE_HZ));
         double detune = 1.0 - BANK_DETUNE_MAX * divergence;
@@ -369,6 +504,12 @@ public final class EngineSynth {
         // Bright and broad: an overrun bang is a sharp crack, not a thud.
         crackleFilter.bandPass(1900.0, 0.8);
         this.starterGearScale = 0.90 + nextUnit() * 0.20;
+
+        int longest = (int) Math.round(DIFFUSER_MAX_SECONDS * SAMPLE_RATE_HZ) + 2;
+        for (int i = 0; i < DIFFUSER_FRACTIONS.length; i++) {
+            diffuser[i] = new double[longest];
+            diffuserDelay[i] = longest / 2;
+        }
 
         this.cylinderLevel = new double[cylinders];
         this.cylinderTimingDeg = new double[cylinders];
@@ -442,7 +583,9 @@ public final class EngineSynth {
         double firingIntervalSeconds = s.rpm() > 1f ? (120.0 / s.rpm()) / cylinders : 0.0;
         // Blowdown lasts about a third of a firing interval, which is why a V12's pulses are short
         // and overlapping and an I4's are separate bangs.
-        double pulseSeconds = 0.34 * firingIntervalSeconds;
+        double pulseSeconds = PULSE_WIDTH_FRACTION * firingIntervalSeconds;
+        // And the sweep behind it lasts 180° of crank however fast the engine is turning.
+        double scavengeSeconds = s.rpm() > 1f ? SCAVENGE_DEGREES / (s.rpm() * 6.0) : 0.0;
         // Off the throttle a cylinder still fills and pumps but burns almost nothing, so the train
         // drops to a fraction of its height rather than stopping.
         double burn = 0.18 + 0.82 * s.load();
@@ -471,6 +614,27 @@ public final class EngineSynth {
             starterGear.bandPass(Math.max(40.0, s.rpm() / 60.0 * STARTER_RING_TEETH * starterGearScale), 5.0);
         }
 
+        // The diffuser tracks the firing interval, so its smear is the same in crank degrees at
+        // every speed. Chased a few samples a block rather than jumped: an all-pass whose delay
+        // moves in one step is a click, and a car sweeping its rev range would tick continuously.
+        double mixTarget = s.starter() ? DIFFUSER_CRANK_MIX : DIFFUSER_MIX;
+        diffuserMix += (mixTarget - diffuserMix) * 0.06;
+        if (firingIntervalSeconds > 0.0) {
+            int limit = diffuser[0].length - 1;
+            // Shrink the whole set together when the longest stage will not fit, rather than
+            // clipping the long ones individually. Clipped, the last four stages collapse onto the
+            // same delay and eight diffusers become one hard echo — which at cranking speed is a
+            // ringing the engine does not have, and which was measurable as a false 4 Hz chuff.
+            double longest = DIFFUSER_FRACTIONS[DIFFUSER_FRACTIONS.length - 1] * firingIntervalSeconds * SAMPLE_RATE_HZ;
+            double fit = longest > limit ? limit / longest : 1.0;
+            for (int i = 0; i < DIFFUSER_FRACTIONS.length; i++) {
+                int want = (int) Math.round(DIFFUSER_FRACTIONS[i] * fit * firingIntervalSeconds * SAMPLE_RATE_HZ);
+                want = Math.max(2, Math.min(limit, want));
+                int step = Math.max(1, Math.abs(want - diffuserDelay[i]) / 8);
+                diffuserDelay[i] += Integer.signum(want - diffuserDelay[i]) * step;
+            }
+        }
+
         double inductionHz = s.rpm() / 60.0 * induction.driveRatio();
         double inductionGain = inductionGain(s);
         double releaseDecay = Math.exp(-1.0 / (RELEASE_DECAY_SECONDS * SAMPLE_RATE_HZ) * 6.0);
@@ -479,7 +643,7 @@ public final class EngineSynth {
             if (s.rpm() > 1f) {
                 crankDeg += degreesPerSample;
                 while (crankDeg >= nextFiringAngle()) {
-                    fire((int) (event % cylinders), pulseSeconds, burn, s);
+                    fire((int) (event % cylinders), pulseSeconds, scavengeSeconds, burn, s);
                     event++;
                 }
             }
@@ -503,6 +667,22 @@ public final class EngineSynth {
             if (raspGain > 0.0) {
                 exhaust += rasp.process(sample) * raspGain;
             }
+            // Through the system: four all-pass stages, which spread each blowdown over the
+            // interval that follows it without touching where its energy sits in frequency. This
+            // is what fuses eight bangs a cycle into one engine.
+            double dispersed = exhaust;
+            for (int i = 0; i < diffuser.length; i++) {
+                double[] line = diffuser[i];
+                int write = diffuserPos[i];
+                int read = write - diffuserDelay[i];
+                double delayed = line[read < 0 ? read + line.length : read];
+                double v = dispersed + DIFFUSER_GAIN * delayed;
+                line[write] = v;
+                dispersed = delayed - DIFFUSER_GAIN * v;
+                diffuserPos[i] = write + 1 == line.length ? 0 : write + 1;
+            }
+            exhaust += (dispersed - exhaust) * diffuserMix;
+
             double result = lowShelf.process(dcBlock.process(exhaust));
 
             if (crackleArmed > 1e-3) {
@@ -542,8 +722,17 @@ public final class EngineSynth {
         return MUFFLER_HZ_INTACT + (MUFFLER_HZ_BREACHED - MUFFLER_HZ_INTACT) * breach * breach;
     }
 
-    /** Lays one exhaust blowdown into its bank's ring, starting at the current read position. */
-    private void fire(int cylinder, double pulseSeconds, double burn, State s) {
+    /**
+     * Lays one whole exhaust event into its bank's ring, starting at the current read position.
+     *
+     * <p>Two parts, because a cylinder empties in two. The <b>blowdown</b> is the valve cracking
+     * open against combustion pressure: a third of a firing interval, a near-vertical attack, and
+     * all of the harmonic content. The <b>sweep</b> behind it is the piston displacing what is left
+     * over its 180° exhaust stroke — four times as long, half as loud, and smooth, with no edge for
+     * the ear to hear as an event. The sweeps of a quarter of the engine's cylinders are always
+     * overlapping, and that is what stops the output pumping at the firing rate.
+     */
+    private void fire(int cylinder, double pulseSeconds, double scavengeSeconds, double burn, State s) {
         double level = burn * cylinderLevel[cylinder];
         if (cylinder == s.deadCylinder()) {
             // A dead cylinder still pumps air past an open valve. Quiet and dull, and audible as
@@ -561,12 +750,22 @@ public final class EngineSynth {
         double[] target = ring[configuration.bankOf(cylinder)];
         for (int i = 0; i < span; i++) {
             double u = (double) i / span;
-            double envelope = u < rise ? u / rise : Math.exp(-(u - rise) / (1.0 - rise) * 3.6);
+            double envelope = u < rise ? u / rise : Math.exp(-(u - rise) / (1.0 - rise) * PULSE_DECAY);
             // Turbulence in the port, scaled by the envelope so it belongs to the pulse rather
             // than sitting under the whole engine as a hiss.
             double turbulence = 1.0 + nextSample() * roughness * 0.45;
             int at = ringPos + i;
             target[at >= RING ? at - RING : at] += peak * envelope * turbulence;
+        }
+        int sweep = Math.min(RING - 1, Math.max(2, (int) Math.round(scavengeSeconds * SAMPLE_RATE_HZ)));
+        double sweepPeak = level * SCAVENGE_LEVEL;
+        for (int i = 0; i < sweep; i++) {
+            // Piston velocity: zero at both dead centres, greatest in the middle of the stroke.
+            // A half sine, so the sweep neither begins nor ends on a step.
+            double flow = Math.sin(Math.PI * i / sweep);
+            double turbulence = 1.0 + nextSample() * roughness * 0.45;
+            int at = ringPos + i;
+            target[at >= RING ? at - RING : at] += sweepPeak * flow * turbulence;
         }
     }
 
