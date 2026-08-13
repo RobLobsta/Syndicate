@@ -30,19 +30,50 @@ final class EngineRunState {
     enum Phase {
         CRANKING,
         CATCHING,
+        SETTLING,
         RUNNING,
         STOPPING,
         OFF
     }
 
-    /** How long the starter turns before anything catches. */
-    private static final float CRANK_SECONDS = 0.62f;
+    /**
+     * How long the starter turns before anything catches.
+     *
+     * <p>Measured off a Ford Mustang GT startup: the crank is brief to the point of being under the
+     * ambience, and the engine is at full voice 40 ms after the first sign of it. The first version
+     * cranked for 0.62 s and ramped the catch over another 0.3 s, which is a diesel in winter, not a
+     * modern petrol V8 on a button.
+     */
+    private static final float CRANK_SECONDS_BASE = 0.26f;
 
-    /** How long the engine takes to pick itself up once it does. */
-    private static final float CATCH_SECONDS = 0.30f;
+    /** Extra cranking per cylinder: more pistons is more inertia and more compressions to get over. */
+    private static final float CRANK_SECONDS_PER_CYLINDER = 0.035f;
+
+    /** How long this engine cranks. A four is brisk; a twelve labours. */
+    static float crankSeconds(int cylinders) {
+        return CRANK_SECONDS_BASE + CRANK_SECONDS_PER_CYLINDER * Math.max(1, cylinders);
+    }
+
+    /** Cranking speed for this engine: a big engine is harder for a starter to turn. */
+    static float crankRpm(int cylinders) {
+        return CRANK_RPM * (1.12f - 0.02f * Math.max(1, cylinders));
+    }
+
+    /**
+     * How long the engine takes to pick itself up once it catches.
+     *
+     * <p>Short, because on the reference recording the transition from nothing to a full flare
+     * happens between two 40 ms envelope samples. It is a step, not a ramp.
+     */
+    private static final float CATCH_SECONDS = 0.12f;
+
+    /** How long the flare holds before it starts falling back, and how long the fall takes. */
+    private static final float FLARE_HOLD_SECONDS = 0.14f;
+
+    private static final float SETTLE_SECONDS = 0.45f;
 
     /** Speed the starter turns a cold engine at, once it has got it moving. */
-    private static final float CRANK_RPM = 260f;
+    private static final float CRANK_RPM = 215f;
 
     /** How long the starter takes to drag a cold engine up to cranking speed. */
     private static final float CRANK_SPIN_UP_SECONDS = 0.18f;
@@ -60,7 +91,7 @@ final class EngineRunState {
     private static final float CRANK_LABOUR_DEPTH = 0.26f;
 
     /** How far past idle a caught engine flares before settling. */
-    private static final float FLARE_FACTOR = 1.45f;
+    private static final float FLARE_FACTOR = 1.33f;
 
     /** How long an engine takes to stop turning once the fuel is cut. */
     private static final float STOP_SECONDS = 1.15f;
@@ -88,6 +119,8 @@ final class EngineRunState {
     static final float MAX_BREACH = 0.90f;
 
     private final int cylinders;
+    private final float crankSeconds;
+    private final float crankRpm;
     private final float idleRpm;
     private final int deadCylinderIndex;
 
@@ -102,6 +135,8 @@ final class EngineRunState {
      */
     EngineRunState(int cylinders, float idleRpm, long seed) {
         this.cylinders = Math.max(1, cylinders);
+        this.crankSeconds = crankSeconds(this.cylinders);
+        this.crankRpm = crankRpm(this.cylinders);
         this.idleRpm = Math.max(200f, idleRpm);
         this.deadCylinderIndex = (int) Math.floorMod(seed * 0x9E3779B97F4A7C15L >>> 32, this.cylinders);
     }
@@ -140,13 +175,13 @@ final class EngineRunState {
             case CRANKING -> {
                 // Inertia first: a cold engine does not arrive at cranking speed, it is dragged there.
                 float spinUp = Math.min(1f, elapsed / CRANK_SPIN_UP_SECONDS);
-                float mean = CRANK_RPM * spinUp;
+                float mean = crankRpm * spinUp;
                 // Then the labour, once per compression. Computed from the mean speed rather than the
                 // modulated one, which would otherwise chase its own tail.
                 float compressionHz = mean / 120f * cylinders;
                 float labour = 1f - CRANK_LABOUR_DEPTH * (float) Math.sin(2.0 * Math.PI * compressionHz * elapsed);
                 rpm = Math.max(40f, mean * labour);
-                if (elapsed >= CRANK_SECONDS) {
+                if (elapsed >= crankSeconds) {
                     phase = Phase.CATCHING;
                     elapsed = 0f;
                 }
@@ -154,20 +189,41 @@ final class EngineRunState {
                 // that chuffing is most of what a start sounds like. It was near silent before,
                 // leaving nothing but the starter's own whine — which is why it read as a machine
                 // fault rather than as a car.
-                float catching = Math.max(0f, (elapsed - CRANK_SECONDS * 0.72f) / (CRANK_SECONDS * 0.28f));
+                float catching = Math.max(0f, (elapsed - crankSeconds * 0.72f) / (crankSeconds * 0.28f));
                 return state(rpm, 0f, CRANK_PUMPING + 0.35f * Math.min(1f, catching), true, healthFraction, 0f);
             }
             case CATCHING -> {
                 float u = Math.min(1f, elapsed / CATCH_SECONDS);
-                rpm = CRANK_RPM + (idleRpm * FLARE_FACTOR - CRANK_RPM) * u;
+                rpm = crankRpm + (idleRpm * FLARE_FACTOR - crankRpm) * u;
                 if (u >= 1f) {
-                    phase = Phase.RUNNING;
+                    phase = Phase.SETTLING;
                     elapsed = 0f;
                 }
                 // Ragged on purpose: cylinders catch one at a time, so the engine stumbles before it
                 // picks itself up. Fed through the misfire parameter, which already means exactly
                 // "this cylinder did not burn properly".
                 return state(rpm, 0.3f, 0.45f + 0.55f * u, false, healthFraction, CATCH_MISFIRE * (1f - u));
+            }
+            case SETTLING -> {
+                // The flare holds, then falls back. On the reference the level stays up for about
+                // 0.3 s and takes another 0.6 s to reach idle; the first version collapsed it in a
+                // single frame because RUNNING slewed straight to the demanded rpm.
+                float flare = idleRpm * FLARE_FACTOR;
+                if (elapsed <= FLARE_HOLD_SECONDS) {
+                    rpm = flare;
+                } else {
+                    float u = Math.min(1f, (elapsed - FLARE_HOLD_SECONDS) / SETTLE_SECONDS);
+                    // Fast at first and easing in, the way an engine falls onto its idle governor.
+                    rpm = flare + (Math.max(idleRpm, demandRpm) - flare) * (1f - (1f - u) * (1f - u));
+                    if (u >= 1f) {
+                        phase = Phase.RUNNING;
+                        elapsed = 0f;
+                    }
+                }
+                // Still fuelling hard while it flares, tapering as it comes back down.
+                float settleLoad =
+                        Math.max(load, 0.50f * Math.max(0f, 1f - elapsed / (FLARE_HOLD_SECONDS + SETTLE_SECONDS)));
+                return state(rpm, Math.max(throttle, 0.2f), settleLoad, false, healthFraction, 0f);
             }
             case RUNNING -> {
                 rpm = slew(rpm, Math.max(idleRpm, demandRpm), dt);

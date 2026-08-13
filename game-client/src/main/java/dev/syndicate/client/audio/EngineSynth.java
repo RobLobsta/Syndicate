@@ -53,6 +53,37 @@ public final class EngineSynth {
     private final double roughness;
     private final double[] firingAngles;
 
+    /**
+     * Fixed per-cylinder trim in level and in crank degrees.
+     *
+     * <p><b>No two cylinders on a real engine are the same, and the difference is not noise.</b>
+     * Measured against a Ford Mustang GT startup, this synthesiser's even orders sat 14 to 24 dB
+     * below the real car's while its odd orders matched within a few dB — because two banks that are
+     * exact time-reverses of each other cancel their even content almost perfectly, and nothing here
+     * broke that symmetry. Cycle-to-cycle randomness could not: random jitter spreads energy across
+     * the spectrum as noise, where a *fixed* difference between cylinders puts it back into the
+     * orders, which is where the real engine has it.
+     *
+     * <p>Derived from the vehicle seed, so it is also what makes two cars of the same model sound
+     * like two cars rather than one recording played twice.
+     */
+    private final double[] cylinderLevel;
+
+    private final double[] cylinderTimingDeg;
+
+    /**
+     * How far cylinders differ in charge, and in crank degrees of timing scatter.
+     *
+     * <p>Deliberately near what an engine is actually built to rather than what would flatter one
+     * measurement. Pushed to ±20% and ±3.2° the V8 matched a real Mustang's even orders exactly —
+     * and every other arrangement became just as lumpy, which collapsed the contrast that makes a
+     * cross-plane V8 recognisable. Cylinder scatter is the wrong lever for a V engine's even-order
+     * content; {@link #BANK_GAIN_IMBALANCE} is the right one.
+     */
+    private static final double CYLINDER_LEVEL_SPREAD = 0.12;
+
+    private static final double CYLINDER_TIMING_SPREAD_DEG = 2.0;
+
     // ---- Exhaust ---------------------------------------------------------------------------
 
     /**
@@ -189,11 +220,32 @@ public final class EngineSynth {
 
     private static final double BANK_DELAY_MAX_SECONDS = 0.0007;
     private static final double BANK_DIVERGENCE_MIN = 0.10;
+
+    /**
+     * How much quieter a V's second bank reaches the listener than its first.
+     *
+     * <p><b>Where a V engine's even orders come from.</b> Two banks that are exact time-reverses of
+     * one another cancel their even content when summed, and measured against a real Mustang GT this
+     * synthesiser's even orders sat 14 to 24 dB low because nothing broke that symmetry. Real banks
+     * are not summed equally: one manifold is longer, one is further from the listener, and one
+     * silencer is not the other. An imbalance breaks the cancellation without touching an inline
+     * engine, which has only one bank, and without making every arrangement lumpy the way cylinder
+     * scatter does.
+     *
+     * <p><b>Scaled by {@link #bankDivergence}, and DEC-054 is why.</b> Applied flat to every V it
+     * repeated that entry's original mistake exactly: the even-firing V10 came out burbling harder
+     * than the cross-plane V8 at 2,000 rpm, because banks that fire identically should stay matched
+     * and a constant does not know that. Every asymmetry between banks in this synthesiser has to
+     * scale with how differently they fire.
+     */
+    private static final double BANK_GAIN_IMBALANCE_MAX = 0.22;
+
     private static final int BANK_DELAY_SAMPLES_MAX = 128;
 
     private final double[] bankDelayLine = new double[BANK_DELAY_SAMPLES_MAX];
     private int bankDelayPos;
     private final int bankDelaySamples;
+    private final double bankGainImbalance;
 
     // ---- Induction ---------------------------------------------------------------------------
 
@@ -295,6 +347,7 @@ public final class EngineSynth {
 
         double divergence = BANK_DIVERGENCE_MIN
                 + (1.0 - BANK_DIVERGENCE_MIN) * Math.min(1.0, this.configuration.bankFiringSpreadDegrees() / 180.0);
+        this.bankGainImbalance = BANK_GAIN_IMBALANCE_MAX * divergence;
         this.bankDelaySamples = Math.min(
                 BANK_DELAY_SAMPLES_MAX - 1, (int) Math.round(BANK_DELAY_MAX_SECONDS * divergence * SAMPLE_RATE_HZ));
         double detune = 1.0 - BANK_DETUNE_MAX * divergence;
@@ -316,6 +369,13 @@ public final class EngineSynth {
         // Bright and broad: an overrun bang is a sharp crack, not a thud.
         crackleFilter.bandPass(1900.0, 0.8);
         this.starterGearScale = 0.90 + nextUnit() * 0.20;
+
+        this.cylinderLevel = new double[cylinders];
+        this.cylinderTimingDeg = new double[cylinders];
+        for (int i = 0; i < cylinders; i++) {
+            cylinderLevel[i] = 1.0 + nextSample() * CYLINDER_LEVEL_SPREAD;
+            cylinderTimingDeg[i] = nextSample() * CYLINDER_TIMING_SPREAD_DEG;
+        }
         dcBlock.highPass(38.0, 0.707);
     }
 
@@ -432,7 +492,8 @@ public final class EngineSynth {
                 for (int k = 0; k < FORMANT_HZ.length; k++) {
                     coloured += FORMANT_GAIN[k] * formant[bank][k].process(excitation);
                 }
-                sample += (bank == 0 ? coloured : bankDelay(coloured)) / bankCount;
+                double weighted = coloured * (bank == 0 ? 1.0 : 1.0 - bankGainImbalance);
+                sample += (bank == 0 ? weighted : bankDelay(weighted)) / bankCount;
             }
             ringPos = ringPos + 1 == RING ? 0 : ringPos + 1;
 
@@ -471,7 +532,8 @@ public final class EngineSynth {
 
     /** Where the crank has to reach for the next cylinder in the order to fire. */
     private double nextFiringAngle() {
-        return firingAngles[(int) (event % cylinders)] + CYCLE_DEGREES * (event / cylinders);
+        int cylinder = (int) (event % cylinders);
+        return firingAngles[cylinder] + cylinderTimingDeg[cylinder] + CYCLE_DEGREES * (event / cylinders);
     }
 
     private double mufflerHz(double breach) {
@@ -482,7 +544,7 @@ public final class EngineSynth {
 
     /** Lays one exhaust blowdown into its bank's ring, starting at the current read position. */
     private void fire(int cylinder, double pulseSeconds, double burn, State s) {
-        double level = burn;
+        double level = burn * cylinderLevel[cylinder];
         if (cylinder == s.deadCylinder()) {
             // A dead cylinder still pumps air past an open valve. Quiet and dull, and audible as
             // the hole in the beat rather than as silence.

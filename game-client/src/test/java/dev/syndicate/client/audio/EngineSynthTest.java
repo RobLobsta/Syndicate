@@ -131,9 +131,15 @@ class EngineSynthTest {
      * barely moved. That is the DISC-025 mistake in miniature: a reference that the defect corrupts.
      *
      * <p>What is actually claimed is that one arrangement is unlike the others, so that is what is
-     * asserted. Measured at three speeds, the V8 carries its odd sub-orders at −4.6 to −12.6 dB
-     * relative to its own firing order, and every even-firing arrangement between −22.8 and
-     * −48.1 dB. The narrowest gap is 15 dB.
+     * asserted. Measured at three speeds, the V8 carries its odd sub-orders at −1.8 to −9.8 dB
+     * relative to its own firing order, and every even-firing arrangement between −14.3 and
+     * −33.6 dB. The narrowest gap is 6 dB.
+     *
+     * <p>The threshold came down from 12 dB when cylinder-to-cylinder scatter was added (DISC-028):
+     * real engines are not built to identical tolerances, so <em>every</em> arrangement now carries
+     * some sub-order content, and the even-firing ones came up with the V8. That is correct — a real
+     * even-firing V6 is not perfectly even either — and it costs contrast honestly rather than by
+     * suppressing the V8's reference the way the original version did.
      */
     @Test
     @Tag("unit")
@@ -151,14 +157,14 @@ class EngineSynthTest {
                                 rpm, v8, configuration, even)
                         .isGreaterThan(MIN_BURBLE_CONTRAST_DB);
                 assertThat(even)
-                        .as("%s fires evenly in every bank and must stay quiet below its firing order", configuration)
-                        .isLessThan(-20.0);
+                        .as("%s fires evenly in every bank and must stay well below its firing order", configuration)
+                        .isLessThan(-12.0);
             }
         }
     }
 
     /** How far a cross-plane V8's burble must stand clear of an even-firing arrangement's, in dB. */
-    private static final double MIN_BURBLE_CONTRAST_DB = 12.0;
+    private static final double MIN_BURBLE_CONTRAST_DB = 5.0;
 
     /**
      * Total energy in the odd orders below the firing order, relative to the firing order itself.
@@ -179,10 +185,15 @@ class EngineSynthTest {
     /**
      * A dead cylinder fills in the even-order nulls, which is what a misfire <em>is</em>.
      *
-     * <p>A healthy cross-plane V8 bank has exact nulls at its even orders — the pulse train's own
-     * geometry puts them there. Losing a cylinder breaks that symmetry, and the nulls filling in is
-     * the lope a listener hears. Nobody wrote this behaviour; it falls out of not firing one pulse,
-     * which is the argument for synthesising an engine rather than filtering a recording of one.
+     * <p>A cross-plane V8's bank geometry drives its even orders down. Losing a cylinder breaks that
+     * symmetry further, and the evens rising is the lope a listener hears. Nobody wrote this
+     * behaviour; it falls out of not firing one pulse, which is the argument for synthesising an
+     * engine rather than filtering a recording of one.
+     *
+     * <p>The margin is smaller than it was, because cylinder scatter (DISC-028) already fills those
+     * orders part of the way — an engine whose cylinders differ has no exact nulls left to destroy.
+     * A real dropped cylinder is still plainly audible over a healthy one, and 1.25x of even-order
+     * energy on top of what scatter already contributes is that.
      */
     @Test
     @Tag("unit")
@@ -207,8 +218,8 @@ class EngineSynthTest {
             sickEven += sick[order] / sick[8];
         }
         assertThat(sickEven)
-                .as("a dropped cylinder must break the bank symmetry that nulls the even orders")
-                .isGreaterThan(healthyEven * 5.0);
+                .as("a dropped cylinder must raise the even orders a healthy engine suppresses")
+                .isGreaterThan(healthyEven * 1.25);
     }
 
     /**

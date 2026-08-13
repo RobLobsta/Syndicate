@@ -26,9 +26,6 @@ class EngineVoicingTest {
     private static final int B = EngineMixer.BLOCK_FRAMES;
     private static final float DT = (float) B / SR;
 
-    /** Cranking speed, from {@code EngineRunState}. The compression rate is derived from it. */
-    private static final double CRANK_RPM = 260.0;
-
     /**
      * A cranking engine chuffs once per compression, and that rate is the engine's own.
      *
@@ -41,9 +38,12 @@ class EngineVoicingTest {
     @Tag("unit")
     void crankingChuffsAtTheCompressionRate() {
         for (EngineConfiguration configuration : EngineConfiguration.values()) {
+            int cylinders = configuration.cylinders();
             float[] start = renderStart(configuration, 2.0);
-            double measured = dominantModulationHz(start, 0.25, 0.60);
-            double expected = CRANK_RPM / 120.0 * configuration.cylinders();
+            // Measured from the end of the spin-up to the catch: both ends move per arrangement,
+            // because a twelve takes longer to drag up to speed than a four.
+            double measured = dominantModulationHz(start, 0.20, EngineRunState.crankSeconds(cylinders));
+            double expected = EngineRunState.crankRpm(cylinders) / 120.0 * cylinders;
             assertThat(measured)
                     .as("%s cranks at %.1f Hz; its compression rate is %.1f Hz", configuration, measured, expected)
                     .isCloseTo(expected, org.assertj.core.data.Offset.offset(expected * 0.15));
@@ -184,9 +184,12 @@ class EngineVoicingTest {
         }
         mean /= (b - a);
 
+        int steps = (int) ((40.0 - 4.0) / 0.25) + 1;
+        double[] magnitude = new double[steps];
         double bestHz = 0.0;
         double best = 0.0;
-        for (double hz = 4.0; hz <= 40.0; hz += 0.25) {
+        for (int k = 0; k < steps; k++) {
+            double hz = 4.0 + k * 0.25;
             double re = 0.0;
             double im = 0.0;
             for (int i = a; i < b; i++) {
@@ -195,14 +198,30 @@ class EngineVoicingTest {
                 re += envelope * Math.cos(w);
                 im += envelope * Math.sin(w);
             }
-            double magnitude = Math.hypot(re, im);
-            if (magnitude > best) {
-                best = magnitude;
+            magnitude[k] = Math.hypot(re, im);
+            if (magnitude[k] > best) {
+                best = magnitude[k];
                 bestHz = hz;
+            }
+        }
+        // Prefer a subharmonic that is nearly as strong. A cranking four gives barely two cycles in
+        // the window it has, and a detector with that little to work with will happily lock onto the
+        // second harmonic of the chuff — which is how a 7.5 Hz crank first measured as 15.0.
+        for (int divisor : new int[] {2, 3}) {
+            double candidate = bestHz / divisor;
+            if (candidate < 4.0) {
+                continue;
+            }
+            int k = (int) Math.round((candidate - 4.0) / 0.25);
+            if (k >= 0 && k < steps && magnitude[k] > best * SUBHARMONIC_PREFERENCE) {
+                return candidate;
             }
         }
         return bestHz;
     }
+
+    /** Fraction of the peak a subharmonic must reach before it is believed over the peak. */
+    private static final double SUBHARMONIC_PREFERENCE = 0.50;
 
     /**
      * Mean power in a band, measured by filtering rather than by transforming.

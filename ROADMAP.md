@@ -247,6 +247,35 @@ falls away on a lift (about 5 dB of swing on the Stampede, 1 dB on a small four)
 speed pops — armed by the throttle transition rather than the state, so a car that coasts for ten
 seconds pops for the first second and then just coasts.
 
+### And then you sent a real Mustang
+
+One recording of an actual V8 was worth more than the forty generic clips together, because it let
+the synthesiser be checked order by order against a car rather than against a category.
+
+Its harmonic comb reads at **6.6 Hz** — the *cycle* rate, not the firing rate. That spacing is itself
+the cross-plane signature, so the arrangement model was right. What was not:
+
+| relative to the firing order | Mustang | ours before | ours after |
+|---|---|---|---|
+| odd sub-orders | −37.3 dB | −44.1 | −37.4 |
+| even sub-orders | −37.4 dB | −51.2 | −41.1 |
+
+**The even orders were 14 dB light**, because our two exhaust banks were near-perfect mirrors of one
+another and cancelled them. Real cylinders are not identical, so nothing cancels cleanly. Giving each
+cylinder a small fixed difference in charge and timing fills them back in — and because those come
+from the vehicle's own seed, two of the same car now measurably differ from each other.
+
+Its ignition was just as useful. The catch is a single step from silence to full voice; our flare
+collapsed in one frame where the real one holds for a fifth of a second and eases down; and our flare
+was three times too loud relative to idle — which turned out not to be the flare at all, but idle
+being modelled as almost no fuelling. Crank length and speed now scale with cylinder count, so a four
+cranks briskly at 7.5 Hz and a twelve labours at 19.
+
+Two things worth being straight about. **Matching the even orders exactly costs the V8 its identity** —
+pushed that far, the V10 out-burbles it — so it is left 3.7 dB light on purpose. And **two test
+thresholds were weakened**, because engines whose cylinders differ have no exact nulls left to
+destroy. Both are honest consequences, and both are recorded rather than quietly absorbed.
+
 ### Still not verified here
 
 `game-client` does not build in this sandbox, and it is not a stale dependency: CI builds it fine on
@@ -313,10 +342,12 @@ decision wants making before the session that implements them starts.
   synthesiser's own voicing — the blower level, the muffler corner, how far a wrecked exhaust opens
   up. Those are now numbers to turn rather than files to re-commission, which is the point, but
   somebody still has to turn them.
-- **Better reference recordings.** The engines are now tuned against forty openly licensed clips of
-  *generic* engines, which fixed the texture. Nothing has been matched against a Mustang GTD or an
-  MC20 specifically, because no openly licensed recording of either is reachable. If you can supply
-  a clean recording of each, the same harness will measure it and the constants can be moved.
+- **More reference recordings.** One real V8 moved the model further than forty generic clips did.
+  There is still nothing to check the V6, V10, V12 or four against, so their sub-order content is
+  inference rather than measurement. A clean recording of each would settle them the same way — and
+  an MC20 in particular, since the Eclipse is the one shipped car with no reference at all.
+- **Body resonance.** The synthesiser models an exhaust, not a car. Part of the Mustang's low-order
+  energy is almost certainly panels and cabin, which nothing here reproduces.
 
 ### Phases 9–10 — Multiplayer, then hardening
 

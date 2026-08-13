@@ -415,6 +415,21 @@ armed by the throttle *transition* rather than by the off-throttle state — a c
 seconds pops for the first second and then just coasts — and scales with revs and with how open the
 exhaust is.
 
+**R38a8.** **Every asymmetry between a V's two banks scales with how differently they fire.** Banks
+that fire identically must stay nearly matched, or the even-firing arrangements come out lumpier than
+the one arrangement that should be lumpy. This has now been got wrong three times — once each for the
+manifold delay, the formant detune and the bank gain imbalance — so it is a rule and not a comment on
+a constant. It is also why a V's even orders cannot be fixed by bank asymmetry alone: **cylinder-to-
+cylinder scatter** is what fills them, because orders are what repeats every cycle and only a *fixed*
+difference between cylinders lands there. Random per-event jitter spreads energy as noise instead.
+
+**R38a9.** Ignition timing is **measured, not invented**, and its parts scale with the arrangement.
+Against a real V8 startup the catch is a single step from ambience to full voice, the flare holds
+about 0.2 s before it decays, and the flare sits under 3 dB above idle — not the half-second ramp,
+instant collapse and 12 dB step a first guess produces. Crank duration and crank speed both follow
+cylinder count, because a bigger engine is more inertia and more compressions for a starter to drag
+over, and that is most of what makes two arrangements start differently.
+
 **R38b.** Impact and detachment one-shots are **modal**: a broadband strike transient over a handful of exponentially damped, inharmonic sinusoids whose frequencies and decay times are the material's. Filtering noise is cheaper to write and does not work, because the ear identifies material from decay time and partial spacing far more than from spectral tilt.
 
 **R38c.** Severity is authored, never pitched. Three impact variants per material (`light`, `medium`, `heavy`) differ in modal frequency, decay and brightness, because a hard hit excites a larger area and therefore rings *lower* and longer — pitching one recording up and down produces the single most recognisable sign of a cheap bank.
@@ -447,6 +462,7 @@ exhaust is.
 | T-D15-17 | Envelope modulation rate while cranking, per arrangement | Equals that engine's compression rate (R38a5) |
 | T-D15-18 | Low-band energy on throttle vs on a lift, powerful engine vs weak | Swings more on the powerful one (R38a6) |
 | T-D15-19 | High-band energy after a lift vs a steady coast at the same rpm | Raised, and decaying (R38a7) |
+| T-D15-20 | Odd and even sub-order energy vs a measured real V8 at matched rpm | Both within a few dB (R38a8) |
 
 ---
 

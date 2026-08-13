@@ -128,7 +128,7 @@ public final class AudioSystem implements EntitySystem {
     public static final float OVERRUN_COOLDOWN_S = 1.4f;
 
     /** Idle burn at no throttle, which fades out as revs rise into a genuine closed-throttle overrun. */
-    public static final float IDLE_LOAD = 0.12f;
+    public static final float IDLE_LOAD = 0.22f;
 
     private final SoundBank bank;
     private final AssetIndex assets;
