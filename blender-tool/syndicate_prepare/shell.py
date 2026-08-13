@@ -10,6 +10,11 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+#: How many of a shell's vertices are kept on the record. 96 is four points per sector at the
+#: 24 sectors D15-R21 measures over, which is enough to distinguish a rim from a caliper by a
+#: wide margin and small enough that 7,000 shells cost a few megabytes.
+VERTEX_SAMPLE_LIMIT = 96
+
 
 @dataclass
 class Shell:
@@ -33,6 +38,14 @@ class Shell:
     :param roughness: principled roughness in ``[0,1]``.
     :param emissive: emissive strength, ``0`` for none.
     :param double_sided: whether the material renders both faces.
+    :param area_m2: total surface area. What a part's mass is computed from, because a car's
+        panels are shells rather than solids — see :mod:`syndicate_prepare.manifest`.
+    :param volume_m3: the absolute signed volume of the shell. Meaningful only when the shell
+        is closed, which on real art it very often is not.
+    :param vertex_sample: up to :data:`VERTEX_SAMPLE_LIMIT` of the shell's vertices, in game
+        space. Enough to measure the rotational symmetry of D15-R21 without carrying a
+        quarter of a million points around, and enough to make that test unit-testable off a
+        plain record with no Blender host.
     """
 
     index: int
@@ -48,9 +61,21 @@ class Shell:
     roughness: float = 0.5
     emissive: float = 0.0
     double_sided: bool = False
+    area_m2: float = 0.0
+    volume_m3: float = 0.0
+    vertex_sample: tuple = ()
 
     #: Filled in by the labelling stage.
     label: str = "unclassified"
+
+    #: Filled in by :mod:`syndicate_prepare.roles`: which *kind* of thing with this label it
+    #: is — a ``door`` rather than merely a ``panel``. ``None`` where the label needs no
+    #: refinement, which is every label whose parts are all alike.
+    role: str | None = None
+
+    #: The wheel corner this shell belongs to, when it belongs to one: ``fl``, ``fr``, ``rl``
+    #: or ``rr``. Set by the rotational-symmetry pass, which is the only stage that knows.
+    corner: str | None = None
 
     #: The winning label's summed weight.
     confidence: float = 0.0

@@ -44,6 +44,7 @@ def build_report(
     overrides,
     strict: bool,
     elapsed_s: float,
+    build: dict | None = None,
 ) -> dict:
     """Assembles the whole document."""
     total_triangles = sum(shell.triangles for shell in shells) or 1
@@ -66,13 +67,9 @@ def build_report(
         },
         "suggestedOverrides": suggest_overrides(shells),
         "disagreements": _disagreements(shells),
-        # D15-S5.1 stages 6 to 8. Named rather than omitted: a pipeline that quietly stopped
-        # early is indistinguishable from one that had nothing left to do.
-        "pendingStages": [
-            {"stage": 6, "name": "rig articulated parts", "status": "not implemented"},
-            {"stage": 7, "name": "author destruction per class", "status": "not implemented"},
-            {"stage": 8, "name": "re-origin, re-parent, export", "status": "not implemented"},
-        ],
+        # Stages 6 to 8 of D15-S5.1. `build.written` is empty on a run with no `--out`, which
+        # is the difference between "this model was classified" and "this model was prepared".
+        "build": build or {},
         "declaredHinges": [
             {"part": hinge.part, "axis": hinge.axis, "pivot": list(hinge.pivot),
                 "openDeg": hinge.open_deg}

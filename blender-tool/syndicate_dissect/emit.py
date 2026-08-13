@@ -42,7 +42,17 @@ MAX_HULL_VERTICES = 64
 
 def join(islands, name: str):
     """Joins islands into one object named ``name``. Returns it, or None if there are none."""
-    objects = [i.obj for i in islands]
+    return join_objects([i.obj for i in islands], name)
+
+
+def join_objects(objects, name: str):
+    """Joins Blender objects into one named ``name``. Returns it, or None if there are none.
+
+    Split out from :func:`join` for :mod:`syndicate_prepare`, which groups shells rather than
+    islands and has no ``Island`` to unwrap. The two tools must join identically or a part cut
+    by one and a part cut by the other would sit in different places.
+    """
+    objects = [obj for obj in objects if obj is not None]
     if not objects:
         return None
     bpy.ops.object.select_all(action="DESELECT")

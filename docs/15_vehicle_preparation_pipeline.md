@@ -63,24 +63,41 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 
 **R1.** Every shell is assigned exactly one label from this closed set. The set is closed so that a new model cannot silently introduce a category nothing downstream handles.
 
-| Label | What it is | Slot role | Detach | Destruction class |
-|---|---|---|---|---|
-| `chassis` | The structural body — everything not separately labelled | `ROOT` | never (D05-R26) | `structural` |
-| `wheel` | Tyre, rim, hub and disc: what rotates about the axle | `WHEEL` | yes | `rigid` |
-| `hub` | Caliper, upright, dust shield: unsprung, does **not** rotate | `HUB` | with its wheel | `rigid` |
-| `panel` | Bonnet, boot lid, doors, wings, bumpers | `PANEL` | yes | `sheet_metal` |
-| `glass` | Windscreen, side and rear glass, lamp lenses | `GLASS` | shatters | `glass` |
-| `mirror` | Wing mirrors | `ACCESSORY` | yes | `rigid` |
-| `light` | Lamp housings and reflectors | `ACCESSORY` | yes | `rigid` |
-| `decal` | Badges, plates, scripts, liveries | `DECAL` | with its host | `none` |
-| `grille` | Mesh inserts, vents, ducts | `ACCESSORY` | yes | `rigid` |
-| `interior` | Seats, dash, trim — visible through glass, never hit | none | never | `none` |
-| `drivetrain` | Engine, exhaust, radiator | `INTERNAL` | yes | `structural` |
-| `unclassified` | Everything the ensemble could not decide | `chassis` | never | `sheet_metal` |
+| Label | What it is | Category (D05-S4.2) | Slot type (D05-S4.3) | Detach | Destruction class |
+|---|---|---|---|---|---|
+| `chassis` | The structural body — everything not separately labelled | `CHASSIS` | `ROOT` | never (D05-R26) | `structural` |
+| `wheel` | Tyre, rim, hub and disc: what rotates about the axle | `WHEEL` | `WHEEL` | yes | `rigid` |
+| `hub` | Caliper, upright, dust shield: unsprung, does **not** rotate | `UTILITY` | `HARDPOINT` | with its wheel | `rigid` |
+| `panel` | Bonnet, boot lid, doors, wings, bumpers | `ARMOR` | `ARMOR_PANEL` | yes | `sheet_metal` |
+| `glass` | Windscreen, side and rear glass, lamp lenses | `DECORATIVE` | `ACCESSORY` | shatters | `glass` |
+| `mirror` | Wing mirrors | `DECORATIVE` | `ACCESSORY` | yes | `rigid` |
+| `light` | Lamp housings and reflectors | `DECORATIVE` | `ACCESSORY` | yes | `rigid` |
+| `decal` | Badges, plates, scripts, liveries | `DECORATIVE` | `ACCESSORY` | with its host | `none` |
+| `grille` | Mesh inserts, vents, ducts | `DECORATIVE` | `ACCESSORY` | yes | `rigid` |
+| `interior` | Seats, dash, trim — visible through glass, never hit | `DECORATIVE` | `ACCESSORY` | never | `none` |
+| `drivetrain` | Engine, exhaust, radiator | `UTILITY` | `HARDPOINT` | yes | `structural` |
+| `unclassified` | Everything the ensemble could not decide | `CHASSIS` | `ROOT` | never | `sheet_metal` |
+
+**R1a.** The two middle columns are the **actual** members of `PartCategory` (D05-S4.2) and `SlotType` (D05-S4.3), and a part.json carrying anything else does not load. An earlier version of this table named `HUB`, `PANEL`, `GLASS`, `DECAL` and `INTERNAL` as slot roles; none of those is a `SlotType`, and the pipeline that emits assets had to invent the mapping or emit files the loader rejects. The pairing is constrained: `SlotType.acceptsCategory` must accept each row's category in each row's slot type, which is why a door is an `ARMOR` part in an `ARMOR_PANEL` slot. That is not a compromise — an armour panel is precisely a part that covers a region of the vehicle, absorbs the hits meant for what is behind it, and can be shot off, and so is a door.
 
 **R2.** `unclassified` is a **first-class outcome, not a failure**. It merges into the chassis, which is always a correct-if-coarse answer, and it is reported by count and by triangle share so the operator can see how much of the car the pipeline could not name.
 
-**R3.** A label is not a part. Parts are formed by grouping shells that share `(label, side, index)` — see D15-S5.3.
+**R3.** A label is not a part. Parts are formed by grouping shells that share `(label, role, side, index)` — see D15-S5.3.
+
+<!-- D15-S4.1.1 -->#### 4.1.1 Roles
+
+**R3a.** A label may carry a **role**, which is the refinement that separates two things the taxonomy calls by one name. A bonnet and a door are both `panel` and they are not interchangeable: one hinges at its rear edge and one at its front, and the slot each hangs from has to say which it is. Roles are a closed set per label, and a shell whose role cannot be decided keeps its label and takes none — the same first-class "could not tell" R2 makes of `unclassified`.
+
+| Label | Roles |
+|---|---|
+| `panel` | `bonnet`, `boot`, `door`, `fender`, `quarter`, `bumper`, `sill`, `roof` |
+| `glass` | `windscreen`, `rear_window`, `side_window`, `lens` |
+| `light` | `head`, `tail` |
+| `grille` | `head`, `tail` |
+
+**R3b.** A role is decided by the **plane a panel lies in** — its thinnest axis — and then by where on the body it sits. That is the one measurement that separates the three families of panel on every vehicle ever built: a bonnet is thin vertically, a door is thin laterally, a bumper is thin longitudinally. Position then chooses the member of the family, in fractions of the vehicle's own dimensions so that a hatchback and a pickup need the same numbers (R7).
+
+**R3c.** A role is a refinement, never a reclassification. It cannot turn a `panel` into a `glass`. Roles feed three things and nothing else: the part's exported name, the slot id it hangs from, and whether stage 6 looks for a hinge on it.
 
 <!-- D15-S4.2 -->### 4.2 The Cue Ensemble
 
@@ -183,6 +200,10 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 
 > Measured on both shipped cars: every rotating piece covers 360°; calipers cover 90–150°. The gap is wide enough that the threshold is not delicate.
 
+<!-- D15-R24a -->**R24a.** Coverage is **not the only** sufficient test. A group also rotates if it is invariant under a turn of `360/n` for some `n ≥ MIN_SYMMETRY_ORDER`, measured over the same sectors. The two tests catch the two shapes a rotating piece can have — a *solid of revolution* covers the circle, a *bolt pattern* repeats around it — and R22's own example is the second: five lug nuts occupy five sectors of twenty-four, so coverage alone calls them 75° and sends them to the hub, while the set is plainly invariant under a fifth of a turn. A caliper satisfies neither: 90–150° of arc, once. `MIN_SYMMETRY_ORDER` is 3, because two pieces opposite each other are symmetric under half a turn and are just as likely to be the two ends of one bracket.
+
+<!-- D15-R24b -->**R24b.** A vertex lying exactly on the axle's `+z` bearing must land in the **first** sector. Its bearing is zero, but computed against an axle centre that is a rounding error away it comes out fractionally negative and wraps to 359.99…, landing in the last sector instead — which is one misplaced sector, and enough to make a four-fold bolt pattern read as not symmetric at all.
+
 <!-- D15-S5.5 -->### 5.5 Geometry Repair
 
 **R25.** Repairs are applied in this order, each reported, none silent:
@@ -198,9 +219,19 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 | **Degenerate topology** | Zero-area faces, doubled vertices, non-manifold edges | Merge by distance, delete degenerates |
 | **Detached fragments** | A shell far outside the body's hull | Report; drop only beyond `STRAY_SHELL_M` |
 
+**R25a.** The scale, orientation and placement rows are one **similarity transform** — a uniform scale, a yaw about `+y`, and a translation — and the pipeline **derives** it and records it in the model's `import.json` (DEC-036). That file remains the single recorded correction and the thing the harness verifies; what changes is that an operator no longer has to write it before the pipeline will run. A model that already carries a correct one yields an identity residual and is rewritten unchanged, which is what makes re-running the pipeline safe.
+
+**R25b.** What is written back is the **composition** of the existing correction with the residual, never the residual alone. Stage 1 has already applied the old file by the time stage 2 measures anything, so writing the residual would discard whatever that file was doing and the next run would arrive at a different vehicle. With the composition, a second run's residual is the identity — which is the property that makes the stage idempotent and is worth a test of its own.
+
+**R25c.** A **unit** correction is chosen from a closed list of factors — metric decades, inches, feet — and never fitted continuously. A wrong unit is always one of those; a continuous fit would happily rescale a genuinely 24 m vehicle to 16 m and report success. If no candidate lands the model in the plausible range, the tool reports that and scales nothing.
+
+**R25d.** A misorientation a yaw cannot express — a model lying on its side or standing on its nose, detectable because `y` is not its shortest extent — is **reported and not repaired**, under the same argument as R26. Guessing which way up a model on its side should go turns one visible fault into an invisible one.
+
 **R26.** Broken symmetry is reported and never repaired automatically. Real cars are asymmetric on purpose — one exhaust, a fuel filler on one side, left-hand drive — and a pipeline that mirrors those away damages correct models to flatter incorrect ones.
 
 **R27.** Every repair is recorded in the report as a before/after measurement. A repair nobody can see is indistinguishable from a bug.
+
+**R27a.** Topology cleanup — welding doubled vertices, deleting zero-area faces and loose vertices — is bounded to `WELD_DISTANCE_M`, an order of magnitude below the smallest feature any threshold in this document measures, so no weld can move a shell far enough to change its label. It is not cosmetic: doubled vertices are most of why a downloaded car separates into thousands of shells that ought to be one, because two triangles that share an edge in appearance but not in topology are two connected components, and every stage after separation inherits that.
 
 <!-- D15-S5.6 -->### 5.6 Articulation Rigging
 
@@ -232,6 +263,24 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 
 **R34.** The `structural` yield threshold is expressed as an impulse in newton-seconds, comparable with `breakImpulseN` (D08-R5), so "the frame buckles before the mounts shear" is a statement about two numbers in the same unit.
 
+<!-- D15-S5.8 -->### 5.8 Naming, Mass and Balance
+
+Stage 8 turns labelled geometry into the two documents D08 specifies. Four of its decisions are load-bearing, and none of them is derivable from the geometry alone.
+
+**R40.** A part's identity is `<label>_<vehicle>[_<role>][_<side>][_<index>]_01` and its slot is `<label>[_<role>][_<side>][_<index>]`, both matching D08-R6's patterns. The label leads so a listing of `assets/parts` groups by kind, the vehicle follows so two cars never collide, and the role and side are what a human uses to find the one they mean — `panel_pickup_door_l_01`. A slot at a wheel corner is named for the corner instead (`wheel_fl`), which is what the shipped assemblies already call them.
+
+**R41.** A part's mass is `area × wall thickness × density`, **not** `volume × density`. D09-R16's volume rule is right for a fractured solid, where the geometry is the object; it is wrong for vehicle art, where the panels are shells. A door modelled as a closed skin encloses about 0.1 m³ of air and `volume × density` calls it 785 kg of steel. Wall thickness is a per-class constant, which makes this the same treatment table as D15-S5.7 seen from the mass side, and it is the same thickness a `glass` part is solidified to before fracture — so that the solid's `volume × density` and the manifest's `area × thickness × density` are the *same* number rather than two that resemble each other.
+
+**R42.** The **chassis takes the balance**: every other part is weighed from its own geometry and the chassis is whatever is left of the vehicle's target mass. The target is authored (`--mass`) or, failing that, derived from the footprint at a fixed areal density, and the report says which. If the measured parts would leave the chassis below `CHASSIS_MIN_FRACTION` of the vehicle, the target is raised to keep it there and that is reported too: a car whose doors outweigh its structure is a measurement fault, not a design.
+
+**R43.** `powerCost` is **distributed**, not summed. D05-S5.7's reference formula fixes the ratios between parts; `assets/balance/classes.json` fixes the total for the vehicle's class, and A312 makes that total an error rather than a warning. Each part therefore takes its share of the class target, which satisfies A312 by construction, and A210's advisory comparison against the raw formula is left to say how far the two disagree.
+
+**R44.** Wheels and hubs on one axle **share** a part type across the two sides, as D15-R20 describes and the shipped assemblies already express. Nothing else shares: a left door is not a right door reflected, and a pipeline that pretended otherwise would put the handle on the inside. A shared type is exported once and placed at each corner's **own** measured axle rather than at the reflection of the other side's, and the shells of every instance stay attributable to it, so AC-D15-4's accounting is exact.
+
+**R45.** A part's mesh origin is the point its slot is measured from, and the choice is per label: a wheel's is its **axle**, because Bullet spins a wheel about its part origin and a wheel offset from it orbits the vehicle; an articulated part's is its **hinge pivot**, because R30 makes an opening door a slot whose local rotation animates and a rotation animates about the origin; everything else takes its own bounds centre, which is where its mass acts (DEC-043).
+
+**R46.** **What is produced is what is written.** Each authoring step reports whether it actually succeeded and the manifest is built from that report rather than from the plan. A part whose morph generation tripped a D09 guard ships with no `morphTargets` array rather than a `part.json` promising four shape keys the mesh does not carry — which would pass this tool and fail in the asset gate, one layer further from its cause. The same applies to a `glass` part that could not be fractured: it ships unfractured and detaches whole, which D07-E5 already handles.
+
 ---
 
 <!-- D15-S6 -->## 6. Acceptance Criteria
@@ -246,6 +295,10 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 - [ ] **AC-D15-8.** Two runs on the same input produce byte-identical output (D09-R30).
 - [ ] **AC-D15-9.** A part with an inferred hinge opens about that hinge without its geometry intersecting the chassis at the open angle.
 - [ ] **AC-D15-10.** Each label's destruction class matches D15-S5.7, and no `glass` part carries damage shape keys.
+- [ ] **AC-D15-11.** A model dropped in with no `import.json` and no `parts.json` produces a loadable vehicle: a directory of parts and an assembly the game's own loader and asset gate accept, with no hand-authoring between the two.
+- [ ] **AC-D15-12.** Every emitted `partTypeId` and `slotId` matches D08-R6's patterns, and every emitted `(category, slotTypeRequired)` pair is one `SlotType.acceptsCategory` accepts.
+- [ ] **AC-D15-13.** The assembly's power budget equals its class's target within A312's tolerance, and its total mass is within the plausible range for a vehicle of its footprint.
+- [ ] **AC-D15-14.** Running the pipeline twice on the same model leaves the second run with an identity correction, and the `import.json` it writes unchanged.
 
 ---
 
@@ -552,6 +605,16 @@ where independent per-event coin flips give a flat Poisson stream that is unifor
 | T-D15-23 | Envelope modulation at orders 1 and 2 of a V8 at idle | Both within the real Mustang's 4.8–8.1% and 8.9–16.3%; a matching *total* is not sufficient (R38a16, R38a17) |
 | T-D15-24 | Overrun bang count at 6,000 rpm vs 3,000 rpm, summed over the arrangements | Rises by at least half again; a rate in hertz cannot (R38a7a) |
 | T-D15-25 | Crest factor after a lift vs a coast at the same speed | Peaks stand at least 1.35× further above the level; measured band-agnostically (R38a7a) |
+| T-D15-26 | A model in centimetres, in millimetres, and already in metres | The first two are scaled by a unit factor; the third is not touched (R25c) |
+| T-D15-27 | Derive a correction, apply it, derive again | The second is the identity (R25b) |
+| T-D15-28 | A model whose shortest extent is not `y` | Reported, and no yaw applied (R25d) |
+| T-D15-29 | Panel roles on a synthetic body: flank, horizontal and end panels | door / bonnet / boot / bumper / sill / fender, per R3b |
+| T-D15-30 | Angular coverage and symmetry order of four lug nuts at 90° | Coverage 60°, symmetry order 4, and the group rotates (R24a) |
+| T-D15-31 | The two doors of one vehicle, opened to their authored angles | Opposite signs, and both finish outside the body (R29, E9) |
+| T-D15-32 | Every emitted identifier and category/slot-type pair | Matches D08-R6 and is accepted by `SlotType` (AC-D15-12) |
+| T-D15-33 | The assembly's power budget against its class target | Equal within A312's tolerance (R43) |
+| T-D15-34 | Shells accounted for across every part and every instance | Each appears exactly once (AC-D15-4, R44) |
+| T-D15-35 | A part whose morph generation failed | No `morphTargets` in its `part.json` (R46) |
 
 ---
 

@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/15_vehicle_preparation_pipeline.md#D15-S5.1, docs/15_vehicle_preparation_pipeline.md#D15-S8, docs/08_asset_pipeline.md#D08-S4.3
 
-**Status:** active
+**Status:** superseded (by PROG-024)
 
 ## Summary
 `syndicate_prepare` implements D15-S5.1 stages 1 to 6 and reproduces D15-R16's measurements exactly on both shipped cars. `assets/audio/` holds 52 synthesised sounds covering every event family D15-S8 names. The material table gains an audio axis and the part schema gains a destruction class.

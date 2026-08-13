@@ -78,6 +78,67 @@ DESTRUCTION_CLASS = {
     UNCLASSIFIED: "SHEET_METAL",
 }
 
+#: The ``category`` each label is exported as (D08-S4.2). D15-S4.1's "slot role" column names
+#: roles — ``HUB``, ``PANEL``, ``GLASS``, ``DECAL``, ``INTERNAL`` — that are **not** members of
+#: ``SlotType`` (D05-S4.3), and a part.json carrying one of them does not load. These two tables
+#: are the mapping onto what the runtime actually has, and D15-S4.1 was amended to carry them.
+#:
+#: A door is exported as ``ARMOR`` rather than as some new category, and that is the right
+#: answer rather than a compromise: an armour panel is precisely a part that covers a region of
+#: the vehicle, absorbs hits meant for what is behind it, and can be shot off. That is a door.
+PART_CATEGORY = {
+    CHASSIS: "CHASSIS",
+    WHEEL: "WHEEL",
+    HUB: "UTILITY",
+    PANEL: "ARMOR",
+    GLASS: "DECORATIVE",
+    MIRROR: "DECORATIVE",
+    LIGHT: "DECORATIVE",
+    DECAL: "DECORATIVE",
+    GRILLE: "DECORATIVE",
+    INTERIOR: "DECORATIVE",
+    DRIVETRAIN: "UTILITY",
+    UNCLASSIFIED: "CHASSIS",
+}
+
+#: The ``slotTypeRequired`` each label is exported as — a real ``SlotType`` (D05-S4.3), chosen
+#: so that ``SlotType.acceptsCategory`` agrees with :data:`PART_CATEGORY` above. An assembly
+#: whose parts do not satisfy that relation fails validation at load (D05-S5.1).
+SLOT_TYPE_REQUIRED = {
+    CHASSIS: "ROOT",
+    WHEEL: "WHEEL",
+    HUB: "HARDPOINT",
+    PANEL: "ARMOR_PANEL",
+    GLASS: "ACCESSORY",
+    MIRROR: "ACCESSORY",
+    LIGHT: "ACCESSORY",
+    DECAL: "ACCESSORY",
+    GRILLE: "ACCESSORY",
+    INTERIOR: "ACCESSORY",
+    DRIVETRAIN: "HARDPOINT",
+    UNCLASSIFIED: "ROOT",
+}
+
+#: The material each label is made of, keyed into ``assets/materials/materials.json``
+#: (DEC-045: the material says what a part is made of; the part says how it fails). A
+#: ``parts.json`` cannot currently override this per part — a model whose bonnet is carbon
+#: rather than steel is a case for a future ``materialOverrides``, and the report says which
+#: material each part was given so the gap is visible rather than assumed.
+DEFAULT_MATERIAL = {
+    CHASSIS: "steel",
+    WHEEL: "rubber",
+    HUB: "steel",
+    PANEL: "steel",
+    GLASS: "glass",
+    MIRROR: "plastic",
+    LIGHT: "plastic",
+    DECAL: "trim",
+    GRILLE: "plastic",
+    INTERIOR: "trim",
+    DRIVETRAIN: "steel",
+    UNCLASSIFIED: "steel",
+}
+
 #: Whether a label's part may leave the vehicle (D15-S4.1). The chassis never can (D05-R26).
 DETACHES = {
     CHASSIS: False,

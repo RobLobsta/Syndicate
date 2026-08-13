@@ -38,6 +38,32 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=None,
         help="also write the report here, so a run that is being read by a human keeps a copy",
     )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="write the parts here (assets/parts). Without it the run classifies and reports "
+        "but exports nothing, which is the form to run when a threshold changed",
+    )
+    parser.add_argument(
+        "--vehicles",
+        type=Path,
+        default=None,
+        help="write the assembly here (assets/vehicles)",
+    )
+    parser.add_argument("--mass", type=float, default=None,
+                        help="the vehicle's kerb mass in kg; inferred from its footprint if absent")
+    parser.add_argument("--display-name", default=None, help="the vehicle's in-game name")
+    parser.add_argument("--seed", type=int, default=1,
+                        help="seed for the damage morphs and the glass fracture (D09-R30)")
+    parser.add_argument("--material-table", type=Path,
+                        default=Path("assets/materials/materials.json"))
+    parser.add_argument("--balance-table", type=Path, default=Path("assets/balance/classes.json"))
+    parser.add_argument(
+        "--no-write-import",
+        action="store_true",
+        help="do not record the derived correction in the model's import.json (DEC-036)",
+    )
     return parser.parse_args(argv)
 
 
@@ -56,9 +82,23 @@ def main(argv: list[str] | None = None) -> int:
     real_stdout = os.dup(1)
     os.dup2(2, 1)  # DISC-002: keep Blender's C-level chatter out of the document
     try:
-        from .prepare import run
+        from .prepare import Options, run
 
-        report = run(args.model, args.vehicle, strict=args.strict)
+        report = run(
+            Options(
+                model_dir=args.model,
+                vehicle=args.vehicle,
+                strict=args.strict,
+                seed=args.seed,
+                mass_kg=args.mass,
+                display_name=args.display_name,
+                out=args.out,
+                vehicles_out=args.vehicles,
+                material_table=args.material_table,
+                balance_table=args.balance_table,
+                write_import=not args.no_write_import,
+            )
+        )
     except Exception as exc:
         # Broad on purpose: the exit code is this tool's contract (D09-S4.3), and a Blender
         # operator can raise anything at all. A traceback goes to stderr so the failure is
