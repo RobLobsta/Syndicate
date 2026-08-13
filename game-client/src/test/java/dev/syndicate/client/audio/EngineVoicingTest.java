@@ -42,10 +42,12 @@ class EngineVoicingTest {
             float[] start = renderStart(configuration, 2.0);
             // Measured from the end of the spin-up to the catch: both ends move per arrangement,
             // because a twelve takes longer to drag up to speed than a four.
-            double measured = dominantModulationHz(start, 0.20, EngineRunState.crankSeconds(cylinders));
+            double from = 0.20;
+            double to = EngineRunState.crankSeconds(cylinders);
             double expected = EngineRunState.crankRpm(cylinders) / 120.0 * cylinders;
+            double measured = chuffRateHz(start, from, to);
             assertThat(measured)
-                    .as("%s cranks at %.1f Hz; its compression rate is %.1f Hz", configuration, measured, expected)
+                    .as("%s chuffs at %.1f Hz; its compression rate is %.1f Hz", configuration, measured, expected)
                     .isCloseTo(expected, org.assertj.core.data.Offset.offset(expected * 0.15));
         }
     }
@@ -92,32 +94,111 @@ class EngineVoicingTest {
     @Test
     @Tag("unit")
     void liftingOffPopsAndCoastingDoesNot() {
-        EngineSynth lifted = v8();
-        float[] block = new float[B];
-        EngineSynth.State pull = new EngineSynth.State(5500f, 1f, 1f, false, -1, 0f, 0f);
-        EngineSynth.State coast = new EngineSynth.State(5500f, 0f, 0f, false, -1, 0f, 0f);
-        for (int i = 0; i < 200; i++) {
-            lifted.render(block, B, pull);
-        }
-        float[] afterLift = capture(lifted, coast, 1.4);
+        float[] afterLift = afterLift(EngineConfiguration.V8, 5500f);
+        float[] settled = coasting(EngineConfiguration.V8, 5500f);
 
-        // The same engine at the same speed and load, which simply never lifted.
-        EngineSynth steady = v8();
-        for (int i = 0; i < 400; i++) {
-            steady.render(block, B, coast);
-        }
-        float[] settled = capture(steady, coast, 1.4);
+        // Crest factor rather than energy in a fixed band, and the change is not cosmetic. The
+        // first version of this asked for energy between 1.2 and 3 kHz, which measured where the
+        // crackle *happened to be* when it was a single band-passed hiss. Giving the bang the low
+        // thump a real detonation has moved most of its energy out of that band and the assertion
+        // failed on a strictly better sound. What a bang is, is a peak that stands clear of its own
+        // surroundings — which is band-agnostic, and is what the ear is doing.
+        assertThat(crest(afterLift) / crest(settled))
+                .as(
+                        "a lift's peaks (crest %.1f) should stand clear of a coast's (%.1f)",
+                        crest(afterLift), crest(settled))
+                .isGreaterThan(1.35);
 
-        double lift = bandEnergy(afterLift, 1200, 3000);
-        double flat = bandEnergy(settled, 1200, 3000);
-        assertThat(10.0 * Math.log10(lift / flat))
-                .as("a lift should crackle above a coast at the same rpm")
-                .isGreaterThan(1.5);
-
-        double peakLift = peak(afterLift);
-        assertThat(peakLift / peak(settled))
+        assertThat(peak(afterLift) / peak(settled))
                 .as("the bangs should stand clear of the coast, not merely raise its floor")
                 .isGreaterThan(1.6);
+    }
+
+    /**
+     * Pops arrive at exhaust events, so twice the engine speed is about twice the rate.
+     *
+     * <p><b>The regression this exists for was reported by ear as "popcorn"</b> (R38a7a). The
+     * crackle fired from a free-running 26 Hz clock, which produced 11 to 14 evenly spaced bangs a
+     * second on every engine at every speed — a stream of identical clicks with no relationship to
+     * the car making them. It is the same class of fault as the hardcoded 6 Hz crank in R38a5, and
+     * this is the assertion that catches it: a constant in hertz cannot pass, whatever its value,
+     * because it does not know how fast the engine is turning.
+     */
+    @Test
+    @Tag("unit")
+    void popsArriveAtExhaustEventsRatherThanOnAClock() {
+        // Summed over the arrangements rather than asserted on each. One lift yields only a handful
+        // of bangs by design — a dozen a second was the defect — and a handful is too few to carry
+        // a ratio on its own. Six of them is enough, and a clock would still give the same total at
+        // both speeds, which is the thing being ruled out.
+        double slow = 0.0;
+        double fast = 0.0;
+        for (EngineConfiguration configuration : EngineConfiguration.values()) {
+            slow += bangs(afterLift(configuration, 3000f));
+            fast += bangs(afterLift(configuration, 6000f));
+        }
+        assertThat(fast)
+                .as("%.0f bangs at 6,000 rpm against %.0f at 3,000, over six arrangements", fast, slow)
+                .isGreaterThan(slow * 1.5);
+    }
+
+    /** An engine that has just been lifted off at {@code rpm}. */
+    private static float[] afterLift(EngineConfiguration configuration, float rpm) {
+        EngineSynth synth = new EngineSynth(configuration, Induction.NATURALLY_ASPIRATED, 750f, 7600f, 608_000f, 3L);
+        float[] block = new float[B];
+        for (int i = 0; i < 200; i++) {
+            synth.render(block, B, new EngineSynth.State(rpm, 1f, 1f, false, -1, 0f, 0f));
+        }
+        return capture(synth, new EngineSynth.State(rpm, 0f, 0f, false, -1, 0f, 0f), 1.4);
+    }
+
+    /** The same engine at the same speed and load, which simply never lifted. */
+    private static float[] coasting(EngineConfiguration configuration, float rpm) {
+        EngineSynth synth = new EngineSynth(configuration, Induction.NATURALLY_ASPIRATED, 750f, 7600f, 608_000f, 3L);
+        float[] block = new float[B];
+        EngineSynth.State coast = new EngineSynth.State(rpm, 0f, 0f, false, -1, 0f, 0f);
+        for (int i = 0; i < 400; i++) {
+            synth.render(block, B, coast);
+        }
+        return capture(synth, coast, 1.4);
+    }
+
+    /** Peak over RMS: how far the loudest moment stands above the general level. */
+    private static double crest(float[] x) {
+        double sum = 0.0;
+        for (float v : x) {
+            sum += (double) v * v;
+        }
+        return peak(x) / Math.max(1e-9, Math.sqrt(sum / x.length));
+    }
+
+    /**
+     * How many transients stand clear of their own surroundings.
+     *
+     * <p>A fast envelope against a slow one, which is what makes a bang audible as a separate event
+     * rather than as part of the note. Counted on rising edges at least 8 ms apart, so one bang is
+     * one bang.
+     */
+    private static double bangs(float[] x) {
+        double fast = 0.0;
+        double slow = 0.0;
+        double fastPole = Math.exp(-1.0 / (0.002 * SR));
+        double slowPole = Math.exp(-1.0 / (0.150 * SR));
+        int count = 0;
+        int last = -SR;
+        boolean hot = false;
+        for (int i = 0; i < x.length; i++) {
+            double a = Math.abs(x[i]);
+            fast = a + fastPole * (fast - a);
+            slow = a + slowPole * (slow - a);
+            boolean now = fast > 2.5 * slow + 1e-6;
+            if (now && !hot && i - last > 0.008 * SR) {
+                count++;
+                last = i;
+            }
+            hot = now;
+        }
+        return count;
     }
 
     // ---- Rendering -----------------------------------------------------------------------
@@ -169,59 +250,64 @@ class EngineVoicingTest {
     // ---- Measurement ---------------------------------------------------------------------
 
     /**
-     * The rate at which the signal's loudness rises and falls, in Hz.
+     * How strongly the signal's loudness rises and falls at one rate, over one window.
      *
      * <p>Measured on the rectified envelope rather than the waveform: the chuff of a cranking engine
      * is an amplitude modulation, not a pitch, and looking for it in the spectrum proper would find
-     * the exhaust pulses instead.
+     * the exhaust pulses instead. Searched over a narrow band around the target because the crank
+     * speed itself swings while it is being measured.
      */
-    private static double dominantModulationHz(float[] x, double fromSeconds, double toSeconds) {
+    /**
+     * How often the loudness repeats, in Hz, by autocorrelation of the envelope.
+     *
+     * <p><b>Autocorrelation rather than a spectral peak, and the reason is a bug this test had
+     * three times.</b> A chuff is not a sinusoid — the starter labours under compression and coasts
+     * over the top — so its second harmonic can be larger than its fundamental, and on a four and a
+     * twelve it was. Every version of this that asked for the loudest Fourier component therefore
+     * reported exactly twice the true rate, and one that preferred subharmonics to compensate
+     * reported half of it on a different arrangement. Autocorrelation asks the question the ear
+     * asks — how long until this repeats — and the first strong peak is that period whatever shape
+     * the repeating thing has.
+     */
+    private static final double FIRST_PEAK_SHARE = 0.60;
+
+    private static double chuffRateHz(float[] x, double fromSeconds, double toSeconds) {
         int a = (int) (fromSeconds * SR);
         int b = Math.min(x.length, (int) (toSeconds * SR));
+        int n = b - a;
         double mean = 0.0;
         for (int i = a; i < b; i++) {
             mean += Math.abs(x[i]);
         }
-        mean /= (b - a);
+        mean /= n;
+        double[] envelope = new double[n];
+        for (int i = 0; i < n; i++) {
+            envelope[i] = Math.abs(x[a + i]) - mean;
+        }
 
-        int steps = (int) ((40.0 - 4.0) / 0.25) + 1;
-        double[] magnitude = new double[steps];
-        double bestHz = 0.0;
+        int shortest = (int) (SR / 45.0);
+        int longest = Math.min(n / 2, (int) (SR / 4.0));
+        double[] correlation = new double[longest + 1];
         double best = 0.0;
-        for (int k = 0; k < steps; k++) {
-            double hz = 4.0 + k * 0.25;
-            double re = 0.0;
-            double im = 0.0;
-            for (int i = a; i < b; i++) {
-                double envelope = Math.abs(x[i]) - mean;
-                double w = 2.0 * Math.PI * hz * (i - a) / SR;
-                re += envelope * Math.cos(w);
-                im += envelope * Math.sin(w);
+        for (int lag = shortest; lag <= longest; lag++) {
+            double sum = 0.0;
+            for (int i = 0; i + lag < n; i++) {
+                sum += envelope[i] * envelope[i + lag];
             }
-            magnitude[k] = Math.hypot(re, im);
-            if (magnitude[k] > best) {
-                best = magnitude[k];
-                bestHz = hz;
+            correlation[lag] = sum / (n - lag);
+            best = Math.max(best, correlation[lag]);
+        }
+        // The *first* lag that gets close to the best one. Autocorrelation peaks again at every
+        // multiple of the true period, so taking the largest would prefer two chuffs to one.
+        for (int lag = shortest; lag < longest; lag++) {
+            if (correlation[lag] > FIRST_PEAK_SHARE * best
+                    && correlation[lag] >= correlation[lag - 1]
+                    && correlation[lag] >= correlation[lag + 1]) {
+                return (double) SR / lag;
             }
         }
-        // Prefer a subharmonic that is nearly as strong. A cranking four gives barely two cycles in
-        // the window it has, and a detector with that little to work with will happily lock onto the
-        // second harmonic of the chuff — which is how a 7.5 Hz crank first measured as 15.0.
-        for (int divisor : new int[] {2, 3}) {
-            double candidate = bestHz / divisor;
-            if (candidate < 4.0) {
-                continue;
-            }
-            int k = (int) Math.round((candidate - 4.0) / 0.25);
-            if (k >= 0 && k < steps && magnitude[k] > best * SUBHARMONIC_PREFERENCE) {
-                return candidate;
-            }
-        }
-        return bestHz;
+        return 0.0;
     }
-
-    /** Fraction of the peak a subharmonic must reach before it is believed over the peak. */
-    private static final double SUBHARMONIC_PREFERENCE = 0.50;
 
     /**
      * Mean power in a band, measured by filtering rather than by transforming.

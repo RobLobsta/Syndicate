@@ -41,3 +41,16 @@ distributions {
         }
     }
 }
+
+// Renders one audition take per vehicle so the engines can be *heard* before they ship
+// (D15-R38a15). Every defect this synthesiser has had was reported by ear first; a test suite
+// only checks the questions somebody already thought to ask.
+//
+//   ./gradlew :game-client:showcaseAudio [-Pout=build/audio-showcase]
+tasks.register<JavaExec>("showcaseAudio") {
+    group = "verification"
+    description = "Renders an audition take per vehicle to WAV for listening."
+    mainClass.set("dev.syndicate.client.audio.ShowcaseRenderer")
+    classpath = sourceSets["test"].runtimeClasspath
+    args(providers.gradleProperty("out").getOrElse("build/audio-showcase"))
+}

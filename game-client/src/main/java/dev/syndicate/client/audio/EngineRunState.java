@@ -39,15 +39,23 @@ final class EngineRunState {
     /**
      * How long the starter turns before anything catches.
      *
-     * <p>Measured off a Ford Mustang GT startup: the crank is brief to the point of being under the
-     * ambience, and the engine is at full voice 40 ms after the first sign of it. The first version
-     * cranked for 0.62 s and ramped the catch over another 0.3 s, which is a diesel in winter, not a
-     * modern petrol V8 on a button.
+     * <p><b>Longer than the reference, deliberately, and DEV-006 records why.</b> Measured off a
+     * Ford Mustang GT startup the crank is brief to the point of being under the ambience — 0.54 s
+     * for an eight, with the engine at full voice 40 ms after the first sign of it — and R38a9 says
+     * to take the timing from the recording. Reproduced faithfully, a listener reports no starting
+     * sound at all, which is the correct report: half a second of a quiet noise, most of it spent
+     * spinning up, is below the threshold at which an event registers as an event.
+     *
+     * <p>A car in a game has to announce that it is starting. The crank is stretched to about twice
+     * the measured length so that several compressions are individually audible before the catch —
+     * which is what makes it read as an engine being turned over rather than as a click and a
+     * fade-in. Everything about its <em>shape</em> is still the measured one: the catch is a step,
+     * the flare holds, and both scale with cylinder count.
      */
-    private static final float CRANK_SECONDS_BASE = 0.26f;
+    private static final float CRANK_SECONDS_BASE = 0.62f;
 
     /** Extra cranking per cylinder: more pistons is more inertia and more compressions to get over. */
-    private static final float CRANK_SECONDS_PER_CYLINDER = 0.035f;
+    private static final float CRANK_SECONDS_PER_CYLINDER = 0.062f;
 
     /** How long this engine cranks. A four is brisk; a twelve labours. */
     static float crankSeconds(int cylinders) {
@@ -87,8 +95,13 @@ final class EngineRunState {
      * 6 Hz with a comment claiming it was the compression rate — it was not related to the engine at
      * all. The real rate is {@code rpm / 120 × cylinders}, which is 8.7 Hz for a four and 26 Hz for
      * a twelve, so a big engine grinds where a small one chugs.
+     *
+     * <p>Deepened along with the crank length (DEV-006). At 0.26 the speed swing is measurable but
+     * the chug it produces is a texture rather than an event; a starter dragging a cold engine over
+     * compression is one of the most recognisable sounds a car makes, and it is recognisable
+     * because the speed visibly lurches.
      */
-    private static final float CRANK_LABOUR_DEPTH = 0.26f;
+    private static final float CRANK_LABOUR_DEPTH = 0.44f;
 
     /** How far past idle a caught engine flares before settling. */
     private static final float FLARE_FACTOR = 1.33f;
@@ -256,7 +269,7 @@ final class EngineRunState {
     }
 
     /** How hard a cranking engine pumps, as a load fraction. */
-    private static final float CRANK_PUMPING = 0.55f;
+    private static final float CRANK_PUMPING = 0.28f;
 
     /** Misfire rate at the instant an engine catches, decaying to nothing as it picks up. */
     private static final float CATCH_MISFIRE = 0.55f;

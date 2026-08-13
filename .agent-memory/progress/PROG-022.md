@@ -30,7 +30,11 @@ Engine audio moves out of the bank and into the runtime. `EngineSynth` renders a
 | Low end on throttle (D15-R38a6) | done | 75 Hz shelf scaled by power and load: ~5 dB swing on the Stampede, ~1 dB on a 110 kW four |
 | Ignition (D15-R38a5, R38a9) | done | Crank labour at the true compression rate, whine geared to the crank; timing measured off a real V8 start, crank length and speed scale with cylinder count (DISC-027, DISC-029) |
 | Per-vehicle variation (D15-R38a8) | done | Fixed cylinder level and timing trims from the vehicle seed: two of the same car measurably differ, and a V8's even orders come up 10 dB (DISC-028) |
-| Rumble (D15-R38a10 – R38a13) | done | Exhaust-stroke sweep plus an eight-stage all-pass diffuser measured in firing intervals. Firing-order envelope modulation 20.3% → 4.0%; V8 lope ratio 1.3 → 7.6/8.1 against a real Mustang's 17.4/18.2, and 9.9 through the mixer at the game's listener distance (DISC-030, DISC-031) |
+| Rumble (D15-R38a10 – R38a13) | done | Exhaust-stroke sweep plus an eight-stage all-pass diffuser measured in firing intervals. Firing-order envelope modulation 20.3% → 3.5% (DISC-030, DISC-031) |
+| Lope placement (D15-R38a16, R38a17) | done | Flywheel speed ripple and cross-plane rocking couple. V8 idle order 1 0.9% → 4.8% and order 2 1.1% → 11.8%, against the real Mustang's 4.8–8.1% and 8.9–16.3%; the matching *total* had hidden both (DISC-033) |
+| Overrun bangs (D15-R38a7a) | done | Scheduled on exhaust events rather than a 26 Hz clock, clustered, with a low thump. 11–14 bangs/s → 3–7/s and irregular (DISC-034) |
+| Ignition audibility (DEV-016) | done | Crank doubled past the measured length and the starter made to labour on each compression, because the faithful version was reported as no startup sound at all |
+| Auditioning (D15-R38a15) | done | `:game-client:showcaseAudio` renders a take per car: start, idle, two lifts, a pull to the limiter, through the real mixer |
 
 **Measured against the reference cars.** Checked against published specifications. The Predator 5.2 is cross-plane with a 2.65 L Roots blower and a 7,650 rpm limit (profile: 7,600); the Nettuno is a 90° V6 firing 1-6-3-4-2-5, redline 8,000. That order puts cylinders 1-3 and 4-6 on alternating events — `010101`, what `EngineConfiguration.V6.bankOf` returns — so the even-firing V6 is right rather than lucky. Firing frequencies match to 0.005% at idle, mid-range and redline for both.
 

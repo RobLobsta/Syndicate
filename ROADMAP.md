@@ -36,15 +36,16 @@ gantt
     A window - client, render, HUD          :done, p7, 20, 1
     Audio - engines, induction, triggers    :done, p7b, 21, 1
     Real-time engine synthesis              :done, p7c, 22, 1
-    The rumble - pulse fusion (here)        :done, p7d, 23, 1
+    The rumble - pulse fusion               :done, p7d, 23, 1
+    Lope, startup, overrun (here)           :done, p7e, 24, 1
 
     section Next
-    Driving it - tuning, balance, feel      :active, p11, 24, 2
-    Preparation pipeline - stages 6 to 8    :p6d, 25, 3
+    Driving it - tuning, balance, feel      :active, p11, 25, 2
+    Preparation pipeline - stages 6 to 8    :p6d, 26, 3
 
     section Then
-    Multiplayer                             :p9, 27, 4
-    Production hardening                    :p10, 31, 3
+    Multiplayer                             :p9, 28, 4
+    Production hardening                    :p10, 32, 3
 ```
 
 Read the numbers as **sessions of work, roughly**, not dates. Everything before "we are here" is
@@ -81,8 +82,10 @@ done and green; everything after is an estimate that will move.
   │  │            Rendering, camera, HUD, morphs, particles, audio   │
   │  ●  Phase 7b  Audio             ★ AUDIBLE                        │
   │  │            Real engines, induction, every family triggered    │
-  │  ●  Phase 7c  The rumble                      ← THIS SESSION     │
-  │  │            Pulses fuse; the V8 lopes; a tool that measures it │
+  │  ●  Phase 7c  The rumble                                         │
+  │  │            Pulses fuse; a tool that measures against real cars│
+  │  ●  Phase 7d  Feel                            ← THIS SESSION     │
+  │  │            A flywheel, a rocking couple, a start you can hear │
   └──┼───────────────────────────────────────────────────────────────┘
      │
   ┌──┼─ NEXT ──────────────────────────────────────────────────────────┐
@@ -121,81 +124,96 @@ catalogue would be finished.
 
 ---
 
-## 2. What happened this session (SESS-023)
+## 2. What happened this session (SESS-024)
 
-You said the rumble was not right, sent two more recordings, and asked for the engine-only part of
-the problem to be solved properly. It is, and the interesting part is that the thing we had been
-fixing for two sessions was not broken.
+You listened to the six takes and reported three things: no startup sound at all, still no rumble
+you could *feel*, and a popping on every engine "like popcorn being made". All three were right, all
+three were mechanisms the model simply did not have, and one of them was a mistake this project had
+already written down once and then made again.
 
-### The diagnosis was backwards
+### The lope was the right size and in the wrong place
 
-An engine's lope is not something you can see in a spectrum. It lives in how the *loudness* rises
-and falls: a real engine varies its volume a lot at rates slower than one-per-cylinder, and hardly
-at all at one-per-cylinder itself. Measured against your Mustang clip:
+Last session fixed the *total* amount of slow variation and you still could not feel the cycles.
+That was the correct report, and the measurement says why. An engine's lope has a pitch, and it
+matters where it sits:
 
-| | slow variation (the lope) | one-per-cylinder (the buzz) | ratio |
-|---|---|---|---|
-| real Mustang GT, idling | 27% | 1.6% | 17.4 |
-| the same car, a second later | 79% | 4.4% | 18.2 |
-| **ours, before** | **28%** | **20.3%** | **1.4** |
-| ours, after | 30% | 4.0% | 7.6 |
+| how often | what you feel | real Mustang | ours before | ours now |
+|---|---|---|---|---|
+| once per cycle (6 Hz) | the slow heave | 4.8–8.1% | 0.9% | 4.8% |
+| once per revolution (12 Hz) | the thump | 8.9–16.3% | 1.1% | 11.8% |
+| three times (19 Hz) | a flutter | 6.7–7.3% | 13.6% | 9.2% |
 
-Look at the left column. Our lope was already the same size as the real car's. Every effort so far —
-making the cylinders differ, making the two banks differ, reshaping the pulses — had been aimed at
-the half that was already correct. What was wrong was one number on the right: the engine thumped
-once per cylinder twelve times harder than a real one, and a thump at 60 Hz reads as a buzz.
+Our total was right and nearly all of it was at 19 Hz — too fast to feel as a beat — and it was
+there only because each car's random cylinder trims happened to peak there. **The pitch of the lope
+was effectively random per vehicle.**
 
-### What fixed it
+Two things were missing, and neither is a knob:
 
-**A cylinder empties twice, and we were only modelling the first half.** The bang when the valve
-cracks open is short and violent, and that is all there was. But the piston then spends a whole
-half-turn of the crank pushing the rest of the burnt gas out — four times longer, much quieter, and
-completely smooth. Because that sweep lasts a quarter of the engine's cycle, a quarter of the
-cylinders are always doing it, so they overlap and fill the silence between the bangs. What is left
-moving is the difference between one cylinder and the next, which repeats once per cycle. That
-difference *is* the rumble.
+**The crankshaft does not turn at a constant speed.** Each power stroke is a kick and the flywheel
+only partly smooths it, so an idling engine surges and slows within every single cycle — you can
+watch the needle do it. Ours integrated the crank angle at exactly the rpm the simulation reported,
+which is an engine with an infinite flywheel. Adding a real one matters because a flywheel is
+mathematically a *low-pass filter on the kicks*: it cannot follow the fast firing rate but it
+follows the slow pattern completely, so the energy lands exactly where the feel is. It also makes a
+damaged engine limp for nothing: a cylinder that does not fire does not kick.
 
-**Then the bangs themselves have to blur into each other.** The obvious way to do this is to bounce
-the sound around inside a modelled tailpipe — and that turned out to be a trap, because a pipe of
-fixed length has resonances at fixed pitches, so pushing it hard enough to work brought back exactly
-the "engine that does not change pitch when it revs" bug that started this whole rewrite. The tool
-that cannot do that is an all-pass filter: it smears sound in time and is mathematically incapable
-of changing which frequencies come out. Eight of them in a row, with their delays measured in
-*firing intervals* rather than milliseconds, so the car sounds like itself at every engine speed.
+**A cross-plane V8 rocks on its mounts once per revolution.** Its crank pins sit at 90° and the
+masses do not balance end to end, which is why these engines need heavy counterweights and why one
+at idle visibly shakes. A moving engine radiates sound differently as it moves. Nothing else in the
+model could produce that 12 Hz thump at all — so without it a V8 is a drone.
 
-### One of your reference clips was not usable
+### The popcorn was a clock
 
-The clip of several cars starting was measured as though it were one four-cylinder, and a target was
-taken from it and chased for hours. It is not one engine — its peaks do not line up on any single
-series, which is what several engines at slightly different speeds looks like. The tool now checks
-this before anything else, and says so plainly.
+The overrun crackle fired from a fixed 26 times a second, which gave 11–14 evenly spaced pops per
+second on every engine at every speed. A stream of identical clicks with no relationship to the car
+is exactly what popcorn sounds like, and you identified it instantly.
 
-Your single-car Mustang recording is the only engine reference this project has, and it is a good
-one. Nothing derived from either clip is committed.
+Real pops happen when unburnt fuel lights as an exhaust valve opens, so they belong to exhaust
+events — which means the rate rises with revs and differs between a four and a twelve. They also
+come in bursts, because one bang leaves the pipe hotter, and they have *body*: a detonation shoves
+gas down a pipe and thumps before it cracks. Ours was a bare 1.9 kHz hiss — all crack, no thump.
+Now: 3–7 a second, clustered, irregular, with a low thump underneath.
 
-### Where it landed
+Annoyingly, this is the same fault as one recorded two sessions ago (a crank modulation hardcoded at
+6 Hz), made again by the same hand. The rule is now a check rather than a principle: before adding
+any constant with "Hz" or "rate" in its name, ask what it is a rate *of*.
 
-Through the actual game mixer, at the listener distance the game uses, the V8 at idle now measures a
-lope ratio of 9.9 against the real car's 17-18, with its buzz at 1.8% against the real 1.6-4.4%.
-Harmonic tilt and the noise between harmonics both sit inside the real car's range.
+### The start was faithful and inaudible
 
-It is not all the way there. The remaining gap is entirely in the left column — our lope is 18%
-where the real car's is 27-79% — and the two knobs that would raise it are both held down by tests
-that exist for good reasons: one stops a V6 loping like a V8, the other stops a start sounding like
-a fault. Rather than loosen either, the gap is written down.
+Your Mustang clip cranks for about half a second before it catches, and that is what we built. You
+heard nothing — and that is the right reaction, because half a second of a quiet noise, most of it
+spent spinning up, is below the point where an event registers as an event. A phone recording of a
+car you are standing next to and watching is not the same listening situation as an arena with seven
+other cars in it.
 
-### The tool you asked for
+So the crank is now about twice the measured length, the starter is louder, and it audibly *labours*
+— the motor gets heavier and growls each time a compression stroke drags it down, which is the part
+that makes it read as an engine being turned over rather than a fade-in. You said faking it a little
+was fine; this is the little, and it is written down as a deliberate exception rather than slipped
+in, so nobody "fixes" it back to the recording later.
 
-`game-client/tools/engine_reference.py` now does the whole comparison in one command: point it at a
-recording and a rendered sample and it prints them side by side, order by order, with the real car's
-ranges underneath. `--identify` is the check that would have saved the hours above.
+### Three tests had to be restated, and none was weakened
 
-### Still not verified here
+Each was measuring where a thing *happened to be* rather than what it *is*. The crackle test asked
+for energy in a fixed high band — the band the old hiss occupied — so it passed the popcorn and then
+failed the improved version whose energy had moved lower. The crank test asked for the loudest
+frequency component of a chuff whose second harmonic is bigger than its fundamental, so it reported
+double the real rate on a four and a twelve. Replaced by measures that do not care about band or
+shape, and every one of them would have caught the thing you reported by ear.
 
-`game-client` does not build in this sandbox, and it is not a stale dependency: CI builds it fine on
-every run. `jitpack.io`, where `gdx-gltf` lives, is blocked by this sandbox's network policy. The
-three DSP classes import no libGDX, so their 17 tests were compiled and run standalone and all pass;
-none of them was relaxed to get there. The two classes that touch libGDX are type-checked only.
+### The showcase, since you liked it
+
+It is now a proper part of the repository rather than a scratch script:
+
+```
+./gradlew :game-client:showcaseAudio
+```
+
+renders one take per car — start, settle, idle, two blips with lifts, a pull to the limiter — through
+the real mixer, ready to listen to. New vehicles get added to one list. That is deliberately a
+first-class thing now, because every single defect in this synthesiser was found by ear first and
+each one needed a *new* measurement afterwards; a test suite can only check the questions somebody
+already thought to ask.
 
 ## 3. What is next
 
@@ -433,9 +451,12 @@ never need them if multiplayer is cut. Everything else on the "not done" list is
 morphs, weapons, fracture manifests), Blender pipeline stages 6–8, or tuning.
 
 The risk profile is unchanged, and this session added a fourth version of the same lesson with a new
-edge on it: **measure both halves of a ratio before tuning either.** Two sessions were spent raising
-the engine's lope, which was already the right size, because "not enough rumble" was assumed to mean
-"not enough of the slow stuff" when it actually meant "far too much of the fast stuff". The related
+edge on it, and this session added a fifth that sharpens it again. Fourth: **measure both halves of
+a ratio before tuning either** — two sessions were spent raising the engine's lope, which was already
+the right size, because "not enough rumble" was assumed to mean "not enough of the slow stuff" when
+it meant "far too much of the fast stuff". Fifth: **a total can be right while the distribution
+underneath it is wrong** — the very next session, the corrected total turned out to be sitting
+entirely at the wrong frequency, which a listener heard immediately and no aggregate could show. The related
 older lesson is that **the tests verify components rather than
 their combination** — it is that a test written from the implementation's vocabulary tests that the
 implementation *ran*, not that its output is right. Two tests covered the engine loops; both were

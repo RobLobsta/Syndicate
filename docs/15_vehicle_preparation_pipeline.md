@@ -475,6 +475,45 @@ taken from it was chased through a parameter search before the check showed its 
 at all. `game-client/tools/engine_reference.py --identify` performs this check and is the first thing
 run on an unfamiliar recording.
 
+<!-- D15-R38a15 -->**R38a15.** **An engine is auditioned as a take, not as a steady tone**, and the renderer that
+produces one is part of the deliverable. Every defect this synthesiser has had was reported by ear
+and only then measured — the filter gate, the beep at the head of a start, the missing lope, the
+overrun crackle that sounded like popcorn — and each needed a *new* measurement afterwards, because
+none of the existing ones asked about it. A test suite checks the questions somebody already thought
+to ask; a rendered take is what can be judged against the one nobody has. The take is a performance:
+start, settle, several seconds of idle, two blips with lifts between them, then a pull to the
+limiter, rendered through the mixer so what is heard is the path the game uses. Faults hide in
+steady state and surface in transitions.
+
+<!-- D15-R38a16 -->**R38a16.** **A crank does not turn at a constant speed, and the flywheel is what puts a lope where
+the ear feels it.** Each power stroke is an impulse and the flywheel only partly smooths it, so an
+idling engine surges and drops within every cycle — measured on this model, 28% peak to peak for an
+eight at idle, falling to 8% by 3,000 rpm. Because a flywheel is a low-pass on the torque impulses,
+that ripple lands on the lowest orders, which is exactly where a real engine's lope is: the reference
+Mustang puts 4.8–8.1% at order 1 and 8.9–16.3% at order 2, at 6 and 12 Hz. **The sub-order total is
+not sufficient** — this synthesiser once matched the total to within a percentage point while having
+0.9% and 1.1% at orders 1 and 2 and dumping everything into order 3, and was reported as having no
+feelable rumble at all, correctly. Where the lope sits is checked, not just how much of it there is.
+
+<!-- D15-R38a17 -->**R38a17.** **A cross-plane V8 rocks on its mounts once per crank revolution, and that is its order
+2.** Its crank throws sit at 90° and the reciprocating masses do not balance end to end; the engine
+rocks about its centre every revolution, which is why these engines carry heavy counterweights and
+why one at idle visibly shakes. A moving engine radiates differently as it moves. Nothing else in
+the model produces order 2 — the bank imbalance lands on odd orders and the flywheel on order 1 —
+so without it a V8 is a drone with no thump. Scaled by bank unevenness, so an even-firing V does not
+inherit a shake its crank does not have, and faded with engine speed, because a V8 shakes at idle
+and settles as the revs rise.
+
+<!-- D15-R38a7a -->**R38a7a.** **Overrun bangs are exhaust events that lit off, so they are scheduled on exhaust events**
+— never on a clock. A free-running rate in hertz produced 11 to 14 evenly spaced pops a second on
+every arrangement at every engine speed, which a listener described as popcorn: a stream of identical
+clicks with no relationship to the car making them. This is R38a5's fault in a second costume, and it
+is caught by the same kind of assertion — the pop rate must rise with engine speed, which no constant
+in hertz can do. Two further properties are required and were both absent: a bang has **body** as
+well as a crack, because a detonation shoves a slug of gas down a pipe before it cracks at the tip;
+and bangs **cluster**, because one detonation leaves the pipe hotter and the charge behind it richer,
+where independent per-event coin flips give a flat Poisson stream that is uniform by construction.
+
 **R38b.** Impact and detachment one-shots are **modal**: a broadband strike transient over a handful of exponentially damped, inharmonic sinusoids whose frequencies and decay times are the material's. Filtering noise is cheaper to write and does not work, because the ear identifies material from decay time and partial spacing far more than from spectral tilt.
 
 **R38c.** Severity is authored, never pitched. Three impact variants per material (`light`, `medium`, `heavy`) differ in modal frequency, decay and brightness, because a hard hit excites a larger area and therefore rings *lower* and longer — pitching one recording up and down produces the single most recognisable sign of a cheap bank.
@@ -510,6 +549,9 @@ run on an unfamiliar recording.
 | T-D15-20 | Odd and even sub-order energy vs a measured real V8 at matched rpm | Both within a few dB (R38a8) |
 | T-D15-21 | Sub-order over firing-order envelope modulation, V8 at two matched idle speeds | Within an order of magnitude of the real V8's 17.4–18.2, and consistent between the two (R38a10) |
 | T-D15-22 | Firing-order envelope modulation across 700–3,000 rpm | No speed more than a few times any other; a tenfold swing is one diffuser stage aligning (R38a11) |
+| T-D15-23 | Envelope modulation at orders 1 and 2 of a V8 at idle | Both within the real Mustang's 4.8–8.1% and 8.9–16.3%; a matching *total* is not sufficient (R38a16, R38a17) |
+| T-D15-24 | Overrun bang count at 6,000 rpm vs 3,000 rpm, summed over the arrangements | Rises by at least half again; a rate in hertz cannot (R38a7a) |
+| T-D15-25 | Crest factor after a lift vs a coast at the same speed | Peaks stand at least 1.35× further above the level; measured band-agnostically (R38a7a) |
 
 ---
 

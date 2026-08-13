@@ -152,22 +152,61 @@ public final class EngineSynth {
      * are the part anybody actually notices. Armed by the transition rather than by the state: a
      * car that coasts at zero load for ten seconds pops for the first second and then just coasts.
      */
-    private static final double CRACKLE_DECAY_SECONDS = 1.30;
+    private static final double CRACKLE_DECAY_SECONDS = 0.85;
 
-    /** Cracks per second at full intensity, and the rev fraction below which a lift is too lazy. */
-    private static final double CRACKLE_RATE_HZ = 26.0;
-
+    /** The rev fraction below which a lift is too lazy to have left anything unburnt. */
     private static final double CRACKLE_MIN_REV_FRACTION = 0.30;
 
     /**
-     * How loud a bang is.
+     * The chance that any one exhaust event lights off, at full intensity.
      *
-     * <p>High, and it needs to be. The first cut let the crackle out at roughly the amplitude of the
-     * band-passed noise that makes it, which put it 0 dB above a coasting exhaust — measured, it was
-     * inaudible. An overrun pop is a detonation in a pipe; it is supposed to be the loudest thing
-     * the car does apart from a collision.
+     * <p><b>A rate in hertz was the wrong shape and it sounded like it.</b> The first cut fired
+     * bangs from a free-running 26 Hz clock, which is exactly the fault R38a5 exists to prevent —
+     * a periodic component of an engine that is not tied to the crank. Measured on a rendered lift
+     * it produced 11 to 14 evenly spaced pops a second on every engine regardless of arrangement or
+     * engine speed, which reads as popcorn rather than as a car: the ear hears a steady stream of
+     * identical clicks and correctly concludes that whatever is making them is not the engine.
+     *
+     * <p>Unburnt charge lights when an exhaust valve opens onto a hot pipe, so a pop is an
+     * <em>exhaust event that went wrong</em> and its opportunities arrive at the firing rate. As a
+     * per-event probability the rate rises with revs, differs between a four and a twelve, and dies
+     * with them — all of which it should, and none of which a constant in hertz can do.
      */
-    private static final double CRACKLE_GAIN = 4.0;
+    private static final double CRACKLE_PER_EVENT = 0.115;
+
+    /**
+     * How loud a bang is, and how much of it is a low thump rather than a crack.
+     *
+     * <p>Loud on purpose: an overrun pop is a detonation in a pipe. But the first cut was a single
+     * band-pass at 1.9 kHz, which is a <em>tick</em> — all crack and no body — and a stream of ticks
+     * is the other half of why this read as popcorn. A real bang shoves a slug of gas down the pipe
+     * and thumps at the bottom of the exhaust's range before it cracks at the top.
+     */
+    private static final double CRACKLE_GAIN = 3.4;
+
+    private static final double CRACKLE_THUMP_HZ = 240.0;
+
+    private static final double CRACKLE_THUMP_SHARE = 0.62;
+
+    /**
+     * Level correction for the thump path.
+     *
+     * <p>A band-pass passes white noise in proportion to its bandwidth, so the narrow low filter
+     * emits roughly a third of what the broad high one does from the same excitation. Without this
+     * the thump share is a share of nothing: adding body to the bang made it quieter, and measured
+     * on a lift the bangs stopped standing clear of the coast at all.
+     */
+    private static final double CRACKLE_THUMP_MAKEUP = 3.4;
+
+    /**
+     * How much likelier a bang is when the last event also banged.
+     *
+     * <p>Real crackle arrives in bursts and then stops, because one detonation leaves the pipe
+     * hotter and the mixture behind it richer. Independent coin flips per event give a flat Poisson
+     * stream instead, which is uniform by construction, and uniform is the definition of the sound
+     * being complained about.
+     */
+    private static final double CRACKLE_CLUSTERING = 4.5;
 
     /**
      * The tailpipe: reflections inside the exhaust, as a short feedback network.
@@ -308,6 +347,7 @@ public final class EngineSynth {
     private double diffuserMix = DIFFUSER_MIX;
 
     private final Biquad crackleFilter = new Biquad();
+    private final Biquad crackleThump = new Biquad();
 
     /** How much crackle is left to come, and the transient currently sounding. */
     private double crackleArmed;
@@ -315,6 +355,9 @@ public final class EngineSynth {
     private double crackleEnvelope;
     private double crackleDecay;
     private double previousLoad;
+
+    /** Whether the last exhaust event banged, so the next is likelier to (CRACKLE_CLUSTERING). */
+    private boolean crackleFollowing;
 
     // ---- Pulse scheduling --------------------------------------------------------------------
 
@@ -332,6 +375,83 @@ public final class EngineSynth {
     private int ringPos;
     private double crankDeg;
     private long event;
+
+    // ---- Flywheel -----------------------------------------------------------------------------
+
+    /**
+     * How much the crank speeds up and slows down within one cycle, at idle.
+     *
+     * <p><b>This is the mechanism behind the part of a lope you feel rather than hear, and it was
+     * missing entirely.</b> A crank does not turn at a constant speed. Each power stroke is an
+     * impulse and the flywheel only partly smooths it, so an idling engine surges and drops a few
+     * percent within every cycle — you can watch it on a tachometer needle. The crank angle here
+     * integrated forward at exactly the rpm the simulation reported, which is an engine with an
+     * infinite flywheel.
+     *
+     * <p><b>Why it lands where the ear wants it.</b> A flywheel is a low-pass on the torque
+     * impulses: it cannot respond to the firing rate but it responds fully to the once-and-twice-
+     * per-cycle pattern underneath. Measured against a real Mustang idling, that is exactly where
+     * the reference puts its lope — orders 1 and 2 at 4.8% and 8.9% of its loudness, at 6 and 12 Hz
+     * — while this synthesiser had 0.9% and 1.1% there and dumped everything into order 3. The
+     * totals matched; the placement did not, and placement is the whole of "I cannot feel the
+     * cycles". Nothing else in this file has a mechanism that prefers the low orders.
+     *
+     * <p>It also does the right thing for free when an engine is hurt: a cylinder that does not
+     * fire does not kick, so the crank drops further before the next one catches it, which is the
+     * limping idle of a car running on seven.
+     */
+    private static final double SPEED_RIPPLE_AT_IDLE = 0.45;
+
+    /** The most the crank may deviate from its mean speed, either way. */
+    private static final double SPEED_RIPPLE_LIMIT = 0.22;
+
+    /**
+     * Flywheel time constants, in engine cycles: how fast a kick arrives and how fast it bleeds off.
+     *
+     * <p>The pair makes a band-pass centred near the cycle rate, which is what a rotating mass with
+     * a load on it is. Taking the difference of the two also makes the result zero-mean by
+     * construction, so the engine's average speed is still exactly what the simulation asked for
+     * and the firing frequencies stay accurate.
+     */
+    private static final double FLYWHEEL_FAST_CYCLES = 0.16;
+
+    private static final double FLYWHEEL_SLOW_CYCLES = 1.30;
+
+    /** Above this fraction of the rev range the flywheel has won and the ripple is gone. */
+    private static final double SPEED_RIPPLE_FADE_REV_FRACTION = 0.45;
+
+    private double flywheelFast;
+    private double flywheelSlow;
+    private double speedRipple;
+
+    /**
+     * The rocking couple: how hard the engine shakes on its mounts, once per crank revolution.
+     *
+     * <p><b>A cross-plane V8 has an inherent first-order rocking couple.</b> Its crank throws sit at
+     * 90° and the reciprocating masses do not balance end-to-end, so the whole engine rocks about
+     * its centre once per revolution — it is why these engines carry heavy counterweights and why
+     * one at idle visibly shakes on its mounts. An engine that is moving radiates differently as it
+     * moves, and a tailpipe that swings towards and away from a listener does the same.
+     *
+     * <p><b>This is where a V8's lope actually lives.</b> The reference Mustang's strongest lope
+     * component is order 2 — once per revolution — at 8.9% and 16.3% across two idle windows, with
+     * order 1 next. Nothing else in this synthesiser produces order 2 at all: the bank imbalance
+     * lands on the odd orders and the flywheel on order 1, which is why this had 1.1% there and read
+     * as a drone with no thump in it.
+     *
+     * <p>Locked to crank angle rather than run from an oscillator, so it is tied to the engine the
+     * way R38a5 requires, and scaled by bank unevenness so an even-firing V does not inherit a shake
+     * its crank does not have.
+     */
+    private static final double ROCKING_COUPLE_DEPTH = 0.26;
+
+    /** How much further an engine rocks with one cylinder no longer contributing. */
+    private static final double DEAD_CYLINDER_SHAKE = 0.60;
+
+    /** Where in the revolution the shake peaks, in degrees. Per vehicle, so two cars differ. */
+    private final double rockingPhaseDeg;
+
+    private final double rockingDepth;
 
     // ---- Bank divergence ------------------------------------------------------------------
 
@@ -434,6 +554,35 @@ public final class EngineSynth {
      */
     private static final double STARTER_RING_TEETH = 130.0;
 
+    /**
+     * How loud the starter is against the engine it is turning.
+     *
+     * <p>Raised with the crank length (DEV-006). A starter is a small motor, but it is also the only
+     * thing making a sound at the moment it runs — there is no combustion to compete with it — and
+     * at the previous level the whole ignition sat far enough under the running engine that a
+     * listener reported no starting sound at all.
+     */
+    private static final double STARTER_LEVEL = 0.42;
+
+    /**
+     * How much louder the starter gets as the compression stroke drags it down.
+     *
+     * <p><b>The chuff belongs to the starter, not to the exhaust.</b> Until now the compression
+     * labour existed only as a swing in crank speed, and the audible chuff was whatever that swing
+     * happened to do to the spacing of the pulses — which is indirect, weak, and different on every
+     * arrangement: measured across the six, the modulation at the compression rate ranged from 13%
+     * down to 5%, and on some of them it was no stronger than the noise beside it.
+     *
+     * <p>A real starter is a series motor. Load it and it slows, draws more current and growls: the
+     * sound gets louder and heavier at exactly the moment the crank slows. That puts the chuff in
+     * the loudest thing happening — there is no combustion yet to compete with it — and makes it the
+     * same event on every engine.
+     */
+    private static final double STARTER_LABOUR = 1.35;
+
+    /** Smoothed crank speed, so the labour is measured against this engine's own cranking mean. */
+    private double starterMeanRpm;
+
     private double starterPhase;
     private double starterGearPhase;
     private double starterEnvelope;
@@ -483,6 +632,8 @@ public final class EngineSynth {
         double unevenness = Math.min(1.0, this.configuration.bankFiringSpreadDegrees() / 180.0);
         double divergence = BANK_DIVERGENCE_MIN + (1.0 - BANK_DIVERGENCE_MIN) * unevenness;
         this.bankGainImbalance = BANK_GAIN_IMBALANCE_MAX * unevenness;
+        this.rockingDepth = ROCKING_COUPLE_DEPTH * unevenness;
+        this.rockingPhaseDeg = nextUnit() * 360.0;
         this.bankDelaySamples = Math.min(
                 BANK_DELAY_SAMPLES_MAX - 1, (int) Math.round(BANK_DELAY_MAX_SECONDS * divergence * SAMPLE_RATE_HZ));
         double detune = 1.0 - BANK_DETUNE_MAX * divergence;
@@ -503,6 +654,7 @@ public final class EngineSynth {
         flow.bandPass(900.0, 0.5);
         // Bright and broad: an overrun bang is a sharp crack, not a thud.
         crackleFilter.bandPass(1900.0, 0.8);
+        crackleThump.bandPass(CRACKLE_THUMP_HZ, 0.8);
         this.starterGearScale = 0.90 + nextUnit() * 0.20;
 
         int longest = (int) Math.round(DIFFUSER_MAX_SECONDS * SAMPLE_RATE_HZ) + 2;
@@ -608,7 +760,6 @@ public final class EngineSynth {
         }
         previousLoad = s.load();
         double crackleRelease = Math.exp(-1.0 / (CRACKLE_DECAY_SECONDS * SAMPLE_RATE_HZ));
-        double crackleChance = CRACKLE_RATE_HZ / SAMPLE_RATE_HZ;
 
         if (s.starter()) {
             starterGear.bandPass(Math.max(40.0, s.rpm() / 60.0 * STARTER_RING_TEETH * starterGearScale), 5.0);
@@ -639,14 +790,62 @@ public final class EngineSynth {
         double inductionGain = inductionGain(s);
         double releaseDecay = Math.exp(-1.0 / (RELEASE_DECAY_SECONDS * SAMPLE_RATE_HZ) * 6.0);
 
+        // The flywheel's two poles, in samples. Both are fixed in *cycles*, so the ripple stays the
+        // same shape in crank degrees however fast the engine is turning.
+        double cycleSamples = s.rpm() > 1f ? 120.0 / s.rpm() * SAMPLE_RATE_HZ : SAMPLE_RATE_HZ;
+        double fastPole = Math.exp(-1.0 / (FLYWHEEL_FAST_CYCLES * cycleSamples));
+        double slowPole = Math.exp(-1.0 / (FLYWHEEL_SLOW_CYCLES * cycleSamples));
+        // A big flywheel at speed swallows the impulses; at idle it barely keeps up with them.
+        // Normalised by the mean torque arriving per sample, so the ripple is a *fraction* of
+        // engine speed rather than a number that depends on how many cylinders there are and how
+        // long a cycle lasts. Without this the whole term came out at 1e-5 and did nothing.
+        double meanTorquePerSample = cylinders * Math.max(0.05, burn) / cycleSamples;
+        // A cranking engine has no power strokes to be kicked by, only compressions to drag over —
+        // which EngineRunState already supplies as the crank labour.
+        double shakes = s.starter() ? 0.0 : 1.0 - clamp01(revFraction / SPEED_RIPPLE_FADE_REV_FRACTION);
+        double rippleGain = SPEED_RIPPLE_AT_IDLE * shakes / meanTorquePerSample;
+        // The same fade for the rocking couple: a V8 shakes its mounts at idle and settles as the
+        // revs rise, which is what anyone standing next to one has felt. A dead cylinder leaves the
+        // engine more unbalanced, not less, so losing one deepens the shake rather than hiding it.
+        double rocking = rockingDepth * shakes * (s.deadCylinder() >= 0 ? 1.0 + DEAD_CYLINDER_SHAKE : 1.0);
+
         for (int n = 0; n < frames; n++) {
             if (s.rpm() > 1f) {
-                crankDeg += degreesPerSample;
+                // The crank runs at the speed the flywheel actually allows, not the mean.
+                crankDeg += degreesPerSample * (1.0 + speedRipple);
                 while (crankDeg >= nextFiringAngle()) {
-                    fire((int) (event % cylinders), pulseSeconds, scavengeSeconds, burn, s);
+                    int cylinder = (int) (event % cylinders);
+                    fire(cylinder, pulseSeconds, scavengeSeconds, burn, s);
+                    // The power stroke's kick. A cylinder that fires weakly kicks weakly, so a
+                    // misfiring engine limps without anybody writing a limp.
+                    flywheelFast += cylinderLevel[cylinder] * burn * (cylinder == s.deadCylinder() ? 0.1 : 1.0);
+                    flywheelSlow += cylinderLevel[cylinder] * burn * (cylinder == s.deadCylinder() ? 0.1 : 1.0);
+                    // A pop is an exhaust event that lit off, so this is the only place one can
+                    // start. Clustered, because one detonation makes the next likelier.
+                    if (crackleArmed > 1e-3) {
+                        double chance =
+                                CRACKLE_PER_EVENT * crackleArmed * (crackleFollowing ? CRACKLE_CLUSTERING : 1.0);
+                        crackleFollowing = nextUnit() < chance;
+                        if (crackleFollowing) {
+                            crackleEnvelope = crackleArmed * (0.45 + 0.55 * nextUnit());
+                            // Each bang is its own length; a uniform decay reads as a machine gun.
+                            crackleDecay = Math.exp(-1.0 / ((0.020 + 0.055 * nextUnit()) * SAMPLE_RATE_HZ));
+                        }
+                    }
                     event++;
                 }
             }
+            flywheelFast *= fastPole;
+            flywheelSlow *= slowPole;
+            // Zero-mean by construction: the two poles integrate the same impulses, so their
+            // difference has no DC and the engine's average speed is untouched.
+            // Clamped: a crank slows under compression, it does not stop or run backwards. Left
+            // open, a four — whose four impulses a cycle are each twice the share an eight's are —
+            // swung 64% peak to peak at idle, which is an engine about to stall rather than one
+            // idling. An eight sits at 31%, which is what an instantaneous crank speed really does
+            // at idle and is the reason misfire detection can be done by watching it.
+            double raw = (flywheelFast * (1.0 - fastPole) - flywheelSlow * (1.0 - slowPole)) * rippleGain;
+            speedRipple = Math.max(-SPEED_RIPPLE_LIMIT, Math.min(SPEED_RIPPLE_LIMIT, raw));
 
             double sample = 0.0;
             for (int bank = 0; bank < bankCount; bank++) {
@@ -683,18 +882,25 @@ public final class EngineSynth {
             }
             exhaust += (dispersed - exhaust) * diffuserMix;
 
+            // The engine rocking on its mounts, once every revolution of the crank. Applied to the
+            // exhaust rather than to the excitation because it is the whole engine and its pipe
+            // moving, not the combustion changing.
+            if (rocking > 0.0) {
+                double rev = crankDeg % 360.0;
+                exhaust *= 1.0 + rocking * Math.cos((rev + rockingPhaseDeg) * Math.PI / 180.0);
+            }
+
             double result = lowShelf.process(dcBlock.process(exhaust));
 
             if (crackleArmed > 1e-3) {
-                if (nextUnit() < crackleChance * crackleArmed) {
-                    crackleEnvelope = crackleArmed * (0.35 + 0.65 * nextUnit());
-                    // Each bang is its own length; a uniform decay reads as a machine gun.
-                    crackleDecay = Math.exp(-1.0 / ((0.012 + 0.030 * nextUnit()) * SAMPLE_RATE_HZ));
-                }
                 crackleArmed *= crackleRelease;
             }
             if (crackleEnvelope > 1e-4) {
-                result += crackleFilter.process(nextSample()) * crackleEnvelope * CRACKLE_GAIN;
+                double excitation = nextSample() * crackleEnvelope;
+                // Body first, then the crack on top of it.
+                result += (crackleThump.process(excitation) * CRACKLE_THUMP_SHARE * CRACKLE_THUMP_MAKEUP
+                                + crackleFilter.process(excitation) * (1.0 - CRACKLE_THUMP_SHARE))
+                        * CRACKLE_GAIN;
                 crackleEnvelope *= crackleDecay;
             }
 
@@ -834,7 +1040,16 @@ public final class EngineSynth {
         double whine = starterGear.process(nextSample()) * (1.0 - STARTER_TONE_FRACTION)
                 + Math.sin(starterGearPhase) * STARTER_TONE_FRACTION;
         double armature = Math.sin(starterPhase) * 0.34;
-        return (armature + whine * 0.42 + nextSample() * 0.22) * 0.20 * starterEnvelope;
+        // The motor labouring: heavier and louder exactly where the crank is being dragged down.
+        starterMeanRpm += (rpm - starterMeanRpm) / (0.30 * SAMPLE_RATE_HZ);
+        // Two-sided: the motor is heavier than usual under compression *and* lighter than usual as
+        // the piston goes over the top. Half-wave — labouring or nothing — made the chuff sharp
+        // enough that its second harmonic outgrew its fundamental, and a four whose chuff measures
+        // at twice its compression rate is the R38a5 fault in a new costume.
+        double labour = starterMeanRpm > 1.0
+                ? Math.max(0.25, Math.min(2.6, 1.0 + STARTER_LABOUR * (starterMeanRpm / Math.max(1.0, rpm) - 1.0)))
+                : 1.0;
+        return (armature + whine * 0.42 + nextSample() * 0.22) * STARTER_LEVEL * starterEnvelope * labour;
     }
 
     // ---- Deterministic noise -------------------------------------------------------------------
