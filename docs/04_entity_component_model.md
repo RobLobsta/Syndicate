@@ -290,7 +290,7 @@ Legend for **Auth**: `A` = authoritative (replicated, gameplay-relevant, G6); `C
 | 16 | POST_SIM | `LifetimeSystem` | core | `Lifetime` | marks entities for destruction | all |
 | 17 | POST_SIM | `ScoreSystem` | core | kill/damage events | `Score`, `MatchScoreboard` | authority |
 | 18 | NET | `NetworkSendSystem` | core | all `NetworkReplicated` | transport out | authority |
-| 19 | NET | `NetworkReceiveSystem` | core | transport in | applies snapshot, triggers reconciliation | client |
+| 19 | NET | `NetworkReceiveSystem` | core | transport in | sends this tick's `InputCommand`; applies snapshot, triggers reconciliation | client |
 | 20 | NET | `ReconciliationSystem` | core | `Prediction`, snapshot | rewind + replay (D10-S5.5) | client |
 | 21 | PRESENT | `TransformSystem` | core | `Transform` tree | `Transform.worldMatrix` | all |
 | 22 | PRESENT | `InterpolationSystem` | client | `Interpolation` | render transforms | client |

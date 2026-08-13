@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/04_entity_component_model.md#D04-S4.4, docs/03_runtime_modes.md#D03-S5.1, docs/03_runtime_modes.md#D03-S5.3
 
-**Status:** active
+**Status:** superseded (by PROG-023)
 
 ## Summary
 `game-client` boots a real window, builds the same world `ServerRuntime` does, and runs the five presentation slots on top of it. Eight cars drawn from their own art, an arena, a chase camera, a HUD, damage morphs, particle bursts and a 52-sound bank now have a process that uses them. Twenty-three of D04-S4.4's 27 systems exist; the four that remain are all networking.

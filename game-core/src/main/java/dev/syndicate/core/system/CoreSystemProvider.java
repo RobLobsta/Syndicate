@@ -9,6 +9,8 @@ import dev.syndicate.core.damage.DamageApplication;
 import dev.syndicate.core.damage.HitResolution;
 import dev.syndicate.core.damage.ProjectileImpact;
 import dev.syndicate.core.ecs.EntitySystem;
+import dev.syndicate.core.net.NetworkAuthority;
+import dev.syndicate.core.net.NetworkClient;
 import dev.syndicate.core.physics.DebrisFactory;
 import dev.syndicate.core.physics.PhysicsWorld;
 import dev.syndicate.core.physics.ShapeCache;
@@ -52,11 +54,42 @@ public final class CoreSystemProvider implements SystemProvider {
     private final ProjectileImpact impacts;
 
     /**
+     * The replication endpoints, or null when this process has none.
+     *
+     * <p>Null is a legitimate configuration rather than an oversight: the offline match simulator
+     * (D11-S5.8) and the verification harness run an authoritative world with no peers at all, and
+     * the four network slots are simply absent from their schedules — which is what D04-R8 asks
+     * for, a system that does not apply to a mode being missing rather than present and disabled.
+     */
+    private final NetworkAuthority authority;
+
+    private final NetworkClient client;
+
+    /**
      * @param debris the debris body factory shared by fracture and detachment, so both draw on one
      *     {@code MAX_DEBRIS_BODIES} budget rather than two (D07-S5.8)
      */
     public CoreSystemProvider(
             PhysicsWorld physics, ShapeCache shapes, AssetIndex assets, SpawnQueue spawnQueue, DebrisFactory debris) {
+        this(physics, shapes, assets, spawnQueue, debris, null, null);
+    }
+
+    /**
+     * As above, with the replication endpoints this process owns.
+     *
+     * @param authority the server half, on an authority; null on a pure client
+     * @param client the client half, on a client; null on a dedicated server
+     */
+    public CoreSystemProvider(
+            PhysicsWorld physics,
+            ShapeCache shapes,
+            AssetIndex assets,
+            SpawnQueue spawnQueue,
+            DebrisFactory debris,
+            NetworkAuthority authority,
+            NetworkClient client) {
+        this.authority = authority;
+        this.client = client;
         this.physics = Objects.requireNonNull(physics, "physics");
         this.shapes = Objects.requireNonNull(shapes, "shapes");
         this.assets = Objects.requireNonNull(assets, "assets");
@@ -70,6 +103,10 @@ public final class CoreSystemProvider implements SystemProvider {
     @Override
     public EntitySystem create(SystemSlot slot, RuntimeMode mode) {
         return switch (slot) {
+            case INPUT_RECEIVE -> authority == null ? null : new InputReceiveSystem(authority);
+            case NETWORK_SEND -> authority == null ? null : new NetworkSendSystem(authority);
+            case NETWORK_RECEIVE -> client == null ? null : new NetworkReceiveSystem(client);
+            case RECONCILIATION -> client == null ? null : new ReconciliationSystem(client, physics);
             case BOT_DECISION -> new BotDecisionSystem(assets, assets.botDifficulties(), physics);
             case MATCH_FLOW -> new MatchFlowSystem(assets, spawnQueue);
             case SPAWN -> new SpawnSystem(spawnQueue, assets, physics, shapes);
@@ -87,9 +124,9 @@ public final class CoreSystemProvider implements SystemProvider {
             case SCORE -> new ScoreSystem();
             case TRANSFORM -> new TransformSystem();
             case ENTITY_DESTROY -> new EntityDestroySystem(physics, shapes);
-                // The other 12 slots of D04-S4.4 are unwritten. Null rather than a throw: see the class
-                // note — an unimplemented slot leaves a gap in the schedule, not a process that refuses
-                // to boot.
+                // The remaining slots are the six {@code game-client} ones, which this module cannot
+                // construct (D02-S5.6). Null rather than a throw: see the class note — an unfilled slot
+                // leaves a gap in the schedule, not a process that refuses to boot.
             default -> null;
         };
     }
