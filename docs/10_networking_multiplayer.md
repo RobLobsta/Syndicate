@@ -84,8 +84,9 @@ Requirements are numbered `R1..Rn`, cited as `D10-R12`.
 | `DespawnEntity` | S→C | CONTROL | networkId, reason, tick | per despawn |
 | `StructuralEvent` | S→C | CONTROL | one of `PartDestroyed`/`PartFractured`/`PartDetached`/`VehicleDestroyed` (D07-S5.9) | per event |
 | `Snapshot` | S→C | STATE | serverTick, baselineTick, entity deltas | `SNAPSHOT_RATE_HZ` (20) |
-| `InputCommand` | C→S | STATE | sequence, commandTick, throttle/steer/brake/aim/fireMask, redundant window | `TICK_RATE_HZ` (60), batched |
+| `InputCommand` | C→S | STATE | acknowledgedSnapshotTick, sequence, commandTick, throttle/steer/brake/aim/fireMask, redundant window | `TICK_RATE_HZ` (60), batched |
 | `InputAck` | S→C | STATE | lastProcessedSequence, lastProcessedTick | piggybacked on Snapshot |
+| `SnapshotNack` | C→S | STATE | missingBaselineTick | per undecodable delta |
 | `HitConfirm` | S→C | STATE | targetNetworkId, slotPath, damageApplied, damageType, tick | per confirmed hit |
 | `DamageReceived` | S→C | STATE | attackerPeerId, slotPath, amount, type, direction | per hit taken |
 | `ScoreUpdate` | S→C | CONTROL | full scoreboard | on change, max 2 Hz |
@@ -95,6 +96,8 @@ Requirements are numbered `R1..Rn`, cited as `D10-R12`.
 | `Disconnect` | both | CONTROL | reason, detail | once |
 | `SelectVehicle` | C→S | CONTROL | vehicleTypeId | per respawn |
 | `AdminCommand` | C→S | CONTROL | command text (authenticated peers only) | rare |
+
+**R4a.** `SnapshotNack` is what R18 asks a client to send when a delta names a baseline it does not hold, and it is the client's half of the acknowledgement protocol; `acknowledgedSnapshotTick` on `InputCommand` is the other half. Both ride the STATE channel a client is already sending at 60 Hz, so neither costs a message of its own. Added after the implementation found R18 requiring a message the catalogue did not name (DEC-058).
 
 **R4.** `InputCommand` carries a **redundant window** of the last `INPUT_REDUNDANCY = 6` commands. UDP loss of a single input packet therefore causes no dropped input at all, at the cost of a few bytes — far cheaper than reliability for a message that is superseded every 16 ms anyway.
 

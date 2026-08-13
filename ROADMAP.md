@@ -1,10 +1,11 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-12 (end of SESS-022)
-**Where we are:** it has a window, and the engines are no longer recordings — they are synthesised
-live from what each car is doing and what state it is in. Eight cars on an arena floor, a camera
-behind one of them, a scoreboard in the corner, and a supercharged V8 that burbles, misfires when you
-wreck it, and doppler-shifts as it goes past. Nobody has driven it yet.
+**Last updated:** 2026-08-13 (end of SESS-025)
+**Where we are:** the system catalogue is finished. All twenty-seven systems the design calls for
+exist, the last four of them — the networking ones — landing this session. Two peers exchange a
+handshake, spawns, destruction events, compressed snapshots and validated input; they just happen to
+be in the same process, because the only transport that exists so far is an in-process one. Eight
+cars still drive, crash and sound like themselves. Nobody has driven it yet.
 
 > This file is maintained by the coding assistant and updated **at the end of every session**
 > (CLAUDE.md §5, step 14). It is allowed to change shape as the work demands — reorder phases, split
@@ -37,15 +38,16 @@ gantt
     Audio - engines, induction, triggers    :done, p7b, 21, 1
     Real-time engine synthesis              :done, p7c, 22, 1
     The rumble - pulse fusion               :done, p7d, 23, 1
-    Lope, startup, overrun (here)           :done, p7e, 24, 1
+    Lope, startup, overrun                  :done, p7e, 24, 1
+    Replication - the last four systems (here) :done, p9a, 25, 1
 
     section Next
-    Driving it - tuning, balance, feel      :active, p11, 25, 2
-    Preparation pipeline - stages 6 to 8    :p6d, 26, 3
+    Driving it - tuning, balance, feel      :active, p11, 26, 2
+    Sockets - two machines                  :p9b, 28, 2
+    Preparation pipeline - stages 6 to 8    :p6d, 30, 3
 
     section Then
-    Multiplayer                             :p9, 28, 4
-    Production hardening                    :p10, 32, 3
+    Production hardening                    :p10, 33, 3
 ```
 
 Read the numbers as **sessions of work, roughly**, not dates. Everything before "we are here" is
@@ -84,17 +86,19 @@ done and green; everything after is an estimate that will move.
   │  │            Real engines, induction, every family triggered    │
   │  ●  Phase 7c  The rumble                                         │
   │  │            Pulses fuse; a tool that measures against real cars│
-  │  ●  Phase 7d  Feel                            ← THIS SESSION     │
+  │  ●  Phase 7d  Feel                                              │
   │  │            A flywheel, a rocking couple, a start you can hear │
+  │  ●  Phase 9a  Replication         ★ 27/27      ← THIS SESSION   │
+  │  │            Snapshots, deltas, prediction, reconciliation      │
   └──┼───────────────────────────────────────────────────────────────┘
      │
   ┌──┼─ NEXT ──────────────────────────────────────────────────────────┐
   │  ○  Phase 11  Driving it                          ★ IS IT ANY GOOD │
   │  │            Handling, damage numbers, bot difficulty, match len  │
+  │  ○  Phase 9b  Sockets                             ★ TWO MACHINES   │
+  │  │            A KryoNet transport, and the runtimes wired to it    │
   │  ○  Phase 6d  Preparation pipeline, stages 6–8                     │
   │  │            Geometry repair, hinges, per-class destruction       │
-  │  ○  Phase 9   Multiplayer                                          │
-  │  │            Replication, prediction, reconciliation              │
   │  ○  Phase 10  Production hardening                ★ SHIPPABLE      │
   │               Perf budgets, packaging, balance sweep, CI gates     │
   └────────────────────────────────────────────────────────────────────┘
@@ -102,118 +106,90 @@ done and green; everything after is an estimate that will move.
 
 ### The system catalogue, which is the honest progress bar
 
-`docs/04_entity_component_model.md#D04-S4.4` fixes 27 systems in a specific order. Twenty-three exist.
+`docs/04_entity_component_model.md#D04-S4.4` fixes 27 systems in a specific order. All 27 exist.
 
 ```
- 1 InputCollection   ●   10 Physics          ●   19 NetworkReceive   ○
- 2 InputReceive      ○   11 CollisionEvent   ●   20 Reconciliation   ○
+ 1 InputCollection   ●   10 Physics          ●   19 NetworkReceive   ●
+ 2 InputReceive      ●   11 CollisionEvent   ●   20 Reconciliation   ●
  3 BotDecision       ●   12 Damage           ●   21 Transform        ●
  4 MatchFlow         ●   13 Fracture         ●   22 Interpolation    ●
  5 Spawn             ●   14 Detach           ●   23 DamageVisual     ●
  6 VehicleStats      ●   15 MassProperty     ●   24 Effect           ●
  7 VehicleControl    ●   16 Lifetime         ●   25 Audio            ●
  8 Weapon            ●   17 Score            ●   26 Render           ●
- 9 Projectile        ●   18 NetworkSend      ○   27 EntityDestroy    ●
+ 9 Projectile        ●   18 NetworkSend      ●   27 EntityDestroy    ●
 
- ●●●●●●●●●●●●●●●●●●●●●●●○○○○  23 / 27
+ ●●●●●●●●●●●●●●●●●●●●●●●●●●●  27 / 27
 ```
 
-The four that remain are **all networking** (2, 18, 19, 20). There is no longer a single
-unimplemented system that a single-player game needs. If multiplayer were cut tomorrow, the
-catalogue would be finished.
+This progress bar has now done its job and stops being the interesting number. What is left is not
+"systems that do not exist" but "things the existing systems have not been pointed at": one socket
+transport, the runtime wiring for it, and a great deal of tuning.
 
 ---
 
-## 2. What happened this session (SESS-024)
+## 2. What happened this session (SESS-025)
 
-You listened to the six takes and reported three things: no startup sound at all, still no rumble
-you could *feel*, and a popping on every engine "like popcorn being made". All three were right, all
-three were mechanisms the model simply did not have, and one of them was a mistake this project had
-already written down once and then made again.
+The last four systems in the catalogue were the networking ones, and they are now written. That
+means the game can do the following, today, verified by tests: an authority and a client shake
+hands, agree they are running the same build, exchange spawned vehicles, stream compressed state at
+20 Hz, survive losing sixty-four consecutive packets, validate every byte of input a client sends,
+and correct a client's prediction when it turns out to be wrong.
 
-### The lope was the right size and in the wrong place
+The catch is worth stating first, because it is the honest headline: **the two peers are in the same
+process.** The only transport that exists is an in-process one. That is deliberate rather than a
+shortcut — the design (`D02-R19`) requires single-player to run through the same replication code as
+multiplayer, so that a bug in it shows up on one machine where it is cheap to find. What is missing
+is a socket implementation of an interface that already exists, plus wiring the two runtime shells
+to build one.
 
-Last session fixed the *total* amount of slow variation and you still could not feel the cycles.
-That was the correct report, and the measurement says why. An engine's lope has a pitch, and it
-matters where it sits:
+### What replication actually had to solve
 
-| how often | what you feel | real Mustang | ours before | ours now |
-|---|---|---|---|---|
-| once per cycle (6 Hz) | the slow heave | 4.8–8.1% | 0.9% | 4.8% |
-| once per revolution (12 Hz) | the thump | 8.9–16.3% | 1.1% | 11.8% |
-| three times (19 Hz) | a flutter | 6.7–7.3% | 13.6% | 9.2% |
+Four problems, none of them obvious from outside:
 
-Our total was right and nearly all of it was at 19 Hz — too fast to feel as a beat — and it was
-there only because each car's random cylinder trims happened to peak there. **The pitch of the lope
-was effectively random per vehicle.**
+**A car that is parked must cost nothing.** State is compared *after* quantisation, not before — so a
+vehicle drifting by half a millimetre encodes to the same 16-bit position it did last tick and does
+not appear in the snapshot at all. An empty snapshot is 19 bytes of header. Comparing the raw floats
+instead would have put every car in every packet forever.
 
-Two things were missing, and neither is a knob:
+**Losing a packet must not lose input.** Each input packet carries the last six commands as well as
+the current one, so six consecutive lost packets cost nothing at all — verified. Lose more than
+that and the authority repeats your steering but *zeroes your trigger*, which is the rule that keeps
+a lagging player from firing without asking.
 
-**The crankshaft does not turn at a constant speed.** Each power stroke is a kick and the flywheel
-only partly smooths it, so an idling engine surges and slows within every single cycle — you can
-watch the needle do it. Ours integrated the crank angle at exactly the rpm the simulation reported,
-which is an engine with an infinite flywheel. Adding a real one matters because a flywheel is
-mathematically a *low-pass filter on the kicks*: it cannot follow the fast firing rate but it
-follows the slow pattern completely, so the energy lands exactly where the feel is. It also makes a
-damaged engine limp for nothing: a cylinder that does not fire does not kick.
+**A delta is meaningless without the exact thing it was measured against.** Each client acknowledges
+the snapshots it actually received, and the authority compresses against that specific one. When a
+client is handed a delta whose baseline it never got, it refuses it and says so rather than applying
+it to the wrong base — because that failure would be silent and permanent.
 
-**A cross-plane V8 rocks on its mounts once per revolution.** Its crank pins sit at 90° and the
-masses do not balance end to end, which is why these engines need heavy counterweights and why one
-at idle visibly shakes. A moving engine radiates sound differently as it moves. Nothing else in the
-model could produce that 12 Hz thump at all — so without it a V8 is a drone.
+**A forty-part car must not be forty messages.** Network identities are handed out in contiguous
+blocks, and both sides derive which id belongs to which part by walking the assembly file in the
+same order. One message spawns the whole car.
 
-### The popcorn was a clock
+### The prediction problem, and one place the design was wrong
 
-The overrun crackle fired from a fixed 26 times a second, which gave 11–14 evenly spaced pops per
-second on every engine at every speed. A stream of identical clicks with no relationship to the car
-is exactly what popcorn sounds like, and you identified it instantly.
+Your own car has to respond to the wheel instantly, which means the client simulates it before the
+server has agreed. When the server's answer arrives, the client compares it against what it had
+predicted for that same tick — and if they differ by more than 5 cm, snaps to the server's answer
+and replays every input you have given since.
 
-Real pops happen when unburnt fuel lights as an exhaust valve opens, so they belong to exhaust
-events — which means the rate rises with revs and differs between a four and a twelve. They also
-come in bursts, because one bang leaves the pipe hotter, and they have *body*: a detonation shoves
-gas down a pipe and thumps before it cracks. Ours was a bare 1.9 kHz hiss — all crack, no thump.
-Now: 3–7 a second, clustered, irregular, with a low thump underneath.
+The design assumed the replay could re-simulate one car's body. The physics engine has no such
+operation: every vehicle lives in one world and there is no way to step a single body in it. So the
+replay steps the whole world and then puts the other cars back where the last snapshot said they
+were. That is written down (`DEV-017`) rather than quietly done, because it has a real residue: a
+correction that happens during a collision is resolved against slightly stale opponents.
 
-Annoyingly, this is the same fault as one recorded two sessions ago (a crank modulation hardcoded at
-6 Hz), made again by the same hand. The rule is now a check rather than a principle: before adding
-any constant with "Hz" or "rate" in its name, ask what it is a rate *of*.
+Replaying also forced a refactor worth naming: the arithmetic that turns your input into engine
+force had lived inside a scheduled system, and reconciliation needs to run *exactly the same
+arithmetic* — anything else turns a one-off error into a permanent offset. It is now a shared
+operation. That is the third time this has happened, so it is now a stated rule rather than three
+coincidences.
 
-### The start was faithful and inaudible
+### The blueprint had two holes, and they are patched
 
-Your Mustang clip cranks for about half a second before it catches, and that is what we built. You
-heard nothing — and that is the right reaction, because half a second of a quiet noise, most of it
-spent spinning up, is below the point where an event registers as an event. A phone recording of a
-car you are standing next to and watching is not the same listening situation as an arena with seven
-other cars in it.
-
-So the crank is now about twice the measured length, the starter is louder, and it audibly *labours*
-— the motor gets heavier and growls each time a compression stroke drags it down, which is the part
-that makes it read as an engine being turned over rather than a fade-in. You said faking it a little
-was fine; this is the little, and it is written down as a deliberate exception rather than slipped
-in, so nobody "fixes" it back to the recording later.
-
-### Three tests had to be restated, and none was weakened
-
-Each was measuring where a thing *happened to be* rather than what it *is*. The crackle test asked
-for energy in a fixed high band — the band the old hiss occupied — so it passed the popcorn and then
-failed the improved version whose energy had moved lower. The crank test asked for the loudest
-frequency component of a chuff whose second harmonic is bigger than its fundamental, so it reported
-double the real rate on a four and a twelve. Replaced by measures that do not care about band or
-shape, and every one of them would have caught the thing you reported by ear.
-
-### The showcase, since you liked it
-
-It is now a proper part of the repository rather than a scratch script:
-
-```
-./gradlew :game-client:showcaseAudio
-```
-
-renders one take per car — start, settle, idle, two blips with lifts, a pull to the limiter — through
-the real mixer, ready to listen to. New vehicles get added to one list. That is deliberately a
-first-class thing now, because every single defect in this synthesiser was found by ear first and
-each one needed a *new* measurement afterwards; a test suite can only check the questions somebody
-already thought to ask.
+The specification requires a client to send a "negative acknowledgement" and to acknowledge
+snapshots, and its own message list contains neither message. Both now exist and the document was
+amended in the same commit. Finding this kind of gap is exactly what implementing a spec is for.
 
 ## 3. What is next
 
@@ -235,6 +211,23 @@ camera's two half-lives, bot reaction delay and aim error, and the match length 
 The one piece of machinery that would pay for itself immediately is a **live tuning console** — those
 numbers are compiled in today, and a handling pass that needs a rebuild per value is a handling pass
 nobody finishes.
+
+### Phase 9b — Sockets ★ *two machines*
+
+What stands between this and real multiplayer is now short and specific, which it has never been
+before:
+
+1. **A socket transport.** One class implementing an interface that already exists — TCP for the
+   reliable channel, UDP for state — behind which every other piece of replication already works.
+2. **Wiring the two runtime shells to build one.** Today the dedicated server and the client each
+   construct a world with no network endpoints, so the four networking systems are absent from every
+   shipping schedule. Single-player should go through the in-process pair, which is what makes the
+   design's "there is no separate single-player code path" true in practice rather than on paper.
+3. **Lag compensation.** Rewinding a target to where the shooter saw it. The rules are fully
+   specified and nothing of it is written; without it, hitting a moving car at 150 ms of latency
+   means leading it by a car length.
+4. **The messages nobody needed yet** — scoreboard, match phase, chat, ping. Their slots on the wire
+   are reserved so adding them cannot renumber what already ships.
 
 ### Phase 6d — Preparation pipeline, stages 6 to 8
 
@@ -272,11 +265,12 @@ decision wants making before the session that implements them starts.
 - **Body resonance.** The synthesiser models an exhaust, not a car. Part of the Mustang's low-order
   energy is almost certainly panels and cabin, which nothing here reproduces.
 
-### Phases 9–10 — Multiplayer, then hardening
+### Phase 10 — Production hardening
 
-Replication, client prediction, reconciliation and lag compensation, followed by the performance
-budgets, packaging and balance sweeps that `docs/12_testing_validation_ci.md#D12-S5.4` requires
-before anything ships.
+The performance budgets, packaging and balance sweeps that
+`docs/12_testing_validation_ci.md#D12-S5.4` requires before anything ships. Bandwidth is now one of
+them and can be measured for the first time: the budget is 128 kbit/s down and 32 kbit/s up per
+client in a twelve-player match, and nothing has yet counted what a real match sends.
 
 ## 4. Open choices — things you could ask for
 
@@ -423,55 +417,57 @@ None of these are decided. They are here so the options are visible when a sessi
   re-indexed on our side and left in the native controller. Harmless today; a trap later.
 - **`DISC-007`** — the sandbox cannot fetch the pinned JDK 17, so every build here runs on 21 under
   an override. CI runs the real toolchain, but local results are not quite the shipping ones.
+- **`DEV-017`** — a client's prediction replay steps the whole physics world rather than one body,
+  because the physics engine offers no way to do the latter. Other cars are put back afterwards, but
+  a correction that happens mid-collision is resolved against slightly stale opponents.
+- **`DEV-018`** — seven of the wire protocol's twenty-one messages are declared and not yet encoded.
+  Each needs a subsystem nothing yet drives (scoreboard feed, chat, admin auth, ping). Their ids are
+  reserved so adding them cannot renumber what ships.
+- **Nothing has ever crossed a network.** The replication layer is exercised end to end through an
+  in-process transport, which is the design's intent for single-player and is not a substitute for
+  real packet loss, reordering and latency. Every timing constant in it — the jitter buffer's delay,
+  the interpolation delay, the reconciliation thresholds — is a blueprint default nobody has watched
+  behave badly.
 
 ---
 
 ## 5. Where the project actually stands
 
-It is a game you can watch and hear. Two sessions ago it could only be read about in a log file; last
-session it could be watched; this session its engines stopped being recordings and became machines
-that are simulated, so a car sounds like what it is doing and what has been done to it.
+It is a game you can watch and hear, and as of this session it is a game that is *complete in
+outline*. Every system the design specifies exists. There is no longer a list of things that have
+not been built — only a list of things that have not been pointed at each other, tuned, or heard by
+a person.
 
 Eight cars go onto an arena floor, drawn from real art with real paint on them. They drive, crash,
 take damage, throw sparks, lose parts, and one of them wins. A camera follows one, a HUD says how
-fast and how broken it is, a scoreboard says who is ahead. Every sound the design calls for now
-plays: engines that crank, catch, rev, misfire and die, tyres that squeal under slip, weapons that
-fire and land, shards that clatter as they settle, and a fire that keeps burning until somebody
-finishes the car off. Each engine is in a place, so they pan, fade with distance and doppler past.
+fast and how broken it is, a scoreboard says who is ahead. Every sound the design calls for plays.
+And now, underneath all of it, the machinery for two machines to agree on one match: compressed
+state, per-client baselines, validated input, prediction and correction — running, tested, and so
+far only ever talking to itself.
 
-**Nobody has driven it, and nobody has heard it.** That remains the entire question, and this session
-sharpened rather than changed it — though you have now heard six rendered takes, which is the closest
-anyone has come. The handling is a real supercar's published figures. The damage
-numbers are blueprint defaults. The bots ship at a difficulty nobody has lost to. And the mix — now
-including the synthesiser's own voicing — is a set of first guesses. None of that is a bug, and none
-of it can be settled by writing more code.
+**Nobody has driven it, and nobody has heard it.** That is still the entire question. The handling
+is a real supercar's published figures. The damage numbers are blueprint defaults. The bots ship at
+a difficulty nobody has lost to. The mix is a set of first guesses. None of that is a bug, and none
+of it can be settled by writing more code — which is now true of the project as a whole rather than
+of one corner of it.
 
-What is genuinely still missing is short and it is all networking: four systems, and a game that will
-never need them if multiplayer is cut. Everything else on the "not done" list is content (damage
-morphs, weapons, fracture manifests), Blender pipeline stages 6–8, or tuning.
+The honest remaining engineering, as opposed to tuning, is three items: a socket transport, the
+wiring that hands it to the two runtime shells, and lag compensation. Everything else on the "not
+done" list is content, Blender pipeline stages 6–8, or numbers somebody has to turn.
 
-The risk profile is unchanged, and this session added a fourth version of the same lesson with a new
-edge on it, and this session added a fifth that sharpens it again. Fourth: **measure both halves of
-a ratio before tuning either** — two sessions were spent raising the engine's lope, which was already
-the right size, because "not enough rumble" was assumed to mean "not enough of the slow stuff" when
-it meant "far too much of the fast stuff". Fifth: **a total can be right while the distribution
-underneath it is wrong** — the very next session, the corrected total turned out to be sitting
-entirely at the wrong frequency, which a listener heard immediately and no aggregate could show. The related
-older lesson is that **the tests verify components rather than
-their combination** — it is that a test written from the implementation's vocabulary tests that the
-implementation *ran*, not that its output is right. Two tests covered the engine loops; both were
-satisfied by the very defect that made them wrong, because both asked what the code produces rather
-than what an engine is. The counter-measure has worked every single time: build the real artefact,
-then measure the artefact rather than the code. This session that meant a DFT over the committed
-`.wav` files, and then — the part worth keeping — replacing those two tests with ones that fail on
-the old bank.
+The risk profile has one addition this session, and it is a different kind from the audio lessons
+that preceded it. Those were all about measurement — measure both halves of a ratio; a total can be
+right while its distribution is wrong; a test written in the implementation's vocabulary proves only
+that the implementation ran. This one is about **specifications having holes that only implementing
+them reveals**: the networking document requires a client to send two things its own message list
+does not contain, and neither the document review nor the blueprint validator could see it, because
+both messages are perfectly consistent with everything around them — they are simply absent. The
+counter-measure is the one already in use: build the real artefact, and let it disagree.
 
-It is also worth recording that a user's ear beat the entire suite. The loops were committed,
-documented, measured and green. Somebody listened to them and said no.
-
-There is one new structural risk worth naming. `game-client` cannot be built in this environment at
-all, so the largest module in the project is now the least verified — and the audio work landed
-squarely in it.
+There is also a standing structural risk worth repeating. `game-client` cannot be built in this
+environment (`DISC-024`), so the largest module in the project remains the least verified. This
+session's work landed in `game-core` and `shared-models`, both of which build and test here, which
+is partly why it was chosen.
 
 ## 6. How this file gets maintained
 
