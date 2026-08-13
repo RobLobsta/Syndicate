@@ -248,3 +248,69 @@ def test_every_corner_shell_is_either_a_wheel_or_a_hub_and_nothing_is_lost():
     assert {one.label for one in captured} == {WHEEL, HUB}
     seen = [one.index for corner in corners for one in corner.rotating + corner.static]
     assert len(seen) == len(set(seen)) == len(captured)
+
+
+# ---- What may seed a corner (D15-R23a), measured on the shipped cars ------------------------
+
+
+def test_a_real_tyre_seeds_a_corner():
+    """Both shipped cars' tyres, at the dimensions they actually measure."""
+    eclipse_tyre = shell(1, (0.92, 0.07, 1.17), (1.01, 0.64, 1.74), label=WHEEL)
+    stampede_tyre = shell(2, (0.90, 0.09, 1.12), (1.01, 0.64, 1.67), label=WHEEL)
+    assert roles.is_wheel_seed(eclipse_tyre)
+    assert roles.is_wheel_seed(stampede_tyre)
+
+
+def test_a_flat_bracket_named_wheel_does_not_seed_a_corner():
+    """The Eclipse's `vehicle_generic_smallspecmap_WHEEL`: labelled by C3, round to 0.29.
+
+    Left able to seed, it dragged the front axle 0.37 m rearward, inflated the wheel to
+    1.44 m across and captured 37% of the car into a corner as brake furniture.
+    """
+    bracket = shell(3, (0.83, 0.19, 1.25), (1.02, 0.54, 1.35), label=WHEEL,
+                    material="vehicle_generic_smallspecmap_WHEEL")
+    assert bracket.roundness < roles.WHEEL_SEED_MIN_ROUNDNESS
+    assert not roles.is_wheel_seed(bracket)
+
+
+def test_a_body_panel_that_happens_to_be_round_does_not_seed_a_corner():
+    assert not roles.is_wheel_seed(
+        shell(4, (0.6, 0.1, 0.2), (0.9, 1.5, 1.6), label=WHEEL)
+    )
+
+
+def test_something_too_small_to_be_a_road_wheel_does_not_seed_a_corner():
+    assert not roles.is_wheel_seed(shell(5, (0.8, 0.3, 1.4), (0.86, 0.5, 1.6), label=WHEEL))
+
+
+def test_a_seed_must_be_outboard_and_low():
+    on_the_centreline = shell(6, (-0.15, 0.1, 1.2), (0.15, 0.7, 1.8), label=WHEEL)
+    up_on_the_roof = shell(7, (0.8, 1.2, 1.2), (0.9, 1.8, 1.8), label=WHEEL)
+    assert not roles.is_wheel_seed(on_the_centreline)
+    assert not roles.is_wheel_seed(up_on_the_roof)
+
+
+def test_a_corner_where_nothing_turns_is_dissolved_back_to_the_chassis():
+    """D15-R23b. Both shipped cars produced two such corners before this existed."""
+    axle_y, axle_z, x = 0.42, 0.5, -0.85
+    seeds = [
+        shell(10, (x - 0.05, axle_y - 0.3, axle_z - 0.3), (x + 0.05, axle_y + 0.3, axle_z + 0.3),
+              label=WHEEL, material="bracket", vertices=arc(x, axle_y, axle_z, 0.28, 120.0)),
+    ]
+    corner = roles.Corner(name="fl", seeds=seeds)
+    roles._measure_axle(corner)
+    roles.resolve_rotation([corner])
+    corners = [corner]
+    dissolved = roles.dissolve_empty_corners(corners, seeds)
+    assert corners == []
+    assert len(dissolved) == 1 and "not a wheel" in dissolved[0]["because"]
+    assert seeds[0].label == CHASSIS and seeds[0].corner is None
+
+
+def test_a_corner_with_a_rotating_group_survives():
+    shells = four_wheeled_car()
+    corners = roles.find_corners(shells, body_frame())
+    roles.capture_into_corners(shells, corners)
+    roles.resolve_rotation(corners)
+    assert roles.dissolve_empty_corners(corners, shells) == []
+    assert len(corners) == 4

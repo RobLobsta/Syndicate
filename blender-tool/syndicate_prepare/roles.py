@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 
 from .grouping import angular_coverage_deg, rotational_symmetry_order, side_of
 from .labels import (
+    CHASSIS,
     GLASS,
     GRILLE,
     HUB,
@@ -54,6 +55,13 @@ WINDSCREEN = "windscreen"
 REAR_WINDOW = "rear_window"
 SIDE_WINDOW = "side_window"
 LENS = "lens"
+
+#: Roles a vehicle has exactly one of, and which span the centreline. Their shells are forced
+#: to side ``c`` so they group into one part: a windscreen straddles ``x = 0``, so every shell
+#: of it more than the side deadband off centre would otherwise take a side and a car would be
+#: exported with a left windscreen, a right windscreen and a middle one — which is what both
+#: shipped cars did before this existed.
+SINGULAR_ROLES = frozenset({"bonnet", "boot", "roof", "windscreen", "rear_window"})
 
 #: Every role, so the report can enumerate them the way it enumerates labels.
 ROLES = (
@@ -225,15 +233,69 @@ class Corner:
 #: Covers the caliper and the hub face, which stick out past the tyre.
 WHEEL_CAPTURE_MARGIN = 1.12
 
+# ---- What may *seed* a corner (D15-R23a) -------------------------------------------------
+#
+# Measured on both shipped cars. Their sixteen genuine tyre and rim shells are round to
+# within 1%, 0.548-0.719 m across, 0.03-0.32 m wide, axled at 0.355-0.372 m and offset
+# 0.65-1.06 m from the centreline. Every threshold below sits clear of all sixteen.
+
+#: A seed is a disc in side view. The same figure C1 votes on, applied again here because a
+#: shell can reach the `wheel` label on a *name* alone and a name cannot define an axle.
+WHEEL_SEED_MIN_ROUNDNESS = 0.78
+
+#: Smallest and largest wheel a seed may be. An 18-inch rim is 0.457 m across bare, so
+#: nothing below 0.45 is a road wheel; above 1.20 it is a body panel that happens to be round.
+MIN_WHEEL_DIAMETER_M = 0.45
+MAX_WHEEL_DIAMETER_M = 1.20
+
+#: Widest seed accepted, measured across the axle.
+MAX_WHEEL_SEED_WIDTH_M = 0.75
+
+#: A seed's axle sits below this. A 0.7 m tyre has its axle at 0.35 m and even a 1.2 m truck
+#: tyre at 0.60.
+MAX_WHEEL_SEED_CENTRE_Y_M = 0.65
+
+#: And at least this far off the centreline. Half the narrowest plausible track.
+MIN_WHEEL_SEED_OFFSET_M = 0.45
+
+
+def is_wheel_seed(shell: Shell) -> bool:
+    """Whether a shell may define an axle (D15-R23a).
+
+    Seeding and belonging are different questions, and conflating them is what put a
+    1.44 m "wheel" on a shipped car. A hub cap, a valve stem and a brake disc all *belong*
+    to a wheel and none of them is wheel-shaped; they arrive by capture. What defines where
+    the axle **is** must itself be a disc of a road wheel's size, in a road wheel's place —
+    because every measurement the corner then makes is taken from these shells alone.
+
+    The specific failure this prevents: the Eclipse carries a flat bracket, 0.35 x 0.10 m and
+    round to 0.29, whose material is named `vehicle_generic_smallspecmap_WHEEL`. C3 matches
+    the whole token `wheel` and labels it one, and as a seed it dragged the front axle 0.37 m
+    rearward, inflated the wheel to 1.44 m across, and captured 891 shells — 37% of the car —
+    into a corner that then reported them all as brake furniture.
+    """
+    _sx, sy, sz = shell.size
+    diameter = max(sy, sz)
+    return (
+        shell.roundness >= WHEEL_SEED_MIN_ROUNDNESS
+        and MIN_WHEEL_DIAMETER_M <= diameter <= MAX_WHEEL_DIAMETER_M
+        and shell.size[0] <= MAX_WHEEL_SEED_WIDTH_M
+        and shell.centroid[1] <= MAX_WHEEL_SEED_CENTRE_Y_M
+        and abs(shell.centroid[0]) >= MIN_WHEEL_SEED_OFFSET_M
+    )
+
 
 def find_corners(shells: list[Shell], body) -> list[Corner]:
-    """Cluster the wheel-labelled shells into corners, one per road wheel.
+    """Cluster the wheel-shaped shells into corners, one per road wheel.
 
     By count rather than by an assumption of four (D15-E4): the sides are split by the sign
     of ``x`` and each side is cut into axles wherever the gap along ``z`` exceeds a wheel's
     own diameter, so a six-wheeler yields six corners and a three-wheeler three.
+
+    Only shells passing :func:`is_wheel_seed` take part. Everything else labelled ``wheel``
+    keeps its label and waits to be captured by whichever corner it turns out to sit in.
     """
-    seeds = [shell for shell in shells if shell.label == WHEEL]
+    seeds = [shell for shell in shells if shell.label == WHEEL and is_wheel_seed(shell)]
     if not seeds:
         return []
 
@@ -364,6 +426,42 @@ def resolve_rotation(corners: list[Corner]) -> None:
                 shell.label = WHEEL if rotates else HUB
                 shell.role = None
                 (corner.rotating if rotates else corner.static).append(shell)
+
+
+def dissolve_empty_corners(corners: list[Corner], shells: list[Shell]) -> list[dict]:
+    """Discard any corner with nothing in it that turns, and give its shells back (D15-R23b).
+
+    A wheel is defined by something rotating about an axle. If, after
+    :func:`resolve_rotation` has judged every material group in a corner, not one of them
+    rotates, then whatever the seeding found is not a wheel — and leaving it in place is worse
+    than finding nothing, because every shell it captured is exported as unsprung brake
+    furniture bolted to a slot that does not exist on the vehicle.
+
+    The shells go back to ``chassis``, which is D15-R2's correct-if-coarse answer, and the
+    dissolution is reported.
+    """
+    kept: list[Corner] = []
+    dissolved: list[dict] = []
+    for corner in corners:
+        if corner.rotating:
+            kept.append(corner)
+            continue
+        dissolved.append(
+            {
+                "corner": corner.name,
+                "axleM": [round(value, 4) for value in corner.axle],
+                "diameterM": round(corner.radius_m * 2.0, 4),
+                "shells": len(corner.seeds) + len(corner.captured),
+                "because": "nothing in it rotates about the axle, so it is not a wheel",
+            }
+        )
+        for shell in corner.seeds + corner.captured:
+            shell.corner = None
+            shell.label = CHASSIS
+            shell.role = None
+    corners[:] = kept
+    del shells
+    return dissolved
 
 
 def _median(values: list[float]) -> float:

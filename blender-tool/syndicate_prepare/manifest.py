@@ -11,9 +11,10 @@ dropped-in model come out as a vehicle that drives rather than as a folder of me
 ``volume x density`` and that is right for a fractured solid, where the geometry is the object.
 It is wrong for vehicle art: a car's panels are *shells*. A door modelled as a closed skin
 encloses about 0.1 m³ of air, and ``volume x density`` calls it 785 kg of steel. The same door
-measured as ``area x wall thickness x density`` comes out at 29 kg, which is what a door weighs.
-Wall thickness is a per-class constant (D15-R33), so this is the same treatment table as
-:mod:`syndicate_prepare.destruction` seen from the mass side.
+measured as ``area x areal density`` comes out at 29 kg, which is what a door weighs. The
+constant is a mass per square metre rather than a thickness times a density, for the reason
+recorded on :data:`AREAL_DENSITY_KG_PER_M2`, and the enclosed volume caps it so that a part
+can never weigh more than the solid it encloses.
 
 **The chassis takes the balance.** Every other part is weighed from its own geometry; the
 chassis is whatever is left of the vehicle's target mass. That is how the shipped Eclipse is
@@ -52,9 +53,30 @@ SCHEMA_VERSION = "1.0.0"
 
 # ---- Mass (see the module docstring) ---------------------------------------------------
 
-#: Wall thickness per destruction class, in metres. Calibrated against the shipped content:
-#: ``sheet_metal`` puts a 1.5 m² door at 29 kg, ``glass`` puts a windscreen at 15 kg, and
-#: ``rigid`` puts a 245/35 R20 wheel at the 37.5 kg the Eclipse's is authored with.
+#: Mass per square metre of surface, per destruction class. **Not** a thickness times a
+#: density, and the difference is not pedantry: 20 mm is the right wall for a rubber tyre and
+#: gives 22 kg/m², and the same 20 mm of *steel* gives 157 — so a brake hub with 1.37 m² of
+#: folded surface came out at 214 kg, ten times a real one, and inflated a 1500 kg car to
+#: 1977 kg. One `rigid` class covers both a tyre and a steel casting, so the constant it
+#: carries has to be the quantity that is stable across the two.
+#:
+#: And it is stable, because it is what vehicle construction *is*: a designer picks whatever
+#: thickness gets the required stiffness out of the material to hand, which lands nearly
+#: everything on a car between 17 and 20 kg/m². Measured on the shipped pair: a 1.5 m² door
+#: is 29 kg (19), a 2.19 m² wheel is 37.5 kg (17), a hub assembly is about 26 kg (19). Glass
+#: is the exception and is genuinely lighter; a chassis is the other, being box sections and
+#: a floor pan rather than a skin.
+AREAL_DENSITY_KG_PER_M2 = {
+    "SHEET_METAL": 19.6,
+    "GLASS": 12.5,
+    "STRUCTURAL": 78.5,
+    "RIGID": 18.0,
+    "NONE": 3.5,
+}
+
+#: Wall thickness per destruction class, in metres — a real geometric thickness, used where
+#: one is needed rather than as a mass proxy. Today that is exactly one place: the solidify
+#: that gives a `glass` part a wall before it is fractured.
 WALL_THICKNESS_M = {
     "SHEET_METAL": 0.0025,
     "GLASS": 0.0050,
@@ -361,24 +383,96 @@ def _origin_for(group, corner, body):
 # ---- Mass ---------------------------------------------------------------------------------
 
 
-def target_mass_kg(body, override: float | None) -> tuple[float, str]:
+def body_width_m(body, corners) -> float:
+    """The vehicle's width over its bodywork, not over its bounding box.
+
+    A bounding box includes the wing mirrors, and on the Eclipse that is 2.18 m against a real
+    2.0 — 11% on a number the kerb mass is derived from. When the pipeline found wheels it
+    knows something better: the track plus a wheel's width is a vehicle's width to within a
+    few centimetres on every road car, because that is what a track *is*.
+    """
+    if not corners:
+        return body.width
+    offsets = [abs(corner.axle[0]) for corner in corners]
+    widths = [corner.width_m for corner in corners]
+    return 2.0 * (sum(offsets) / len(offsets)) + sum(widths) / len(widths)
+
+
+def target_mass_kg(body, override: float | None, corners=()) -> tuple[float, str]:
     """The vehicle's kerb mass: what was asked for, or what its footprint implies."""
     if override is not None and override > 0.0:
         return override, "given on the command line"
-    footprint = body.width * body.length
-    mass = footprint * DEFAULT_AREAL_DENSITY_KG_PER_M2
+    width = body_width_m(body, corners)
+    mass = width * body.length * DEFAULT_AREAL_DENSITY_KG_PER_M2
+    over = "its track" if corners else "its bounding box"
     return mass, (
-        f"{DEFAULT_AREAL_DENSITY_KG_PER_M2:.0f} kg/m² over a {body.width:.2f} x "
-        f"{body.length:.2f} m footprint — pass --mass to author it"
+        f"{DEFAULT_AREAL_DENSITY_KG_PER_M2:.0f} kg/m² over a {width:.2f} x "
+        f"{body.length:.2f} m footprint, measured across {over} — pass --mass to author it"
     )
 
 
+#: The thinnest skin any part is allowed to be. Below this a mesh reads as a surface rather
+#: than as a solid, whatever its signed volume says.
+MIN_WALL_M = 0.0005
+
+
+def surface_mass_kg(area_m2: float, enclosed_m3: float, destruction_class: str,
+                    density_kg_per_m3: float) -> float:
+    """A part's mass, from its surface area and what it encloses.
+
+    ``area x areal density`` is the reading that works for everything a vehicle is made of
+    (see :data:`AREAL_DENSITY_KG_PER_M2`). It is **an upper bound only**, because a part
+    cannot contain more material than fits inside it — so a mesh that genuinely encloses a
+    small solid is weighed as that solid instead.
+
+    An open surface encloses nothing and keeps the surface reading; a hollow box encloses far
+    more than its walls hold, so the surface reading stays the smaller of the two and wins; a
+    small solid lump encloses less than its own folded surface implies, and the lump wins.
+    """
+    surface = area_m2 * AREAL_DENSITY_KG_PER_M2[destruction_class]
+    if enclosed_m3 > area_m2 * MIN_WALL_M:
+        return min(surface, enclosed_m3 * density_kg_per_m3)
+    return surface
+
+
 def geometric_mass_kg(part: PreparedPart, densities: dict[str, float]) -> float:
-    """``area x wall thickness x density``, for one part (see the module docstring)."""
+    """One part's mass (see :func:`surface_mass_kg`)."""
     area = sum(shell.area_m2 for shell in part.group.shells)
-    thickness = WALL_THICKNESS_M[part.destruction_class]
-    density = densities[part.material_id]
-    return max(MIN_BODY_MASS_KG, area * thickness * density)
+    enclosed = sum(shell.volume_m3 for shell in part.group.shells)
+    return max(
+        MIN_BODY_MASS_KG,
+        surface_mass_kg(area, enclosed, part.destruction_class, densities[part.material_id]),
+    )
+
+
+def group_mass_kg(group, densities: dict[str, float]) -> float:
+    """The same arithmetic over a raw group, before it has become a :class:`PreparedPart`."""
+    area = sum(shell.area_m2 for shell in group.shells)
+    enclosed = sum(shell.volume_m3 for shell in group.shells)
+    return surface_mass_kg(
+        area, enclosed, DESTRUCTION_CLASS[group.label],
+        densities[DEFAULT_MATERIAL[group.label]],
+    )
+
+
+#: A part lighter than this is not a part. D15-R17 already absorbs shells below a triangle
+#: floor into their neighbours; this is the same argument one level up, and it is needed for
+#: the same reason: on a real car the grouping produces a long tail of 20-gramme fragments —
+#: a chrome strip, one slat of a grille, a wiper arm — and each of them would otherwise take a
+#: slot on the chassis, a directory in `assets/parts`, a network id and a collision hull.
+MIN_PART_MASS_KG = 0.75
+
+
+def absorb_small_parts(parts, densities: dict[str, float]):
+    """Split groups into the ones worth a part and the ones that belong in the chassis.
+
+    :return: ``(kept, absorbed)`` — the second is folded into the chassis group by the caller,
+        which keeps every triangle in exactly one part (AC-D15-4).
+    """
+    kept, absorbed = [], []
+    for group in parts:
+        (absorbed if group_mass_kg(group, densities) < MIN_PART_MASS_KG else kept).append(group)
+    return kept, absorbed
 
 
 def assign_masses(
@@ -632,6 +726,15 @@ def slot_positions(part: PreparedPart) -> list[tuple[str, tuple[float, float, fl
             positions.append((slot, part.mirrored_origins[index]))
         else:
             positions.append((slot, (-part.origin[0], part.origin[1], part.origin[2])))
+    if part.label == WHEEL:
+        # A wheel slot is the **suspension connection point**, not the axle: Bullet's
+        # `addWheel` hangs the wheel `suspensionRestLengthM` below the point it is given,
+        # along the wheel direction. Emitting the axle here would bury every wheel 30 cm into
+        # the ground and leave the car sitting on its floor at rest.
+        lift = DEFAULT_WHEEL_HANDLING["suspensionRestLengthM"]
+        positions = [
+            (slot, (position[0], position[1] + lift, position[2])) for slot, position in positions
+        ]
     return positions
 
 

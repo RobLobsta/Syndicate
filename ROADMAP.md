@@ -1,12 +1,14 @@
 # Syndicate — Roadmap
 
 **Last updated:** 2026-08-13 (end of SESS-026)
-**Where we are:** the content pipeline is finished. Drop a downloaded car model into
-`art-source/vehicles/`, run one command, and the other end produces a folder of named parts —
-chassis, wheels, doors, bonnet, windscreen, headlamps — each with its own mesh, collision hull,
-mass, health and manifest, plus an assembly the game loads and drives. All twenty-seven systems
-exist and two peers replicate to each other in one process. Nobody has driven it yet, and no
-prepared car has been through a real Blender host yet.
+**Where we are:** the content pipeline is finished **and it has been run on both shipped cars**.
+Drop a downloaded car model into `art-source/vehicles/`, run one command, and about a hundred
+seconds later there are twenty-five named parts — chassis, wheels, hubs, doors, windscreen,
+headlamps — each with its own mesh, collision hull, mass, health and manifest, plus an assembly
+the game loads and drives. Verified against the hand-authored content: the axles land on the
+same millimetre, the wheels weigh what the authored ones weigh, and the Eclipse comes out in
+the same class with the same power budget. All twenty-seven systems exist and two peers
+replicate to each other in one process. Nobody has driven it yet.
 
 > This file is maintained by the coding assistant and updated **at the end of every session**
 > (CLAUDE.md §5, step 14). It is allowed to change shape as the work demands — reorder phases, split
@@ -41,12 +43,13 @@ gantt
     The rumble - pulse fusion               :done, p7d, 23, 1
     Lope, startup, overrun                  :done, p7e, 24, 1
     Replication - the last four systems     :done, p9a, 25, 1
-    Preparation pipeline - a model in, a car out (here) :done, p6d, 26, 1
+    Preparation pipeline - a model in, a car out :done, p6d, 26, 1
+    Run on both shipped cars (here)         :done, p6e, 27, 1
 
     section Next
-    Driving it - tuning, balance, feel      :active, p11, 27, 2
-    A prepared car, on a real Blender host  :p6e, 29, 1
-    Sockets - two machines                  :p9b, 30, 2
+    Driving it - tuning, balance, feel      :active, p11, 28, 2
+    Glass, and doors on the second car      :p6f, 30, 1
+    Sockets - two machines                  :p9b, 31, 2
 
     section Then
     Production hardening                    :p10, 32, 3
@@ -93,14 +96,16 @@ done and green; everything after is an estimate that will move.
   │  ●  Phase 9a  Replication         ★ 27/27                       │
   │  │            Snapshots, deltas, prediction, reconciliation      │
   │  ●  Phase 6d  Preparation         ★ A MODEL IN, A CAR OUT       │
-  │  │            Repair, roles, hinges, destruction, export    ← HERE│
+  │  │            Repair, roles, hinges, destruction, export         │
+  │  ●  Phase 6e  Run on real cars                            ← HERE│
+  │  │            Blender 4.2; both cars prepared and verified       │
   └──┼───────────────────────────────────────────────────────────────┘
      │
   ┌──┼─ NEXT ──────────────────────────────────────────────────────────┐
   │  ○  Phase 11  Driving it                          ★ IS IT ANY GOOD │
   │  │            Handling, damage numbers, bot difficulty, match len  │
-  │  ○  Phase 6e  A prepared car, for real                             │
-  │  │            Run the new pipeline on a Blender host and look at it│
+  │  ○  Phase 6f  Glass that shatters, and doors on the second car     │
+  │  │            The one treatment that does not work on real art     │
   │  ○  Phase 9b  Sockets                             ★ TWO MACHINES   │
   │  │            A KryoNet transport, and the runtimes wired to it    │
   │  ○  Phase 10  Production hardening                ★ SHIPPABLE      │
@@ -191,18 +196,54 @@ metre of air — 785 kg of "steel" — or encloses nothing and weighs zero. Pane
 mass is area × wall thickness × density, and a door lands at 29 kg. The chassis then takes whatever
 is left of the vehicle's target weight, exactly as the two hand-authored cars are written.
 
+### Then it met real art, which found four things 201 tests had not
+
+Blender was installed into the sandbox and the pipeline was run on both shipped cars. Every one of
+the defects it found had the same shape: **nothing failed.** The run exited cleanly, the report was
+well-formed, every part validated, and the car would have loaded — wrong.
+
+- **A material name defined an axle.** The Eclipse carries a flat bracket whose material is called
+  `…_WHEEL`. That was enough to label it a wheel, and as the seed of a wheel corner it produced a
+  1.44 m "wheel" that swallowed 891 shells — 37% of the car — and exported them as brake parts.
+  Seeding a corner and belonging to one are different questions, and only the first one needs to be
+  proved geometrically.
+- **A brake hub weighed 214 kg.** 20 mm of wall is right for a rubber tyre and seven times wrong for
+  a steel casting, and one class covers both. The constant is now a mass per square metre — which is
+  what vehicle construction actually holds constant — and the car went from 1,977 kg to 1,619.
+- **The chassis could not be dented.** One sliver face in 181,000 triangles collapses under a 4 cm
+  dent, and the destruction tool correctly refuses the whole morph rather than ship a broken one.
+  Dissolving slivers before exporting, and retrying at a smaller dent, fixed it.
+- **The hull builder crashed** on geometry the old dissector had never fed it.
+
+### What it produces now
+
+| | Eclipse | Stampede |
+|---|---|---|
+| Part types | 25 | 25 |
+| Front axle | ±0.8563, 1.4565 — the hand-authored slot to four decimals | ±0.854, 1.354 |
+| Wheel mass | 36.1 / 39.5 kg against the authored 37.5 | 32.7 / 35.8 kg |
+| Total mass | 1,619 kg (real 1,500) | 1,784 kg (real 1,969) |
+| Class and budget | medium / 74.0 — same as the authored car | medium / 74.0 |
+| Doors that open | 2 | 0 (no panels found) |
+| Chassis damage morphs | 4 | 4 |
+
+A new checker opens every exported mesh and holds it against its own manifest — nodes, morph
+targets, slot types, masses, power budget. **50 parts, 2 vehicles, 0 findings.**
+
 ### What is honestly not done
 
-**None of it has run in Blender.** This sandbox has no Blender host, so the geometry half of the
-last two stages — joining, re-origining, solidifying, subdividing, denting, exporting — is written
-and unexercised. Every *decision* those stages make is tested against synthetic geometry (201 tests,
-60 of them new this session), and the Blender code is deliberately thin and built out of two
-existing, exercised modules. But the first run on a real car will be the first run, and it should be
-one of the two cars whose numbers are already known.
+**Glass does not shatter.** Every pane on both cars ships whole. The destruction tool's Voronoi
+path was built for solids and a 5 mm curved windscreen defeats its convex decomposition; it
+reports precisely why, per pane, and the pipeline ships the pane unfractured rather than
+promising shards that do not exist.
+
+**The Stampede has no doors.** Its bodywork is one material group, so nothing was found to hinge.
+That needs a region override — a box drawn round each door by somebody with the model open.
 
 **The shipped cars have not been re-cut.** `assets/parts` is still the old dissector's output: a
-chassis and two wheel types per car. Re-cutting them is a content decision rather than a tool one,
-and it wants doing on a machine that can look at the result.
+chassis and two wheel types per car. The new output lives in a scratch directory. Overwriting
+committed content the game currently loads is a decision to make deliberately, not a side effect
+of testing the tool.
 
 ## 3. What is next
 
@@ -242,22 +283,27 @@ before:
 4. **The messages nobody needed yet** — scoreboard, match phase, chat, ping. Their slots on the wire
    are reserved so adding them cannot renumber what already ships.
 
-### Phase 6e — A prepared car, for real
+### Phase 6f — Glass that shatters, and doors on the second car
 
-The pipeline is written and its decisions are tested; its *geometry* has never run, because this
-sandbox has no Blender. One session on a machine that has one closes that, and it is a short session
-with a clear pass mark:
+Two specific gaps, both found by running the pipeline on real cars rather than by reasoning.
 
-1. Run `:blender-tool:prepareVehicles` on the two shipped cars — the ones whose wheel diameters,
-   axle positions and masses are already known — and check the numbers against what the old
-   dissector produced. Anything that moved is a bug in the new stages.
-2. Look at it. Open a door to its authored angle. Shatter the windscreen. Dent a panel. Three of
-   those have never been seen by anybody.
-3. Then run it on a car nobody has ever prepared — a pickup, a van, something with six wheels — and
-   find out how much `parts.json` a stranger's model actually needs.
+**Glass.** Pre-authored shattering is the one treatment in the specification that does not work
+on real art. The fracture tool splits a *solid* by cutting it on its own face planes, and a
+windscreen is hundreds of nearly-parallel faces wrapped round a curve, so the partition goes
+ninety-six levels deep and gives up. The likely answer is to stop treating a pane as a solid:
+cut the cells across its surface first and give each shard its thickness afterwards, rather than
+thickening the pane and cutting the result. Until then every window on both cars detaches whole,
+which the game already handles.
 
-Only after that is it worth re-cutting `assets/parts` from the new pipeline, because that overwrites
-committed content that currently works.
+**Doors on the Stampede.** The Eclipse gives up two doors and they hinge correctly. The Stampede
+gives up none, because its entire bodywork is one material and nothing in the geometry says where
+a door ends. The remedy already exists and is unused: a `regionLabels` box in `parts.json`,
+drawn by somebody with the model open. Half an hour of work, and it is the difference between a
+car that sheds doors and one that does not.
+
+**And then, if the results look right, re-cut the shipped cars.** That replaces content the game
+loads today, so it wants doing when somebody can look at the result — but it is what turns 25
+parts per car from a report into the thing that spawns on the arena floor.
 
 ### Loose content work, any time
 
@@ -394,10 +440,11 @@ None of these are decided. They are here so the options are visible when a sessi
   a contract.
 - **The pipeline is still not a CI gate.** Generating the real fracture manifests is the last thing
   between it and `check`.
-- **The preparation pipeline has never run in Blender.** All nine stages are written and every
-  decision they make is unit-tested, but the geometry half — joining, re-origining, solidifying,
-  subdividing, denting, exporting — has not executed once, because this sandbox has no host. It is
-  thin code built from two exercised modules, and it is still untested code.
+- **Glass does not fracture on real art** (`DISC-039`). Every pane on both shipped cars ships
+  whole, with a per-pane note saying which guard refused it.
+- **The footprint mass estimate runs 8-9% under a real kerb weight**, which put the Stampede in
+  the `medium` class where the hand-authored one is `heavy`. `--mass` overrides it and the report
+  says which number it used, but a car prepared without one is a class light.
 - **A prepared part's material is decided by its label alone.** A carbon bonnet weighs what a steel
   one does. The fix is a `materialOverrides` block in `parts.json`; the report already says what
   material each part was given, so the gap is visible rather than silent.

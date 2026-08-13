@@ -160,6 +160,11 @@ def clean_topology() -> dict:
         mesh = bmesh.new()
         mesh.from_mesh(obj.data)
         bmesh.ops.remove_doubles(mesh, verts=list(mesh.verts), dist=cleanup.WELD_DISTANCE_M)
+        # Dissolve before delete: a sliver is collapsed into its neighbours and leaves no
+        # hole, where deleting it would. What is left after this is genuinely zero-area.
+        bmesh.ops.dissolve_degenerate(
+            mesh, dist=cleanup.DEGENERATE_EDGE_M, edges=list(mesh.edges)
+        )
         degenerate = [
             face for face in mesh.faces if face.calc_area() <= cleanup.MIN_FACE_AREA_M2
         ]
@@ -512,11 +517,13 @@ def run(options: Options) -> dict:
     corners = roles.find_corners(shells, body)
     captured = roles.capture_into_corners(shells, corners)
     roles.resolve_rotation(corners)
+    dissolved = roles.dissolve_empty_corners(corners, shells)
     stages["label"] = {
         "mirrorPairs": len(twins) // 2,
         "overrides": overrides.unused_report(),
         "roles": role_counts,
         "corners": [corner.as_dict() for corner in corners],
+        "dissolvedCorners": dissolved,
         "capturedIntoCorners": captured,
     }
 
@@ -553,12 +560,24 @@ def assemble(options: Options, shells, parts, corners, body, objects, stages) ->
     densities = manifest.load_densities(options.material_table)
     class_targets = manifest.load_class_targets(options.balance_table)
 
+    # A part too light to be a part goes into the chassis, exactly as a shell too small to be
+    # a shell goes into its neighbour (D15-R17). Both keep every triangle accounted for.
+    kept, absorbed = manifest.absorb_small_parts(
+        [group for group in parts if group.label not in (CHASSIS, UNCLASSIFIED)], densities
+    )
+    absorbed_shells = [shell for group in absorbed for shell in group.shells]
+    stages.setdefault("group", {})["absorbedIntoChassis"] = {
+        "parts": len(absorbed),
+        "triangles": sum(group.triangles for group in absorbed),
+        "floorKg": manifest.MIN_PART_MASS_KG,
+    }
+
     chassis_group = grouping.Part(label=CHASSIS, side="c", index=0)
     chassis_group.shells = sorted(
-        (shell for shell in shells if shell.label in (CHASSIS, UNCLASSIFIED)),
+        [shell for shell in shells if shell.label in (CHASSIS, UNCLASSIFIED)] + absorbed_shells,
         key=lambda shell: shell.index,
     )
-    prepared = manifest.prepare_parts(options.vehicle, parts, corners, body)
+    prepared = manifest.prepare_parts(options.vehicle, kept, corners, body)
     chassis = manifest.PreparedPart(
         part_type_id=f"chassis_{options.vehicle}_01",
         slot_id="root",
@@ -583,7 +602,7 @@ def assemble(options: Options, shells, parts, corners, body, objects, stages) ->
     stages["rig"] = {"hinged": len(rigged), "hinges": rigged}
 
     # --- Mass, class and power -----------------------------------------------------------
-    target, target_note = manifest.target_mass_kg(body, options.mass_kg)
+    target, target_note = manifest.target_mass_kg(body, options.mass_kg, corners)
     mass_report = manifest.assign_masses(prepared, chassis, densities, target)
     mass_report["source"] = target_note
     total = manifest.total_mass_kg(prepared)
@@ -671,6 +690,9 @@ def assemble(options: Options, shells, parts, corners, body, objects, stages) ->
                 "powerCost": part.power_cost,
                 "materialId": part.material_id,
                 "destructionClass": part.destruction_class,
+                "areaM2": round(sum(s.area_m2 for s in part.group.shells), 4),
+                "enclosedM3": round(sum(s.volume_m3 for s in part.group.shells), 6),
+                "triangles": part.group.triangles,
                 "originM": [round(value, 4) for value in part.origin],
                 "hinged": part.hinge is not None,
             }

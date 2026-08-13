@@ -337,3 +337,68 @@ def test_a_hinge_is_written_as_data_on_the_part(prepared_pickup):
     document = manifest.build_part_document(door, [], {}, None)
     assert set(document["articulation"]) == {"axisLocal", "pivotLocal", "openDeg"}
     assert document["articulation"]["axisLocal"] == {"x": 0.0, "y": 1.0, "z": 0.0}
+
+
+def test_a_wheel_slot_sits_a_suspension_above_its_axle(prepared_pickup):
+    """Bullet hangs a wheel `suspensionRestLengthM` below the point `addWheel` is given.
+
+    The mesh origin is the axle, because that is what the wheel spins about; the *slot* is the
+    suspension's connection point, which is one rest length higher. Emitting the axle for both
+    buries every wheel 30 cm into the ground.
+    """
+    wheel = next(
+        part for part in prepared_pickup["prepared"]
+        if part.part_type_id == "wheel_pickup_front_01"
+    )
+    rest = manifest.DEFAULT_WHEEL_HANDLING["suspensionRestLengthM"]
+    for _slot, position in manifest.slot_positions(wheel):
+        assert math.isclose(position[1], wheel.origin[1] + rest, abs_tol=1e-9)
+
+
+def test_only_wheels_get_the_suspension_offset(prepared_pickup):
+    for part in prepared_pickup["prepared"]:
+        if part.is_chassis or part.label == WHEEL:
+            continue
+        for _slot, position in manifest.slot_positions(part):
+            assert math.isclose(position[1], part.origin[1], abs_tol=1e-9)
+
+
+def test_a_part_too_light_to_be_a_part_is_absorbed(prepared_pickup):
+    """D15-R17's argument one level up: a 20-gramme chrome strip is not a part."""
+    densities = manifest.load_densities(ASSETS / "materials" / "materials.json")
+    kept, absorbed = manifest.absorb_small_parts(prepared_pickup["parts"], densities)
+    assert all(manifest.group_mass_kg(g, densities) >= manifest.MIN_PART_MASS_KG for g in kept)
+    assert all(manifest.group_mass_kg(g, densities) < manifest.MIN_PART_MASS_KG for g in absorbed)
+    assert len(kept) + len(absorbed) == len(prepared_pickup["parts"])
+
+
+def test_a_brake_hub_weighs_what_a_brake_hub_weighs():
+    """Measured on the Eclipse: 1.37 m² of folded surface. As a 20 mm steel shell, 214 kg."""
+    mass = manifest.surface_mass_kg(1.367, 0.047, "RIGID", 7850.0)
+    assert 20.0 < mass < 30.0
+
+
+def test_a_wheel_weighs_what_the_shipped_one_is_authored_at():
+    """The Eclipse's wheel: 2.19 m² of tyre and rim, authored at 37.5 kg."""
+    mass = manifest.surface_mass_kg(2.192, 0.2226, "RIGID", 1100.0)
+    assert 30.0 < mass < 45.0
+
+
+def test_an_open_sheet_keeps_the_surface_reading():
+    """A door skin encloses nothing, so its surface is all there is."""
+    assert math.isclose(manifest.surface_mass_kg(1.5, 0.0, "SHEET_METAL", 7850.0), 29.4)
+
+
+def test_a_hollow_box_is_not_solid_steel():
+    """A door modelled closed encloses 0.1 m³ of air; it is not 785 kg."""
+    assert manifest.surface_mass_kg(2.4, 0.1, "SHEET_METAL", 7850.0) < 60.0
+
+
+def test_a_part_is_capped_by_what_it_encloses():
+    """A thin cast plate: 0.2 m² of surface around 0.2 litres of steel weighs the steel."""
+    assert math.isclose(manifest.surface_mass_kg(0.2, 0.0002, "RIGID", 7850.0), 1.57, rel_tol=0.01)
+
+
+def test_the_cap_only_ever_lowers_a_mass():
+    """A shape enclosing more than its surface implies is still weighed by its surface."""
+    assert manifest.surface_mass_kg(0.2, 0.001, "RIGID", 7850.0) == 0.2 * 18.0

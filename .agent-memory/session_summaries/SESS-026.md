@@ -44,21 +44,46 @@ their own material, because coverage measures a solid of revolution and a bolt p
 (DEC-066) — found by a unit test, then found again one layer down as a floating-point wrap at
 bearing zero (DISC-036).
 
-**Verification.** 60 new unit tests (201 total, all green), `ruff` clean, `validateDocs` green
-across 457 section ids. Nothing ran in Blender: this environment has no host, so the geometry half
-of stages 7 and 8 is written and unexercised. PROG-024 says so in those words rather than implying
-otherwise.
+**Then it ran on the two shipped cars.** `pip install bpy==4.2.0` gives this sandbox a headless
+Blender (DEV-002's second host), so the second half of the session was the pipeline meeting real
+art — and real art found four defects that 201 unit tests had not:
+
+- A flat bracket whose *material name* contains `wheel` seeded a corner, producing a 1.44 m
+  "wheel" that captured 37% of the Eclipse and exported it as brake furniture (DISC-037).
+- The mass rule made a brake hub weigh 214 kg, because 20 mm of wall is right for a rubber tyre
+  and wrong by seven times for a steel casting (DEC-067, superseding DEC-064's formula).
+- The chassis got no damage morphs at all: one sliver face in 181,000 triangles collapses under
+  a 4 cm dent and D09's guard correctly refuses the whole morph (DISC-038).
+- `build_collision_hull` crashed on geometry the dissector had never fed it — `geom_unused` and
+  `geom_interior` are not disjoint and `bmesh.ops.delete` rejects a duplicate.
+
+Fixed, the two cars come out as vehicles: four corners each with axles matching the
+hand-authored slots to four decimals, wheels at 36-39 kg against the shipped 37.5, the Eclipse
+at 1,619 kg in class `medium` with a power budget of exactly 74.0 — the same class and budget as
+the car somebody authored by hand — 25 part types each, two hinged doors on the Eclipse, and
+four damage morphs on both chassis, which is the first content slot 23 has ever had to drive.
+
+**Verification.** 217 unit tests (76 new), `ruff` clean, `validateDocs` green across 457 section
+ids, and a new `tools/verify_prepared.py` that opens every exported mesh and checks it against
+its own manifest: 50 parts, 2 vehicles, **0 findings**.
 
 ## Rationale / Context
-The honest limit on this session is the missing Blender host. Every *decision* the new stages make
-is tested against synthetic geometry, and the Blender code is deliberately thin and built out of
-`syndicate_dissect.emit` and `syndicate_fracture.morphs`, which the fixture pipeline already
-exercises — but the first run on a real car will be the first run, and it should be one of the two
-shipped cars rather than a new one, because their numbers are known.
+Every one of the four defects real art found shares a shape: **nothing failed.** Each run exited
+0, each report was well-formed, each part validated, and each vehicle would have loaded — as a car
+with a metre-and-a-half front wheel, or half its weight in brake hubs, or no deformation. The unit
+tests could not have caught them because they test what the code was asked to do; what was missing
+was a model nobody wrote to be tested against.
+
+The one thing this session did **not** do is re-cut `assets/parts`. That overwrites committed
+content the game currently loads, the glass does not fracture yet (DISC-039), and it is a content
+decision rather than a tool one.
 
 ## Impact
 - `blender-tool/syndicate_prepare` gains six modules and rewrites four; `syndicate_dissect.emit`
-  gains `join_objects`; `:blender-tool:classifyVehicles` joins `prepareVehicles`.
-- D15 gains S4.1.1 and S5.8, requirements R1a, R3a-c, R24a-b, R25a-d, R27a and R40-R46, four
-  acceptance criteria and ten test cases. D08-S4.2 gains `articulation` and `yieldImpulseN`.
-- DEC-063 to DEC-066, DISC-035, DISC-036, PROG-024 (superseding PROG-019).
+  gains `join_objects` and a duplicate-geometry fix; `tools/verify_prepared.py` is new.
+- Three Gradle tasks: `classifyVehicles`, `prepareVehicles`, `verifyPreparedAssets`.
+- D15 gains S4.1.1 and S5.8, requirements R1a, R3a-d, R23a-b, R24a-b, R25a-d, R27a, R40-R46 and
+  R41a/R45a, four acceptance criteria and fifteen test cases. D08-S4.2 gains `articulation` and
+  `yieldImpulseN`.
+- DEC-063 to DEC-067, DISC-035 to DISC-039, PROG-024 (superseding PROG-019), and DEC-064's mass
+  rule superseded by DEC-067.

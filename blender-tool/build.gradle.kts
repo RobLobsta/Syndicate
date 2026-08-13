@@ -369,3 +369,31 @@ registerPreparation(
     "Turns art-source/vehicles/ into assets/parts and assets/vehicles (D15-S5.1, all 9 stages).",
     writeAssets = true,
 )
+
+/**
+ * Stage 9 of D15-S5.1, over whatever is in `assets/`: opens every mesh a `part.json` names and
+ * checks it contains the nodes and morph targets that manifest promises, then checks the
+ * assembly and the parts agree about slots, masses and the power budget.
+ *
+ * The asset gate in `asset-pipeline` is the authority on content validity and this does not
+ * replace it. What it adds is the half the JVM cannot see: the *inside of the .glb*. A
+ * `part.json` promising four morph targets over a mesh carrying none passes every JSON check
+ * ever written and fails at the moment somebody drives the car.
+ */
+tasks.register<Exec>("verifyPreparedAssets") {
+    group = "verification"
+    description = "Checks assets/parts and assets/vehicles against their own meshes (D15-S5.1)."
+    workingDir = layout.projectDirectory.asFile
+    commandLine(
+        "python3", "tools/verify_prepared.py",
+        rootProject.layout.projectDirectory.dir("assets/parts").asFile.absolutePath,
+        rootProject.layout.projectDirectory.dir("assets/vehicles").asFile.absolutePath,
+    )
+    val available = bpyModuleAvailable
+    onlyIf { task ->
+        if (!available) {
+            task.logger.warn("SKIPPED :blender-tool:verifyPreparedAssets — needs the bpy module")
+        }
+        available
+    }
+}

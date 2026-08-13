@@ -42,10 +42,20 @@ MAX_SUBDIVIDED_FACES = 40_000
 #: edge to 0.075 m — past the sheet-metal target — and no pass runs if nothing is too long.
 MAX_SUBDIVISION_PASSES = 3
 
-#: Amplitude handed to the D09 morph generator, in metres of inward displacement at full
-#: damage. 4 cm reads as a dent on a door at gameplay distance and stays inside the collision
-#: hull, which never deforms (D06-NG5).
-MORPH_AMPLITUDE_M = 0.04
+#: Amplitudes handed to the D09 morph generator, in metres of inward displacement at full
+#: damage, tried in order until one passes that tool's own guards.
+#:
+#: 4 cm reads as a dent on a door at gameplay distance and stays inside the collision hull,
+#: which never deforms (D06-NG5). It is too much for a chassis: measured on the Eclipse's, a
+#: 4 cm dent collapses a face somewhere in 181,000 triangles and D09's zero-area guard
+#: rejects the whole morph — correctly, and leaving the largest part on the car with no
+#: deformation at all. Retrying smaller costs one pass and is the difference between a car
+#: that dents and a car that does not.
+#:
+#: The ladder does not go below 2 cm, because D09's *other* guard requires each level to
+#: displace at least 5 mm and `dmg_25` displaces a quarter of the amplitude: going lower
+#: trades one guard failure for the opposite one.
+MORPH_AMPLITUDES_M = (0.04, 0.03, 0.02)
 
 
 @dataclass
@@ -153,18 +163,29 @@ def generate_morphs(obj, seed: int, produced: Produced) -> list[str]:
     from syndicate_fracture.errors import ToolError
     from syndicate_fracture.morphs import generate_damage_morphs, morph_names
 
-    args = Args(
-        input=Path("."),
-        out=Path("."),
-        seed=seed,
-        damage_morphs=4,
-        morph_amplitude=MORPH_AMPLITUDE_M,
-    )
-    try:
-        return morph_names(generate_damage_morphs(obj, args))
-    except ToolError as error:
-        produced.notes.append(f"no damage morphs: {error}")
-        return []
+    last: Exception | None = None
+    for amplitude in MORPH_AMPLITUDES_M:
+        args = Args(
+            input=Path("."), out=Path("."), seed=seed,
+            damage_morphs=4, morph_amplitude=amplitude,
+        )
+        try:
+            names = morph_names(generate_damage_morphs(obj, args))
+        except ToolError as error:
+            last = error
+            _clear_shape_keys(obj)
+            continue
+        if amplitude != MORPH_AMPLITUDES_M[0]:
+            produced.notes.append(f"damage morphs generated at {amplitude:g} m amplitude")
+        return names
+    produced.notes.append(f"no damage morphs: {last}")
+    return []
+
+
+def _clear_shape_keys(obj) -> None:
+    """Drop a failed attempt's keys, so the next amplitude starts from the undamaged mesh."""
+    while obj.data.shape_keys is not None and obj.data.shape_keys.key_blocks:
+        obj.shape_key_remove(obj.data.shape_keys.key_blocks[0])
 
 
 def fracture_glass(part, out_root: Path, material_table: Path, seed: int, produced: Produced):

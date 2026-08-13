@@ -43,12 +43,31 @@ headlamps, an interior and a badge — 2,106 kg total, a power budget of exactly
 wheels driven. Doors and bonnet carry an `articulation` block; the windscreen carries shards and no
 morph targets; the wheels carry neither.
 
-**What is not done.** Nothing has been run through a Blender host in this environment — there is
-none — so the geometry half of stages 7 and 8 is unexercised: joining, re-origining, solidifying,
-subdividing, morph generation and the glTF export. Every *decision* those stages make is unit-tested
-against synthetic geometry (201 tests, 60 of them new), and the Blender half is deliberately thin
-and built from `syndicate_dissect.emit` and `syndicate_fracture.morphs`, both of which are exercised
-by the fixture pipeline. The first run on a real car is still the first run.
+**Run on both shipped cars, on Blender 4.2.** `bpy` is installed in this environment, so the
+geometry half is no longer unexercised. Each car takes about 100 s and comes out as:
+
+| | Eclipse | Stampede |
+|---|---|---|
+| Shells after cleanup | 2,877 | 2,466 |
+| Labelled triangles | 88.4% | 99.4% |
+| Corners | 4 | 4 |
+| Front axle | `±0.8563, 1.4565` (shipped: `±0.8563, 1.4565`) | `±0.854, 1.354` |
+| Wheel mass | 36.1 / 39.5 kg (shipped: 37.5) | 32.7 / 35.8 kg |
+| Total mass | 1,619 kg (real: 1,500) | 1,784 kg (real: 1,969) |
+| Class / budget | medium / 74.0 (shipped: medium / 74.0) | medium / 74.0 |
+| Part types | 25 | 25 |
+| Hinged panels | 2 doors | 0 — no panels found |
+| Chassis damage morphs | 4, at 0.03 m | 4, at 0.03 m |
+
+`tools/verify_prepared.py` opens every exported mesh and checks it against its own manifest:
+**50 parts, 2 vehicles, 0 findings.** Every `.glb` carries the node and the morph targets its
+`part.json` promises, every slot type accepts the part filling it, no slot is filled twice or
+left empty, and the masses and power costs sum to what the assemblies declare.
+
+Four defects surfaced on real art and were fixed: a material *name* seeding a wheel corner
+(DISC-037), a mass rule that made a brake hub weigh 214 kg (DEC-067), sliver faces that made
+damage morphs impossible (DISC-038), and a duplicate-geometry crash in the collision hull
+builder that the dissector had never triggered.
 
 **Known gaps, in the order they will matter:**
 
@@ -58,6 +77,12 @@ by the fixture pipeline. The first run on a real car is still the first run.
   into the body (D15-E3) still needs a human with the model open.
 - The shipped cars have not been re-cut. `assets/parts` is still `syndicate_dissect`'s output —
   a chassis and two wheel types each — and re-cutting them is a content decision, not a tool one.
+- **Glass does not fracture** (DISC-039). Every pane on both cars ships whole, with a note per
+  pane saying which of D09's guards refused it.
+- The Stampede finds **no panels**, so it has no doors to hinge: its bodywork is one material
+  group and its `parts.json` maps that group to `chassis`. Splitting it needs `regionLabels`.
+- The footprint estimate runs 8-9% under a real kerb mass, which put the Stampede in `medium`
+  where the hand-authored one is `heavy`. `--mass` is the answer and the report says so.
 
 ## Rationale / Context
 PROG-019 recorded stages 1 to 6 with 7 and 8 as `not_started`, and the report named them as pending

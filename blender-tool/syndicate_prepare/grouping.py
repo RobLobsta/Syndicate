@@ -114,6 +114,19 @@ def side_of(x: float) -> str:
     return "c"
 
 
+def side_for(shell: Shell) -> str:
+    """The side a shell groups under, honouring the singular roles (D15-R3d).
+
+    A windscreen is one part that happens to span the centreline; its side is ``c`` whatever
+    its centroid says.
+    """
+    from .roles import SINGULAR_ROLES
+
+    if shell.role in SINGULAR_ROLES:
+        return "c"
+    return side_of(shell.centroid[0])
+
+
 def group_into_parts(shells: list[Shell], twins: dict[int, Shell]) -> list[Part]:
     """Groups labelled shells into parts by ``(label, role, side, index)`` (D15-R18).
 
@@ -136,7 +149,12 @@ def group_into_parts(shells: list[Shell], twins: dict[int, Shell]) -> list[Part]
         # A shell captured into a wheel corner is grouped by that corner, not by its
         # position along the car: the whole point of the capture is that these pieces belong
         # together, and a length split would put a brake disc and its own hub in two parts.
-        key = (host.label, host.role or "", side_of(host.centroid[0]), host.corner or "")
+        key = (
+            host.label,
+            host.role or "",
+            side_for(host),
+            host.corner or "",
+        )
         buckets.setdefault(key, []).append(shell)
 
     parts: list[Part] = []

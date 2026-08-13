@@ -43,6 +43,16 @@ WELD_DISTANCE_M = 1e-4
 #: tool's ``MIN_FACE_AREA_M2``, so a part that survives cleanup can be fractured.
 MIN_FACE_AREA_M2 = 1e-8
 
+#: Edges shorter than this are **dissolved** — collapsed into their neighbours rather than
+#: deleted, so no hole is left behind. Half a millimetre: invisible at any distance a vehicle
+#: is seen from, and the length below which a triangle is a sliver rather than a surface.
+#:
+#: Deleting was not enough. A sliver just above ``MIN_FACE_AREA_M2`` survives the delete and
+#: then collapses the moment a damage morph displaces one of its vertices, which fails D09's
+#: zero-area guard and costs the *whole part* its deformation — measured on the Eclipse's
+#: chassis, one face in 181,000 triangles was enough.
+DEGENERATE_EDGE_M = 5e-4
+
 #: Unit factors tried when a model's overall length is implausible. Every entry is a
 #: mismatch somebody's exporter actually makes: metric decades, inches, and the 1/100 that
 #: three of the four major DCC packages default to.

@@ -97,6 +97,8 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 
 **R3b.** A role is decided by the **plane a panel lies in** — its thinnest axis — and then by where on the body it sits. That is the one measurement that separates the three families of panel on every vehicle ever built: a bonnet is thin vertically, a door is thin laterally, a bumper is thin longitudinally. Position then chooses the member of the family, in fractions of the vehicle's own dimensions so that a hatchback and a pickup need the same numbers (R7).
 
+<!-- D15-R3d -->**R3d.** Some roles are **singular**: `bonnet`, `boot`, `roof`, `windscreen` and `rear_window` exist once per vehicle and span the centreline, so their shells take side `c` whatever their centroid says. Without this a windscreen is exported three times — a left one, a right one and a middle one — because any shell more than `SIDE_DEADBAND_M` off centre takes a side. Both shipped cars did exactly that.
+
 **R3c.** A role is a refinement, never a reclassification. It cannot turn a `panel` into a `glass`. Roles feed three things and nothing else: the part's exported name, the slot id it hangs from, and whether stage 6 looks for a hinge on it.
 
 <!-- D15-S4.2 -->### 4.2 The Cue Ensemble
@@ -176,7 +178,9 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 
 **R15.** Separation is by connected component (`separate(type='LOOSE')`) over **every** object, not only over objects suspected of straddling a boundary. An object in a downloaded file is a *material group*, not a part: on both shipped cars one object is the entire painted body, and on one of them a single object is both headlights and both tail lights.
 
-**R16.** Cost is bounded and known: 6,830 shells from 283k triangles in 16 s, and 6,078 from 234k in 16 s, on both shipped cars. Separation is not the expensive stage and must not be skipped as an optimisation.
+**R16.** Cost is bounded and known: on the two shipped cars, 2,878 shells from 283k triangles and 2,466 from 234k, in about 11 s each. Separation is not the expensive stage and must not be skipped as an optimisation.
+
+Those counts are **after** the topology cleanup of R27a and they are less than half what they were before it: 6,830 and 6,078. The difference is not noise, it is the point of welding — 39,000 of the Eclipse's 216,000 vertices were duplicates, and every one of them was a seam splitting one surface into two "connected" components that share an edge in appearance and not in topology.
 
 **R17.** Shells below `MIN_SHELL_TRIANGLES` are **merged into their nearest labelled neighbour** rather than labelled independently. Two-thirds to three-quarters of the shells on a real car are bolts, screws and single grille strands; treating each as a part produces thousands of meaningless parts and destroys the triangle-share statistics the report depends on.
 
@@ -195,6 +199,12 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 **R22.** The unit of judgement is a **material group within one corner**, never a single shell. Rotational symmetry is a property of an assembly: a wheel is symmetric under rotation by 360°/n and every piece maps onto another piece of the same kind. A lug nut occupies 15° and plainly rotates — what it lacks is not size but a partner to be rotated onto, and the material a piece was authored with is the best available proxy for "the same kind of part". Judged shell by shell, a rim loses its lug nuts, spoke details and valve stem to the chassis.
 
 **R23.** The test is applied to **seed** shells as well as captured ones. A caliper bolt is square in silhouette and therefore passes the roundness test that seeds a wheel; it fails this one.
+
+<!-- D15-R23a -->**R23a.** **Seeding a corner and belonging to one are different questions.** A shell may define an axle only if it is itself a disc of a road wheel's size in a road wheel's place — round in side view, 0.45–1.20 m across, no wider than 0.75 m, axled below 0.65 m and at least 0.45 m off the centreline. Everything else that belongs to the wheel arrives by capture and is judged by D15-S5.4.
+
+The gate is on the *geometry*, not on the label, and that is the point: a shell can reach the `wheel` label on a material **name** alone (C3), and a name cannot define an axle. Measured on the Eclipse: a flat bracket 0.35 × 0.10 m, round to 0.29, whose material is called `vehicle_generic_smallspecmap_WHEEL`. As a seed it dragged the front axle 0.37 m rearward, inflated the wheel to 1.44 m across, captured 891 shells — 37% of the car — and reported all of them as brake furniture. With the gate, both shipped cars produce exactly four corners whose axles match the hand-authored slot positions to the millimetre.
+
+<!-- D15-R23b -->**R23b.** A corner in which **nothing rotates** is not a wheel. If no material group in it passes D15-R21 or R24a after capture, the corner is dissolved and its shells return to `chassis`. Both shipped cars produced two to four such corners — a 7.7 mm "wheel", a 0.37 m one — before this existed, each of which took a slot on the vehicle and a directory in `assets/parts`.
 
 **R24.** Measure coverage from vertices, never from a bounding box. A five-spoke rim's box corners land in four sectors, so a box-based measure cannot distinguish a spoked wheel from a caliper.
 
@@ -269,13 +279,21 @@ Stage 8 turns labelled geometry into the two documents D08 specifies. Four of it
 
 **R40.** A part's identity is `<label>_<vehicle>[_<role>][_<side>][_<index>]_01` and its slot is `<label>[_<role>][_<side>][_<index>]`, both matching D08-R6's patterns. The label leads so a listing of `assets/parts` groups by kind, the vehicle follows so two cars never collide, and the role and side are what a human uses to find the one they mean — `panel_pickup_door_l_01`. A slot at a wheel corner is named for the corner instead (`wheel_fl`), which is what the shipped assemblies already call them.
 
-**R41.** A part's mass is `area × wall thickness × density`, **not** `volume × density`. D09-R16's volume rule is right for a fractured solid, where the geometry is the object; it is wrong for vehicle art, where the panels are shells. A door modelled as a closed skin encloses about 0.1 m³ of air and `volume × density` calls it 785 kg of steel. Wall thickness is a per-class constant, which makes this the same treatment table as D15-S5.7 seen from the mass side, and it is the same thickness a `glass` part is solidified to before fracture — so that the solid's `volume × density` and the manifest's `area × thickness × density` are the *same* number rather than two that resemble each other.
+**R41.** A part's mass is `area × areal density`, capped by `enclosed volume × density`, and is **not** `volume × density`. D09-R16's volume rule is right for a fractured solid, where the geometry is the object; it is wrong for vehicle art, where the panels are shells. A door modelled as a closed skin encloses about 0.1 m³ of air and `volume × density` calls it 785 kg of steel.
+
+The per-class constant is a **mass per square metre**, not a thickness times a density, and the distinction is load-bearing. 20 mm is the right wall for a rubber tyre and yields 22 kg/m²; the same 20 mm of *steel* yields 157, so a brake hub with 1.37 m² of folded surface was weighed at 214 kg — ten times a real one — and inflated a 1,500 kg car to 1,977. One `rigid` class covers both a tyre and a steel casting, so its constant must be the quantity that is stable across the two. It is: a designer picks whatever thickness gets the required stiffness out of the material to hand, which puts nearly everything on a vehicle between 17 and 20 kg/m². Glass is genuinely lighter and a chassis genuinely heavier, being box sections rather than a skin.
+
+The cap exists because a part cannot contain more material than fits inside it. An open surface encloses nothing and keeps the surface reading; a hollow box encloses far more than its walls hold, so the surface reading is already the smaller of the two; a small solid lump encloses less than its own folded surface implies, and the lump wins.
+
+<!-- D15-R41a -->**R41a.** The target mass a vehicle is scaled to is measured across its **track**, not across its bounding box, whenever the pipeline found wheels. A bounding box includes the wing mirrors: on the Eclipse that is 2.18 m against a real 1.97, which is 11% on the number every part's mass is derived from. Track plus a wheel's width is a road vehicle's width to within a few centimetres, because that is what a track is.
 
 **R42.** The **chassis takes the balance**: every other part is weighed from its own geometry and the chassis is whatever is left of the vehicle's target mass. The target is authored (`--mass`) or, failing that, derived from the footprint at a fixed areal density, and the report says which. If the measured parts would leave the chassis below `CHASSIS_MIN_FRACTION` of the vehicle, the target is raised to keep it there and that is reported too: a car whose doors outweigh its structure is a measurement fault, not a design.
 
 **R43.** `powerCost` is **distributed**, not summed. D05-S5.7's reference formula fixes the ratios between parts; `assets/balance/classes.json` fixes the total for the vehicle's class, and A312 makes that total an error rather than a warning. Each part therefore takes its share of the class target, which satisfies A312 by construction, and A210's advisory comparison against the raw formula is left to say how far the two disagree.
 
 **R44.** Wheels and hubs on one axle **share** a part type across the two sides, as D15-R20 describes and the shipped assemblies already express. Nothing else shares: a left door is not a right door reflected, and a pipeline that pretended otherwise would put the handle on the inside. A shared type is exported once and placed at each corner's **own** measured axle rather than at the reflection of the other side's, and the shells of every instance stay attributable to it, so AC-D15-4's accounting is exact.
+
+<!-- D15-R45a -->**R45a.** A **wheel's slot is not its axle.** The runtime hands the slot position to Bullet's `addWheel` as the suspension's connection point, and Bullet hangs the wheel `suspensionRestLengthM` below it. A wheel slot is therefore the axle raised by one rest length; emitting the axle buries every wheel 30 cm into the ground and leaves the vehicle sitting on its floor pan. The *mesh* origin stays at the axle, because that is what the wheel spins about — the two are different points and they are supposed to be.
 
 **R45.** A part's mesh origin is the point its slot is measured from, and the choice is per label: a wheel's is its **axle**, because Bullet spins a wheel about its part origin and a wheel offset from it orbits the vehicle; an articulated part's is its **hinge pivot**, because R30 makes an opening door a slot whose local rotation animates and a rotation animates about the origin; everything else takes its own bounds centre, which is where its mass acts (DEC-043).
 
@@ -615,6 +633,11 @@ where independent per-event coin flips give a flat Poisson stream that is unifor
 | T-D15-33 | The assembly's power budget against its class target | Equal within A312's tolerance (R43) |
 | T-D15-34 | Shells accounted for across every part and every instance | Each appears exactly once (AC-D15-4, R44) |
 | T-D15-35 | A part whose morph generation failed | No `morphTargets` in its `part.json` (R46) |
+| T-D15-36 | A flat bracket whose material names it a wheel | Rejected as a seed; the corner keeps its real axle (R23a) |
+| T-D15-37 | A corner in which no material group rotates | Dissolved, its shells returned to `chassis` (R23b) |
+| T-D15-38 | Glass parts on both shipped cars | Fractured, with the shard masses summing to the pane's (S5.7) |
+| T-D15-39 | Every mesh named by a `part.json` | Contains the node and the morph targets the manifest promises (R46) |
+| T-D15-40 | Every slot a prepared chassis offers | Filled exactly once by the assembly, by a part its slot type accepts |
 
 ---
 
