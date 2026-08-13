@@ -16,31 +16,15 @@ package dev.syndicate.model;
  * <p>{@link #isLoop()} matters more than it looks. A loop must be seamless, which rules out sourcing
  * it from a generative model (D15-R38) and constrains how it is synthesised — the buffer has to
  * contain a whole number of cycles of everything periodic in it.
+ *
+ * <p><b>The engine is not on this list</b> (DEC-056, D15-R37a3). It was, as six families —
+ * {@code ENGINE_LOOP}, {@code ENGINE_START}, {@code ENGINE_STOP}, {@code ENGINE_OVERRUN},
+ * {@code INDUCTION_LOOP} and {@code INDUCTION_RELEASE} — and it is now synthesised in the client
+ * from the engine's actual state rather than answered by a file. Everything still here is an event
+ * or a texture: something that happens once, or something that is the same every time it is heard.
+ * An engine is neither, which is exactly why it stopped fitting.
  */
 public enum AudioEvent {
-
-    /** Engine, pitched by RPM. Per vehicle class, never per vehicle (D15-R37). */
-    ENGINE_LOOP(true),
-
-    /** Ignition: starter, catch, and the flare down to idle. Per configuration, as the loop is. */
-    ENGINE_START(false),
-
-    /** Shutdown: fuel cut, the last charges, and the rock back onto compression. */
-    ENGINE_STOP(false),
-
-    /** Off-throttle: the exhaust popping as the driver lifts. */
-    ENGINE_OVERRUN(false),
-
-    /**
-     * The second voice of a forced-induction engine: a supercharger's whine or a turbo's rush.
-     *
-     * <p>Keyed on {@link Induction}, which is the same kind of axis as {@link EngineConfiguration}
-     * and obeys the same rule (D15-R37): a closed set, one asset each, nothing per vehicle.
-     */
-    INDUCTION_LOOP(true),
-
-    /** A turbo letting go on lift. Only {@link Induction#TURBO} has one. */
-    INDUCTION_RELEASE(false),
 
     /** A vehicle burning. `DamageSystem` (12) already runs the burn timer this rides on. */
     FIRE_LOOP(true),

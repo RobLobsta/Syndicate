@@ -52,3 +52,7 @@ Thumbs.db
 
 # Blender module host writes a version directory next to the working directory
 /4.2/
+
+# Reference recordings fetched by game-client/tools/engine_reference.py. CC BY-NC analysis
+# inputs — measured, never shipped, never committed (D15-R38a4, D15-R39).
+game-client/tools/.reference-cache/

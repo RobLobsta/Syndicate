@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.syndicate.model.AudioEvent;
 import dev.syndicate.model.AudioMaterial;
-import dev.syndicate.model.EngineConfiguration;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -157,126 +156,6 @@ class SoundBankTest {
         }
     }
 
-    /**
-     * Every engine loop holds a whole number of engine cycles.
-     *
-     * <p><b>This is the test {@link #everyLoopJoinsCleanly} could not be.</b> That one measures the
-     * step in sample <em>value</em> at the join, and a crossfade removes that step by construction —
-     * so it was green on all six engine loops while three of them were broken. What a crossfade does
-     * not fix is <em>phase</em>: if the kept buffer holds 127.67 cycles rather than 128, every
-     * harmonic restarts a third of a cycle out of step on each pass, which reads as a warble at the
-     * loop rate rather than as a click. Measured on the old bank, the I4, V8 and V10 harmonics smeared
-     * into sidebands ±2 Hz wide while the I6, V6 and V12 — whose firing frequencies happened to divide
-     * the buffer evenly — were clean single lines.
-     *
-     * <p>So the property is arithmetic rather than acoustic, and it is asserted as arithmetic.
-     */
-    @Test
-    void everyEngineLoopHoldsAWholeNumberOfEngineCycles() throws IOException {
-        assumeTrue(Files.isDirectory(AUDIO_ROOT), "assets/audio has not been generated");
-
-        for (EngineConfiguration configuration : EngineConfiguration.values()) {
-            short[] samples = readPcm(AUDIO_ROOT.resolve("engine_loop_" + configuration.token() + ".wav"));
-            double cycleHz = SoundBankBuilder.REFERENCE_RPM / 120.0;
-            double cycles = samples.length * cycleHz / Waveform.SAMPLE_RATE_HZ;
-
-            assertThat(Math.abs(cycles - Math.round(cycles)))
-                    .as("%s holds %.4f engine cycles, not a whole number", configuration, cycles)
-                    .isLessThan(1e-3);
-        }
-    }
-
-    /**
-     * A cross-plane V8 burbles; an even-firing V does not.
-     *
-     * <p>The measurement is the order spectrum — the magnitude at each multiple of the engine-cycle
-     * rate. An engine whose banks fire identically puts essentially all of its energy on multiples of
-     * its cylinder count. A cross-plane V8's banks fire {@code 180-270-180-90} and its reverse, and
-     * what a listener calls the burble is energy landing on the orders in between.
-     *
-     * <p>Asserted as a <em>count of lines</em> rather than a total, because the two cases differ in
-     * kind and not only in degree: an even-firing V6 leaks one faint sub-order line — the offbeat a
-     * real V6 has — while the V8 lights up a whole odd-order series. A total would make those look
-     * like the same thing at two volumes, which is exactly the confusion that made the first two
-     * attempts at this parameter wrong.
-     */
-    @Test
-    void aCrossPlaneV8BurblesAndAnEvenFiringVDoesNot() throws IOException {
-        assumeTrue(Files.isDirectory(AUDIO_ROOT), "assets/audio has not been generated");
-
-        int v8Lines = subFiringOrderLines(EngineConfiguration.V8);
-        assertThat(v8Lines)
-                .as("the cross-plane V8 should carry a series of sub-firing orders, found %d", v8Lines)
-                .isGreaterThanOrEqualTo(3);
-
-        for (EngineConfiguration configuration : List.of(EngineConfiguration.I4, EngineConfiguration.I6)) {
-            assertThat(subFiringOrderLines(configuration))
-                    .as("%s has one bank and fires evenly; it must not burble", configuration)
-                    .isZero();
-        }
-        for (EngineConfiguration configuration :
-                List.of(EngineConfiguration.V6, EngineConfiguration.V10, EngineConfiguration.V12)) {
-            assertThat(subFiringOrderLines(configuration))
-                    .as("%s fires evenly in both banks; at most a single offbeat line", configuration)
-                    .isLessThanOrEqualTo(1);
-        }
-    }
-
-    /**
-     * The firing geometry the loops are built from is the geometry the enum claims.
-     *
-     * <p>Cheap, and it guards the one number that decides whether an arrangement burbles. Measured off
-     * {@code bankOf} rather than authored, so it cannot drift from the pulse train the synthesiser
-     * actually lays down.
-     */
-    @Test
-    void onlyTheCrossPlaneV8FiresUnevenlyWithinABank() {
-        assertThat(EngineConfiguration.V8.bankFiringSpreadDegrees())
-                .as("a cross-plane V8's bank intervals run 90-180-180-270")
-                .isEqualTo(180.0);
-
-        for (EngineConfiguration configuration : EngineConfiguration.values()) {
-            if (configuration == EngineConfiguration.V8) {
-                continue;
-            }
-            assertThat(configuration.bankFiringSpreadDegrees())
-                    .as("%s is even-firing in every bank", configuration)
-                    .isZero();
-        }
-    }
-
-    /**
-     * Engine loops have exhaust resonances rather than a monotonic falloff.
-     *
-     * <p>The bank's first cut stacked harmonics with a 1/n falloff, which is a sawtooth — measured,
-     * its spectrum fell strictly with frequency and had no peak anywhere. Real engine character is
-     * mostly the exhaust system: fixed resonances the harmonics slide through as the engine revs, and
-     * they are what makes a big engine sound big at any rpm rather than only at low ones.
-     */
-    @Test
-    void engineLoopsHaveExhaustFormants() throws IOException {
-        assumeTrue(Files.isDirectory(AUDIO_ROOT), "assets/audio has not been generated");
-
-        for (EngineConfiguration configuration : EngineConfiguration.values()) {
-            short[] samples = readPcm(AUDIO_ROOT.resolve("engine_loop_" + configuration.token() + ".wav"));
-            // Sample the envelope in sixth-octave steps, so a peak is a peak of the spectral shape
-            // rather than of one harmonic.
-            List<Double> magnitudes = new ArrayList<>();
-            for (int step = 0; step <= 36; step++) {
-                magnitudes.add(magnitudeAt(samples, 60.0 * Math.pow(2.0, step / 6.0)));
-            }
-            int peaks = 0;
-            for (int i = 1; i < magnitudes.size() - 1; i++) {
-                if (magnitudes.get(i) > magnitudes.get(i - 1) && magnitudes.get(i) > magnitudes.get(i + 1)) {
-                    peaks++;
-                }
-            }
-            assertThat(peaks)
-                    .as("%s has no resonant peak; the spectrum just falls off", configuration)
-                    .isGreaterThanOrEqualTo(2);
-        }
-    }
-
     /** 48 kHz mono 16-bit, and nothing at full scale — a clipped sound is a distorted one. */
     @Test
     void everySoundIsTheExpectedFormatAndDoesNotClip() throws IOException {
@@ -337,53 +216,6 @@ class SoundBankTest {
             }
         }
         return count;
-    }
-
-    /**
-     * How many orders below the firing order carry real energy.
-     *
-     * <p>"Real" is measured against the firing order itself rather than against the loudest line in
-     * the buffer, because the formants move the loudest line around: a V8's order 3 lands on its
-     * lowest exhaust resonance and comes out well above its firing order, which is the correct
-     * behaviour and would make a peak-relative threshold meaningless.
-     */
-    private static int subFiringOrderLines(EngineConfiguration configuration) throws IOException {
-        short[] samples = readPcm(AUDIO_ROOT.resolve("engine_loop_" + configuration.token() + ".wav"));
-        double cycleHz = SoundBankBuilder.REFERENCE_RPM / 120.0;
-        double firing = magnitudeAt(samples, cycleHz * configuration.cylinders());
-
-        int lines = 0;
-        for (int order = 1; order < configuration.cylinders(); order++) {
-            if (magnitudeAt(samples, cycleHz * order) > firing * SUB_ORDER_THRESHOLD) {
-                lines++;
-            }
-        }
-        return lines;
-    }
-
-    /** Fraction of the firing order's magnitude at which a sub-order line counts as audible. */
-    private static final double SUB_ORDER_THRESHOLD = 0.25;
-
-    /**
-     * Magnitude at one frequency, by the Goertzel algorithm.
-     *
-     * <p>A whole FFT would answer a question nobody asked. These tests probe a handful of known
-     * frequencies — the firing order and its neighbours — and Goertzel evaluates exactly those, in one
-     * pass, with no windowing decisions to get wrong.
-     */
-    private static double magnitudeAt(short[] samples, double frequencyHz) {
-        double omega = 2.0 * Math.PI * frequencyHz / Waveform.SAMPLE_RATE_HZ;
-        double coefficient = 2.0 * Math.cos(omega);
-        double s1 = 0.0;
-        double s2 = 0.0;
-        for (short sample : samples) {
-            double s0 = sample / 32768.0 + coefficient * s1 - s2;
-            s2 = s1;
-            s1 = s0;
-        }
-        double real = s1 - s2 * Math.cos(omega);
-        double imaginary = s2 * Math.sin(omega);
-        return 2.0 * Math.hypot(real, imaginary) / samples.length;
     }
 
     private static short[] readPcm(Path wav) throws IOException {

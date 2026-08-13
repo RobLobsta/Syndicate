@@ -30,7 +30,7 @@ class SoundBankTest {
 
         assertThat(bank.isAvailable()).isFalse();
         assertThat(bank.size()).isZero();
-        assertThat(bank.get("engine_loop_v8")).isNull();
+        assertThat(bank.get("glass_shatter_large")).isNull();
     }
 
     /** A malformed manifest is the same: silent, logged, and not fatal. */
