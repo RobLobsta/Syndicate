@@ -62,9 +62,33 @@ placed rather than modelled — with the smallest possible amount of art.
   authoring tool, no brush, and no hand-placed geometry. A designer's control surface is the
   parameter block and the seed.
 - **Not runtime terrain deformation.** Craters, ruts and tyre tracks are out of scope. The height
-  field is generated once at load and is immutable for the match. This is not a placeholder position:
-  a mutable height field is replicated state, and the whole reason terrain costs nothing on the wire
-  (D16-S5.12) is that it is derived rather than sent.
+  field is generated once at load and is immutable for the match (R3a).
+
+  This clause originally justified itself on the wire: a mutable height field is replicated state, and
+  terrain costs nothing to replicate only because it is derived (D16-S5.12). **That argument is
+  weaker than it looked** and is corrected here rather than left standing, because a future session
+  would otherwise take it at face value. Nobody would replicate the field. A crater is
+  `(x, z, radius, depth)` — about twelve bytes — so deformation replicates as an *event log* that
+  every peer stamps onto its own generated field, and a late joiner receives the log rather than the
+  ground. A few hundred craters a match is a few kilobytes. Derived-plus-small, not replicated
+  terrain.
+
+  The real costs are elsewhere, and they are what keep this a non-goal:
+
+  1. **Render chunk rebuilds.** Every touched chunk's vertex buffer must be regenerated (D16-S6.1).
+     Local and bounded, but it is per-explosion GPU work in a renderer with no culling yet.
+  2. **Reserved height range.** `btHeightfieldTerrainShape` bakes its min and max height at
+     construction and derives its local AABB from them, so a crater below the generated minimum falls
+     outside the shape's own bounds. Headroom has to be reserved up front, and the body's broadphase
+     AABB refreshed after every edit.
+  3. **The playability guarantee stops being an invariant.** D16-R58 and R58a are checked once, at
+     load, and hold for the match because nothing moves afterwards. Craters can disconnect a region,
+     bury a spawn point, or open a hole in the border rim, and re-running a flood fill over 361,000
+     cells per explosion is not a per-tick cost anyone wants. This is the item that makes deformation
+     a **design** question rather than an engineering one: craters are fun, and an arena that can be
+     cratered into disconnected pockets is not.
+  4. **Determinism.** The stamp is subject to every rule in D16-R61, applied in a fixed order, or two
+     peers' ground diverges.
 - **Not vegetation, weather or time of day.** The sun is fixed for a match. A sky whose sun moves
   makes shadows and baked reflections a per-frame cost for no gameplay change.
 - **Not a replacement for D15.** D15 prepares *vehicles* from downloaded art. Structures here are
@@ -150,6 +174,10 @@ without deciding to lose that.
   "maxDrivableSlopeDeg": 25.0
 }
 ```
+
+**R3a.** The height field, the surface grid and the drivability grid are written once by the
+generator and never again. Nothing in the simulation, the renderer or the network layer may modify
+them after `TerrainGenerator` returns. See D16-S2.2 for what changing this would cost.
 
 **R4.** An arena with **no** `terrain` block is the flat floor and four box walls that ship today
 (DEV-014). This is not a deprecation path: a flat arena remains a legal, useful arena — every physics

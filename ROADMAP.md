@@ -408,6 +408,31 @@ None of these are decided. They are here so the options are visible when a sessi
   walls that channel every fight; narrow it and the desert becomes rolling ground you can go anywhere
   on. The current setting makes 73% of the arena drivable in one connected piece with real barriers
   in it, which is a defensible starting point that nobody has driven.
+- **Should the ground itself be destructible?** Currently no, and it is worth knowing exactly why,
+  because the obvious objection is not the real one. Terrain is generated once and never written
+  again — but the reason is *not* that a mutable heightmap would be expensive to replicate. Nobody
+  would replicate the heightmap. A crater is four numbers and about twelve bytes, so deformation
+  would go over the wire as a log of craters that each peer stamps onto its own generated ground,
+  and a late joiner gets the log rather than the terrain. A few hundred craters a match is a few
+  kilobytes. That part is cheap, and `docs/16` has been corrected to say so.
+
+  What actually costs is, in order: rebuilding the render chunks a crater touches (bounded, but it
+  is per-explosion GPU work in a renderer with no culling yet); reserving height headroom up front,
+  because the physics shape bakes its own vertical bounds at construction; and — the one that
+  matters — **the playability guarantee stops being a guarantee**. Right now "every spawn can reach
+  every other, and nobody escapes the rim" is verified once at load and stays true because nothing
+  moves. Craters can disconnect a region, bury a spawn, or blow a hole in the border rim, and
+  re-running that check over 361,000 cells per explosion is not something you do per tick.
+
+  So it is a design question wearing an engineering costume: craters are fun, and an arena that can
+  be cratered into disconnected pockets is not. If you want it, the sequencing is to finish stages
+  2–4 first — you cannot judge whether cratering adds anything until you can see the ground and
+  watch structures break on it — and then it is roughly a session's work.
+- **Do vehicles leave tracks?** The cheap half of the question above. Ruts and tyre tracks that are
+  purely *cosmetic* — a decal layer over the terrain, never touching the height field or the
+  drivability grid — cost none of the four things deformation costs, because nothing about them is
+  authoritative (G6). A desert that remembers where cars have been is most of the visual payoff of
+  deformation for a fraction of its price.
 - **How should it handle?** Half-answered. The two shipped vehicles handle like the real cars they
   were derived from, which is a defensible starting point and a much better one than invented
   numbers. What nobody has decided is whether a *combat* game wants that: real cars are fragile,

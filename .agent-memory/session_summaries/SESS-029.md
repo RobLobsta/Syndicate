@@ -43,8 +43,8 @@ climbs out at three quarters of it. That is now a load-time check on the reachab
 tuned constant — sealing one arena says nothing about the next seed.
 
 ## Impact
-- 387 tests in `game-core`, 0 failures; 19 new, 5 against real Bullet.
-- D16 amended: R33, R33a, R34a, R51, R58a, plus constants and criteria.
+- 387 tests, 0 failures; 19 new, 5 against real Bullet.
+- D16 amended: R3a, R33, R33a, R34a, R51, R58a, S2.2, plus constants and criteria.
 - D02-S4.7 gains the `arena` sub-package; `ArenaDef` gains a terrain block.
-- The arena in the game is still flat: the renderer knows nothing about a height field. Stage 2, and
-  the one stage this sandbox cannot test (DISC-024).
+- The arena in the game is still flat: the renderer knows nothing about a height field. Stage 2, the
+  one stage this sandbox cannot test (DISC-024).
