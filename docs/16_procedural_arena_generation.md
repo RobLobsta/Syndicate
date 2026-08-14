@@ -116,6 +116,11 @@ constants that are not cross-cutting).
 | `ROAD_MAX_CROSSFALL_PCT` | 2.5 | Camber across a carved road |
 | `STRUCTURE_PAD_MARGIN_M` | 2.0 | Flattened margin around a structure's footprint |
 | `TERRAIN_HASH_TOLERANCE` | 0 | Permitted difference between two processes' height fields |
+| `PHASE_WARP` | 0.35 | How far the dune phase warp displaces crests, in wavelengths |
+| `MIN_SLIP_FRAC` / `MAX_SLIP_FRAC` | 0.02 / 0.45 | Bounds on a slip face's share of a dune's wavelength |
+| `CREST_GAP_LOW` / `CREST_GAP_HIGH` | 0.40 / 0.50 | Where the crest field stops and starts making dunes (R34a) |
+| `CREST_PASS_FLOOR` | 0.7 | A dune's height the moment it exists, as a fraction of nominal |
+| `PAD_RAMP_MIN_M` | 8.0 | Shortest ramp out of a levelled pad, metres |
 
 **R2.** `MAX_DRIVABLE_SLOPE_DEG` is below `SAND_REPOSE_DEG` **by design and the gap is the game**. A
 dune's windward face is shallow and drivable; its slip face stands at the angle of repose, which is
@@ -394,34 +399,57 @@ and a short slip face standing at the sand's angle of repose.
 ```pseudo
 function duneLayer(x, z, p):                       # p = terrain params
     # Rotate into wind-aligned coordinates; dunes are transverse to the wind.
-    (u, v) = rotateY(x, z, p.duneWindDeg)
+    u = x·cos(p.duneWindDeg) + z·sin(p.duneWindDeg)
 
     # A drifting phase, so crests are neither straight nor evenly spaced.
-    phase = u / p.duneWavelengthM + 0.35 * fbm(x, z, p.baseFrequency * 2.0, 3)
+    warp  = fbm(x, z, p.baseFrequency * 2.0, 3)
+    phase = u / p.duneWavelengthM + PHASE_WARP * warp
+    t     = fract(phase)                           # sawtooth in [0,1)
 
-    t = fract(phase)                               # sawtooth in [0,1)
-    # Windward: a long, easing rise. Slip face: a short drop at the repose angle.
-    windward = 1.0 - pow(1.0 - t / WINDWARD_FRAC, 2.0)      if t <  WINDWARD_FRAC
-    slip     = 1.0 - (t - WINDWARD_FRAC) / (1 - WINDWARD_FRAC)  if t >= WINDWARD_FRAC
+    # How fast phase advances *here*, per metre along the wind: the nominal rate plus whatever
+    # the warp is doing, differenced along the wind rather than along x.
+    dPhase = 1/p.duneWavelengthM + PHASE_WARP * d(warp)/du
+    dPhase = max(dPhase, 0.25 / p.duneWavelengthM)
 
-    height = p.duneHeightM * (t < WINDWARD_FRAC ? windward : slip)
+    # How tall a dune stands here, and whether there is one at all (R34a).
+    amplitude = p.duneHeightM * crestScale(0.5 + 0.5 * fbm(x, z, p.baseFrequency, 3))
+    if amplitude == 0: return 0
 
-    # Crest height varies with the broad landform, so dunes are not a uniform corduroy.
-    return height * (0.55 + 0.45 * (0.5 + 0.5 * fbm(x, z, p.baseFrequency, 3)))
+    # Solve the slip width from the repose angle rather than fixing it (R33).
+    slip = clamp(amplitude * dPhase / tan(SAND_REPOSE_DEG), MIN_SLIP_FRAC, MAX_SLIP_FRAC)
+    wind = 1 - slip
+
+    if t < wind:  return amplitude * (1 - (1 - t/wind)²)     # long, easing rise
+    else:         return amplitude * (1 - (t - wind)/slip)   # the face, at repose
 ```
 
-with `WINDWARD_FRAC = 0.72`.
+with `PHASE_WARP = 0.35`, `MIN_SLIP_FRAC = 0.02`, `MAX_SLIP_FRAC = 0.45`.
 
-**R33.** The slip face's slope is a **consequence** of `duneHeightM`, `duneWavelengthM` and
-`WINDWARD_FRAC`, and it must be checked rather than assumed: after generation, the mean slope of
-cells on the descending side must fall within ±4° of `SAND_REPOSE_DEG`. If the parameters put it
-outside that, the generator scales `duneHeightM` down until it holds, and says so in the report. A
-dune whose slip face is drivable is a dune that has stopped being a wall, which silently removes the
-gameplay R2 exists for.
+**R33. The slip angle is an input, not an output.** An earlier form of this section fixed the
+windward fraction at 0.72 and made the resulting angle a consequence of height and wavelength, to be
+brought back by a correction pass that scaled `duneHeightM` down. That is wrong in two ways, both
+found by implementing it (DISC-044): at the parameters this document shipped, the face came out at
+19.6° — a *ramp*, not a wall — and a correction that only ever reduces the height cannot fix a face
+that is too shallow. Solving for the slip width instead makes the property hold **by construction**.
+
+**R33a.** The width is solved from the **local** crest height and the **local** phase gradient, not
+from the nominal figures. Real dunes stand at repose whatever their size, so a half-height dune needs
+a half-width face rather than a gentler one; and the phase warp means a cycle is not
+`duneWavelengthM` of ground everywhere, so a face solved against the mean is too steep wherever the
+warp has crowded two crests together. With both, measured slip faces on the shipped arena run to a
+mean of **32.5°** against a target of 33.0, with a 90th percentile of 34.6°.
 
 **R34.** The final field is `reliefM × fbm(...) + duneLayer(...)`, and the two are summed rather than
 multiplied so that a dune field crossing a broad rise stays a dune field rather than flattening out
 in the troughs.
+
+**R34a. The crest field must reach zero, opening passes.** `crestScale` is zero below
+`CREST_GAP_LOW`, rises to `CREST_PASS_FLOOR` by `CREST_GAP_HIGH`, and varies up to full height above
+it. Without the zero region the arena is **not connected**: dunes run transverse to the wind and
+every slip face is past what a vehicle can climb, so uniformly non-zero dune heights make uniformly
+continuous walls. Measured, that arena was 73% drivable and split into 42 regions, the largest under
+a quarter of it (DISC-045). The gate is narrow — a tenth of the crest field's range — because a wide
+one connects the arena by deleting the dunes rather than by opening passes between them.
 
 <!-- D16-S5.4 -->### 5.4 Road Carving
 
@@ -573,8 +601,10 @@ the ground, and the answer is not "avoid large shapes" but "the ground is not a 
 
 <!-- D16-S5.9 -->### 5.9 Terrain Query
 
-**R51.** `TerrainQuery` is the one way the simulation asks about the ground, and every method is a
-pure function of the generated grids.
+**R51.** `TerrainField` carries the generated grids **and** the queries over them, and is the one way
+the simulation asks about the ground. Every method is a pure function of those grids. The queries are
+not a separate `TerrainQuery` type: they are a view of exactly one field's data, and a second type
+holding a reference to the first buys an interface seam that nothing has two implementations of.
 
 | Query | Returns | Used by |
 |---|---|---|
@@ -623,9 +653,16 @@ teaches the player to distrust the audio, which is worse than having no surface 
 the cell is not inside a structure footprint. It is generated once and is immutable, like the height
 field.
 
-**R58.** Connectivity is checked by flood fill from every spawn point over the drivable grid. All
-spawn points must reach one another, and the union of road cells must be reachable from all of them.
-Failure is an `A4xx` error, not a warning (R27).
+**R58.** Connectivity is checked by one flood fill from the first spawn point over the drivable grid.
+All spawn points must lie in the region it finds, and the union of road cells must be reachable from
+it. Failure is an `A4xx` error, not a warning (R27).
+
+**R58a. The same fill checks that the region does not touch the arena's edge.** The border rim
+(D16-S5.5) is an *additive* rise, so how impassable it is depends on what the landform under it was
+doing — at the shipped parameters it holds with 33 m to spare, and at three quarters of the rise it
+has a gully a vehicle climbs out through. Which is which is a property of the seed, so tuning the
+rise until one arena is sealed proves nothing about the next one. Measuring the reachable region
+makes a leaky rim a load-time failure instead of a player discovering they can drive into the void.
 
 **R59.** Bot navigation (D11-S5.4) uses this grid directly as a uniform-cost graph, with cost weighted
 by `1 / surface.gripMultiplier`, so a bot prefers the highway without being told the highway exists.
@@ -799,6 +836,9 @@ an assembly" and the cheap version has been lost.
 - [ ] **AC-D16-5.** Every carved road's longitudinal grade is at or below its `maxGradePct` at every
       station, and its surface cells are contiguous end to end.
 - [ ] **AC-D16-6.** The mean slope of dune slip faces is within ±4° of `SAND_REPOSE_DEG`.
+- [ ] **AC-D16-6a.** The drivable ground reachable from a spawn point is one region containing at
+      least 90% of all drivable cells — an arena is not a set of parallel corridors (R34a).
+- [ ] **AC-D16-6b.** That region does not touch the arena's edge on any side (R58a).
 - [ ] **AC-D16-7.** A vehicle driving from tarmac onto sand shows a measurable drop in lateral grip
       and a measurable rise in rolling resistance, in the same tick the wheel's contact point crosses
       the boundary.
@@ -816,6 +856,8 @@ an assembly" and the cheap version has been lost.
       light and the fog colour all derive from `sky.sunAzimuthDeg` / `sunElevationDeg`.
 - [ ] **AC-D16-14.** The height field's data buffer is reachable for the whole lifetime of its shape,
       and is released only after the shape is disposed (G19).
+- [ ] **AC-D16-15.** Every spawn point on a generated arena stands on a levelled pad with a drivable
+      ramp out of it (E2).
 
 ---
 
@@ -824,8 +866,9 @@ an assembly" and the cheap version has been lost.
 | # | Situation | Required behaviour |
 |---|---|---|
 | E1 | `gridSize` does not match the arena bounds and `cellSizeM` | A410 ERROR at validation; generation refuses to run. |
-| E2 | A spawn point lands on a dune slip face | Generation flattens a spawn pad of `clearanceRadiusM`, exactly as for a structure. |
+| E2 | A spawn point lands on a dune slip face | Generation flattens a spawn pad of `clearanceRadiusM`, exactly as for a structure. The ramp out of the pad is widened until it is drivable — a fixed-width falloff around a pad cut into a dune is a wall, which is the failure the pad exists to prevent, reintroduced by the fix for it. |
 | E3 | Flood fill finds an unreachable spawn point | A411 ERROR. The arena is rejected; it is not "playable but awkward" (R27). |
+| E3a | Flood fill reaches the arena's edge | A411 ERROR. The border rim has a gully; the arena is rejected rather than shipped with a hole in it (R58a). |
 | E4 | A road's spline leaves the arena bounds | Legal. The road is clipped at the bounds and terminates in the border rim (R40). |
 | E5 | Two roads cross | Later road in array order wins the overlapping cells (R10). No junction geometry is generated. |
 | E6 | A road's derived profile needs a grade above `maxGradePct` to follow the land | The grade limiter wins and the road cuts through the landform. Reported as `maxGradePct` reached. |
@@ -852,7 +895,8 @@ an assembly" and the cheap version has been lost.
 | T-D16-5 | unit | Road grade after limiting, on a deliberately hilly seed | Every station ≤ `maxGradePct` |
 | T-D16-6 | unit | Road surface cells along a carved spline | Contiguous, width within one cell of `widthM` |
 | T-D16-7 | unit | Cut and fill: terrain above and below the profile | Cutting and embankment both produced |
-| T-D16-8 | unit | Border falloff | Outer band slope > `SAND_REPOSE_DEG` on all four sides |
+| T-D16-8 | unit | Border falloff | Drivable ground reachable from the centre never touches the arena edge |
+| T-D16-8a | unit | Connected-component labelling of the drivable grid | Largest region holds ≥90% of drivable cells |
 | T-D16-9 | unit | `heightAt` vs the raw grid at sample points | Exact at samples, monotone between |
 | T-D16-10 | unit | `surfaceAt` at a road edge | Nearest-sample, no interpolated value |
 | T-D16-11 | unit | Flood fill on a seed with a known basin | Unreachable spawn detected |
@@ -867,6 +911,7 @@ an assembly" and the cheap version has been lost.
 | T-D16-20 | headless | Generate every shipped arena with no GL context | Exit 0; report written; no GL call attempted |
 | T-D16-21 | integration | Buffer lifetime: shape disposed, then buffer released | Native tracker balances; no use-after-free |
 | T-D16-22 | unit | Sky model at a fixed sun and turbidity | Five colours match golden; sun direction round-trips |
+| T-D16-23 | integration | The shipped desert arena, loaded from `assets/` | Validates; every spawn point drivable and above the kill plane |
 
 ---
 

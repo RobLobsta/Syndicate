@@ -32,6 +32,8 @@ public record ShapeCacheKey(AssetId assetId, Variant variant, int index) {
         COMPOUND,
         /** Static arena geometry: a mesh shape, never used for a dynamic body. */
         STATIC_MESH,
+        /** An arena's generated ground: a {@code btHeightfieldTerrainShape} (D16-S5.8). */
+        HEIGHTFIELD,
         /** A primitive built from parameters rather than art — boxes, spheres, the ground plane. */
         PRIMITIVE
     }

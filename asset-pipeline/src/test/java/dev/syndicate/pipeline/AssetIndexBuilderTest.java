@@ -33,7 +33,12 @@ class AssetIndexBuilderTest {
         assertThat(index.path("materials")).isNotEmpty();
         assertThat(index.path("parts")).hasSize(6);
         assertThat(index.path("vehicles")).hasSize(2);
-        assertThat(index.path("arenas")).hasSize(1);
+        // Two arenas: the flat scrapyard and the generated desert. The pipeline validates a terrain
+        // block without generating the field — a 601-square grid at index-build time would make a
+        // content check as slow as a load (D16-S5.1).
+        assertThat(index.path("arenas")).hasSize(2);
+        assertThat(index.path("arenas").get(0).path("arenaId").asText()).isEqualTo("arena_desert_01");
+        assertThat(index.path("arenas").get(1).path("arenaId").asText()).isEqualTo("arena_scrapyard_01");
 
         // The vehicle summaries carry what the runtime and the balance check both need.
         ObjectNode eclipse = (ObjectNode) index.path("vehicles").get(0);

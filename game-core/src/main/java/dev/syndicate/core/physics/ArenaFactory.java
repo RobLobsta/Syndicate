@@ -9,6 +9,8 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
+import dev.syndicate.core.arena.TerrainField;
+import dev.syndicate.core.arena.TerrainGenerator;
 import dev.syndicate.core.asset.ArenaDef;
 import dev.syndicate.core.asset.MeshData;
 import dev.syndicate.core.component.RigidBodyComponent;
@@ -27,10 +29,10 @@ import org.slf4j.LoggerFactory;
 /**
  * Puts an arena's static geometry into the world (docs/04_entity_component_model.md#D04-S5.4).
  *
- * <p>A floor and four walls, built from the arena's own bounds. That is the whole of it, and it is
- * deliberately the whole of it: the point of an arena at this stage is that a vehicle has something
- * to drive on, something to crash into, and an edge it can be pushed over — the three things every
- * other system has been simulating against a test fixture's ground box.
+ * <p><b>Two kinds of arena.</b> An arena that declares a {@code terrain} block gets generated ground:
+ * one height field body, and no walls at all, because the border rise is the boundary (D16-S5.5).
+ * One that does not gets the floor and four box walls it always got — which stays a legal arena
+ * rather than a deprecated one (D16-R4), and is what every physics regression fixture is.
  *
  * <p><b>The collision is generated rather than loaded</b> (DEV-014). D08-S4.7 gives an arena a
  * {@code collision.glb}, and loading one needs a concave triangle-mesh shape with its own native
@@ -75,10 +77,13 @@ public final class ArenaFactory {
      *
      * @return the created entity ids, floor first, in the order the surfaces were built
      */
-    public static List<Integer> load(World world, PhysicsWorld physics, ShapeCache shapes, ArenaDef arena) {
+    public static LoadedArena load(World world, PhysicsWorld physics, ShapeCache shapes, ArenaDef arena) {
         if (arena == null) {
             LOG.warn("no arena to load; the world has no ground and nothing will stay in it");
-            return List.of();
+            return new LoadedArena(List.of(), null);
+        }
+        if (arena.hasTerrain()) {
+            return loadTerrain(world, physics, shapes, arena);
         }
         Vector3 min = arena.boundsMin();
         Vector3 max = arena.boundsMax();
@@ -133,7 +138,84 @@ public final class ArenaFactory {
                 min,
                 max,
                 arena.spawnPoints().size());
-        return List.copyOf(entities);
+        return new LoadedArena(List.copyOf(entities), null);
+    }
+
+    /**
+     * What loading an arena produced.
+     *
+     * <p>The terrain comes back rather than being stashed on a component, because at this stage the
+     * only things that want it are the caller's own — the renderer, which builds its mesh from the
+     * same grids the collision was built from (D16-R63). When per-surface grip lands and the tick
+     * loop needs it too, that is the moment to decide between a component and a field on the world,
+     * and not before.
+     *
+     * @param entities the static bodies created, floor or terrain first
+     * @param terrain the generated ground, or null for a flat arena
+     */
+    public record LoadedArena(List<Integer> entities, TerrainField terrain) {
+
+        public LoadedArena {
+            entities = List.copyOf(entities);
+        }
+    }
+
+    /**
+     * Generates an arena's ground and puts one height field body in the world (D16-S5.8).
+     *
+     * <p>No walls. The border rise (D16-S5.5) is the boundary, and it is a soft one on purpose: a
+     * car at speed gets part way up the rim and slides back, rather than stopping dead against
+     * something it cannot see. The kill plane stays as the hard backstop for anything that leaves
+     * anyway.
+     */
+    private static LoadedArena loadTerrain(World world, PhysicsWorld physics, ShapeCache shapes, ArenaDef arena) {
+        // Every spawn point gets a levelled pad (D16-S9 E2). Without them a spawn on a dune's slip
+        // face is a car dropped onto a wall it cannot climb, and which of the twelve points that
+        // happens to is a property of the seed — so it would be found by playing rather than by
+        // loading.
+        List<TerrainGenerator.Pad> pads = new ArrayList<>();
+        List<Vector3> spawnPositions = new ArrayList<>();
+        for (ArenaDef.SpawnPoint point : arena.spawnPoints()) {
+            spawnPositions.add(point.position());
+            pads.add(new TerrainGenerator.Pad(point.position().x, point.position().z, point.clearanceRadiusM()));
+        }
+
+        TerrainField field =
+                TerrainGenerator.generate(arena.boundsMin(), arena.boundsMax(), arena.groundY(), arena.terrain(), pads);
+        // D16-R27: an arena a player cannot get around, or can drive out of, is not a difficult
+        // arena but a broken one, and it must be caught here rather than by whoever spawns in the
+        // bowl. Hard failure rather than a warning, deliberately.
+        String finding = TerrainGenerator.playabilityFinding(field, spawnPositions);
+        if (finding != null) {
+            throw new IllegalStateException("arena " + arena.arenaId().value() + ": " + finding + " (D16-R58, A411)");
+        }
+
+        Entity entity = world.createEntity();
+        int entityId = entity.id();
+        ShapeCacheKey key = new ShapeCacheKey(arena.arenaId(), ShapeCacheKey.Variant.HEIGHTFIELD, 0);
+        btCollisionShape shape = shapes.heightFieldFor(key, field);
+
+        // Not groundY: Bullet centres a height field on the midpoint of its own height range
+        // (D16-R48). Placing it at the datum offsets the collision from the drawn surface by half
+        // the arena's relief, which looks exactly like a rendering bug and is not one.
+        Matrix4 transform = new Matrix4()
+                .setToTranslation(
+                        (arena.boundsMin().x + arena.boundsMax().x) * 0.5f,
+                        ShapeCache.heightFieldOriginY(field),
+                        (arena.boundsMin().z + arena.boundsMax().z) * 0.5f);
+        addStaticBody(world, physics, entityId, shape, key, transform);
+
+        LOG.info(
+                "arena {} loaded: {}x{} terrain, relief {}..{} m above y={}, {}% drivable, {} spawn points",
+                arena.arenaId().value(),
+                field.params().gridSize(),
+                field.params().gridSize(),
+                String.format("%.1f", field.minHeight()),
+                String.format("%.1f", field.maxHeight()),
+                arena.groundY(),
+                Math.round(field.drivableFraction() * 100f),
+                arena.spawnPoints().size());
+        return new LoadedArena(List.of(entityId), field);
     }
 
     /**

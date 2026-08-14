@@ -206,6 +206,7 @@ dev.syndicate.core
 ├── physics      Bullet world, shapes, vehicle controller, layers, stepping      (D06)
 ├── vehicle      Assembly, slot graph, stat aggregation                          (D05)
 ├── damage       Damage pipeline, propagation, state machine, fracture           (D07)
+├── arena        Terrain generation, height field, surfaces, drivability         (D16)
 ├── asset        Runtime loading + validation of parts/assemblies/arenas         (D08)
 ├── net          Transport iface, replication, prediction, reconciliation        (D10)
 │   └── kryo     KryoNet implementation (only place KryoNet types appear)

@@ -97,6 +97,7 @@ class MatchFlowSystemTest {
                         new ArenaDef.SpawnPoint("sp_2", -1, new Vector3(40f, 1f, 0f), 270f, 8f),
                         new ArenaDef.SpawnPoint("sp_3", -1, new Vector3(0f, 1f, 40f), 180f, 8f)),
                 Set.of(),
+                null,
                 null));
         return index;
     }

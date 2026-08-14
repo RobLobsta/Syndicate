@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.syndicate.core.ai.BotDifficultyParams;
 import dev.syndicate.core.ai.BotDifficultyTable;
+import dev.syndicate.core.arena.TerrainParams;
 import dev.syndicate.core.util.Transform;
 import dev.syndicate.core.vehicle.DegradationProfile;
 import dev.syndicate.core.vehicle.DegradationRule;
@@ -633,6 +634,8 @@ public final class AssetLoader {
             modes.add(mode);
         }
 
+        TerrainParams terrain = readTerrain(root.path("terrain"), arenaId, boundsMin, boundsMax, issues);
+
         index.put(new ArenaDef(
                 arenaId,
                 root.path("displayName").asText(arenaId.value()),
@@ -642,7 +645,78 @@ public final class AssetLoader {
                 groundY,
                 spawnPoints,
                 modes,
-                root.path("assets").path("collision").asText(null)));
+                root.path("assets").path("collision").asText(null),
+                terrain));
+    }
+
+    /**
+     * Reads the optional {@code terrain} block (D16-S4.2), or null when there is none.
+     *
+     * <p>A missing block is not a finding: a flat arena is legal (D16-R4). A block that is present
+     * and inconsistent with the arena's bounds is A410, and a block naming an unknown biome is A413.
+     * Both are errors rather than warnings, because every terrain query maps world to grid by
+     * arithmetic — a grid that does not cover the bounds does not fail, it silently reads the ground
+     * from the wrong place.
+     */
+    private TerrainParams readTerrain(
+            JsonNode node, AssetId arenaId, Vector3 boundsMin, Vector3 boundsMax, List<ValidationIssue> issues) {
+
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        TerrainParams.Biome biome =
+                enumValue(TerrainParams.Biome.class, node.path("biome").asText("DESERT"));
+        if (biome == null) {
+            issues.add(ValidationIssue.error(
+                    "A413",
+                    arenaId.value(),
+                    "unknown terrain biome \"" + node.path("biome").asText() + "\""));
+            return null;
+        }
+
+        float spanX = boundsMax.x - boundsMin.x;
+        float cellSizeM = (float) node.path("cellSizeM").asDouble(TerrainParams.DEFAULT_CELL_SIZE_M);
+        // The grid size defaults to whatever covers the bounds at the cell size, so the common case
+        // authors two numbers rather than three that have to agree.
+        int gridSize = node.path("gridSize").asInt(oddGridFor(spanX, cellSizeM));
+
+        TerrainParams params;
+        try {
+            params = new TerrainParams(
+                    node.path("seed").asLong(0L),
+                    cellSizeM,
+                    gridSize,
+                    biome,
+                    (float) node.path("reliefM").asDouble(16.0),
+                    (float) node.path("baseFrequency").asDouble(0.0035),
+                    node.path("octaves").asInt(5),
+                    (float) node.path("duneWindDeg").asDouble(115.0),
+                    (float) node.path("duneWavelengthM").asDouble(90.0),
+                    (float) node.path("duneHeightM").asDouble(9.0),
+                    (float) node.path("borderWidthM").asDouble(60.0),
+                    (float) node.path("borderRiseM").asDouble(40.0),
+                    (float) node.path("maxDrivableSlopeDeg").asDouble(TerrainParams.MAX_DRIVABLE_SLOPE_DEG));
+        } catch (IllegalArgumentException e) {
+            issues.add(ValidationIssue.error("A410", arenaId.value(), e.getMessage()));
+            return null;
+        }
+
+        float spanZ = boundsMax.z - boundsMin.z;
+        if (Math.abs(spanX - params.spanM()) > 1e-3f || Math.abs(spanZ - params.spanM()) > 1e-3f) {
+            issues.add(ValidationIssue.error(
+                    "A410",
+                    arenaId.value(),
+                    "terrain grid spans " + params.spanM() + " m but the arena bounds span " + spanX + " x " + spanZ
+                            + " m (D16-R5)"));
+            return null;
+        }
+        return params;
+    }
+
+    /** The smallest odd grid covering a span at a cell size, which is what D16-R5 requires. */
+    private static int oddGridFor(float spanM, float cellSizeM) {
+        int grid = Math.round(spanM / cellSizeM) + 1;
+        return (grid & 1) == 0 ? grid + 1 : grid;
     }
 
     private static boolean withinBounds(Vector3 point, Vector3 min, Vector3 max) {
