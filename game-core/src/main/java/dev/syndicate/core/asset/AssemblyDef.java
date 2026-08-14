@@ -31,6 +31,9 @@ import java.util.Objects;
  *
  * @param assemblyId the manifest's {@code vehicleTypeId}; what
  *     {@code VehicleChassisComponent.assemblyId} records
+ * @param displayName the manifest's {@code displayName} — the name a player is shown in the garage.
+ *     Never null: it falls back to the id, because a vehicle with no name on a selection screen is
+ *     worse than one named after its directory
  * @param vehicleClass {@code light}, {@code medium} or {@code heavy}; the power-budget class target
  *     is looked up by it (D05-R30)
  * @param chassisPartTypeId the root part, at slot path {@code root}
@@ -41,6 +44,7 @@ import java.util.Objects;
  */
 public record AssemblyDef(
         AssetId assemblyId,
+        String displayName,
         String vehicleClass,
         AssetId chassisPartTypeId,
         List<PartPlacement> parts,
@@ -49,6 +53,7 @@ public record AssemblyDef(
     public AssemblyDef {
         Objects.requireNonNull(assemblyId, "assemblyId");
         Objects.requireNonNull(chassisPartTypeId, "chassisPartTypeId");
+        displayName = displayName == null || displayName.isBlank() ? assemblyId.value() : displayName;
         vehicleClass = vehicleClass == null ? "medium" : vehicleClass;
         // Sorted here, once, rather than at every traversal. A parent's slot path is a prefix of its
         // children's and a prefix sorts first, so ascending slot path order *is* topological order
@@ -56,6 +61,21 @@ public record AssemblyDef(
         List<PartPlacement> sorted = new ArrayList<>(parts == null ? List.of() : parts);
         sorted.sort(Comparator.comparing(PartPlacement::slotPath));
         parts = List.copyOf(sorted);
+    }
+
+    /**
+     * The pre-{@code displayName} shape, for the many call sites that only care about the geometry.
+     *
+     * <p>Kept because a test that builds a two-wheel assembly to check a slot rule has no opinion
+     * about what the vehicle is called, and making all of them say {@code null} would be noise.
+     */
+    public AssemblyDef(
+            AssetId assemblyId,
+            String vehicleClass,
+            AssetId chassisPartTypeId,
+            List<PartPlacement> parts,
+            Expected expected) {
+        this(assemblyId, null, vehicleClass, chassisPartTypeId, parts, expected);
     }
 
     /**

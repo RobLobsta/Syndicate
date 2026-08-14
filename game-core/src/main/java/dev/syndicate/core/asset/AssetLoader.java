@@ -764,6 +764,7 @@ public final class AssetLoader {
 
         AssemblyDef assembly = new AssemblyDef(
                 assemblyId,
+                root.path("displayName").asText(assemblyId.value()),
                 root.path("vehicleClass").asText("medium"),
                 chassis,
                 placements,

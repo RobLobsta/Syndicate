@@ -42,6 +42,11 @@ gdx-backend-headless = { module = "com.badlogicgames.gdx:gdx-backend-headless", 
 gdx-bullet           = { module = "com.badlogicgames.gdx:gdx-bullet",           version.ref = "gdx" }
 gdx-bullet-platform  = { module = "com.badlogicgames.gdx:gdx-bullet-platform",  version.ref = "gdx" }
 gdx-gltf             = { module = "com.github.mgsx-dev.gdx-gltf:gltf",          version.ref = "gdxGltf" }
+# FreeType, for menu type that is sharp at any size. The default BitmapFont is a 15 px
+# raster and the shell draws headings five times that; scaling it is visibly mush.
+# Client-only: no other module draws text (D03-S4.1). See DEC-072.
+gdx-freetype         = { module = "com.badlogicgames.gdx:gdx-freetype",         version.ref = "gdx" }
+gdx-freetype-platform = { module = "com.badlogicgames.gdx:gdx-freetype-platform", version.ref = "gdx" }
 # Gamepads. `core` is the API, `desktop` the LWJGL/Jamepad backend; both are client-only
 # because a dedicated server polls no devices (D03-S4.1).
 gdx-controllers-core = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-core",    version.ref = "gdxControllers" }

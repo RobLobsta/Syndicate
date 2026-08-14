@@ -6,6 +6,7 @@ package dev.syndicate.client;
 
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
+import dev.syndicate.client.shell.ScreenId;
 import dev.syndicate.model.ExitCode;
 import dev.syndicate.model.config.ConfigException;
 import dev.syndicate.model.config.LaunchConfig;
@@ -29,9 +30,11 @@ import org.slf4j.LoggerFactory;
  * fail with a diagnosis and an exit code. Everything from step 3 needs a GL context and lives in
  * {@link SyndicateApplicationListener}.
  *
- * <p>Two arguments beyond {@link LaunchConfig}'s: {@code --capture FILE} and {@code --capture-frame
- * N} run the real client for N frames, write a PNG and exit. That is how a machine with no display
- * — CI, and this project's own sandbox — verifies that what was built actually draws.
+ * <p>Three arguments beyond {@link LaunchConfig}'s. {@code --capture FILE} and {@code
+ * --capture-frame N} run the real client for N frames, write a PNG and exit — that is how a machine
+ * with no display (CI, and this project's own sandbox under {@code xvfb-run}) verifies that what was
+ * built actually draws. {@code --start-screen ID} opens on a named screen, which is what lets a
+ * capture photograph the garage without a human navigating to it.
  */
 public final class ClientMain {
 
@@ -53,10 +56,12 @@ public final class ClientMain {
         List<String> remaining = new ArrayList<>();
         Path capturePath = null;
         int captureFrame = DEFAULT_CAPTURE_FRAME;
+        ScreenId startScreen = null;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--capture" -> capturePath = Path.of(args[++i]);
                 case "--capture-frame" -> captureFrame = Math.max(1, Integer.parseInt(args[++i]));
+                case "--start-screen" -> startScreen = ScreenId.parse(args[++i]);
                 default -> remaining.add(args[i]);
             }
         }
@@ -80,7 +85,15 @@ public final class ClientMain {
             return ExitCode.MODE_UNAVAILABLE;
         }
 
-        SyndicateApplicationListener listener = new SyndicateApplicationListener(config, capturePath, captureFrame);
+        // `--auto-start` means "I have already made the choices a menu would ask for" — it is the
+        // flag D03-S4.2 gives for a lobby that does not wait, and skipping the menu is the same
+        // statement one screen earlier. Every headless capture and every CI run takes this path.
+        ScreenId resolvedStart =
+                startScreen != null ? startScreen : config.autoStart() ? ScreenId.MATCH : ScreenId.MAIN_MENU;
+        LOG.info("opening on {}", resolvedStart);
+
+        SyndicateApplicationListener listener =
+                new SyndicateApplicationListener(config, capturePath, captureFrame, resolvedStart);
         try {
             new Lwjgl3Application(listener, lwjgl3Config(config));
         } catch (RuntimeException e) {

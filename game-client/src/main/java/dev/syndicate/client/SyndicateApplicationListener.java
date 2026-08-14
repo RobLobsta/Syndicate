@@ -8,6 +8,9 @@ import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.PixmapIO;
+import dev.syndicate.client.shell.GameShell;
+import dev.syndicate.client.shell.MatchScreen;
+import dev.syndicate.client.shell.ScreenId;
 import dev.syndicate.model.ExitCode;
 import dev.syndicate.model.config.LaunchConfig;
 import java.nio.file.Path;
@@ -38,24 +41,26 @@ public final class SyndicateApplicationListener implements ApplicationListener {
     private final LaunchConfig config;
     private final Path capturePath;
     private final int captureFrame;
+    private final ScreenId startScreen;
 
-    private ClientRuntime runtime;
-    private ClientLoop loop;
+    private GameShell shell;
     private ExitCode exitCode = ExitCode.OK;
     private int frame;
 
     public SyndicateApplicationListener(LaunchConfig config) {
-        this(config, null, -1);
+        this(config, null, -1, ScreenId.MAIN_MENU);
     }
 
     /**
      * @param capturePath where to write a PNG, or null to run interactively
      * @param captureFrame which frame to capture on; frames before it are simulated and drawn
+     * @param startScreen which screen the window opens on
      */
-    public SyndicateApplicationListener(LaunchConfig config, Path capturePath, int captureFrame) {
+    public SyndicateApplicationListener(LaunchConfig config, Path capturePath, int captureFrame, ScreenId startScreen) {
         this.config = config;
         this.capturePath = capturePath;
         this.captureFrame = captureFrame;
+        this.startScreen = startScreen;
     }
 
     /** The code the process should exit with once the application has closed. */
@@ -66,8 +71,7 @@ public final class SyndicateApplicationListener implements ApplicationListener {
     @Override
     public void create() {
         try {
-            runtime = ClientRuntime.start(config);
-            loop = new ClientLoop();
+            shell = new GameShell(config, startScreen);
         } catch (ClientRuntime.StartupException e) {
             LOG.error("{}", e.getMessage(), e.getCause());
             exitCode = e.exitCode();
@@ -81,16 +85,20 @@ public final class SyndicateApplicationListener implements ApplicationListener {
 
     @Override
     public void render() {
-        if (runtime == null) {
+        if (shell == null) {
             return;
         }
         try {
-            loop.advance(runtime.world(), Gdx.graphics.getDeltaTime());
+            shell.render(Gdx.graphics.getDeltaTime());
         } catch (RuntimeException e) {
-            // D03-S5.6: an unhandled exception in a system logs the tick and attempts a clean
+            // D03-S5.6: an unhandled exception in a system logs the screen and attempts a clean
             // shutdown rather than leaving Bullet's natives to a JVM abort.
-            LOG.error("unhandled exception at tick {}", loop.tick(), e);
+            LOG.error("unhandled exception on screen {}", shell.currentScreenId(), e);
             exitCode = ExitCode.INTERNAL_ERROR;
+            Gdx.app.exit();
+            return;
+        }
+        if (shell.isQuitRequested()) {
             Gdx.app.exit();
             return;
         }
@@ -108,16 +116,25 @@ public final class SyndicateApplicationListener implements ApplicationListener {
         pixmap.dispose();
         PixmapIO.writePNG(Gdx.files.absolute(capturePath.toAbsolutePath().toString()), upright);
         upright.dispose();
-        LOG.info(
-                "captured frame {} to {} at tick {}: {} models drawn, {} particle quads this frame "
-                        + "(peak {} over the run), {} dropped ticks",
-                frame,
-                capturePath,
-                loop.tick(),
-                runtime.provider().renderSystem().drawnThisFrame(),
-                runtime.render().particles().quadCount(),
-                runtime.render().particles().peakQuadCount(),
-                loop.droppedTicks());
+
+        // A menu capture has no world to report on, so the scene detail is only added when there
+        // is a match behind it. Reporting zeroes for a screen that has no ticks would read as a
+        // simulation that stopped rather than one that was never started.
+        if (shell.current() instanceof MatchScreen match) {
+            LOG.info(
+                    "captured frame {} to {} on {} at tick {}: {} models drawn, {} particle quads this "
+                            + "frame (peak {} over the run), {} dropped ticks",
+                    frame,
+                    capturePath,
+                    shell.currentScreenId(),
+                    match.loop().tick(),
+                    match.runtime().provider().renderSystem().drawnThisFrame(),
+                    match.runtime().render().particles().quadCount(),
+                    match.runtime().render().particles().peakQuadCount(),
+                    match.loop().droppedTicks());
+        } else {
+            LOG.info("captured frame {} to {} on {}", frame, capturePath, shell.currentScreenId());
+        }
     }
 
     /**
@@ -139,8 +156,8 @@ public final class SyndicateApplicationListener implements ApplicationListener {
 
     @Override
     public void resize(int width, int height) {
-        if (runtime != null) {
-            runtime.render().resize(width, height);
+        if (shell != null) {
+            shell.resize(width, height);
         }
     }
 
@@ -157,9 +174,9 @@ public final class SyndicateApplicationListener implements ApplicationListener {
 
     @Override
     public void dispose() {
-        if (runtime != null) {
-            runtime.close();
-            runtime = null;
+        if (shell != null) {
+            shell.dispose();
+            shell = null;
         }
     }
 }

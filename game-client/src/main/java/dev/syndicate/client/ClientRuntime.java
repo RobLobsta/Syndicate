@@ -28,6 +28,7 @@ import dev.syndicate.core.system.CoreSystemProvider;
 import dev.syndicate.core.system.SystemSetFactory;
 import dev.syndicate.core.util.NativeResourceTracker;
 import dev.syndicate.core.vehicle.SpawnQueue;
+import dev.syndicate.model.AssetId;
 import dev.syndicate.model.ExitCode;
 import dev.syndicate.model.SimulationConstants;
 import dev.syndicate.model.config.LaunchConfig;
@@ -109,10 +110,24 @@ public final class ClientRuntime implements AutoCloseable {
      * @throws StartupException with the D03-S4.4 exit code for the step that failed
      */
     public static ClientRuntime start(LaunchConfig config) {
-        Objects.requireNonNull(config, "config");
-        initialiseNatives(config);
+        return start(config, loadAssets(config), null);
+    }
 
-        InMemoryAssetIndex assets = loadAssets(config);
+    /**
+     * Steps 3 through 8, against content that is already loaded and a vehicle the player picked.
+     *
+     * <p>Split out so the shell can load the catalogue once at startup and build a match from it
+     * repeatedly: the garage has to list the vehicles before any world exists, and a player who
+     * finishes a match and starts another should not wait for every mesh to be re-read.
+     *
+     * @param assets the content index, loaded once and outliving this runtime
+     * @param selectedAssembly the vehicle the local player drives, or null to take the first in the
+     *     catalogue — which is what a launch with {@code --auto-start} and no menu does
+     */
+    public static ClientRuntime start(LaunchConfig config, InMemoryAssetIndex assets, AssetId selectedAssembly) {
+        Objects.requireNonNull(config, "config");
+        Objects.requireNonNull(assets, "assets");
+        initialiseNatives(config);
 
         World world = WorldFactory.create(config);
         PhysicsWorld physics = PhysicsWorld.create();
@@ -149,7 +164,7 @@ public final class ClientRuntime implements AutoCloseable {
         // failed to connect" must not look alike in a log.
         LOG.warn("no transport is implemented; this client hosts its own match only (D03-S5.1 step 7)");
 
-        bootstrapMatch(world, assets, config, localPlayer, provider);
+        bootstrapMatch(world, assets, config, localPlayer, provider, selectedAssembly);
 
         return new ClientRuntime(config, world, physics, shapes, render, sounds, provider, localPlayer);
     }
@@ -167,7 +182,8 @@ public final class ClientRuntime implements AutoCloseable {
             InMemoryAssetIndex assets,
             LaunchConfig config,
             LocalPlayer localPlayer,
-            ClientSystemProvider provider) {
+            ClientSystemProvider provider,
+            AssetId selectedAssembly) {
 
         MatchRulesComponent rules = world.getComponent(EntityId.MATCH, MatchRulesComponent.class);
         MatchClockComponent clock = world.getComponent(EntityId.MATCH, MatchClockComponent.class);
@@ -175,12 +191,14 @@ public final class ClientRuntime implements AutoCloseable {
             clock.timeLimitTicks = DEFAULT_TIME_LIMIT_TICKS;
         }
         if (rules != null) {
-            // A single player pressing "play" is the readiness signal a lobby would otherwise wait
-            // for, and there is no menu to give it in (D11-S5.7).
+            // Pressing DEPLOY in the garage *is* the readiness signal a lobby waits for (D11-S5.7).
+            // Reaching this constructor at all means the player has given it, so the lobby has
+            // nothing left to wait for and starting the countdown immediately is correct.
             rules.autoStart = true;
         }
 
-        int playerEntity = LocalPlayerFactory.join(world, assets, config.gameMode(), LocalPlayerFactory.DEFAULT_NAME);
+        int playerEntity = LocalPlayerFactory.join(
+                world, assets, config.gameMode(), LocalPlayerFactory.DEFAULT_NAME, selectedAssembly);
         localPlayer.setPlayerEntity(playerEntity);
         provider.inputCollection().setLocalPlayer(playerEntity);
     }
@@ -220,8 +238,13 @@ public final class ClientRuntime implements AutoCloseable {
         }
     }
 
-    /** Step 5: content, with the strict/degrade split of D03-S5.1 and G18. */
-    private static InMemoryAssetIndex loadAssets(LaunchConfig config) {
+    /**
+     * Step 5: content, with the strict/degrade split of D03-S5.1 and G18.
+     *
+     * <p>Public because the shell calls it before the first screen, not before the first match:
+     * the garage lists what this returns.
+     */
+    public static InMemoryAssetIndex loadAssets(LaunchConfig config) {
         Path assetRoot = config.assetRoot();
         if (assetRoot == null || !Files.isDirectory(assetRoot)) {
             throw new StartupException(

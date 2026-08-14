@@ -152,7 +152,7 @@ public final class LaunchConfigResolver {
                 botCount,
                 enumValue(values, "bot-difficulty", BotDifficulty.class, BotDifficulty.NORMAL),
                 longValue(values, "seed", new Random().nextLong()),
-                path(values, "assets", Path.of("assets")),
+                resolveAssetRoot(path(values, "assets", Path.of("assets"))),
                 bool(values, "strict-assets", false),
                 integer(values, "snapshot-rate", dev.syndicate.model.SimulationConstants.SNAPSHOT_RATE_HZ),
                 values.getOrDefault("log-level", "INFO").toUpperCase(Locale.ROOT),
@@ -410,5 +410,58 @@ public final class LaunchConfigResolver {
         map.put("time-limit", "timeLimitSeconds");
         map.put("console", "adminConsole");
         return Map.copyOf(map);
+    }
+
+    /**
+     * The content directory, found beside the executable when it is not beside the shell.
+     *
+     * <p>The default is the <em>relative</em> path {@code assets}, which resolves against the
+     * process working directory. That is right for {@code ./gradlew run} in a clone and wrong for
+     * a packaged build: double-clicking an installed game gives it whatever working directory the
+     * desktop happened to hand it, and the game would start, load nothing, and present an empty
+     * garage — a content bug's symptoms for a path problem's cause.
+     *
+     * <p>So an unresolvable <b>relative</b> root is retried beside the running code, walking out of
+     * the {@code app/} or {@code lib/} directory a packager puts jars in. Resolved <b>here</b>, once,
+     * rather than at the point content is read: the loader is only one of six things that open a
+     * file under this root, and fixing it alone produced a build that found its vehicles and then
+     * could not find their meshes, their sounds or its own typeface.
+     *
+     * <p>An absolute root is never second-guessed. Somebody who passed {@code --assets D:\mods}
+     * meant it, and silently loading different content than they named is worse than failing.
+     */
+    static Path resolveAssetRoot(Path configured) {
+        if (configured == null || Files.isDirectory(configured) || configured.isAbsolute()) {
+            return configured;
+        }
+        for (Path base : installationRoots()) {
+            Path candidate = base.resolve(configured);
+            if (Files.isDirectory(candidate)) {
+                return candidate;
+            }
+        }
+        return configured;
+    }
+
+    /** Directories a packaged build might hold its content in, nearest first. */
+    private static List<Path> installationRoots() {
+        try {
+            Path codeLocation = Path.of(LaunchConfigResolver.class
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI())
+                    .toAbsolutePath();
+            Path jarDir = Files.isDirectory(codeLocation) ? codeLocation : codeLocation.getParent();
+            if (jarDir == null) {
+                return List.of();
+            }
+            Path parent = jarDir.getParent();
+            return parent == null ? List.of(jarDir) : List.of(jarDir, parent);
+        } catch (RuntimeException | java.net.URISyntaxException e) {
+            // A class loader that cannot say where it loaded from just means this fallback has
+            // nothing to offer, and the configured path stands.
+            return List.of();
+        }
     }
 }
