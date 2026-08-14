@@ -14,7 +14,7 @@ At the start of every task, you must orient yourself by doing the following:
 
 1. **Read Core Manuals**: Read `CLAUDE.md` (for the primary workflow and persistent memory rules) and `JULES.md` (for the strict review standards).
 2. **Review Persistent Memory**: Read `.agent-memory/INDEX.md` and any relevant entries in `progress/`, `decisions/`, and `spec_deviations/` for the current subsystem.
-3. **Parallel Subagent Processing**: The specifications in `docs/` (D00-D14) are dense and contractual. **You must explicitly instruct parallel subagents to concurrently read and summarize the relevant blueprint documents** (e.g., `06_physics_simulation.md`, `07_damage_destruction_model.md`). Do not attempt to guess or write code without your subagents verifying the exact requirements.
+3. **Parallel Subagent Processing**: The specifications in `docs/` (D00-D16) are dense and contractual. **You must explicitly instruct parallel subagents to concurrently read and summarize the relevant blueprint documents** (e.g., `06_physics_simulation.md`, `07_damage_destruction_model.md`). Do not attempt to guess or write code without your subagents verifying the exact requirements.
 
 ---
 
@@ -29,7 +29,7 @@ The Syndicate project is not a generic Java application. It is a highly constrai
 - **Gradle 8.7+ (Kotlin DSL)**: Dependency versions are strictly managed in `gradle/libs.versions.toml`.
 
 ### Contractual Blueprint Verification
-You must anchor all code changes to the 15 specification documents in `docs/`.
+You must anchor all code changes to the 17 specification documents in `docs/` (D00-D16).
 1. **Cite Stable IDs**: When writing code comments or memory entries, you must cite stable blueprint IDs (e.g., `docs/06_physics_simulation.md#D06-S4.2`).
 2. **Observe Invariants (G1-G20)**: Pay special attention to `G2` (fixed timestep), `G3` (deterministic ordering via sorted collections), and `G19` (explicit disposal of all native Bullet objects via `NativeResourceTracker`).
 3. **Execution Rules**: Before finalizing logic, you must compile and test your code locally in the Linux workspace using `./gradlew spotlessApply` (for formatting) and `./gradlew check`. If touching simulation logic, verify against the headless harness with `./gradlew :game-core:test -Ptags=physics`.

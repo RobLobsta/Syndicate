@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/08_asset_pipeline.md#D08-S4.2, docs/05_vehicle_part_system.md#D05-S5.6, docs/03_runtime_modes.md#D03-S5.1
 
-**Status:** active
+**Status:** superseded (by PROG-028)
 
 ## Summary
 `assets/` holds two complete vehicles — six part types and two assemblies — whose mass, power,

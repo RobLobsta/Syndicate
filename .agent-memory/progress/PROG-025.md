@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/16_procedural_arena_generation.md#D16-S5.1, docs/16_procedural_arena_generation.md#D16-S5.8, docs/08_asset_pipeline.md#D08-S4.7
 
-**Status:** active
+**Status:** superseded (by PROG-030)
 
 ## Summary
 Stage 1 of D16 is implemented: an arena with a `terrain` block generates a height field from its

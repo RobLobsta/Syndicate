@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/15_vehicle_preparation_pipeline.md#D15-S5.1, docs/15_vehicle_preparation_pipeline.md#D15-S5.8, docs/09_blender_destruction_tool.md#D09-S5.2.1, docs/08_asset_pipeline.md#D08-S4.2
 
-**Status:** active
+**Status:** superseded (by PROG-029)
 
 ## Summary
 `syndicate_prepare` implements all nine stages of D15-S5.1. Given a directory holding a downloaded

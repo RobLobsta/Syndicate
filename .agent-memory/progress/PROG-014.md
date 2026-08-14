@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/04_entity_component_model.md#D04-S4.4, docs/07_damage_destruction_model.md#D07-S5.2, docs/01_product_game_design.md#D01-S4.4
 
-**Status:** active
+**Status:** superseded (by PROG-026)
 
 ## Summary
 The five combat systems of Phase 5 exist: collisions become damage, damage drives the state machine
