@@ -61,7 +61,7 @@ If a review would genuinely benefit from running something (a test, the harness,
 
 ## 4. Blueprint Document Reference
 
-`docs/` contains 15 contractual specification documents. Jules cites these in every review.
+`docs/` contains 17 contractual specification documents. Jules cites these in every review.
 
 | File | What it specifies |
 |---|---|
@@ -80,6 +80,8 @@ If a review would genuinely benefit from running something (a test, the harness,
 | `docs/12_testing_validation_ci.md` | Test levels, deterministic physics regression pattern, CI pipeline and gates, performance budgets, regression catalogue |
 | `docs/13_persistent_memory_system.md` | The `.agent-memory/` system: layout, entry format, write and read triggers, lifecycle, lint rules |
 | `docs/14_test_environment.md` | Verification harness: asset checks, physics checks, destruction progression, vehicle integration, visual and headless modes, fixtures, report schema, tolerances |
+| `docs/15_vehicle_preparation_pipeline.md` | Turning a downloaded vehicle model into labelled parts: taxonomy, cue ensemble, `parts.json` overrides, geometry repair, hinge rigging, per-class destruction authoring, audio inventory |
+| `docs/16_procedural_arena_generation.md` | Runtime terrain and sky generation: height field, dunes and slopes, road carving, ground surfaces, structure placement, destructible structures |
 
 ### ID convention
 

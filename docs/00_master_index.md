@@ -44,7 +44,7 @@ This document does not specify game systems directly. It constrains the document
 
 | Dependency | Kind | Notes |
 |---|---|---|
-| D01–D15 | Internal | This index summarises and constrains them. |
+| D01–D16 | Internal | This index summarises and constrains them. |
 | Markdown (CommonMark + GFM tables) | Format | All docs are GFM Markdown. |
 | Git | Tooling | Docs and `.agent-memory/` are version controlled. |
 
@@ -100,6 +100,7 @@ The section path `99.9` is **reserved and never allocated in any document**. It 
 | D13 | `13_persistent_memory_system.md` | `.agent-memory/` structure, entry format, triggers |
 | D14 | `14_test_environment.md` | Verification harness, checks, tolerances, fixtures, report schema |
 | D15 | `15_vehicle_preparation_pipeline.md` | Vehicle segmentation, labelling, geometry repair, rigging, destruction authoring, audio inventory |
+| D16 | `16_procedural_arena_generation.md` | Terrain, sky, road corridors, ground surfaces, structure placement and destructible structures |
 
 <!-- D00-S4.3 -->### 4.3 Units and Numeric Conventions
 
@@ -258,7 +259,7 @@ This check is run by CI (D12-S5.4) and is a blocking gate.
 
 <!-- D00-S5.4 -->### 5.4 Required Section Structure
 
-**R23.** Every document D01–D15 MUST contain, in this order, sections titled:
+**R23.** Every document D01–D16 MUST contain, in this order, sections titled:
 
 1. Purpose
 2. Scope (including an explicit non-goals subsection)
@@ -281,6 +282,7 @@ Documents that currently carry extra top-level sections, and why:
 | D09 | `S6` Mass Assignment and Material Data, `S7` Verification Pipeline, `S8` Determinism, `S9` Error Reporting | `S13` |
 | D14 | `S7` Test Fixtures | `S10` |
 | D15 | `S8` Audio Inventory | `S10` |
+| D16 | `S6` Rendering, `S7` Destructible Structures | `S11` |
 
 ```pseudo
 function requiredSectionsPresent(doc):
@@ -461,23 +463,35 @@ Specifies the verification harness that bridges the Blender tool and the game: a
 
 Specifies how a downloaded whole-vehicle model becomes labelled game parts: the closed part-label taxonomy and the slot role and destruction class each label carries, the four-family cue ensemble (geometric, material-physical, material-nominal, structural) with its confidence model and precedence order, the per-model `parts.json` override keyed by material rather than by shell, connected-shell separation and the grouping rules that replace spatial clustering, the rotational-symmetry test that separates what turns with a wheel from what merely sits inside it, the geometry repair table and the rule that broken symmetry is reported and never repaired, hinge inference for doors and lids, the per-class destruction treatments, and the audio inventory a finished vehicle needs.
 
+<!-- D00-S7.16 -->### 7.16 `16_procedural_arena_generation.md` (D16)
+
+Specifies how an arena's ground and sky are generated at runtime from a seed: the height field and its
+layered generation (fractal relief, wind-oriented dune fields whose slip faces stand at the angle of
+repose, and a border rise that replaces the arena's invisible walls), road corridors carved from a
+spline into cut and fill with a limited grade, the closed surface table and how a surface reaches
+wheel grip, tyre audio and bot navigation, the height field collision shape with its two native traps,
+the terrain query API, the determinism rules that let terrain be derived on every peer instead of
+replicated, chunked rendering with generated tiling textures, an analytic sky that drives the skybox,
+image-based lighting, sun and fog from one set of numbers, and destructible structures specified as
+assemblies so that the existing damage, fracture and detach systems break them with no new system.
+
 ---
 
 <!-- D00-S8 -->## 8. Acceptance Criteria
 
 A conforming documentation set satisfies all of the following. Each is mechanically checkable.
 
-- [ ] **AC-D00-1.** Exactly 16 files exist in `docs/`, named per D00-S4.2.
+- [ ] **AC-D00-1.** Exactly 17 files exist in `docs/`, named per D00-S4.2.
 - [ ] **AC-D00-2.** Every `##`/`###`/`####` header in `docs/` is preceded by a stable ID comment matching the grammar in D00-S4.1.
 - [ ] **AC-D00-3.** Every ID's document number matches its containing file's numeric prefix.
 - [ ] **AC-D00-4.** All IDs are globally unique.
 - [ ] **AC-D00-5.** Every citation of the form `docs/*.md#Dxx-Sy` resolves to a declared ID in the named file.
-- [ ] **AC-D00-6.** Every document D01–D15 contains the nine required top-level sections in order (D00-S5.4).
+- [ ] **AC-D00-6.** Every document D01–D16 contains the nine required top-level sections in order (D00-S5.4).
 - [ ] **AC-D00-7.** Every glossary term used in another document carries the D00-S6 meaning; no document defines a conflicting meaning for a glossary term.
 - [ ] **AC-D00-8.** No document restates a constant from D00-S6.4 with a different value.
 - [ ] **AC-D00-9.** No document specifies a unit contradicting D00-S4.3.
 - [ ] **AC-D00-10.** Each of G1–G20 is honoured by at least one concrete mechanism specified in a downstream document, and contradicted by none.
-- [ ] **AC-D00-11.** `CLAUDE.md` and `JULES.md` exist in the repository root and list all 15 documents.
+- [ ] **AC-D00-11.** `CLAUDE.md` and `JULES.md` exist in the repository root and list all 17 documents.
 - [ ] **AC-D00-12.** `.agent-memory/INDEX.md` exists and conforms to D13-S4.3.
 - [ ] **AC-D00-13.** Running `validateCrossReferences(docs/)` (D00-S5.3) returns OK.
 
@@ -489,7 +503,7 @@ A conforming documentation set satisfies all of the following. Each is mechanica
 |---|---|---|
 | E1 | Two documents define the same term differently | Blocking documentation defect. Resolve by D00-S5.1; the glossary in D00-S6 wins. |
 | E2 | A citation points to a retired ID | CI cross-reference check fails; the citing document must be updated. Retired IDs are never silently reused. |
-| E3 | A new document is proposed (D15+) | Not permitted without updating D00-S4.2 and both root operational files in the same change. |
+| E3 | A new document is proposed (D17+) | Not permitted without updating D00-S4.2 and both root operational files in the same change. |
 | E4 | An implementer needs a constant not in D00-S6.4 | Define it in the owning document, not here. Only *cross-cutting* constants live in D00-S6.4. |
 | E5 | A downstream doc needs a different tick rate for a mode | Not permitted. `TICK_RATE_HZ` is global (G2). A mode may change *snapshot* rate only. |
 | E6 | Blender authoring convention changes (e.g. Z-up removed) | Only D08/D09 change; R14–R16 remain, because the runtime convention is independent of the authoring tool. |
@@ -546,5 +560,9 @@ A conforming documentation set satisfies all of the following. Each is mechanica
 | Memory write/read triggers | `docs/13_persistent_memory_system.md#D13-S5.3` |
 | Verification report schema | `docs/14_test_environment.md#D14-S4.4` |
 | Tolerance table | `docs/14_test_environment.md#D14-S6.4` |
+| Terrain generation order | `docs/16_procedural_arena_generation.md#D16-S5.1` |
+| Ground surface table | `docs/16_procedural_arena_generation.md#D16-S4.4` |
+| Terrain determinism rules | `docs/16_procedural_arena_generation.md#D16-S5.12` |
+| Destructible structures | `docs/16_procedural_arena_generation.md#D16-S7` |
 
 **Sources consulted for this suite:** libGDX release notes and version index ([libgdx.com/dev/versions](https://libgdx.com/dev/versions/)), gdx-bullet artifact listing ([mvnrepository.com](https://mvnrepository.com/artifact/com.badlogicgames.gdx/gdx-bullet)), Bullet physics user manual, Blender Cell Fracture add-on documentation and the `bmesh` / `bpy.types.ShapeKey` API references.

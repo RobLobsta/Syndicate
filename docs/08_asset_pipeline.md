@@ -309,6 +309,9 @@ assets/
 │       └── fracture_manifest.json         # produced by the Blender tool (D09-S4.4)
 ├── vehicles/
 │   └── vehicle_medium_raider_01/assembly.json
+├── structures/
+│   └── str_gantry_sign_01/
+│       └── structure.json                 # a destructible static assembly (D16-S4.6)
 └── arenas/
     └── arena_scrapyard_01/
         ├── arena.json                     # spawn points, bounds, navmesh reference
@@ -316,6 +319,12 @@ assets/
         ├── visual.glb
         └── navmesh.bin                    # D11-S5.4
 ```
+
+**R14a.** `structures/` holds destructible static objects placed into arenas. A structure's *parts*
+are ordinary entries in `parts/` with ordinary fracture manifests — `structure.json` is an assembly
+manifest with a static root, and introduces no second part schema (D16-S4.6). A generated arena
+declares no `collision.glb`, no `visual.glb` and no `navmesh.bin`: all three are derived from its
+terrain block (D16-S5.1).
 
 <!-- D08-S4.7 -->### 4.7 Arena Definition (Summary)
 
@@ -341,6 +350,8 @@ assets/
 **R15.** `clearanceRadiusM` must be ≥ `MIN_SPAWN_SEPARATION_M` (D06-E7). Spawn points are validated to be above the ground collision and inside bounds.
 
 **R15a.** `groundY` is the height of the drivable floor, metres. It is authored rather than derived from the collision mesh so that an arena's floor height is a number the simulation can read before any geometry is loaded — which is what lets `ArenaFactory` generate a floor when `assets.collision` is absent (DEV-014), and what lets a spawn point be validated as above the ground without a mesh to test against.
+
+**R15b.** An arena MAY additionally carry the four optional blocks `terrain`, `roads`, `sky` and `structures`, whose schemas and semantics are owned by `docs/16_procedural_arena_generation.md#D16-S4`. When `terrain` is present, `groundY` becomes the datum the generated height field is expressed above, and `assets.collision` / `assets.visual` / `assets.navmesh` are ignored — all three are derived (D16-S5.1). When it is absent, an arena is exactly the flat floor and box walls specified above, which remains a legal and useful arena (D16-R4).
 
 ---
 
@@ -500,6 +511,12 @@ function AssetRegistry.load(assetRoot, headless):
 | A403 | ERROR | Fewer than 2 spawn points per team declared in `modes` |
 | A404 | ERROR | Missing collision or navmesh asset |
 | A405 | WARN | `killPlaneY` above `boundsMin.y` by less than 5 m |
+| A410 | ERROR | `terrain.gridSize` inconsistent with `bounds` and `cellSizeM` (D16-S9 E1) |
+| A411 | ERROR | A spawn point is unreachable from another over the drivable grid (D16-S9 E3) |
+| A412 | ERROR | A structure's `footprint.radiusM` does not enclose its geometry (D16-S9 E8) |
+| A413 | ERROR | `terrain.biome` names a value outside the closed set (D16-S9 E13) |
+| A414 | ERROR | Generated relief puts a spawn point below `killPlaneY` (D16-S9 E15) |
+| A415 | WARN | Every structure candidate for a placement rule was rejected (D16-S9 E7) |
 | **A5xx — mesh and manifest agreement** | | |
 | A501 | ERROR | `shards.glb` lacks a node named in the manifest |
 | A502 | ERROR | `mesh.glb` lacks a declared morph target |

@@ -8,12 +8,17 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
 import com.badlogic.gdx.physics.bullet.collision.btCompoundShape;
 import com.badlogic.gdx.physics.bullet.collision.btConvexHullShape;
+import com.badlogic.gdx.physics.bullet.collision.btHeightfieldTerrainShape;
 import com.badlogic.gdx.physics.bullet.collision.btShapeHull;
 import com.badlogic.gdx.physics.bullet.collision.btStaticPlaneShape;
+import dev.syndicate.core.arena.TerrainField;
 import dev.syndicate.core.asset.MeshData;
 import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.core.util.NativeResourceTracker;
 import dev.syndicate.model.AssetId;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -90,6 +95,9 @@ public final class ShapeCache implements AutoCloseable {
      */
     public static final int BT_SHAPE_HULL_VERTICES = 42;
 
+    /** Bullet's up-axis index for Y, which is the game's up (D00-R16). */
+    private static final int UP_AXIS_Y = 1;
+
     private static final Comparator<ShapeCacheKey> KEY_ORDER = Comparator.comparing(ShapeCacheKey::assetId)
             .thenComparing(ShapeCacheKey::variant)
             .thenComparingInt(ShapeCacheKey::index);
@@ -104,6 +112,15 @@ public final class ShapeCache implements AutoCloseable {
      * double-free of another.
      */
     private final Map<ShapeCacheKey, String> nativeKinds = new TreeMap<>(KEY_ORDER);
+
+    /**
+     * The direct buffers height field shapes are reading through (D16-R47).
+     *
+     * <p>Held for one reason only: to keep them reachable. Bullet borrows the pointer rather than
+     * copying the data, so dropping the last Java reference to one of these while its shape is alive
+     * is a use-after-free. They are cleared in {@link #dispose()}, after the shapes are gone.
+     */
+    private final Map<ShapeCacheKey, FloatBuffer> heightBuffers = new TreeMap<>(KEY_ORDER);
 
     /**
      * Live vehicle compounds by owning entity id. Sorted rather than hashed so teardown visits them
@@ -191,6 +208,86 @@ public final class ShapeCache implements AutoCloseable {
         shapes.put(key, plane);
         nativeKinds.put(key, "btStaticPlaneShape");
         return plane;
+    }
+
+    /**
+     * The height field shape for an arena's generated ground (D16-S5.8), building it on first request.
+     *
+     * <p><b>This shape borrows its height data; it does not copy it</b> (D16-R47). Bullet keeps a raw
+     * pointer to the buffer it is handed and reads through it on every collision and every ray for the
+     * rest of the shape's life. A heap {@code float[]}, or a non-direct buffer, or a direct buffer
+     * nothing holds a reference to, will be moved or collected and Bullet will then be reading freed
+     * memory — a crash with no frame of ours in the stack, at an arbitrary later tick. So the buffer is
+     * allocated direct here, held in {@link #heightBuffers} for exactly as long as the shape, and
+     * released with it. It is the first native object in this project whose <em>input</em> has to
+     * outlive the call that created it.
+     *
+     * <p><b>Bullet spaces samples one unit apart</b>, so the cell size arrives as a local scaling
+     * rather than as a constructor argument. Nothing in the height field's own API takes a spacing.
+     *
+     * @param key must name a {@link ShapeCacheKey.Variant#HEIGHTFIELD}
+     * @param field the generated ground; its {@code heights()} are copied once into native-visible
+     *     memory, after which the two are independent
+     * @return the shape, whose local origin is the <em>midpoint</em> of the field's height range —
+     *     see {@link #heightFieldOriginY} for the offset a caller must place it at
+     */
+    public btHeightfieldTerrainShape heightFieldFor(ShapeCacheKey key, TerrainField field) {
+        checkOpen();
+        btCollisionShape cached = shapes.get(key);
+        if (cached != null) {
+            return (btHeightfieldTerrainShape) cached;
+        }
+        if (key.variant() != ShapeCacheKey.Variant.HEIGHTFIELD) {
+            throw new IllegalArgumentException("a height field is not a " + key.variant() + " (D16-R46)");
+        }
+
+        float[] heights = field.heights();
+        FloatBuffer buffer = ByteBuffer.allocateDirect(heights.length * Float.BYTES)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer();
+        buffer.put(heights);
+        buffer.rewind();
+
+        int grid = field.params().gridSize();
+        btHeightfieldTerrainShape shape = new btHeightfieldTerrainShape(
+                grid,
+                grid,
+                buffer,
+                // Ignored for float data — Bullet applies it only when decoding integer heights —
+                // but it must still be 1 rather than 0, because a zero scale collapses the AABB.
+                1f,
+                field.minHeight(),
+                field.maxHeight(),
+                UP_AXIS_Y,
+                false);
+        NativeResourceTracker.register("btHeightfieldTerrainShape");
+
+        // Bullet's default triangulation splits every quad on the same diagonal, which gives the
+        // surface a directional bias: a vehicle crossing the grid one way rides differently from one
+        // crossing it the other, on ground that is supposed to be isotropic (D16-R49).
+        shape.setUseDiamondSubdivision(true);
+        shape.setLocalScaling(
+                new Vector3(field.params().cellSizeM(), 1f, field.params().cellSizeM()));
+        shape.setMargin(PhysicsWorld.COLLISION_MARGIN_M);
+
+        shapes.put(key, shape);
+        nativeKinds.put(key, "btHeightfieldTerrainShape");
+        heightBuffers.put(key, buffer);
+        return shape;
+    }
+
+    /**
+     * The world Y a height field body must be placed at, for its ground to be where the field says.
+     *
+     * <p><b>Bullet centres a height field on its own bounding box</b> (D16-R48): the shape's local
+     * origin sits at the midpoint of {@code (minHeight, maxHeight)}, not at zero and not at
+     * {@code minHeight}. Placing the body at {@code groundY} instead of here offsets the collision
+     * from the drawn surface by half the arena's relief — which looks exactly like a rendering bug,
+     * and is not one. This method exists so that the offset is computed in one place and cited from
+     * the one caller rather than rederived.
+     */
+    public static float heightFieldOriginY(TerrainField field) {
+        return field.groundY() + (field.minHeight() + field.maxHeight()) * 0.5f;
     }
 
     /**
@@ -366,6 +463,10 @@ public final class ShapeCache implements AutoCloseable {
         }
         shapes.clear();
         nativeKinds.clear();
+        // After the shapes, never before: while a height field shape is alive it is reading through
+        // one of these, and releasing the buffer first is exactly the use-after-free the map exists
+        // to prevent (D16-R47).
+        heightBuffers.clear();
     }
 
     /** True once {@link #dispose()} has run. */

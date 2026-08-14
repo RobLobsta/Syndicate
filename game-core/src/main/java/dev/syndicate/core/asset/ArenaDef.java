@@ -5,6 +5,7 @@
 package dev.syndicate.core.asset;
 
 import com.badlogic.gdx.math.Vector3;
+import dev.syndicate.core.arena.TerrainParams;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.GameMode;
 import java.util.Collections;
@@ -34,6 +35,7 @@ import java.util.TreeSet;
  * @param modes the game modes this arena supports (D01-S4.2)
  * @param collisionMeshRef the arena's collision geometry file, or null when its collision is
  *     generated from {@link #boundsMin} and {@link #boundsMax} (DEV-014)
+ * @param terrain the generated-ground parameters, or null for a flat arena (D16-R3, R4)
  */
 public record ArenaDef(
         AssetId arenaId,
@@ -44,7 +46,8 @@ public record ArenaDef(
         float groundY,
         List<SpawnPoint> spawnPoints,
         Set<GameMode> modes,
-        String collisionMeshRef) {
+        String collisionMeshRef,
+        TerrainParams terrain) {
 
     /**
      * Metres. The minimum clearance a spawn point must have (D06-E7, D08-R15).
@@ -87,6 +90,18 @@ public record ArenaDef(
         sorted.sort((a, b) -> a.id().compareTo(b.id()));
         spawnPoints = Collections.unmodifiableList(sorted);
         modes = modes == null || modes.isEmpty() ? Set.of() : Collections.unmodifiableSet(new TreeSet<>(modes));
+    }
+
+    /**
+     * Whether this arena's ground is generated rather than flat (D16-R4).
+     *
+     * <p>An arena that declares no {@code terrain} block is the flat floor and box walls that shipped
+     * before D16, and that stays a legal arena rather than a deprecated one — every physics
+     * regression fixture is one, and a test measuring a braking distance wants a floor, not a
+     * landform.
+     */
+    public boolean hasTerrain() {
+        return terrain != null;
     }
 
     /** Whether a point is inside the arena's bounds. */

@@ -110,9 +110,11 @@ class ArenaFactoryTest {
                     0f,
                     List.of(new ArenaDef.SpawnPoint("sp_a", 0, new Vector3(0f, 1f, 0f), 90f, 12f)),
                     java.util.Set.of(GameMode.DEATHMATCH),
+                    null,
                     null);
 
-            List<Integer> surfaces = ArenaFactory.load(scene.world(), scene.physics(), scene.shapes(), arena);
+            List<Integer> surfaces = ArenaFactory.load(scene.world(), scene.physics(), scene.shapes(), arena)
+                    .entities();
 
             assertThat(surfaces).as("a floor and four walls").hasSize(5);
             for (int entityId : surfaces) {
@@ -138,6 +140,7 @@ class ArenaFactoryTest {
                         new ArenaDef.SpawnPoint("sp_a", 0, new Vector3(-5f, 1f, 0f), 90f, 12f),
                         new ArenaDef.SpawnPoint("sp_b", 0, new Vector3(5f, 1f, 0f), 270f, 12f)),
                 java.util.Set.of(GameMode.DEATHMATCH),
+                null,
                 null);
 
         Matrix4 out = new Matrix4();
@@ -167,6 +170,7 @@ class ArenaFactoryTest {
                 0f,
                 List.of(),
                 java.util.Set.of(),
+                null,
                 null);
         assertThat(ArenaFactory.isBelowKillPlane(arena, new Vector3(0f, -14.9f, 0f)))
                 .isFalse();
