@@ -16,7 +16,7 @@ four-corner wheel model throws them away.
 Measured on a synthetic mid-century medium tank: 8.4 m long, 3.55 m wide, hull and turret as
 separate objects, a 3.6 m gun, six road wheels a side plus a sprocket and an idler, two track
 slabs, fenders, headlights and a vision block. Built to be ordinary rather than favourable —
-one object per visible assembly, materials named after their look, no `parts.json`.
+one object per assembly, materials named after their look, no `parts.json`.
 
 What the cues get right:
 
@@ -27,25 +27,26 @@ What the cues get right:
 | 2 headlights | `light` / `head` | 0.70 |
 | vision block | `glass` / `lens` | 0.59 |
 
-What they get wrong, and each for a different reason:
+What they get wrong, each for a different reason:
 
-- **The turret is `chassis`.** At 2.6 × 3.0 × 0.75 m it spans more than a third of the vehicle,
-  which is C1's rule for structure, and nothing in the taxonomy distinguishes a body that turns
-  from the body it turns on.
-- **The gun barrel is `chassis`**, by the same rule at 3.6 m long.
-- **The tracks are `panel` with role `sill`.** A 7.4 m slab down the flank at wheel height is,
-  by every measurement `_role_of` takes, a rocker panel.
-- **The fenders are `panel` with role `boot`** — a 6.5 m fender read as a bootlid.
-- The mantlet, cupola, stowage box and exhaust are `unclassified`.
+| Thing | Label | Why |
+|---|---|---|
+| turret | `chassis` | spans over a third of the vehicle, which is C1's rule for structure |
+| gun barrel | `chassis` | same rule, at 3.6 m long |
+| tracks | `panel` / `sill` | a 7.4 m slab down the flank at wheel height *is* a rocker panel |
+| fenders | `panel` / `boot` | a 6.5 m fender read as a bootlid |
+| mantlet, cupola, stowage, exhaust | `unclassified` | — |
+
+Nothing in the taxonomy distinguishes a body that turns from the body it turns on.
 
 Then the running gear is destroyed downstream. D15-S5.4 groups wheels into four corners; six
-road wheels in a continuous line have no front/rear split, so all eight round things a side
-were captured into **one** corner, giving a wheel of **diameter 7.04 m**. The dissolve check
-correctly concluded that a 7 m disc does not rotate about an axle and dissolved both corners,
-dumping 20 shells into the chassis. `corners: []`, and with no wheels there is no drivetrain.
+road wheels in a line have no front/rear split, so all eight round things a side were captured
+into **one** corner, giving a wheel of **diameter 7.04 m**. The dissolve check correctly
+concluded that a 7 m disc does not rotate about an axle and dissolved both corners, dumping 20
+shells into the chassis. `corners: []`, and with no wheels there is no drivetrain.
 
-Mass is the documented `--mass` fallback — 175 kg/m² over the footprint — which gives 5.2 t
-against a real tank's 40 t. That one is expected, not a finding.
+Mass is the documented `--mass` fallback — 175 kg/m² over the footprint — giving 5.2 t against
+a real tank's 40 t. That one is expected, not a finding.
 
 ## Rationale / Context
 Recorded to answer the question directly rather than by inference, and to mark where the line
@@ -55,15 +56,13 @@ car* — four corners, a sill at flank height, a hinged door, a bootlid at the b
 
 Supporting a tank is therefore not a tuning job on the cues. It needs a `turret` label with a
 yaw articulation (D15-S5.6 rigs hinges only), a `track` label whose destruction class is
-neither sheet metal nor rubber, and a wheel model that admits a road-wheel *set* per side
-instead of one wheel per corner. None of that is in D15 today, and none of it should be added
+neither sheet metal nor rubber, and a wheel model admitting a road-wheel *set* per side rather
+than one wheel per corner. None of that is in D15 today and none should be added
 speculatively — but the next session should not assume "drop in a tank" works because "drop in
 a model" does.
 
 ## Impact
-- A tank produces a valid, loadable, immobile asset. It fails no check, which is the point:
-  nothing here is a crash to find.
-- The four-corner assumption in D15-S5.4 is now known to be a vehicle-class assumption rather
-  than a general one.
-- The fixture lives in the scratchpad, not the repository; rebuild it from the session summary
-  if it is needed again.
+- A tank produces a valid, loadable, immobile asset. It fails no check, which is the point.
+- D15-S5.4's four-corner assumption is now known to be a vehicle-class assumption, not a
+  general one.
+- The fixture lives in the scratchpad, not the repository.

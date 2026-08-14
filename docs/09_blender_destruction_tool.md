@@ -417,7 +417,7 @@ function shellFracture(obj, args):
 
 **R11a.** The cut is **not filled**. A solid must be re-closed after every cut or its volume stops meaning anything; a surface has an open boundary already, and filling the cut would web each patch over.
 
-**R11b.** The coverage check compares the patches' area **as cut** against the source's, within 1%. It is deliberately not made by recovering an area from each finished slab's volume: `solidify` offsets along vertex normals, so a patch of convex curvature encloses more than `its own area × thickness` — 0.1% on a windscreen and 6% on a tightly curved quarter-light, measured on the two shipped cars. That excess is real glass and belongs in the shard's mass; folding it into this check only makes the check fail on curvature it was never about (`DISC-040`).
+**R11b.** The coverage check compares the patches' area **as cut** against the source's, within 1%. It is deliberately not made by recovering an area from each finished slab's volume: `solidify` offsets along vertex normals, so a patch of convex curvature encloses more than `its own area × thickness` — 0.1% on a windscreen and 6% on a tightly curved quarter-light, measured on the two shipped cars. That excess is real glass and belongs in the shard's mass; folding it into this check only makes the check fail on curvature it was never about (`DISC-043`).
 
 **R11c.** A shell part's volume for R16's mass is the **sum of its shards'**, not `area × thickness`. The two differ by exactly the curvature excess in R11b, and defining the part as its pieces is what makes G7 exact here rather than true to a tolerance — which is the property the solid path's fallback lost and the reason this path exists.
 

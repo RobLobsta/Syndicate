@@ -9,96 +9,76 @@
 ## Summary
 `syndicate_prepare` implements all nine stages of D15-S5.1. Given a directory holding a downloaded
 model and nothing else, it corrects the model's frame, cleans its topology, separates and labels it,
-refines those labels into roles a human would name, resolves which pieces turn with each wheel, rigs
-the panels that open, authors deformation and fracture per destruction class, and writes
-`assets/parts/<id>/{mesh.glb,part.json}` plus `assets/vehicles/vehicle_<name>_01/assembly.json`.
+refines those labels into roles, resolves which pieces turn with each wheel, rigs the panels that
+open, authors deformation and fracture per class, and writes the parts and the assembly.
 
 ## Details
 
-**Scope:** `blender-tool/syndicate_prepare`, and the two Gradle entry points over it. Supersedes PROG-019's rows for the preparation pipeline; its audio half is
-unchanged and is tracked by PROG-021 and PROG-022.
+**Scope:** `blender-tool/syndicate_prepare` and the two Gradle entry points over it. Supersedes
+PROG-019's preparation rows; its audio half is tracked by PROG-021 and PROG-022.
 
 **Status of Work:**
 
-| Stage (D15-S5.1) | State | Notes |
+| Area | State | Notes |
 |---|---|---|
-| 1 Load, pose, correct | done | Unchanged; `syndicate_dissect.load_model` (DISC-016) |
-| 2 Repair geometry | done | Now **applied**, not only reported: scale, yaw, placement and topology (DEC-065) |
-| 3 Separate into shells | done | Unchanged; 6,830 and 6,078 shells on the shipped cars |
-| 4 Label shells | done | Cue ensemble, plus roles (D15-R3a) and the wheel/hub symmetry pass (DEC-066) |
-| 5 Group into parts | done | Keyed on `(label, role, side, corner)` rather than `(label, side)` |
+| 1 Load, pose, correct (D15-S5.1) | done | Roots by weight and silhouette, not by parent (DISC-041) |
+| 2 Repair geometry | done | Applied, not only reported: scale, yaw, placement, topology (DEC-065) |
+| 3 Separate into shells | done | 2,879 and 2,460 shells on the shipped cars, after welding |
+| 4 Label shells | done | Cue ensemble, roles (D15-R3a), wheel/hub symmetry (DEC-066), doors (DEC-068) |
+| 5 Group into parts | done | Keyed on `(label, role, side, corner)` |
 | 6 Rig articulated parts | done | Doors, bonnet, boot; sign derived per part; D15-E9 swing check |
-| 7 Author destruction | done | Subdivide + morphs for deforming classes; **shell** fracture for glass (D09-S5.2.1) |
+| 7 Author destruction | done | Morphs for deforming classes; shell fracture for glass (D09-S5.2.1) |
 | 8 Re-origin and export | done | One mesh and one manifest per part, plus the assembly |
 | 9 Self-verify and report | done | The report says what was produced, not what was planned (D15-R46) |
+| Non-car vehicles | not_started | Prepares cars only; a tank yields one immobile chassis (DISC-042) |
+| Re-cut the shipped assets | not_started | `assets/parts` is still the old dissector's output |
+
+**History (append-only):**
+- 2026-08-13: stages 1-9 recorded done; glass fracture and Stampede doors recorded as gaps
+- 2026-08-14: glass fracture and doors done; DISC-042 and the re-cut added as open rows
 
 **Two commands, two consequences.** `:blender-tool:classifyVehicles` runs stages 1 to 6 and writes
-only a report — what to run when a threshold changed. `:blender-tool:prepareVehicles` runs all nine
-and writes committed content, so running it is a decision to re-cut the art. Neither is in `check`.
+only a report. `:blender-tool:prepareVehicles` runs all nine and writes committed content, so
+running it is a decision to re-cut the art. Neither is in `check`.
 
-**What a prepared vehicle looks like.** Measured on the synthetic pickup the tests carry: thirteen
-part types — chassis, two wheel types, two hub types, two doors, a bonnet, a windscreen, two
-headlamps, an interior and a badge — 2,106 kg total, a power budget of exactly 84.0 against the
-`heavy` class target, a centre of mass on the centreline at 0.87 m, front wheels steering and rear
-wheels driven. Doors and bonnet carry an `articulation` block; the windscreen carries shards and no
-morph targets; the wheels carry neither.
+Both shipped cars run end to end on Blender 4.2 in about 100 s each; the measurements are under
+Impact. `tools/verify_prepared.py` holds every exported mesh against its own manifest: **54 parts,
+2 vehicles, 0 findings** — nodes, morph targets, slot types, and the mass and power sums.
 
-**Run on both shipped cars, on Blender 4.2.** `bpy` is installed in this environment, so the
-geometry half is no longer unexercised. Each car takes about 100 s and comes out as:
+Seven defects surfaced on real art and were fixed: a material *name* seeding a wheel corner
+(DISC-037), a 214 kg brake hub (DEC-067), sliver faces that made morphs impossible (DISC-038), a
+duplicate-geometry crash in the hull builder, glass that could not be fractured as a solid
+(DISC-039), a coverage check that measured curvature (DISC-043), and a convex hull that was not
+convex on a slab of glass (DISC-040).
 
-| | Eclipse | Stampede |
+**Known gaps, in the order they will matter:** a part's material is decided by its label alone, so
+a carbon bonnet weighs what a steel one does; `regionLabels` is honoured but nothing generates one;
+the footprint mass estimate runs 8-9% under a real kerb weight, which puts the Stampede a class
+light unless `--mass` is given.
+
+## Rationale / Context
+PROG-019 recorded stages 1 to 6 with 7 and 8 as `not_started`, so a pipeline that quietly stopped
+early could not be mistaken for one that had finished. It has now finished, and that is the point
+of the subsystem: before it, preparing a vehicle meant a human deciding every part, mass, slot and
+manifest by hand.
+
+## Impact
+**Run on both shipped cars, on Blender 4.2**, about 100 s each:
+
+| Measure | Eclipse | Stampede |
 |---|---|---|
-| Shells after cleanup | 2,877 | 2,466 |
+| Shells after cleanup | 2,879 | 2,460 |
 | Labelled triangles | 88.4% | 99.4% |
-| Corners | 4 | 4 |
-| Front axle | `±0.8563, 1.4565` (shipped: `±0.8563, 1.4565`) | `±0.854, 1.354` |
-| Wheel mass | 36.1 / 39.5 kg (shipped: 37.5) | 32.7 / 35.8 kg |
-| Total mass | 1,619 kg (real: 1,500) | 1,784 kg (real: 1,969) |
-| Class / budget | medium / 74.0 (shipped: medium / 74.0) | medium / 74.0 |
+| Front axle | ±0.8563, 1.4565 (authored: identical) | ±0.854, 1.354 |
+| Wheel mass | 36.1 / 39.5 kg (authored 37.5) | 32.7 / 35.8 kg |
+| Total mass | 1,619 kg (real 1,500) | 1,784 kg (real 1,969) |
 | Part types | 25 | 25 |
-| Hinged panels | 2 doors | 2 doors (DEC-068) |
+| Hinged panels | 2 doors | 2 doors |
 | Glass panes fractured | 4 of 4, 24 shards each | 5 of 5, 24 shards each |
 | Chassis damage morphs | 4, at 0.03 m | 4, at 0.03 m |
 
-`tools/verify_prepared.py` opens every exported mesh and checks it against its own manifest:
-**54 parts, 2 vehicles, 0 findings.** Every `.glb` carries the node and the morph targets its
-`part.json` promises, every slot type accepts the part filling it, no slot is filled twice or
-left empty, and the masses and power costs sum to what the assemblies declare.
-
-Seven defects surfaced on real art and were fixed: a material *name* seeding a wheel corner
-(DISC-037), a mass rule that made a brake hub weigh 214 kg (DEC-067), sliver faces that made
-damage morphs impossible (DISC-038), a duplicate-geometry crash in the collision hull builder
-that the dissector had never triggered, glass that could not be fractured at all as a solid
-(DISC-039, fixed by D09-S5.2.1's shell path), a convex hull that was not convex on a slab of
-glass (DISC-040), and a scene-loading stage that deleted every object but one when the model
-had no common parent (DISC-041).
-
-**Known gaps, in the order they will matter:**
-
-- A part's material is decided by its label alone. A carbon bonnet weighs what a steel one does.
-  `parts.json` needs a `materialOverrides` block, and the report already says what each part got.
-- `regionLabels` exists and is honoured, but nothing generates one. A model whose doors are welded
-  into the body (D15-E3) still needs a human with the model open.
-- The shipped cars have not been re-cut. `assets/parts` is still `syndicate_dissect`'s output —
-  a chassis and two wheel types each — and re-cutting them is a content decision, not a tool one.
-- The footprint estimate runs 8-9% under a real kerb mass, which put the Stampede in `medium`
-  where the hand-authored one is `heavy`. `--mass` is the answer and the report says so.
-- **It prepares cars.** A tank runs clean and comes out as one immobile 5.2 t chassis: the cues
-  label its road wheels correctly and the four-corner model then dissolves them, and nothing in
-  the taxonomy has a turret or a track (DISC-042). Everything that assumes *a car* — four
-  corners, a sill at flank height, a bootlid at the back — is a vehicle-class assumption that
-  D15 does not currently mark as one.
-
-## Rationale / Context
-PROG-019 recorded stages 1 to 6 with 7 and 8 as `not_started`, and the report named them as pending
-so that a pipeline which quietly stopped early could not be mistaken for one that had finished. It
-has now finished, and the difference is the whole point of the subsystem: before this, preparing a
-new vehicle meant a human deciding every part, mass, slot and manifest by hand.
-
-## Impact
 `syndicate_prepare` gains `cleanup`, `roles`, `hinges`, `destruction`, `manifest` and `exporter`;
-`grouping`, `labels`, `shell`, `prepare`, `report` and the CLI all change. `syndicate_dissect.emit`
-gains `join_objects`, and `dissect.drop_foreign_roots` is rewritten. `syndicate_fracture` gains
-`shell`, and `geometry.convex_hull` and `hulls.build_hull` both change. D15 gains S4.1.1, S5.8,
-R1a, R3a-c, R6a, R24a-b, R25a-d, R27a, R40-R46, four acceptance criteria and ten test cases;
-D09 gains S5.2.1 and R11a-c; D08-S4.2 gains `articulation` and `yieldImpulseN`.
+`grouping`, `labels`, `shell`, `prepare`, `report` and the CLI all change. `syndicate_dissect`
+gains `emit.join_objects` and a rewritten `drop_foreign_roots`. `syndicate_fracture` gains `shell`,
+and `geometry.convex_hull` and `hulls.build_hull` both change. D15 gains S4.1.1, S5.8, R1a, R3a-c,
+R6a, R24a-b, R25a-d, R27a, R40-R46; D09 gains S5.2.1 and R11a-c; D08-S4.2 gains `articulation`.

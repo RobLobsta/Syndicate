@@ -7,45 +7,42 @@
 **Status:** active
 
 ## Summary
-D09-R16 makes a part's mass `volume × density`, and G7's mass conservation across a fracture is a
-consequence of it. Applied to a car's own panels it is not merely imprecise, it is wrong in kind: a
-door skin either encloses a tenth of a cubic metre of air (785 kg of "steel") or encloses nothing at
-all (0 kg). Neither number is within an order of magnitude of the 29 kg a door weighs.
+D09-R16 makes a part's mass `volume × density`, and G7's conservation across a fracture follows
+from it. Applied to a car's panels it is not imprecise but wrong in kind: a door skin either
+encloses a tenth of a cubic metre of air (785 kg of "steel") or encloses nothing (0 kg). Neither is
+within an order of magnitude of the 29 kg a door weighs.
 
 ## Details
-The rule is right where D09 uses it. A fracture shard *is* its geometry: solid, closed, and made of
-one material throughout, so its volume times its density is its mass and the shards of a part sum to
-the part.
+The rule is right where D09 uses it. A fracture shard *is* its geometry: solid, closed, one material
+throughout, so volume times density is its mass and the shards of a part sum to the part.
 
-Vehicle art is not like that. Every panel on a downloaded car is a **surface**: a door is one skin
-with no thickness, a windscreen is a curved sheet, a bonnet is a shell. Two failure modes follow and
-they point in opposite directions, which is what makes the bug hard to spot from one measurement:
+Vehicle art is not like that. Every panel on a downloaded car is a **surface**: a door is one skin,
+a windscreen a curved sheet, a bonnet a shell. Two failure modes follow, pointing in opposite
+directions, which is what makes the bug hard to spot from one measurement:
 
-- An **open** surface has a signed volume of approximately zero. `volume × density` gives 0 kg, the
-  part falls below `MIN_BODY_MASS_KG`, and the vehicle has no doors as far as the physics is
-  concerned.
-- A **closed but hollow** shell — the same door modelled as a box — encloses its own air. A
-  1.1 × 0.1 × 1.0 m door reports 0.1 m³ and 785 kg of steel, which is half a car per door.
+- An **open** surface has a signed volume of about zero, so `volume × density` gives 0 kg, the part
+  falls below `MIN_BODY_MASS_KG`, and the vehicle has no doors as far as physics is concerned.
+- A **closed but hollow** shell — the same door as a box — encloses its own air: 0.1 m³ and 785 kg
+  of "steel", half a car per door.
 
-The rule that works is `area × wall thickness × density`, with the thickness a per-class constant
-(D15-R33). It says what a panel physically is — a sheet of steel of some gauge — and it is stable
-across both failure modes above, because surface area is well defined whether or not a mesh is
-closed.
+The rule that works is area-based, with a per-class constant (D15-R33; DEC-067 later made that
+constant an areal density rather than a thickness). It says what a panel physically is — a sheet of
+some gauge — and is stable across both failure modes, because surface area is well defined whether
+or not a mesh is closed.
 
-The two rules are made to agree rather than left to differ: a `glass` part is solidified to its
-class's wall thickness before it is fractured, so the solid the D09 tool then weighs by volume comes
-out at the same number this pipeline computed by area, and A202's cross-check between `part.json`
-and the fracture manifest passes by construction rather than by tolerance.
+The two rules are made to agree rather than left to differ. A `glass` part is fractured by the shell
+path (D09-S5.2.1), which is handed *this pipeline's own* wall thickness and gives each shard that
+wall, so the mass D09 computes by volume and the mass computed here by area are the same number, and
+A202's cross-check passes by construction rather than by tolerance.
 
 ## Rationale / Context
-Recorded because the wrong rule is the *documented* one, and it is documented for a good reason in
-the document next door. Anybody reading D09-R16 and applying it to a prepared part will produce a
-manifest that passes every schema check and a vehicle that handles like it is made of lead. The
-distinction to carry is: **volume is the mass of a solid; area × thickness is the mass of a shell,**
-and vehicle art is shells all the way down.
+Recorded because the wrong rule is the *documented* one, and documented for a good reason in the
+document next door. Anybody applying D09-R16 to a prepared part gets a manifest that passes every
+schema check and a vehicle that handles like lead. The distinction to carry: **volume is the mass
+of a solid; area × thickness is the mass of a shell,** and vehicle art is shells all the way down.
 
 ## Impact
-- `manifest.WALL_THICKNESS_M` and `manifest.geometric_mass_kg`; D15-R41 records the rule.
-- `exporter.solidify` gives a glass part a wall before it is fractured, at the same thickness.
+- `manifest.WALL_THICKNESS_M` and the area-based mass; D15-R41 records the rule.
+- `exporter.fracture_glass` passes that same thickness to the shell fracture as `--shell-thickness`.
 - Calibration against the shipped parts: a 1.5 m² door lands at 29 kg, a windscreen at 15 kg, a
   245/35 R20 wheel at 37.4 kg against the Eclipse's authored 37.5.

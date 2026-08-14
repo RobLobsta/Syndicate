@@ -47,3 +47,5 @@ The error names the configuration cache and a serialisation failure, so the obvi
 
 ## Impact
 Local verification of every JVM module in the remote sandbox. Nothing about the project's own configuration is wrong: CI provisions JDK 17 normally, and D02-R1's pin stays as it is.
+
+**Use the workaround before every push, not only when a JVM module changed.** `:memory-system:lintMemory` is a CI gate (D12-S5.4 stage 0) and it fails on prose — word counts, table shapes, a hand-edited `INDEX.md` — so a session that touched nothing but `.agent-memory/` can still turn CI red. Two consecutive sessions read this entry's headline as "the JVM tasks cannot run here", skipped the lint, and shipped violations; the second one then had to fix the first one's as well. `./gradlew -I <init script> :memory-system:lintMemory :memory-system:regenerateIndex` takes about ninety seconds.
