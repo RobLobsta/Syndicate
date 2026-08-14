@@ -16,6 +16,7 @@ from syndicate_prepare.labels import (
     LABEL_MIN_CONFIDENCE,
     LIGHT,
     MIN_SHELL_TRIANGLES,
+    PANEL,
     UNCLASSIFIED,
     WHEEL,
 )
@@ -257,3 +258,65 @@ def test_symmetry_is_reported_and_never_repaired():
     assert report.symmetry_violations
     assert report.applied_count == 0
     assert lonely.lo == (0.6, 0.2, -0.4)
+
+
+# ---- The door cue (D15-R6a), measured on the Stampede -----------------------------------
+
+
+def stampede_body():
+    """The Stampede as the pipeline measures it: 2.085 x 1.29 x 4.92 m."""
+    return cues.BodyFrame([shell(index=99, triangles=200_000,
+                                 lo=(-1.0425, 0.0, -2.46), hi=(1.0425, 1.29, 2.46))])
+
+
+def stampede_door(side: float = -1.0):
+    """Shell 1315/1325: a mirrored pair of painted panels, 0.265 x 0.735 x 1.389 m.
+
+    Flatness 0.81, which is under the 0.86 the flat-panel vote needs — and the reason a real
+    car's doors were exported as part of its chassis.
+    """
+    x = side * 0.845
+    return shell(index=1315, material="FFord_MustangGTD_2025Paint_Material1", triangles=2386,
+                 lo=(x - 0.1325, 0.30, -0.235), hi=(x + 0.1325, 1.035, 1.154))
+
+
+def test_a_door_assembly_is_not_flat_enough_for_the_flat_panel_vote():
+    """The premise of the door cue: without it, nothing in C1 sees this shell."""
+    door = stampede_door()
+    assert door.flatness < 0.86
+
+
+def test_a_door_assembly_is_labelled_a_panel():
+    body = stampede_body()
+    door = stampede_door()
+    cues.label_shell(door, body, None)
+    assert door.label == PANEL
+
+
+def test_the_door_cue_beats_a_material_called_paint():
+    """`…Paint_Material1` votes chassis through C3, and did so unopposed."""
+    body = stampede_body()
+    door = stampede_door()
+    votes = {vote.label: vote.weight for vote in cues.material_nominal_votes(door)}
+    assert votes.get(CHASSIS, 0.0) > 0.0
+    cues.label_shell(door, body, None)
+    assert door.label == PANEL
+
+
+def test_an_interior_door_card_is_not_a_door():
+    """Shell 1192: the same shape, 0.67 outboard — inboard of the skin by the door's thickness."""
+    card = shell(index=1192, material="FFord_MustangGTD_2025InteriorA_Material1", triangles=2864,
+                 lo=(-0.756, 0.30, -0.25), hi=(-0.640, 0.99, 0.94))
+    assert not cues._is_door_shaped(card, stampede_body())
+
+
+def test_a_wheel_is_not_a_door():
+    """A tyre is thin across the car and sits in the door band; it is round, and that decides."""
+    tyre = shell(index=1870, material="tyre", triangles=4508,
+                 lo=(-1.0, 0.095, -1.60), hi=(-0.889, 0.643, -1.052))
+    assert not cues._is_door_shaped(tyre, stampede_body())
+
+
+def test_a_sill_is_not_a_door():
+    sill = shell(index=42, triangles=900, lo=(-1.02, 0.08, -0.6), hi=(-0.96, 0.30, 0.9))
+    assert not cues._is_door_shaped(sill, stampede_body())

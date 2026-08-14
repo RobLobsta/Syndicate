@@ -51,6 +51,7 @@ class Args:
     hull_max_verts: int = DEFAULT_HULL_MAX_VERTS
     part_hull_max_verts: int = DEFAULT_PART_HULL_MAX_VERTS
     min_shard_volume: float = DEFAULT_MIN_SHARD_VOLUME
+    shell_thickness: float = 0.0
     expected_mass: float | None = None
     mass_tolerance: float = DEFAULT_MASS_TOLERANCE
     keep_blend: bool = False
@@ -108,6 +109,9 @@ def parse(argv: list[str] | None = None) -> Args:
     parser.add_argument("--hull-max-verts", type=int, default=DEFAULT_HULL_MAX_VERTS)
     parser.add_argument("--part-hull-max-verts", type=int, default=DEFAULT_PART_HULL_MAX_VERTS)
     parser.add_argument("--min-shard-volume", type=float, default=DEFAULT_MIN_SHARD_VOLUME)
+    # A positive thickness says the source is a *surface* and selects the shell path
+    # (D09-S5.2.1). Zero, the default, keeps the solid Voronoi path.
+    parser.add_argument("--shell-thickness", type=float, default=0.0)
     parser.add_argument("--expected-mass", type=float)
     parser.add_argument("--mass-tolerance", type=float, default=DEFAULT_MASS_TOLERANCE)
     parser.add_argument("--keep-blend", action="store_true")
@@ -164,6 +168,7 @@ def parse(argv: list[str] | None = None) -> Args:
         hull_max_verts=namespace.hull_max_verts,
         part_hull_max_verts=namespace.part_hull_max_verts,
         min_shard_volume=namespace.min_shard_volume,
+        shell_thickness=namespace.shell_thickness,
         expected_mass=namespace.expected_mass,
         mass_tolerance=namespace.mass_tolerance,
         keep_blend=namespace.keep_blend,

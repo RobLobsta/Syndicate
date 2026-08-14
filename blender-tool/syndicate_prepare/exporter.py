@@ -16,6 +16,12 @@ The glass fracture (D15-S5.7) runs **last**, after every mesh is on disk, and it
 the D09 tool rather than beside it. Two reasons: that tool already self-verifies, and it
 reloads the scene per object (D09-R15's round-trip check), which would destroy the scene this
 module is still working in if it ran any earlier.
+
+A pane is exported as the **surface** the artist made, not thickened first. Thickening it here
+was what defeated the fracture: a 5 mm pane made solid is hundreds of nearly-parallel faces and
+the solid partition cannot cut it (DISC-039). The D09 tool is now given the surface and the
+thickness, and it cuts the surface into patches and thickens each patch — which conserves mass
+by construction rather than by tolerance.
 """
 
 from __future__ import annotations
@@ -114,10 +120,6 @@ def export_part(part, objects, out_root: Path, seed: int) -> Produced:
     emit.recentre_on(joined, to_blender(part.origin))
 
     treatment = treatment_for(part.label)
-    if treatment.fracture_shards:
-        wall = WALL_THICKNESS_M[treatment.destruction_class]
-        if not solidify(joined, wall):
-            produced.notes.append("could not be solidified; it will not fracture")
     if treatment.subdivide_edge_m > 0.0:
         produced.subdivided_from = len(joined.data.polygons)
         subdivide_to(joined, treatment.subdivide_edge_m)
@@ -215,6 +217,11 @@ def fracture_glass(part, out_root: Path, material_table: Path, seed: int, produc
         damage_morphs=0,
         material_table=material_table,
         material_override=part.material_id,
+        # The pane is exported as the surface the artist made, and the fracture gives each
+        # shard its thickness rather than the pane being thickened first (D09-S5.2.1). The
+        # thickness is the class's own wall, so the shards' `volume x density` and this
+        # pipeline's `area x areal density` are the same number (DEC-067).
+        shell_thickness=WALL_THICKNESS_M[treatment.destruction_class],
     )
     try:
         summary = fracture_run(args)
@@ -264,25 +271,3 @@ def write_documents(documents: dict[Path, dict]) -> list[str]:
         path.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         written.append(str(path))
     return written
-
-
-def solidify(obj, thickness_m: float) -> bool:
-    """Give an open shell a wall, so it has a volume to fracture and to weigh.
-
-    A windscreen, a door skin and a bonnet are all authored as surfaces with no thickness,
-    and every one of the three operations that follow needs a solid: a Voronoi cell
-    intersected with a surface is empty, ``volume x density`` over a surface is zero, and a
-    convex hull over a surface is a sliver. The thickness is the destruction class's own wall
-    thickness, which is what makes the solid's ``volume x density`` agree with the mass the
-    manifest computed from ``area x thickness x density`` rather than merely resemble it.
-    """
-    modifier = obj.modifiers.new(name="solidify", type="SOLIDIFY")
-    modifier.thickness = thickness_m
-    modifier.offset = 0.0
-    bpy.context.view_layer.objects.active = obj
-    try:
-        bpy.ops.object.modifier_apply(modifier=modifier.name)
-    except RuntimeError:  # pragma: no cover - a degenerate mesh can refuse
-        obj.modifiers.remove(modifier)
-        return False
-    return True

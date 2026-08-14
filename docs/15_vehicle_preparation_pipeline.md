@@ -116,6 +116,12 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 
 **R6.** C2 outranks C3 when they disagree. A file's declared transparency is what it will actually render as; its material *name* is a comment.
 
+<!-- D15-R6a -->**R6a.** **C1 votes `panel` for a door-shaped shell, and outweighs the paint.** A door is the one panel a vehicle has that a purely positional cue cannot see: it is painted the same colour as the wing beside it, named after that paint, and sits in the middle of a body whose middle is otherwise chassis. The Stampede's doors are clean mirrored shells and were labelled `chassis`, because C3 read `paint` and voted for the body at 0.595 while nothing voted for a door at all.
+
+The shape is specific enough to name. A door is thin in **x** and in x alone — no more than 0.22 of the body's width — is not round, is at least 0.18 of the body long, sits outboard of 0.72 of the half-width, spans the middle of the length (0.20 to 0.78 from the nose), and its centroid is between 0.25 and 0.85 of the body's height, which is above the sill and below the roof. C1 votes `panel` at 0.75 on that, which beats a nominal paint vote and loses to any override (R8).
+
+This is the geometric cue doing what R7 requires of it: the numbers are fractions of the vehicle's own dimensions, taken from measurements of both shipped cars, and the cases that must *not* match — an interior door card, a wheel, a sill — are each held out by a different one of the six conditions rather than by the margin on one.
+
 **R7.** Cue weights and thresholds are constants in the tool, not per-model tuning. A threshold that has to move for a new model is a bug in the threshold.
 
 <!-- D15-S4.3 -->### 4.3 Per-Model Override: `parts.json`

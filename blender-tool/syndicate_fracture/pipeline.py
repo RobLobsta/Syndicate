@@ -26,10 +26,12 @@ from .errors import (
     log,
 )
 from .fracture import Shard, voronoi_fracture
-from .geometry import Vec3, aabb_of, is_finite, mesh_volume
+from .geometry import Vec3, aabb_of, is_finite, mesh_volume, surface_area
 from .hulls import Hull, build_hull
 from .mass import assign_masses
 from .morphs import generate_damage_morphs
+from .shell import part_volume_m3 as shell_part_volume
+from .shell import shell_fracture
 
 
 def run(args: Args) -> dict[str, Any]:
@@ -116,11 +118,18 @@ def _process_one(
     # --- Stage 1: validate the source ---------------------------------------------------
     blender.apply_transforms(obj)
     source_vertices, source_triangles = blender.read_mesh(obj)
-    _validate_source(name, source_vertices, source_triangles)
+    _validate_source(name, source_vertices, source_triangles, args.shell_thickness)
     material_id = _resolve_material(obj, args, table)
 
     # --- Stage 2: fracture --------------------------------------------------------------
-    shards = voronoi_fracture(obj, args)
+    # A positive `--shell-thickness` says the source is a surface, and a surface is fractured
+    # by cutting it and *then* thickening the pieces (D09-S5.2.1). The solid path cannot do
+    # it: given a thickened pane it recurses past its depth bound on the sheet's own
+    # nearly-parallel faces and conserves no volume (DISC-039).
+    if args.shell_thickness > 0.0:
+        shards = shell_fracture(obj, args)
+    else:
+        shards = voronoi_fracture(obj, args)
     log("INFO", f"'{name}' fractured into {len(shards)} shards")
 
     # --- Stage 3: damage morphs ---------------------------------------------------------
@@ -128,7 +137,19 @@ def _process_one(
     log("INFO", f"'{name}' generated {len(morphs)} damage morphs")
 
     # --- Stage 4: mass ------------------------------------------------------------------
-    masses = assign_masses(source_vertices, source_triangles, shards, material_id, table, args)
+    masses = assign_masses(
+        source_vertices,
+        source_triangles,
+        shards,
+        material_id,
+        table,
+        args,
+        # A shell's material volume is its area times its thickness. Its *enclosed* volume is
+        # approximately zero, which is the right answer to a different question.
+        part_volume_override=(
+            shell_part_volume(shards) if args.shell_thickness > 0.0 else None
+        ),
+    )
     log(
         "INFO",
         f"'{name}' part mass {masses.part_mass_kg:.3f} kg "
@@ -185,7 +206,9 @@ def _process_one(
     return document, staged
 
 
-def _validate_source(name: str, vertices: list[Vec3], triangles: list[Tri]) -> None:  # noqa: F821
+def _validate_source(
+    name: str, vertices: list[Vec3], triangles: list, shell_thickness: float = 0.0
+) -> None:
     """Stage 1 (D09-S5.1, exit 66)."""
     if not vertices or not triangles:
         raise ToolError(EXIT_INPUT_GEOMETRY_INVALID, f"'{name}' has no geometry", object=name)
@@ -193,6 +216,15 @@ def _validate_source(name: str, vertices: list[Vec3], triangles: list[Tri]) -> N
         raise ToolError(
             EXIT_INPUT_GEOMETRY_INVALID, f"'{name}' has NaN or Inf coordinates", object=name
         )
+    if shell_thickness > 0.0:
+        # A surface legitimately encloses nothing; what it must have is area.
+        if surface_area(vertices, triangles) <= 0.0:
+            raise ToolError(
+                EXIT_INPUT_GEOMETRY_INVALID,
+                f"'{name}' has zero surface area",
+                object=name,
+            )
+        return
     volume = mesh_volume(vertices, triangles)
     if volume <= 0.0:
         raise ToolError(

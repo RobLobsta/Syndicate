@@ -137,3 +137,70 @@ def test_a_wishbone_reaching_out_of_the_cylinder_is_not_captured():
     centre = V(0.85, 0.36, 1.45)
     wishbone = island(V(0.60, 0.34, 1.45), V(0.60, 0.08, 0.10))
     assert not dissect._inside_cylinder(wishbone, centre, 0.40, 0.20)
+
+
+# ---- Foreign roots (DISC-041) ------------------------------------------------------------
+
+
+def box_bounds(centre, size):
+    """Axis-aligned bounds as :func:`dissect._foreign_roots` takes them."""
+    return (
+        [centre[axis] - size[axis] / 2 for axis in range(3)],
+        [centre[axis] + size[axis] / 2 for axis in range(3)],
+    )
+
+
+def eclipse_scene():
+    """The Eclipse as it arrives: one parented car and two stray one-metre icospheres.
+
+    Measured from ``art-source/vehicles/eclipse``. The icospheres are concentric with the
+    car, so nothing about where they sit *horizontally* separates them from it — what does
+    is that they are 80 triangles each and stand a good 40 cm proud of the roof.
+    """
+    return (
+        {
+            "Sketchfab_model": box_bounds((0.0, 0.19, -0.05), (2.1, 4.49, 1.19)),
+            "Icosphere": box_bounds((0.0, 0.0, 0.0), (1.9, 2.0, 2.0)),
+            "Icosphere.001": box_bounds((0.0, 0.0, 0.0), (1.9, 2.0, 2.0)),
+        },
+        {"Sketchfab_model": 283192, "Icosphere": 80, "Icosphere.001": 80},
+    )
+
+
+def test_a_lighting_rig_left_in_the_scene_is_dropped():
+    bounds, triangles = eclipse_scene()
+    assert dissect._foreign_roots(bounds, triangles) == {"Icosphere", "Icosphere.001"}
+
+
+def test_a_flat_scene_keeps_every_root():
+    """31 unparented meshes, none of them a majority: the tank case.
+
+    The rule this replaced kept the root with the most *objects*, which in a flat scene is
+    every root tied at one — so it kept whichever it reached first and deleted the other
+    thirty, then measured the survivor and called it a 2.9 m vehicle.
+    """
+    bounds, triangles = {}, {}
+    bounds["Hull"] = box_bounds((0.0, 0.95, 0.0), (2.9, 0.7, 6.9))
+    triangles["Hull"] = 12
+    bounds["Gun_Barrel"] = box_bounds((0.0, 2.15, 2.9), (0.24, 0.24, 3.6))
+    triangles["Gun_Barrel"] = 124
+    for i in range(6):
+        for side, sign in (("L", -1.0), ("R", 1.0)):
+            name = f"Road_Wheel_{side}_{i}"
+            bounds[name] = box_bounds((sign * 1.32, 0.62, -2.4 + i * 0.96), (0.22, 0.84, 0.84))
+            triangles[name] = 92
+    assert dissect._foreign_roots(bounds, triangles) == set()
+
+
+def test_a_low_poly_part_of_the_vehicle_is_kept():
+    """A sparse root inside the silhouette is a badge, not scenery.
+
+    Weight alone would delete it — 40 triangles against a 200,000-triangle body is far below
+    the negligible threshold — and deleting a part of the car is the expensive direction to
+    be wrong in.
+    """
+    bounds = {
+        "Body": box_bounds((0.0, 0.6, 0.0), (2.0, 1.2, 4.4)),
+        "Badge": box_bounds((0.0, 0.75, 2.15), (0.12, 0.04, 0.03)),
+    }
+    assert dissect._foreign_roots(bounds, {"Body": 200000, "Badge": 40}) == set()

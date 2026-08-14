@@ -1,8 +1,8 @@
 # PROG-024: a model goes in and a vehicle comes out; all nine preparation stages run
 
-**Date:** 2026-08-13
+**Date:** 2026-08-14
 **Category:** progress
-**Related Docs:** docs/15_vehicle_preparation_pipeline.md#D15-S5.1, docs/15_vehicle_preparation_pipeline.md#D15-S5.8, docs/08_asset_pipeline.md#D08-S4.2
+**Related Docs:** docs/15_vehicle_preparation_pipeline.md#D15-S5.1, docs/15_vehicle_preparation_pipeline.md#D15-S5.8, docs/09_blender_destruction_tool.md#D09-S5.2.1, docs/08_asset_pipeline.md#D08-S4.2
 
 **Status:** active
 
@@ -28,7 +28,7 @@ unchanged and is tracked by PROG-021 and PROG-022.
 | 4 Label shells | done | Cue ensemble, plus roles (D15-R3a) and the wheel/hub symmetry pass (DEC-066) |
 | 5 Group into parts | done | Keyed on `(label, role, side, corner)` rather than `(label, side)` |
 | 6 Rig articulated parts | done | Doors, bonnet, boot; sign derived per part; D15-E9 swing check |
-| 7 Author destruction | done | Subdivide + morphs for deforming classes; solidify + D09 fracture for glass |
+| 7 Author destruction | done | Subdivide + morphs for deforming classes; **shell** fracture for glass (D09-S5.2.1) |
 | 8 Re-origin and export | done | One mesh and one manifest per part, plus the assembly |
 | 9 Self-verify and report | done | The report says what was produced, not what was planned (D15-R46) |
 
@@ -56,18 +56,22 @@ geometry half is no longer unexercised. Each car takes about 100 s and comes out
 | Total mass | 1,619 kg (real: 1,500) | 1,784 kg (real: 1,969) |
 | Class / budget | medium / 74.0 (shipped: medium / 74.0) | medium / 74.0 |
 | Part types | 25 | 25 |
-| Hinged panels | 2 doors | 0 — no panels found |
+| Hinged panels | 2 doors | 2 doors (DEC-068) |
+| Glass panes fractured | 4 of 4, 24 shards each | 5 of 5, 24 shards each |
 | Chassis damage morphs | 4, at 0.03 m | 4, at 0.03 m |
 
 `tools/verify_prepared.py` opens every exported mesh and checks it against its own manifest:
-**50 parts, 2 vehicles, 0 findings.** Every `.glb` carries the node and the morph targets its
+**54 parts, 2 vehicles, 0 findings.** Every `.glb` carries the node and the morph targets its
 `part.json` promises, every slot type accepts the part filling it, no slot is filled twice or
 left empty, and the masses and power costs sum to what the assemblies declare.
 
-Four defects surfaced on real art and were fixed: a material *name* seeding a wheel corner
+Seven defects surfaced on real art and were fixed: a material *name* seeding a wheel corner
 (DISC-037), a mass rule that made a brake hub weigh 214 kg (DEC-067), sliver faces that made
-damage morphs impossible (DISC-038), and a duplicate-geometry crash in the collision hull
-builder that the dissector had never triggered.
+damage morphs impossible (DISC-038), a duplicate-geometry crash in the collision hull builder
+that the dissector had never triggered, glass that could not be fractured at all as a solid
+(DISC-039, fixed by D09-S5.2.1's shell path), a convex hull that was not convex on a slab of
+glass (DISC-040), and a scene-loading stage that deleted every object but one when the model
+had no common parent (DISC-041).
 
 **Known gaps, in the order they will matter:**
 
@@ -77,12 +81,13 @@ builder that the dissector had never triggered.
   into the body (D15-E3) still needs a human with the model open.
 - The shipped cars have not been re-cut. `assets/parts` is still `syndicate_dissect`'s output —
   a chassis and two wheel types each — and re-cutting them is a content decision, not a tool one.
-- **Glass does not fracture** (DISC-039). Every pane on both cars ships whole, with a note per
-  pane saying which of D09's guards refused it.
-- The Stampede finds **no panels**, so it has no doors to hinge: its bodywork is one material
-  group and its `parts.json` maps that group to `chassis`. Splitting it needs `regionLabels`.
 - The footprint estimate runs 8-9% under a real kerb mass, which put the Stampede in `medium`
   where the hand-authored one is `heavy`. `--mass` is the answer and the report says so.
+- **It prepares cars.** A tank runs clean and comes out as one immobile 5.2 t chassis: the cues
+  label its road wheels correctly and the four-corner model then dissolves them, and nothing in
+  the taxonomy has a turret or a track (DISC-042). Everything that assumes *a car* — four
+  corners, a sill at flank height, a bootlid at the back — is a vehicle-class assumption that
+  D15 does not currently mark as one.
 
 ## Rationale / Context
 PROG-019 recorded stages 1 to 6 with 7 and 8 as `not_started`, and the report named them as pending
@@ -93,5 +98,7 @@ new vehicle meant a human deciding every part, mass, slot and manifest by hand.
 ## Impact
 `syndicate_prepare` gains `cleanup`, `roles`, `hinges`, `destruction`, `manifest` and `exporter`;
 `grouping`, `labels`, `shell`, `prepare`, `report` and the CLI all change. `syndicate_dissect.emit`
-gains `join_objects`. D15 gains S4.1.1, S5.8, R1a, R3a-c, R24a-b, R25a-d, R27a, R40-R46, four
-acceptance criteria and ten test cases; D08-S4.2 gains `articulation` and `yieldImpulseN`.
+gains `join_objects`, and `dissect.drop_foreign_roots` is rewritten. `syndicate_fracture` gains
+`shell`, and `geometry.convex_hull` and `hulls.build_hull` both change. D15 gains S4.1.1, S5.8,
+R1a, R3a-c, R6a, R24a-b, R25a-d, R27a, R40-R46, four acceptance criteria and ten test cases;
+D09 gains S5.2.1 and R11a-c; D08-S4.2 gains `articulation` and `yieldImpulseN`.

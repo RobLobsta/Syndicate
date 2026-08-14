@@ -119,6 +119,23 @@ def geometric_votes(shell: Shell, body: BodyFrame) -> list[Vote]:
     if shell.flatness > 0.86 and shell.longest_extent > body.length * 0.16 and outboard > 0.42:
         votes.append(Vote("C1_geometric", PANEL, 0.55, f"flat ({shell.flatness:.2f}) and outboard"))
 
+    # A door, which the flatness test above cannot see. A door *skin* is flat; a door as a
+    # downloaded model has it is the whole assembly — skin, frame, window surround and inner
+    # card welded into one shell — and the Stampede's measure 0.265 m through a 1.389 m panel,
+    # a flatness of 0.81 against a 0.86 bar. What makes it a door is not how flat it is on its
+    # own but that it is **thin against the width of the vehicle** and occupies the middle of a
+    # flank: 13% of the car's width, standing where a person gets in.
+    if _is_door_shaped(shell, body):
+        votes.append(
+            Vote(
+                "C1_geometric",
+                PANEL,
+                0.75,
+                f"a flank panel {shell.size[0]:.2f} m through a {body.width:.2f} m body, "
+                "in the middle of the side",
+            )
+        )
+
     # A decal: flat to the point of being a sheet, and small.
     if shell.flatness > 0.985 and shell.longest_extent < body.length * 0.14:
         votes.append(Vote("C1_geometric", DECAL, 0.6, "a sheet with no thickness"))
@@ -137,6 +154,40 @@ def geometric_votes(shell: Shell, body: BodyFrame) -> list[Vote]:
         votes.append(Vote("C1_geometric", CHASSIS, 0.7, "spans a third of the vehicle"))
 
     return votes
+
+
+#: What a door is, measured (D15-R6a). Every figure below is from the two shipped cars: the
+#: Stampede's doors are 0.265 m through a 2.085 m body (13%), centred 0.81-0.87 of the way out
+#: to the flank, 0.48 of the way along, at half the body's height, and 1.389 m long on a 4.92 m
+#: car (28%). The bars sit clear of the things that must *not* match — an interior door card,
+#: which is the same shape but sits 0.67 outboard, inboard of the skin by the door's own
+#: thickness; a fender, which is ahead of the door band; and a sill, which is below it.
+DOOR_MAX_THICKNESS_FRACTION = 0.22
+DOOR_MIN_OUTBOARD = 0.72
+DOOR_Z_BAND = (0.20, 0.78)
+DOOR_HEIGHT_BAND = (0.25, 0.85)
+DOOR_MIN_LENGTH_FRACTION = 0.18
+
+
+def _is_door_shaped(shell: Shell, body: BodyFrame) -> bool:
+    """Whether a shell is a door, by the measurements above rather than by its flatness."""
+    size = shell.size
+    if min(range(3), key=lambda axis: size[axis]) != 0:
+        return False  # not thin across the car, so not a flank panel at all
+    if size[0] > DOOR_MAX_THICKNESS_FRACTION * body.width:
+        return False
+    if shell.roundness > 0.78:
+        return False  # round in side view: a wheel, whatever else it satisfies
+    if shell.longest_extent < DOOR_MIN_LENGTH_FRACTION * body.length:
+        return False
+    outboard = abs(shell.centroid[0]) / max(1e-6, body.half_width)
+    forward = (shell.centroid[2] - body.lo[2]) / body.length
+    height = (shell.centroid[1] - body.ground_y) / body.height
+    return (
+        outboard > DOOR_MIN_OUTBOARD
+        and DOOR_Z_BAND[0] < forward < DOOR_Z_BAND[1]
+        and DOOR_HEIGHT_BAND[0] < height < DOOR_HEIGHT_BAND[1]
+    )
 
 
 # ---- C2 Material-physical (D15-S4.2): the file's own render intent -----------------------
