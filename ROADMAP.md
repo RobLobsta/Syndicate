@@ -1,7 +1,9 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-14 (end of SESS-027)
-**Where we are:** the content pipeline is finished, has been run on both shipped cars, and the
+**Last updated:** 2026-08-14 (end of SESS-028)
+**Where we are:** the ground the whole game happens on now has a specification, and it is the first
+one written for something a player will *feel* rather than something a pipeline will produce. Nothing
+of it is built yet. Behind it: the content pipeline is finished, has been run on both shipped cars, and the
 last two things it could not do it now does. Drop a downloaded car model into
 `art-source/vehicles/`, run one command, and about a hundred seconds later there are twenty-five
 named parts — chassis, wheels, hubs, doors, windscreen, headlamps — each with its own mesh,
@@ -48,15 +50,17 @@ gantt
     Replication - the last four systems     :done, p9a, 25, 1
     Preparation pipeline - a model in, a car out :done, p6d, 26, 1
     Run on both shipped cars                :done, p6e, 27, 1
-    Glass, doors, and a tank (here)         :done, p6f, 28, 1
+    Glass, doors, and a tank                :done, p6f, 28, 1
+    Ground and sky - the spec (here)        :done, p12a, 29, 1
 
     section Next
-    Driving it - tuning, balance, feel      :active, p11, 29, 2
-    Re-cut the shipped cars                 :p6g, 31, 1
-    Sockets - two machines                  :p9b, 32, 2
+    Ground and sky - the build              :active, p12, 30, 3
+    Driving it - tuning, balance, feel      :p11, 33, 2
+    Re-cut the shipped cars                 :p6g, 35, 1
+    Sockets - two machines                  :p9b, 36, 2
 
     section Then
-    Production hardening                    :p10, 33, 3
+    Production hardening                    :p10, 38, 3
 ```
 
 Read the numbers as **sessions of work, roughly**, not dates. Everything before "we are here" is
@@ -104,10 +108,14 @@ done and green; everything after is an estimate that will move.
   │  ●  Phase 6e  Run on real cars                                   │
   │  │            Blender 4.2; both cars prepared and verified       │
   │  ●  Phase 6f  Glass, doors, and a tank              ★ IT SHATTERS│
-  │  │            Every pane breaks; both cars shed doors    ← HERE  │
+  │  │            Every pane breaks; both cars shed doors             │
+  │  ●  Phase 12a Ground and sky - the spec                           │
+  │  │            D16: terrain, dunes, roads, surfaces  ← HERE        │
   └──┼───────────────────────────────────────────────────────────────┘
      │
   ┌──┼─ NEXT ──────────────────────────────────────────────────────────┐
+  │  ○  Phase 12  Ground and sky - the build          ★ SOMEWHERE TO BE│
+  │  │            A desert, a highway, and a sky over both             │
   │  ○  Phase 11  Driving it                          ★ IS IT ANY GOOD │
   │  │            Handling, damage numbers, bot difficulty, match len  │
   │  ○  Phase 9b  Sockets                             ★ TWO MACHINES   │
@@ -141,113 +149,91 @@ transport, the runtime wiring for it, and a great deal of tuning.
 
 ---
 
-## 2. What happened this session (SESS-027)
+## 2. What happened this session (SESS-028)
 
-Three things were asked for: fix the glass, decide whether the second car has doors and find
-them, and say what happens if somebody drops in a tank. All three are answered, and the third
-turned up a defect that had nothing to do with tanks.
+One question, asked plainly: can the ground and sky be generated at runtime — textured, with slopes
+and hills, natural enough that where you are and how you drive actually matter? Starting with desert
+and tarmac. Maybe a highway brawl. And later, structures that break the way the cars do.
 
-### Glass shatters now — every pane on both cars
+The answer is yes to all of it, and this session wrote the contract rather than the code:
+`docs/16_procedural_arena_generation.md`, the seventeenth blueprint. **Nothing is implemented.** The
+arena in the game is still a flat plane with four invisible walls.
 
-Last session's report said the fracture tool could not cut a windscreen and explained why: it
-splits a **solid** by cutting it on its own face planes, and a 5 mm pane made solid is hundreds
-of nearly-parallel faces, so the cut goes ninety-six levels deep and gives up. It also named the
-likely answer, which turned out to be right — **cut first, thicken second**.
+### What the design actually is
 
-A pane is now given to the tool as the surface the artist drew, plus the thickness it should be.
-The tool cuts that surface into patches, and only then gives each patch its thickness. A patch
-thickened into a slab holds exactly its own area times that thickness, so the shards weigh what
-the pane weighed *by construction* rather than within a tolerance — which is the property the old
-path lost the moment its decomposition failed.
+A nine-stage pipeline, run once when a match loads, from a seed. It produces two grids — the height
+of the ground at every metre, and what that ground is made of — and everything else comes off those
+two: the collision, the mesh you see, the grid the bots path on, and the grip and the noise under
+each wheel.
 
-Getting there took two further fixes, both found by measuring rather than by reading:
+Five things in it are worth knowing without reading the document.
 
-- **The check was measuring the wrong thing.** It recovered each patch's area from the finished
-  slab's volume, and thickening a curved patch inflates it — by a tenth of a percent on a
-  windscreen and six percent on a tightly curved quarter-light. Four of nine panes were failing a
-  check about curvature, not about the cut. Measuring the patches *as cut* brings every pane on
-  both cars to within 0.03%.
-- **Our convex hull was not convex.** On glass shards it returned face sets with 30 vertices
-  carrying 71 triangles where the arithmetic of a polyhedron allows exactly 56 — and four of the
-  hull's own vertices sitting 22 mm outside it. Two separate causes, both silent, both a
-  consequence of a 5 mm slab having hundreds of points sitting exactly on each other's faces.
-  This one matters beyond glass: it is the same hull builder used for every shard and every part
-  in the game.
+**A dune is a ramp from one side and a wall from the other, and that is one number.** Dry sand
+cannot hold a slope past about 33°; a car cannot climb past about 25°. Generate dunes with a real
+slip face and the gap between those two numbers *is* the level design — a shallow windward face you
+attack, and a face behind it you cannot come back up. Nothing is authored, nothing is placed, and
+the same trick gives the arena its edge: the border rises into dunes instead of hitting an invisible
+wall, which is the most immersion-breaking object a driving game can have and also a free kill for
+whoever rams you into it.
 
-**Nine panes, nine fractures, 24 shards each, mass conserved to the last gram.**
+**The highway carves itself, and cut-and-fill comes free.** A road is a line on the map with a
+width. The generator samples the land under it, smooths it, limits the gradient to something a road
+would actually have, then blends the terrain toward it. Where the land was higher you get a cutting
+— the road runs between two banks, cover on both sides, a place you can be pushed into and not climb
+out of. Where it was lower you get an embankment — the road is a ridge and the drop off the shoulder
+is real. Neither of those is designed. They are the same lerp, twice.
 
-### The Stampede does have doors
+**Sand is slow and tarmac is fast, and the game finally knows the difference.** Every arena has been
+tarmac since the sound bank shipped, because an arena never declared a surface. Now every cell has
+one, with its own grip and rolling resistance, and the wheel reads it at its contact point each tick.
+Sand at four times tarmac's rolling resistance is what makes leaving the road a decision.
 
-It has two, they are already clean mirrored shells, and two independent things hid them. The
-geometric cue wants a panel to be *flat* above a threshold of 0.86, and a door as a downloaded
-model has it is not a door skin — it is the skin, frame, window surround and inner card welded
-together, measuring 0.81. Meanwhile the material is called "paint", which voted for the body.
+**The sky, the sun, the reflections and the haze become one number each.** Today the client draws no
+sky at all and lights everything from a sun hardcoded in the renderer, so a car reflects an
+environment that is not behind it. One sun angle and one turbidity now drive the skybox, the ambient
+light, the reflections and the fog colour together.
 
-The fix could have been a box drawn round each door in that car's `parts.json`. It deliberately
-was not. Every car has doors, they are always painted body colour, and they are always thicker
-than a bare skin — so fixing it per model means fixing it again for every model, and a pipeline
-whose promise is "drop in a model" cannot ask a person to measure boxes first. A door is now
-recognised by shape: thin across the car and only across the car, not round, long enough,
-outboard, in the middle of the flank, above the sill and below the roof. Six conditions, each
-measured as a fraction of that vehicle's own dimensions, and the tests check the *near misses* —
-an interior door card, a wheel, a sill — each fail a different one.
+**Structures need no new machinery at all, and that is the point.** A barrier, a gantry sign, a fuel
+bowser: each is an *assembly* — the same parts, slots, health and fracture manifests a car is made
+of. So a hit damages it through the damage pipeline, a dead part fractures through the fracture
+system, and everything it was holding up falls through the detach system, because "my parent is
+gone" is already how a wheel comes off. No new system, no new component, no new schedule slot. The
+document makes that the stop condition: if building it needs one, the design has drifted.
 
-**Both cars now shed two doors, and both sets dent.**
+### And the housekeeping that came with it
 
-### A tank: it runs, and it comes out as one lump
+`docs/` goes from 16 documents to 17, which meant amending the master index, both root operational
+files, and the asset pipeline's arena schema in the same commit. Doing that turned up that the
+document validator had been capped at D14 since it was written — so D15, the largest document in the
+suite, had never been checked for its required structure. It is now, and it passes.
 
-Built as a downloaded tank actually arrives — hull, turret, gun, twelve road wheels, sprockets,
-idlers, tracks, fenders, lights, no hints of any kind — and run through the pipeline. It exits
-cleanly and produces a **single rigid chassis of 5.2 tonnes**. No wheels, no turret, nothing that
-turns or opens.
-
-The interesting part is *where* it fails, because it is not where you would guess. The
-classifier is fine: it labels all sixteen road wheels correctly and with high confidence. What
-breaks is everything built on top of the labels, all of which quietly assumes a car:
-
-- Six road wheels in a line have no front and no rear, so all eight round things on a side were
-  captured into **one** corner — producing a "wheel" 7.04 m across, which the pipeline then
-  correctly decided was not a wheel and dissolved. Both sides. Sixteen correct wheels became zero.
-- The turret and the gun barrel are labelled `chassis`, because anything spanning a third of the
-  vehicle is structure and nothing in the vocabulary describes a body that rotates on another.
-- The tracks became `panel`/`sill` — a 7.4 m slab down the flank at wheel height is, by every
-  measurement taken, a rocker panel.
-
-None of that is a bug to fix. It is the honest edge of what has been built: this prepares **cars**.
-Supporting a tank means a turret label with a yaw articulation, a track label with its own
-destruction behaviour, and a wheel model that admits a row of road wheels per side instead of one
-at each corner. That is a real piece of work and it is now specified well enough to cost.
-
-### And a defect the tank found that has nothing to do with tanks
-
-The tank came in as 31 objects with no common parent, which is an entirely normal way for a model
-to be exported. The loader kept "the root holding the most objects" — and when every object is
-its own root, every root holds one, so it kept whichever it happened to reach first and **deleted
-the other thirty**. Silently. Exit 0, a well-formed report, describing a 2.9 m vehicle.
-
-Both shipped cars survived only because they happen to arrive under one parent. Any model that
-does not would have been quietly destroyed before the first measurement.
-
-The obvious fix — group objects by whether they touch — made things worse: it kept the two stray
-lighting spheres the Eclipse ships with, which sit *concentric with the car*, and that cost the
-Stampede both its doors and moved the Eclipse's mass by 160 kg. What actually separates junk from
-vehicle is that junk is **both** negligible and sticking out of the silhouette. Vehicle parts are
-never both, and the two spheres are 40 cm proud of the roof. Both cars now re-run byte-identical.
-
-### Where the numbers landed
-
-| | Eclipse | Stampede |
-|---|---|---|
-| Part types | 25 | 25 |
-| Doors that open | 2 | **2** (was 0) |
-| Glass panes shattered | **4 of 4** (was 0) | **5 of 5** (was 0) |
-| Shards per pane | 24 | 24 |
-| Mass conservation on glass | exact | exact |
-| Chassis damage morphs | 4 | 4 |
-
-The exported-asset checker: **54 parts, 2 vehicles, 0 findings.** 231 unit tests pass.
+**500 section ids across 17 documents, all citations resolve. 184 memory entries, lint clean.**
 
 ## 3. What is next
+
+### Phase 12 — Ground and sky, built ★ *somewhere to be*
+
+D16 is a contract with nothing behind it. Building it splits cleanly into four pieces that can land in
+that order, each of which is playable on its own:
+
+1. **The height field and its collision.** The generator, the two grids, one
+   `btHeightfieldTerrainShape`, and the terrain query the wheels and bots ask. At the end of this a
+   car drives on hills. Ugly ones — the renderer still draws the old flat box — but real ones. The
+   first thing to check before anything else is that gdx-bullet 1.14.2 actually exposes that shape,
+   and that the two native traps D16 records are the traps it says they are: the shape borrows the
+   caller's height buffer rather than copying it, and it centres itself on its own bounding box.
+2. **Drawing it.** Chunked mesh, frustum culling, two levels of detail, generated tiling textures,
+   the analytic sky and the fog. This is the piece that cannot be tested here at all (`DISC-024`),
+   so it wants a session with a machine that can run the client.
+3. **The road and the surfaces.** The spline carve, cut and fill, per-surface grip at the wheel, and
+   the tyre audio finally selecting something other than tarmac. This is the piece that turns a
+   landscape into an arena.
+4. **Structures.** A factory, a placement pass, and four or five things to place. Everything that
+   breaks them already exists.
+
+The honest risk is the second item. Terrain rendering is the largest piece of client work the project
+has attempted, it is the only module that cannot be built in the development sandbox, and "it draws"
+and "it draws at a frame rate" are separated by culling and LOD work nobody has measured yet.
 
 ### Phase 11 — Driving it ★ *is any of this good?*
 
@@ -368,6 +354,18 @@ None of these are decided. They are here so the options are visible when a sessi
 
 **Gameplay**
 
+- **How big is an arena, really?** D16's worked example is 600 m across at one sample per metre. That
+  is a size chosen so the numbers were concrete, not because anybody decided it. A tighter 300 m makes
+  every fight close-quarters and the dunes dominant; a 1 km arena makes the highway the map and the
+  dunes its scenery. It costs nothing to change now and a great deal once bots, spawns and match
+  length have been tuned around one of them.
+- **Is the highway one road or a network?** The carve supports several roads and lets later ones win
+  at crossings, so a junction is free. Whether a desert arena wants one ribbon with everything
+  happening on it, or a crossroads with a reason to leave, is a level-design decision the generator
+  does not make for you.
+- **What are the first five structures?** They set what cover means. Jersey barriers make the road
+  fightable; a sign gantry gives you something to drop on somebody; fuel bowsers make a cluster worth
+  approaching and worth shooting. Each is a Blender fracture run and a JSON file.
 - **How should it handle?** Half-answered. The two shipped vehicles handle like the real cars they
   were derived from, which is a defensible starting point and a much better one than invented
   numbers. What nobody has decided is whether a *combat* game wants that: real cars are fragile,
@@ -424,7 +422,9 @@ None of these are decided. They are here so the options are visible when a sessi
   afternoon's work and a real design decision.
 - **What is actually in the scrapyard?** The arena is a flat box, deliberately. Cover changes what
   weapons are good, what vehicles are good, and whether ramming is a tactic or a mistake. It should
-  be decided by someone who has driven in the empty one.
+  be decided by someone who has driven in the empty one. Half-answered as of this session: D16 says
+  *how* cover gets there — generated terrain, carved cuttings and placed destructible structures —
+  and leaves entirely open what it should be.
 - **How much of a car is a part?** Now specified rather than speculative — see
   `docs/15_vehicle_preparation_pipeline.md` and §3. The taxonomy has twelve labels; the open question
   is which of them you actually want as *separable* parts. Every extra separable part is more
@@ -448,7 +448,9 @@ None of these are decided. They are here so the options are visible when a sessi
   sensor.
 - **`DISC-017`** — the physics engine's ray test is only accurate on small shapes, and the ray-cast
   wheel is built entirely on ray tests. Ground surfaces are planes now, which are exact; the trap
-  returns the moment an arena is built out of large boxes.
+  returns the moment an arena is built out of large boxes. D16 answers this rather than dodging it:
+  a height field is ray-tested per triangle at any size, so the answer is not "avoid large shapes"
+  but "the ground is not a convex shape". Specified, not built.
 - **No JSON schemas.** `schemas/` is empty, so the one validation rule that catches a malformed file
   by its *shape* — rather than by whichever field a hand-written check happens to read first —
   cannot fire on either the loader or the pipeline. Both work; both are checking a list rather than
@@ -481,7 +483,9 @@ None of these are decided. They are here so the options are visible when a sessi
   touches the client.
 - **Every arena is tarmac.** The tyre loops ship for tarmac, gravel and metal, and the surface a
   wheel is on is hard-coded to the first because an arena declares none (`DEV-014`). The three files
-  are correct and two of them can never play until arenas carry a surface.
+  are correct and two of them can never play until arenas carry a surface. D16 gives every square
+  metre of ground a surface with its own grip, rolling resistance and sound (`DEC-070`), which closes
+  this the moment it is built.
 - **No damage morph targets exist in shipped content yet**, so slot 23 is still correct code driving
   nothing. The pipeline generates them now, but `assets/parts` has not been re-cut through it, so a
   damaged car still looks undamaged until a part comes off it entirely.
@@ -526,7 +530,12 @@ outline*. Every system the design specifies exists. There is no longer a list of
 not been built — only a list of things that have not been pointed at each other, tuned, or heard by
 a person.
 
-Eight cars go onto an arena floor, drawn from real art with real paint on them. They drive, crash,
+Eight cars go onto an arena floor — a *flat* one, four invisible walls, a grid painted on it so you
+can tell you are moving. That floor is the last placeholder left standing, and it is the one that
+matters most, because on it every position on the map is the same position. It now has a full
+specification and no implementation, which is exactly where the destruction toolchain and the
+preparation pipeline each stood one session before they became the best-tested parts of the project.
+On that floor: the cars are drawn from real art with real paint on them. They drive, crash,
 take damage, throw sparks, lose parts, and one of them wins. A camera follows one, a HUD says how
 fast and how broken it is, a scoreboard says who is ahead. Every sound the design calls for plays.
 And now, underneath all of it, the machinery for two machines to agree on one match: compressed
@@ -539,10 +548,11 @@ a difficulty nobody has lost to. The mix is a set of first guesses. None of that
 of it can be settled by writing more code — which is now true of the project as a whole rather than
 of one corner of it.
 
-The honest remaining engineering, as opposed to tuning, is three items: a socket transport, the
-wiring that hands it to the two runtime shells, and lag compensation. Everything else on the "not
-done" list is content or numbers somebody has to turn — and as of this session, making content is a
-command rather than a project. A downloaded model goes in one end and a driveable, breakable,
+The honest remaining engineering, as opposed to tuning, was three items until this session: a socket
+transport, the wiring that hands it to the two runtime shells, and lag compensation. There is now a
+fourth, and it is larger than the other three together — the ground. Everything else on the "not
+done" list is content or numbers somebody has to turn — and as of two sessions ago, making content is
+a command rather than a project. A downloaded model goes in one end and a driveable, breakable,
 named-in-parts vehicle comes out the other, with doors that open and dent and windows that shatter,
 which is what stops "a roster" being expensive.
 
