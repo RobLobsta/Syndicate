@@ -30,19 +30,24 @@ class Part:
 
     :param label: the D15-S4.1 label every shell in the group carries
     :param side: ``l``, ``r`` or ``c`` (D15-R19)
-    :param index: distinguishes two parts with the same label and side — front and rear
-        wheels, upper and lower grilles
+    :param index: distinguishes two parts with the same label, role and side — the front and
+        rear doors on one flank, upper and lower grilles
+    :param role: the refinement :mod:`syndicate_prepare.roles` put on those shells — ``door``
+        rather than merely ``panel``. Part of the grouping key, because two panels with
+        different roles are never the same part however close together they sit.
     :param shells: the shells that make it up, in ascending shell index
     """
 
     label: str
     side: str
     index: int
+    role: str | None = None
     shells: list[Shell] = field(default_factory=list)
 
     @property
     def name(self) -> str:
-        return f"{self.label}_{self.side}{self.index:02d}"
+        role = f"_{self.role}" if self.role else ""
+        return f"{self.label}{role}_{self.side}{self.index:02d}"
 
     @property
     def triangles(self) -> int:
@@ -109,8 +114,21 @@ def side_of(x: float) -> str:
     return "c"
 
 
+def side_for(shell: Shell) -> str:
+    """The side a shell groups under, honouring the singular roles (D15-R3d).
+
+    A windscreen is one part that happens to span the centreline; its side is ``c`` whatever
+    its centroid says.
+    """
+    from .roles import SINGULAR_ROLES
+
+    if shell.role in SINGULAR_ROLES:
+        return "c"
+    return side_of(shell.centroid[0])
+
+
 def group_into_parts(shells: list[Shell], twins: dict[int, Shell]) -> list[Part]:
-    """Groups labelled shells into parts by ``(label, side, index)`` (D15-R18).
+    """Groups labelled shells into parts by ``(label, role, side, index)`` (D15-R18).
 
     Within one ``(label, side)`` the shells are split into as many parts as the *label*
     warrants: a car has four wheels and two doors a side and one bonnet, and the way to tell
@@ -123,18 +141,27 @@ def group_into_parts(shells: list[Shell], twins: dict[int, Shell]) -> list[Part]
     """
     hosts = {shell.index: shell for shell in shells if shell.merged_into is None}
 
-    buckets: dict[tuple[str, str], list[Shell]] = {}
+    buckets: dict[tuple[str, str, str, str], list[Shell]] = {}
     for shell in shells:
         host = shell if shell.merged_into is None else hosts.get(shell.merged_into)
         if host is None:
             host = shell
-        key = (host.label, side_of(host.centroid[0]))
+        # A shell captured into a wheel corner is grouped by that corner, not by its
+        # position along the car: the whole point of the capture is that these pieces belong
+        # together, and a length split would put a brake disc and its own hub in two parts.
+        key = (
+            host.label,
+            host.role or "",
+            side_for(host),
+            host.corner or "",
+        )
         buckets.setdefault(key, []).append(shell)
 
     parts: list[Part] = []
-    for (label, side), members in sorted(buckets.items()):
-        for index, cluster in enumerate(_split_along_length(members)):
-            part = Part(label=label, side=side, index=index)
+    for (label, role, side, corner), members in sorted(buckets.items()):
+        clusters = [members] if corner else _split_along_length(members)
+        for index, cluster in enumerate(clusters):
+            part = Part(label=label, side=side, index=index, role=role or None)
             part.shells = sorted(cluster, key=lambda shell: shell.index)
             parts.append(part)
 
@@ -143,7 +170,7 @@ def group_into_parts(shells: list[Shell], twins: dict[int, Shell]) -> list[Part]
     # recording that the pairing exists. What it would change — merging two mirrored parts
     # into one part type with two instances — is the exporter's decision, not this one's.
     del twins
-    return sorted(parts, key=lambda part: (part.label, part.side, part.index))
+    return sorted(parts, key=lambda part: (part.label, part.role or "", part.side, part.index))
 
 
 def _split_along_length(shells: list[Shell]) -> list[list[Shell]]:
@@ -187,9 +214,22 @@ def angular_coverage_deg(points, axle_centre, sectors: int) -> float:
     caliper (D15-R24).
 
     :param points: ``(x, y, z)`` vertices in game space
-    :param axle_centre: the axle's ``(y, z)`` position; ``x`` is the axis and is ignored
+    :param axle_centre: the axle's ``(x, y, z)`` position. Only ``y`` and ``z`` are read —
+        ``x`` is the axis of rotation, along which a bearing is undefined — but the whole
+        point is passed so that callers hand over the axle they measured rather than a
+        two-element slice of it that is easy to build in the wrong order.
     :param sectors: how many equal sectors the circle is divided into
     """
+    return len(occupied_sectors(points, axle_centre, sectors)) * (360.0 / max(1, sectors))
+
+
+#: Degrees of slack when a bearing lands on the far side of the 360° wrap. See the comment in
+#: :func:`occupied_sectors` for what it costs to leave it out.
+BEARING_EPSILON_DEG = 1e-6
+
+
+def occupied_sectors(points, axle_centre, sectors: int) -> set[int]:
+    """Which sectors about the axle a set of points falls in."""
     occupied: set[int] = set()
     step = 360.0 / max(1, sectors)
     for point in points:
@@ -200,5 +240,41 @@ def angular_coverage_deg(points, axle_centre, sectors: int) -> float:
             # numerically wild.
             continue
         bearing = math.degrees(math.atan2(dy, dz)) % 360.0
+        if bearing >= 360.0 - BEARING_EPSILON_DEG:
+            # A vertex sitting exactly on +z has a bearing of zero, and a bearing of zero
+            # computed from an axle centre that is 3e-17 off comes out *negative* and wraps to
+            # 359.999…, which lands in the last sector instead of the first. On a lug-nut
+            # pattern that single misplaced sector is the difference between a group that is
+            # four-fold symmetric and one that is not symmetric at all.
+            bearing = 0.0
         occupied.add(int(bearing // step))
-    return len(occupied) * step
+    return occupied
+
+
+def rotational_symmetry_order(points, axle_centre, sectors: int) -> int:
+    """The largest ``n`` for which the group maps onto itself under a turn of ``360/n``.
+
+    This is D15-R22's rule as it is *stated* — "a wheel is symmetric under rotation by 360/n
+    and every piece maps onto another piece of the same kind" — where
+    :func:`angular_coverage_deg` is its proxy. The two agree on everything continuous: a tyre,
+    a rim and a brake disc all cover the full circle and are symmetric under any turn.
+
+    They disagree on exactly the case R22 uses to explain itself. Five lug nuts occupy five
+    sectors out of twenty-four, so coverage calls them 75° and sends them to the hub — while
+    the set is plainly invariant under a fifth of a turn, which is what "rotates with the
+    wheel" means. Coverage is what a *solid of revolution* has; this is what a *pattern* has,
+    and a wheel is made of both.
+
+    :return: the symmetry order, or ``1`` for a group with no rotational symmetry
+    """
+    occupied = occupied_sectors(points, axle_centre, sectors)
+    if not occupied:
+        return 1
+    best = 1
+    for order in range(2, sectors + 1):
+        if sectors % order:
+            continue
+        shift = sectors // order
+        if all(((sector + shift) % sectors) in occupied for sector in occupied):
+            best = max(best, order)
+    return best

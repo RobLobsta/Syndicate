@@ -39,11 +39,22 @@ def assign_masses(
     material_id: str,
     materials: MaterialTable,
     args: Args,
+    part_volume_override: float | None = None,
 ) -> MassResult:
-    """Compute the part's mass properties and each shard's mass (D09-S6.2)."""
+    """Compute the part's mass properties and each shard's mass (D09-S6.2).
+
+    ``part_volume_override`` is for a source whose material volume is not what it encloses —
+    a shell, whose volume is its area times its thickness (D09-S5.2.1). Everything after it
+    is unchanged, including the shard-sum cross-check, which is the point: the shell path has
+    to satisfy the same conservation law by the same arithmetic.
+    """
     density = materials.resolve(material_id).density_kg_per_m3
 
-    part_volume = mesh_volume(source_vertices, source_triangles)
+    part_volume = (
+        part_volume_override
+        if part_volume_override is not None
+        else mesh_volume(source_vertices, source_triangles)
+    )
     if part_volume <= 0.0:
         raise ToolError(
             EXIT_INPUT_GEOMETRY_INVALID,

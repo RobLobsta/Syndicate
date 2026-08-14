@@ -128,6 +128,11 @@ art-source/
     "rangeM": 0.0,
     "muzzleLocal": { "x": 0.0, "y": 0.2, "z": 0.9 }
   },
+  "articulation": {
+    "axisLocal": { "x": 0.0, "y": 1.0, "z": 0.0 },
+    "pivotLocal": { "x": 0.0, "y": 0.0, "z": 0.0 },
+    "openDeg": 62.0
+  },
   "slots": [
     {
       "slotId": "deco_mount_01",
@@ -170,6 +175,8 @@ art-source/
 | `slots[].slotId` | string | unique within the part; `^[a-z][a-z0-9_]{1,31}$` |
 | `slots[].localRotationDeg` | object | degrees with explicit `order` (D00-R17) |
 | `slots[].covers` | string[] | each must be a `slotId` on the **same** part |
+| `articulation` | object | optional; present on a part that opens rather than merely detaching (D15-S5.6). `axisLocal` is a unit axis and `pivotLocal` a point on it, both in the part's own space; `openDeg` is the signed angle it opens to, and its sign is the direction — a left door and a right door hinge about the same axis in opposite directions. It is **data on the part and not an armature** (D15-R30): the game already composes parts down a slot chain, so an opening door is a slot whose local rotation animates, and a second transform hierarchy would be one the runtime never reads. Articulation and detachment are independent (D15-R31): the hinge angle is cosmetic state and the attachment is authoritative (G6). |
+| `yieldImpulseN` | number | optional; present on a `structural` part. The impulse in N·s at which the part starts to buckle, deliberately in the same unit as `breakImpulseN` so that "the frame buckles before the mounts shear" is a statement about two numbers rather than two scales (D15-R34). |
 | `assets.*` | path | relative to the part directory; each must exist |
 | `assets.morphTargets` | string[] | 0 or 4 entries; if 4, must be exactly the canonical names |
 

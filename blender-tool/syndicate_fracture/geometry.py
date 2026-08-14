@@ -255,6 +255,13 @@ def convex_hull(points: list[Vec3], epsilon: float = 1e-9) -> tuple[list[Vec3], 
     Returns the hull's vertices and its outward-facing triangles. Degenerate input — fewer
     than four points, or all points coplanar — returns an empty hull, which the caller
     reports as ``HULL_FAILED`` rather than silently shipping a flat collision shape.
+
+    Incremental insertion rests on one invariant: the faces a new point can see form a
+    topological disc, so replacing them with a fan to that point leaves a closed surface.
+    On well-conditioned input that holds automatically. On a 5 mm glass shard — hundreds of
+    points sitting *on* each other's face planes — it does not, and the two ways it fails
+    both used to corrupt the hull silently. See :func:`_repair_visible_cap` and the
+    transactional insertion below.
     """
     unique: list[Vec3] = []
     seen: set[tuple[int, int, int]] = set()
@@ -275,6 +282,7 @@ def convex_hull(points: list[Vec3], epsilon: float = 1e-9) -> tuple[list[Vec3], 
         visible_flags = [_signed_distance(f, point) > epsilon for f in faces]
         if not any(visible_flags):
             continue
+        visible_flags = _repair_visible_cap(faces, visible_flags)
 
         # The horizon is where the visible region ends: a *directed* edge of a visible face
         # whose reverse does not also belong to a visible face. Directed matters — the new
@@ -287,13 +295,26 @@ def convex_hull(points: list[Vec3], epsilon: float = 1e-9) -> tuple[list[Vec3], 
                 directed.update(_face_edges(face))
         horizon = [(a, b) for (a, b) in directed if (b, a) not in directed]
 
-        faces = [f for f, is_visible in zip(faces, visible_flags, strict=True) if not is_visible]
-        for a, b in horizon:
-            face = _make_face(a, b, point)
-            if face is not None:
-                faces.append(face)
-        if not faces:
-            return ([], [])
+        # Insert transactionally: build the whole candidate surface, and adopt it only if it
+        # is still closed. Appending the fan in place instead is what let a single dropped
+        # triangle wreck the hull — `_make_face` returns None when the new point is collinear
+        # with a horizon edge, which on a slab of glass happens routinely, and the skipped
+        # triangle leaves a hole. Every later visibility test then reads through that hole,
+        # and the result is not a convex polyhedron at all: measured on a windscreen shard,
+        # 30 vertices carrying 71 triangles where Euler allows 56, with four of its own
+        # vertices lying 22 mm outside it (DISC-040).
+        #
+        # Rolling the point back instead leaves the hull slightly small rather than invalid,
+        # which is a shortfall `build_hull` already measures and inflates away. On the two
+        # shipped cars this fires once in 24 shards and costs one micron of enclosure.
+        kept = [f for f, is_visible in zip(faces, visible_flags, strict=True) if not is_visible]
+        fan = [_make_face(a, b, point) for a, b in horizon]
+        if not horizon or any(face is None for face in fan):
+            continue
+        candidate = kept + [face for face in fan if face is not None]
+        if not _is_closed_surface(candidate):
+            continue
+        faces = candidate
 
     hull_points: list[Vec3] = []
     index_of: dict[tuple[int, int, int], int] = {}
@@ -326,6 +347,113 @@ def convex_hull(points: list[Vec3], epsilon: float = 1e-9) -> tuple[list[Vec3], 
         else:
             oriented.append((i, j, k))
     return (hull_points, oriented)
+
+
+def _undirected_edge(edge: tuple[Vec3, Vec3]) -> tuple[Vec3, Vec3]:
+    """An edge keyed independently of which face traversed it."""
+    a, b = edge
+    return (a, b) if a <= b else (b, a)
+
+
+def _is_closed_surface(faces) -> bool:
+    """Whether every edge is shared by exactly two faces — the polyhedron invariant."""
+    used: dict[tuple[Vec3, Vec3], int] = {}
+    for face in faces:
+        for edge in _face_edges(face):
+            key = _undirected_edge(edge)
+            used[key] = used.get(key, 0) + 1
+    return bool(used) and all(count == 2 for count in used.values())
+
+
+def _face_components(faces, indices: list[int]) -> list[list[int]]:
+    """Connected components of ``indices``, joined across shared edges.
+
+    Components come out in the order their lowest-indexed face appears and each is sorted,
+    so the caller's choice among them is the same on every run (G11).
+    """
+    by_edge: dict[tuple[Vec3, Vec3], list[int]] = {}
+    for index in indices:
+        for edge in _face_edges(faces[index]):
+            by_edge.setdefault(_undirected_edge(edge), []).append(index)
+
+    seen: set[int] = set()
+    components: list[list[int]] = []
+    for start in indices:
+        if start in seen:
+            continue
+        component: list[int] = []
+        stack = [start]
+        seen.add(start)
+        while stack:
+            current = stack.pop()
+            component.append(current)
+            for edge in _face_edges(faces[current]):
+                for neighbour in by_edge[_undirected_edge(edge)]:
+                    if neighbour not in seen:
+                        seen.add(neighbour)
+                        stack.append(neighbour)
+        components.append(sorted(component))
+    return components
+
+
+def _minor_components(components: list[list[int]]) -> list[list[int]]:
+    """Every component except the largest; ties break on the lowest face index."""
+    if len(components) <= 1:
+        return []
+    largest = max(
+        range(len(components)), key=lambda i: (len(components[i]), -components[i][0])
+    )
+    return [component for i, component in enumerate(components) if i != largest]
+
+
+#: Passes of cap repair. Each pass can only merge regions, so it converges quickly; the
+#: bound is what stops a pathological set from oscillating between the two corrections.
+_CAP_REPAIR_PASSES = 4
+
+
+def _repair_visible_cap(faces, flags: list[bool]) -> list[bool]:
+    """Force the visible set to be a single topological disc.
+
+    Seen from a point outside a convex polyhedron, the visible faces form one disc and the
+    hidden faces form the complementary disc; the horizon between them is a single closed
+    cycle. Everything downstream assumes it.
+
+    Round-off breaks that assumption whenever points sit on each other's face planes. A face
+    in the middle of the cap comes out at -1e-12 instead of +1e-12 and reads as hidden,
+    punching a hole in the disc; the horizon then has two cycles and the fan built across it
+    is self-intersecting. Measured on the Eclipse's side window this happened at 16 of 44
+    insertions on one shard alone.
+
+    The repair reads the two sides as what they must be. Any hidden region that is not the
+    main one is a hole in the cap, so it joins the cap; any visible region that is not the
+    main one is a speck detached from it, so it leaves. Applying both in that order — holes
+    first, because filling one can also reconnect the cap — leaves exactly two regions, and
+    two complementary discs on a sphere always meet along one cycle.
+
+    Note that this is a repair of the *classification*, not of the geometry: the faces are
+    untouched, and a correctly classified cap passes through unchanged.
+    """
+    for _pass in range(_CAP_REPAIR_PASSES):
+        changed = False
+        hidden = [i for i, is_visible in enumerate(flags) if not is_visible]
+        if not hidden:
+            return flags
+        for component in _minor_components(_face_components(faces, hidden)):
+            for index in component:
+                flags[index] = True
+            changed = True
+
+        if all(flags):
+            return flags
+        visible = [i for i, is_visible in enumerate(flags) if is_visible]
+        for component in _minor_components(_face_components(faces, visible)):
+            for index in component:
+                flags[index] = False
+            changed = True
+
+        if not changed:
+            return flags
+    return flags
 
 
 def _initial_tetrahedron(
@@ -485,7 +613,50 @@ def _reduce_by_direction_sampling(points: list[Vec3], target: int) -> tuple[list
     reduced = list(kept.values())
     if len(reduced) < 4:
         return convex_hull(points)
-    return convex_hull(reduced)
+
+    hull = convex_hull(reduced)
+    if not hull[1]:
+        # Every sampled extreme landed on one plane, so the reduced set has no volume and
+        # `convex_hull` refuses it. This is what a **flat** part does: the rim of a pane is
+        # planar and carries every extreme except along the one direction that sees its
+        # camber, and thirty-two directions spread over a sphere will not land inside the
+        # couple of degrees where 3 mm of camber beats 700 mm of width. The source is not
+        # degenerate — the 96-point hull of that pane measures 0.0128 m³ — so the repair is
+        # to put back the points the sampling could not see: the two farthest from the plane
+        # everything else sits on.
+        reduced.extend(_offplane_extremes(points, reduced))
+        hull = convex_hull(reduced)
+    if not hull[1]:
+        return convex_hull(points)
+    return hull
+
+
+def _offplane_extremes(points: list[Vec3], planar: list[Vec3]) -> list[Vec3]:
+    """The points of ``points`` farthest to either side of the plane ``planar`` lies in.
+
+    Returns at most two, and an empty list if no plane can be fitted — which means the
+    caller's set is collinear rather than coplanar and no single point can rescue it.
+    """
+    origin = planar[0]
+    normal = None
+    for i in range(1, len(planar)):
+        for j in range(i + 1, len(planar)):
+            candidate = cross(sub(planar[i], origin), sub(planar[j], origin))
+            if length(candidate) > 1e-12:
+                normal = normalize(candidate)
+                break
+        if normal is not None:
+            break
+    if normal is None:
+        return []
+
+    above = max(points, key=lambda p: dot(sub(p, origin), normal))
+    below = min(points, key=lambda p: dot(sub(p, origin), normal))
+    extremes = []
+    for point in (above, below):
+        if abs(dot(sub(point, origin), normal)) > 1e-9:
+            extremes.append(point)
+    return extremes
 
 
 def inflate_hull(

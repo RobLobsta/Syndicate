@@ -26,6 +26,11 @@ from .geometry import (
 # no longer encloses the mesh and shards visibly clip through each other.
 HULL_ENCLOSE_M = 0.002
 
+#: Below this, a shortfall is float noise rather than geometry. An exactly-enclosing hull
+#: reports its worst source vertex a few times 1e-18 m outside, and re-inflating by that is
+#: a wasted re-hull per shard for a distance a billion times under the tolerance.
+_SHORTFALL_FLOOR_M = 1e-9
+
 
 @dataclass
 class Hull:
@@ -66,15 +71,20 @@ def build_hull(name: str, source_vertices: list[Vec3], max_verts: int) -> Hull:
                 budget=max_verts,
             )
 
-        # Re-inflate to restore enclosure. Simplification always cuts corners off a convex
-        # hull, so on a curved source the result is guaranteed to sit inside the mesh; the
-        # inflate step puts it back outside by construction rather than leaving the
-        # enclosure check to discover the shortfall (D09-S5.5).
-        shortfall = max_outside_distance(points, triangles, source_vertices)
-        if shortfall > 0.0:
-            inflated_points, inflated_triangles = inflate_hull(points, triangles, shortfall * 1.05)
-            if inflated_triangles and len(inflated_points) <= max_verts:
-                points, triangles = inflated_points, inflated_triangles
+    # Re-inflate to restore enclosure. Simplification always cuts corners off a convex hull,
+    # so on a curved source the result is guaranteed to sit inside the mesh; the inflate step
+    # puts it back outside by construction rather than leaving the enclosure check to
+    # discover the shortfall (D09-S5.5).
+    #
+    # This runs whether or not the hull was simplified, because simplification is not the
+    # only way to end up short: `convex_hull` rolls back an insertion it cannot complete
+    # without breaking the surface, which leaves the point it gave up on fractionally
+    # outside (DISC-040).
+    shortfall = max_outside_distance(points, triangles, source_vertices)
+    if shortfall > _SHORTFALL_FLOOR_M:
+        inflated_points, inflated_triangles = inflate_hull(points, triangles, shortfall * 1.05)
+        if inflated_triangles and len(inflated_points) <= max_verts:
+            points, triangles = inflated_points, inflated_triangles
 
     hull = Hull(name=name, vertices=points, triangles=triangles, budget=max_verts)
     validate_hull(hull, source_vertices)

@@ -42,7 +42,17 @@ MAX_HULL_VERTICES = 64
 
 def join(islands, name: str):
     """Joins islands into one object named ``name``. Returns it, or None if there are none."""
-    objects = [i.obj for i in islands]
+    return join_objects([i.obj for i in islands], name)
+
+
+def join_objects(objects, name: str):
+    """Joins Blender objects into one named ``name``. Returns it, or None if there are none.
+
+    Split out from :func:`join` for :mod:`syndicate_prepare`, which groups shells rather than
+    islands and has no ``Island`` to unwrap. The two tools must join identically or a part cut
+    by one and a part cut by the other would sit in different places.
+    """
+    objects = [obj for obj in objects if obj is not None]
     if not objects:
         return None
     bpy.ops.object.select_all(action="DESELECT")
@@ -107,7 +117,16 @@ def build_collision_hull(obj, name: str):
         source.verts.new(p)
     source.verts.ensure_lookup_table()
     hull = bmesh.ops.convex_hull(source, input=source.verts)
-    bmesh.ops.delete(source, geom=hull["geom_unused"] + hull["geom_interior"], context="VERTS")
+    # `geom_unused` and `geom_interior` are not disjoint: a vertex that is both unused by the
+    # hull and interior to it appears in both lists, and `bmesh.ops.delete` rejects a geometry
+    # list containing the same element twice with "found the same (BMVert/BMEdge/BMFace) used
+    # multiple times". It never came up while this only ever hulled a chassis and two wheels;
+    # it comes up immediately on a part whose support points are nearly coplanar, which on a
+    # real car is a light lens, a badge or a window.
+    leftovers = list({id(element): element for element in
+                      hull["geom_unused"] + hull["geom_interior"]}.values())
+    if leftovers:
+        bmesh.ops.delete(source, geom=leftovers, context="VERTS")
     mesh = bpy.data.meshes.new(name)
     source.to_mesh(mesh)
     source.free()

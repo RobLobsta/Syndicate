@@ -273,60 +273,127 @@ tasks.named("check") {
 /**
  * The vehicle preparation pipeline of D15, over every model in `art-source/vehicles/`.
  *
- * Strict: D15-R13 makes an under-labelled model a non-zero exit, and the point of running this
- * from the build is to find out that a newly added car needs a `parts.json` before somebody
- * spends an afternoon wondering why its doors are part of the chassis.
+ * Two tasks over one tool, because the two things it can do have opposite consequences.
  *
- * Not wired into `check`, for the same reason `processFixtures` is not: it needs a Blender host,
- * takes seventeen seconds a car, and a developer without Blender must still be able to build.
+ * `classifyVehicles` runs stages 1 to 6 and writes only a report. It is what to run when a
+ * threshold in the cue ensemble changed and the question is what that did to the labelling.
+ *
+ * `prepareVehicles` runs all nine and writes `assets/parts/` and `assets/vehicles/` — committed
+ * content. Running it is a decision to re-cut the art and belongs in the commit that does so,
+ * which is why it is wired into no other task, exactly as `dissectVehicles` is not.
+ *
+ * Both are strict: D15-R13 makes an under-labelled model a non-zero exit, and the point of
+ * running either from the build is to find out that a newly added car needs a `parts.json`
+ * before somebody spends an afternoon wondering why its doors are part of the chassis.
+ *
+ * Neither is wired into `check`, for the same reason `processFixtures` is not: they need a
+ * Blender host, take seventeen seconds a car, and a developer without Blender must still build.
  */
-tasks.register("prepareVehicles") {
-    group = "build"
-    description = "Runs syndicate-prepare over art-source/vehicles/ (D15-S5.1)."
+fun registerPreparation(taskName: String, taskDescription: String, writeAssets: Boolean) =
+    tasks.register(taskName) {
+        group = "build"
+        description = taskDescription
 
-    val toolDir = layout.projectDirectory.asFile
-    val vehiclesDir = rootProject.layout.projectDirectory.dir("art-source/vehicles").asFile
-    val reportRoot = rootProject.layout.buildDirectory.dir("prepare-reports").get().asFile
+        val toolDir = layout.projectDirectory.asFile
+        val vehiclesDir = rootProject.layout.projectDirectory.dir("art-source/vehicles").asFile
+        val reportRoot = rootProject.layout.buildDirectory.dir("prepare-reports").get().asFile
+        val partsRoot = rootProject.layout.projectDirectory.dir("assets/parts").asFile
+        val assembliesRoot = rootProject.layout.projectDirectory.dir("assets/vehicles").asFile
+        val materialTable =
+            rootProject.layout.projectDirectory.file("assets/materials/materials.json").asFile
+        val balanceTable =
+            rootProject.layout.projectDirectory.file("assets/balance/classes.json").asFile
 
-    // Resolved at configuration time into plain strings: a `doLast` that built the command
-    // would capture the script object, which the configuration cache cannot serialise (DISC-001).
-    val models: List<Pair<String, List<String>>> =
-        (vehiclesDir.listFiles()?.filter { it.isDirectory }?.sortedBy { it.name } ?: emptyList())
-            .map { dir ->
-                dir.name to prepareCommand(
-                    "--model", dir.absolutePath,
-                    "--vehicle", dir.name,
-                    "--strict",
-                    "--report", File(reportRoot, "${dir.name}.json").absolutePath,
-                )
+        // Resolved at configuration time into plain strings: a `doLast` that built the command
+        // would capture the script object, which the configuration cache cannot serialise
+        // (DISC-001).
+        val models: List<Pair<String, List<String>>> =
+            (vehiclesDir.listFiles()?.filter { it.isDirectory }?.sortedBy { it.name } ?: emptyList())
+                .map { dir ->
+                    val arguments = mutableListOf(
+                        "--model", dir.absolutePath,
+                        "--vehicle", dir.name,
+                        "--strict",
+                        "--material-table", materialTable.absolutePath,
+                        "--balance-table", balanceTable.absolutePath,
+                        "--report", File(reportRoot, "${dir.name}.json").absolutePath,
+                    )
+                    if (writeAssets) {
+                        arguments += listOf(
+                            "--out", partsRoot.absolutePath,
+                            "--vehicles", assembliesRoot.absolutePath,
+                        )
+                    }
+                    dir.name to prepareCommand(*arguments.toTypedArray())
+                }
+        val required = blenderRequired
+        val available = blenderAvailable
+        val exe = blenderExe
+
+        inputs.dir(vehiclesDir).withPathSensitivity(PathSensitivity.RELATIVE)
+        outputs.dir(reportRoot)
+
+        doLast {
+            if (!available) {
+                val message = "Blender not found; tried '$exe' on PATH and the bpy module (D02-R12)"
+                if (required) {
+                    throw GradleException("$message — SYNDICATE_REQUIRE_BLENDER=1")
+                }
+                this@register.logger.warn("SKIPPED :blender-tool:$taskName — $message")
+                return@doLast
             }
-    val required = blenderRequired
-    val available = blenderAvailable
-    val exe = blenderExe
+            for ((name, command) in models) {
+                val process =
+                    ProcessBuilder(command).directory(toolDir).redirectErrorStream(false).start()
+                val document = process.inputStream.bufferedReader().readText()
+                val exit = process.waitFor()
+                if (exit != 0) {
+                    // 65 is D15-R13's "this model needs a parts.json", which is a report about
+                    // the content rather than a tool failure — but it still fails the build,
+                    // because a car nobody has prepared must not slip through as though it had.
+                    throw GradleException("syndicate-prepare on $name exited $exit\n$document")
+                }
+                this@register.logger.lifecycle("$taskName: $name")
+            }
+        }
+    }
 
-    inputs.dir(vehiclesDir).withPathSensitivity(PathSensitivity.RELATIVE)
-    outputs.dir(reportRoot)
+registerPreparation(
+    "classifyVehicles",
+    "Classifies art-source/vehicles/ and reports; writes no assets (D15-S5.1 stages 1-6).",
+    writeAssets = false,
+)
 
-    doLast {
+registerPreparation(
+    "prepareVehicles",
+    "Turns art-source/vehicles/ into assets/parts and assets/vehicles (D15-S5.1, all 9 stages).",
+    writeAssets = true,
+)
+
+/**
+ * Stage 9 of D15-S5.1, over whatever is in `assets/`: opens every mesh a `part.json` names and
+ * checks it contains the nodes and morph targets that manifest promises, then checks the
+ * assembly and the parts agree about slots, masses and the power budget.
+ *
+ * The asset gate in `asset-pipeline` is the authority on content validity and this does not
+ * replace it. What it adds is the half the JVM cannot see: the *inside of the .glb*. A
+ * `part.json` promising four morph targets over a mesh carrying none passes every JSON check
+ * ever written and fails at the moment somebody drives the car.
+ */
+tasks.register<Exec>("verifyPreparedAssets") {
+    group = "verification"
+    description = "Checks assets/parts and assets/vehicles against their own meshes (D15-S5.1)."
+    workingDir = layout.projectDirectory.asFile
+    commandLine(
+        "python3", "tools/verify_prepared.py",
+        rootProject.layout.projectDirectory.dir("assets/parts").asFile.absolutePath,
+        rootProject.layout.projectDirectory.dir("assets/vehicles").asFile.absolutePath,
+    )
+    val available = bpyModuleAvailable
+    onlyIf { task ->
         if (!available) {
-            val message = "Blender not found; tried '$exe' on PATH and the bpy module (D02-R12)"
-            if (required) {
-                throw GradleException("$message — SYNDICATE_REQUIRE_BLENDER=1")
-            }
-            this@register.logger.warn("SKIPPED :blender-tool:prepareVehicles — $message")
-            return@doLast
+            task.logger.warn("SKIPPED :blender-tool:verifyPreparedAssets — needs the bpy module")
         }
-        for ((name, command) in models) {
-            val process = ProcessBuilder(command).directory(toolDir).redirectErrorStream(false).start()
-            val document = process.inputStream.bufferedReader().readText()
-            val exit = process.waitFor()
-            if (exit != 0) {
-                // 65 is D15-R13's "this model needs a parts.json", which is a report about the
-                // content rather than a tool failure — but it still fails the build, because a
-                // car nobody has prepared must not slip through as though it had been.
-                throw GradleException("syndicate-prepare on $name exited $exit\n$document")
-            }
-            this@register.logger.lifecycle("prepared $name")
-        }
+        available
     }
 }

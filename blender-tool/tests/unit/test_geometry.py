@@ -13,9 +13,12 @@ import pytest
 from syndicate_fracture.geometry import (
     Polytope,
     Vec3,
+    _repair_visible_cap,
+    _signed_distance,
     aabb_of,
     clip_polytope,
     convex_hull,
+    cross,
     face_planes,
     inertia_diagonal,
     inflate_hull,
@@ -24,12 +27,17 @@ from syndicate_fracture.geometry import (
     max_outside_distance,
     mesh_centroid,
     mesh_volume,
+    normalize,
     quantise,
     simplify_hull,
+    sub,
     surface_area,
     vertex_normals,
 )
+from syndicate_fracture.hulls import HULL_ENCLOSE_M
 from syndicate_fracture.sites import bisector_planes
+
+from .glass_shard_fixture import GLASS_SHARD_VERTICES
 
 
 def cube(
@@ -283,3 +291,119 @@ class TestConvexity:
         vertices = outer_v + [(v[0], v[1] + 0.25, v[2]) for v in inner_v]
         triangles = outer_t + [(k + offset, j + offset, i + offset) for i, j, k in inner_t]
         assert not is_convex(vertices, triangles)
+
+
+# ---- A flat part's hull (DISC-040) ---------------------------------------------------------
+
+
+def curved_pane(nx: int = 24, ny: int = 12) -> list[tuple[float, float, float]]:
+    """A windscreen: 1.4 x 0.7 m with 30 mm of camber, and a rim that is exactly planar."""
+    points = []
+    for j in range(ny + 1):
+        for i in range(nx + 1):
+            u, v = i / nx, j / ny
+            camber = 0.03 * math.cos(math.pi * (u - 0.5)) * math.cos(math.pi * (v - 0.5))
+            points.append(((u - 0.5) * 1.4, camber, (v - 0.5) * 0.7))
+    return points
+
+
+def test_a_flat_parts_hull_survives_reduction_to_a_budget():
+    """Direction sampling picked 32 extremes that were all on the pane's planar rim.
+
+    Thirty-two directions spread over a sphere never land inside the couple of degrees where
+    30 mm of camber outweighs 700 mm of width, so the apex was never sampled, the kept set was
+    coplanar, and the hull collapsed to nothing — taking the whole part with it (exit 71).
+    """
+    points = curved_pane()
+    hull, triangles = convex_hull(points)
+    assert mesh_volume(hull, triangles) > 0.01
+
+    reduced, reduced_triangles = simplify_hull(hull, triangles, 32)
+    assert reduced_triangles, "the hull collapsed"
+    assert len(reduced) <= 32
+    assert mesh_volume(reduced, reduced_triangles) > 0.0
+
+
+def test_the_repair_only_fires_when_the_sampling_is_degenerate():
+    """A sphere's extremes are never coplanar, so the reduction is untouched by the repair."""
+    points = [
+        (
+            math.cos(theta) * math.sin(phi),
+            math.sin(theta) * math.sin(phi),
+            math.cos(phi),
+        )
+        for theta in [i * math.tau / 24 for i in range(24)]
+        for phi in [j * math.pi / 12 for j in range(1, 12)]
+    ]
+    hull, triangles = convex_hull(points)
+    reduced, reduced_triangles = simplify_hull(hull, triangles, 32)
+    assert reduced_triangles
+    assert len(reduced) <= 32
+    # A sphere reduced to 32 directions keeps most of its volume; a collapse or a rescue that
+    # fired wrongly would not.
+    assert mesh_volume(reduced, reduced_triangles) > 0.6 * mesh_volume(
+        hull, triangles
+    )
+
+
+# ---- A glass shard's hull (DISC-040) --------------------------------------------------------
+
+
+def euler_holds(hull: list[Vec3], triangles: list[tuple[int, int, int]]) -> bool:
+    """Whether a closed triangulated polyhedron's face and vertex counts agree.
+
+    ``V - E + F = 2`` with ``3F = 2E`` gives ``F = 2V - 4``. It is the cheapest statement of
+    "this is a polyhedron and not a bag of triangles", and it is what the broken hull failed:
+    30 vertices carrying 71 triangles where 56 is the only possible answer.
+    """
+    return len(triangles) == 2 * len(hull) - 4
+
+
+def test_a_glass_shards_hull_is_a_polyhedron_that_encloses_it():
+    """The visible-face set went non-disc, and the fan built across it self-intersected.
+
+    Points of a 5 mm slab sit on each other's face planes, so a face in the middle of the
+    visible cap reads as hidden and the horizon comes back as two cycles rather than one.
+    The hull that resulted was not convex, not closed, and left four of its own vertices
+    22 mm outside itself — which the pipeline saw only later, as a part that would not
+    fracture (exit 71).
+    """
+    hull, triangles = convex_hull(GLASS_SHARD_VERTICES)
+    assert triangles, "the hull collapsed"
+    assert euler_holds(hull, triangles), (
+        f"{len(hull)} vertices carrying {len(triangles)} triangles is not a polyhedron"
+    )
+    assert is_convex(hull, triangles)
+    assert max_outside_distance(hull, triangles, GLASS_SHARD_VERTICES) <= HULL_ENCLOSE_M
+
+
+def test_a_glass_shards_hull_is_built_rather_than_inflated_into_enclosing_it():
+    """Enclosure has to come from the hull being right, not from `build_hull` growing it.
+
+    A hull that encloses only because it was inflated past the shortfall is a hull whose
+    every face has been pushed out by that much, and 22 mm of collision margin on a shard
+    90 mm across is a shard that never touches anything. This asserts the raw hull is
+    already within a tolerance that leaves the inflate nothing to do.
+    """
+    hull, triangles = convex_hull(GLASS_SHARD_VERTICES)
+    assert max_outside_distance(hull, triangles, GLASS_SHARD_VERTICES) < 1e-6
+
+
+def test_the_cap_repair_leaves_a_well_formed_classification_alone():
+    """The repair reclassifies only what is already impossible, so a clean cap is untouched.
+
+    A cube seen from beyond one face has exactly two visible triangles and six hidden ones,
+    both sides connected. Anything the repair changed there would be a change it had no
+    business making, and would show up as a hull that tracks its source less closely.
+    """
+    corners, triangles = cube(size=2.0, base_at_zero=False)
+    faces = [
+        (corners[i], corners[j], corners[k], normalize(
+            cross(sub(corners[j], corners[i]), sub(corners[k], corners[i]))
+        ))
+        for i, j, k in triangles
+    ]
+    viewpoint = (0.0, 0.0, 5.0)
+    flags = [_signed_distance(face, viewpoint) > 1e-9 for face in faces]
+    assert sum(flags) == 2, "the fixture is not the two-faces-visible case it claims to be"
+    assert _repair_visible_cap(faces, list(flags)) == flags

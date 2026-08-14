@@ -1,11 +1,17 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-13 (end of SESS-025)
-**Where we are:** the system catalogue is finished. All twenty-seven systems the design calls for
-exist, the last four of them — the networking ones — landing this session. Two peers exchange a
-handshake, spawns, destruction events, compressed snapshots and validated input; they just happen to
-be in the same process, because the only transport that exists so far is an in-process one. Eight
-cars still drive, crash and sound like themselves. Nobody has driven it yet.
+**Last updated:** 2026-08-14 (end of SESS-027)
+**Where we are:** the content pipeline is finished, has been run on both shipped cars, and the
+last two things it could not do it now does. Drop a downloaded car model into
+`art-source/vehicles/`, run one command, and about a hundred seconds later there are twenty-five
+named parts — chassis, wheels, hubs, doors, windscreen, headlamps — each with its own mesh,
+collision hull, mass, health and manifest, plus an assembly the game loads and drives. The doors
+open and dent on both cars; every window shatters into twenty-four shards weighing exactly what
+the pane weighed. Verified against the hand-authored content: the axles land on the same
+millimetre, the wheels weigh what the authored ones weigh, and the Eclipse comes out in the same
+class with the same power budget. All twenty-seven systems exist and two peers replicate to each
+other in one process. It prepares *cars* — a tank runs through it and comes out as one immobile
+lump, for reasons that are now understood rather than guessed. Nobody has driven any of it yet.
 
 > This file is maintained by the coding assistant and updated **at the end of every session**
 > (CLAUDE.md §5, step 14). It is allowed to change shape as the work demands — reorder phases, split
@@ -39,12 +45,15 @@ gantt
     Real-time engine synthesis              :done, p7c, 22, 1
     The rumble - pulse fusion               :done, p7d, 23, 1
     Lope, startup, overrun                  :done, p7e, 24, 1
-    Replication - the last four systems (here) :done, p9a, 25, 1
+    Replication - the last four systems     :done, p9a, 25, 1
+    Preparation pipeline - a model in, a car out :done, p6d, 26, 1
+    Run on both shipped cars                :done, p6e, 27, 1
+    Glass, doors, and a tank (here)         :done, p6f, 28, 1
 
     section Next
-    Driving it - tuning, balance, feel      :active, p11, 26, 2
-    Sockets - two machines                  :p9b, 28, 2
-    Preparation pipeline - stages 6 to 8    :p6d, 30, 3
+    Driving it - tuning, balance, feel      :active, p11, 29, 2
+    Re-cut the shipped cars                 :p6g, 31, 1
+    Sockets - two machines                  :p9b, 32, 2
 
     section Then
     Production hardening                    :p10, 33, 3
@@ -88,8 +97,14 @@ done and green; everything after is an estimate that will move.
   │  │            Pulses fuse; a tool that measures against real cars│
   │  ●  Phase 7d  Feel                                              │
   │  │            A flywheel, a rocking couple, a start you can hear │
-  │  ●  Phase 9a  Replication         ★ 27/27      ← THIS SESSION   │
+  │  ●  Phase 9a  Replication         ★ 27/27                       │
   │  │            Snapshots, deltas, prediction, reconciliation      │
+  │  ●  Phase 6d  Preparation         ★ A MODEL IN, A CAR OUT       │
+  │  │            Repair, roles, hinges, destruction, export         │
+  │  ●  Phase 6e  Run on real cars                                   │
+  │  │            Blender 4.2; both cars prepared and verified       │
+  │  ●  Phase 6f  Glass, doors, and a tank              ★ IT SHATTERS│
+  │  │            Every pane breaks; both cars shed doors    ← HERE  │
   └──┼───────────────────────────────────────────────────────────────┘
      │
   ┌──┼─ NEXT ──────────────────────────────────────────────────────────┐
@@ -97,8 +112,6 @@ done and green; everything after is an estimate that will move.
   │  │            Handling, damage numbers, bot difficulty, match len  │
   │  ○  Phase 9b  Sockets                             ★ TWO MACHINES   │
   │  │            A KryoNet transport, and the runtimes wired to it    │
-  │  ○  Phase 6d  Preparation pipeline, stages 6–8                     │
-  │  │            Geometry repair, hinges, per-class destruction       │
   │  ○  Phase 10  Production hardening                ★ SHIPPABLE      │
   │               Perf budgets, packaging, balance sweep, CI gates     │
   └────────────────────────────────────────────────────────────────────┘
@@ -128,68 +141,111 @@ transport, the runtime wiring for it, and a great deal of tuning.
 
 ---
 
-## 2. What happened this session (SESS-025)
+## 2. What happened this session (SESS-027)
 
-The last four systems in the catalogue were the networking ones, and they are now written. That
-means the game can do the following, today, verified by tests: an authority and a client shake
-hands, agree they are running the same build, exchange spawned vehicles, stream compressed state at
-20 Hz, survive losing sixty-four consecutive packets, validate every byte of input a client sends,
-and correct a client's prediction when it turns out to be wrong.
+Three things were asked for: fix the glass, decide whether the second car has doors and find
+them, and say what happens if somebody drops in a tank. All three are answered, and the third
+turned up a defect that had nothing to do with tanks.
 
-The catch is worth stating first, because it is the honest headline: **the two peers are in the same
-process.** The only transport that exists is an in-process one. That is deliberate rather than a
-shortcut — the design (`D02-R19`) requires single-player to run through the same replication code as
-multiplayer, so that a bug in it shows up on one machine where it is cheap to find. What is missing
-is a socket implementation of an interface that already exists, plus wiring the two runtime shells
-to build one.
+### Glass shatters now — every pane on both cars
 
-### What replication actually had to solve
+Last session's report said the fracture tool could not cut a windscreen and explained why: it
+splits a **solid** by cutting it on its own face planes, and a 5 mm pane made solid is hundreds
+of nearly-parallel faces, so the cut goes ninety-six levels deep and gives up. It also named the
+likely answer, which turned out to be right — **cut first, thicken second**.
 
-Four problems, none of them obvious from outside:
+A pane is now given to the tool as the surface the artist drew, plus the thickness it should be.
+The tool cuts that surface into patches, and only then gives each patch its thickness. A patch
+thickened into a slab holds exactly its own area times that thickness, so the shards weigh what
+the pane weighed *by construction* rather than within a tolerance — which is the property the old
+path lost the moment its decomposition failed.
 
-**A car that is parked must cost nothing.** State is compared *after* quantisation, not before — so a
-vehicle drifting by half a millimetre encodes to the same 16-bit position it did last tick and does
-not appear in the snapshot at all. An empty snapshot is 19 bytes of header. Comparing the raw floats
-instead would have put every car in every packet forever.
+Getting there took two further fixes, both found by measuring rather than by reading:
 
-**Losing a packet must not lose input.** Each input packet carries the last six commands as well as
-the current one, so six consecutive lost packets cost nothing at all — verified. Lose more than
-that and the authority repeats your steering but *zeroes your trigger*, which is the rule that keeps
-a lagging player from firing without asking.
+- **The check was measuring the wrong thing.** It recovered each patch's area from the finished
+  slab's volume, and thickening a curved patch inflates it — by a tenth of a percent on a
+  windscreen and six percent on a tightly curved quarter-light. Four of nine panes were failing a
+  check about curvature, not about the cut. Measuring the patches *as cut* brings every pane on
+  both cars to within 0.03%.
+- **Our convex hull was not convex.** On glass shards it returned face sets with 30 vertices
+  carrying 71 triangles where the arithmetic of a polyhedron allows exactly 56 — and four of the
+  hull's own vertices sitting 22 mm outside it. Two separate causes, both silent, both a
+  consequence of a 5 mm slab having hundreds of points sitting exactly on each other's faces.
+  This one matters beyond glass: it is the same hull builder used for every shard and every part
+  in the game.
 
-**A delta is meaningless without the exact thing it was measured against.** Each client acknowledges
-the snapshots it actually received, and the authority compresses against that specific one. When a
-client is handed a delta whose baseline it never got, it refuses it and says so rather than applying
-it to the wrong base — because that failure would be silent and permanent.
+**Nine panes, nine fractures, 24 shards each, mass conserved to the last gram.**
 
-**A forty-part car must not be forty messages.** Network identities are handed out in contiguous
-blocks, and both sides derive which id belongs to which part by walking the assembly file in the
-same order. One message spawns the whole car.
+### The Stampede does have doors
 
-### The prediction problem, and one place the design was wrong
+It has two, they are already clean mirrored shells, and two independent things hid them. The
+geometric cue wants a panel to be *flat* above a threshold of 0.86, and a door as a downloaded
+model has it is not a door skin — it is the skin, frame, window surround and inner card welded
+together, measuring 0.81. Meanwhile the material is called "paint", which voted for the body.
 
-Your own car has to respond to the wheel instantly, which means the client simulates it before the
-server has agreed. When the server's answer arrives, the client compares it against what it had
-predicted for that same tick — and if they differ by more than 5 cm, snaps to the server's answer
-and replays every input you have given since.
+The fix could have been a box drawn round each door in that car's `parts.json`. It deliberately
+was not. Every car has doors, they are always painted body colour, and they are always thicker
+than a bare skin — so fixing it per model means fixing it again for every model, and a pipeline
+whose promise is "drop in a model" cannot ask a person to measure boxes first. A door is now
+recognised by shape: thin across the car and only across the car, not round, long enough,
+outboard, in the middle of the flank, above the sill and below the roof. Six conditions, each
+measured as a fraction of that vehicle's own dimensions, and the tests check the *near misses* —
+an interior door card, a wheel, a sill — each fail a different one.
 
-The design assumed the replay could re-simulate one car's body. The physics engine has no such
-operation: every vehicle lives in one world and there is no way to step a single body in it. So the
-replay steps the whole world and then puts the other cars back where the last snapshot said they
-were. That is written down (`DEV-017`) rather than quietly done, because it has a real residue: a
-correction that happens during a collision is resolved against slightly stale opponents.
+**Both cars now shed two doors, and both sets dent.**
 
-Replaying also forced a refactor worth naming: the arithmetic that turns your input into engine
-force had lived inside a scheduled system, and reconciliation needs to run *exactly the same
-arithmetic* — anything else turns a one-off error into a permanent offset. It is now a shared
-operation. That is the third time this has happened, so it is now a stated rule rather than three
-coincidences.
+### A tank: it runs, and it comes out as one lump
 
-### The blueprint had two holes, and they are patched
+Built as a downloaded tank actually arrives — hull, turret, gun, twelve road wheels, sprockets,
+idlers, tracks, fenders, lights, no hints of any kind — and run through the pipeline. It exits
+cleanly and produces a **single rigid chassis of 5.2 tonnes**. No wheels, no turret, nothing that
+turns or opens.
 
-The specification requires a client to send a "negative acknowledgement" and to acknowledge
-snapshots, and its own message list contains neither message. Both now exist and the document was
-amended in the same commit. Finding this kind of gap is exactly what implementing a spec is for.
+The interesting part is *where* it fails, because it is not where you would guess. The
+classifier is fine: it labels all sixteen road wheels correctly and with high confidence. What
+breaks is everything built on top of the labels, all of which quietly assumes a car:
+
+- Six road wheels in a line have no front and no rear, so all eight round things on a side were
+  captured into **one** corner — producing a "wheel" 7.04 m across, which the pipeline then
+  correctly decided was not a wheel and dissolved. Both sides. Sixteen correct wheels became zero.
+- The turret and the gun barrel are labelled `chassis`, because anything spanning a third of the
+  vehicle is structure and nothing in the vocabulary describes a body that rotates on another.
+- The tracks became `panel`/`sill` — a 7.4 m slab down the flank at wheel height is, by every
+  measurement taken, a rocker panel.
+
+None of that is a bug to fix. It is the honest edge of what has been built: this prepares **cars**.
+Supporting a tank means a turret label with a yaw articulation, a track label with its own
+destruction behaviour, and a wheel model that admits a row of road wheels per side instead of one
+at each corner. That is a real piece of work and it is now specified well enough to cost.
+
+### And a defect the tank found that has nothing to do with tanks
+
+The tank came in as 31 objects with no common parent, which is an entirely normal way for a model
+to be exported. The loader kept "the root holding the most objects" — and when every object is
+its own root, every root holds one, so it kept whichever it happened to reach first and **deleted
+the other thirty**. Silently. Exit 0, a well-formed report, describing a 2.9 m vehicle.
+
+Both shipped cars survived only because they happen to arrive under one parent. Any model that
+does not would have been quietly destroyed before the first measurement.
+
+The obvious fix — group objects by whether they touch — made things worse: it kept the two stray
+lighting spheres the Eclipse ships with, which sit *concentric with the car*, and that cost the
+Stampede both its doors and moved the Eclipse's mass by 160 kg. What actually separates junk from
+vehicle is that junk is **both** negligible and sticking out of the silhouette. Vehicle parts are
+never both, and the two spheres are 40 cm proud of the roof. Both cars now re-run byte-identical.
+
+### Where the numbers landed
+
+| | Eclipse | Stampede |
+|---|---|---|
+| Part types | 25 | 25 |
+| Doors that open | 2 | **2** (was 0) |
+| Glass panes shattered | **4 of 4** (was 0) | **5 of 5** (was 0) |
+| Shards per pane | 24 | 24 |
+| Mass conservation on glass | exact | exact |
+| Chassis damage morphs | 4 | 4 |
+
+The exported-asset checker: **54 parts, 2 vehicles, 0 findings.** 231 unit tests pass.
 
 ## 3. What is next
 
@@ -229,15 +285,36 @@ before:
 4. **The messages nobody needed yet** — scoreboard, match phase, chat, ping. Their slots on the wire
    are reserved so adding them cannot renumber what already ships.
 
-### Phase 6d — Preparation pipeline, stages 6 to 8
+### Phase 6g — Re-cut the shipped cars ★ *the new output becomes the game*
 
-Stages 1–5 ship. What remains is named as pending in the tool's own report rather than quietly
-skipped: **geometry repair** (non-manifold edges, flipped normals, degenerate faces), **hinge
-rigging** so doors swing rather than only detach, and **per-class destruction authoring** so each
-label gets the treatment `D15` specifies rather than everything being treated as a rigid part.
+The pipeline now produces, for both cars, twenty-five parts with doors that open and dent and
+glass that shatters. The game still loads the old output: a chassis and two wheel types per car,
+cut by the previous tool. Everything needed to replace it exists and has been verified — the
+step that has not been taken is overwriting committed content the game currently loads, which is
+a decision to make with somebody watching rather than a side effect of testing.
 
-Hinges depend on an open choice in §4 — cosmetic animation or a real constrained body — so that
-decision wants making before the session that implements them starts.
+This is the single highest-value item on this list per hour spent. It is what turns "25 parts per
+car" from a number in a report into a car on the arena floor that sheds a door when you hit it.
+
+### Phase 6h — Vehicles that are not cars
+
+The pipeline prepares **cars**, and now knows exactly where that stops. A tank runs through it
+cleanly and comes out as one immobile lump, not because the classifier fails — it labels every
+road wheel correctly — but because what is built on top assumes four wheels at four corners, a
+sill at flank height, and a bootlid at the back.
+
+Three things would change that, in the order they matter:
+
+1. **A road-wheel set.** The wheel model admits one wheel per corner. A tracked vehicle has six a
+   side in a line, and they currently merge into a single 7 m "wheel" that gets correctly thrown
+   away. This is the one that turns an immobile hull into something that drives.
+2. **A `turret` label with a yaw articulation.** Hinges are rigged (D15-S5.6); nothing rotates
+   about a vertical axis. A turret is also the first part that is *aimed* rather than opened, so
+   it touches the weapon system rather than only the asset pipeline.
+3. **A `track` label** whose destruction behaves like neither sheet metal nor rubber.
+
+Worth doing when a second vehicle *class* is actually wanted — it is a design decision as much as
+a tooling one, and nothing about it is urgent while there is one car body style in the game.
 
 ### Loose content work, any time
 
@@ -300,21 +377,25 @@ None of these are decided. They are here so the options are visible when a sessi
 - **Which vehicles next?** The two shipped are both fast, and now differ mainly in mass. A roster
   wants more contrast than that — a pickup, a van, something with six wheels. Each is an afternoon
   now that the profile machinery exists: pick a real vehicle, copy its published figures, author the
-  parts. Finding *art* for it is the slower half.
+  parts. Finding *art* for it is the slower half. One constraint is now measured rather than
+  assumed: anything with **four wheels at four corners** is an afternoon, and anything else is not.
+  A tank was run through the pipeline this session and came out as one immobile lump; a six-wheeler
+  would hit the same wall for the same reason, and Phase 6h is what it would cost to fix. Choose the
+  next two or three vehicles knowing that, rather than discovering it with the art already bought.
 - **What happens to the two car models before release?** Both are licensed CC-BY-NC-SA — free to
   use, credit required, and **not for commercial use**. As prototype and reference art that is
   ideal: real shapes, real proportions, real measurements to build the pipeline against. It is not
   something that can ship in a paid game. The options are to license replacements, commission
   original models, or decide the project is non-commercial. Nothing needs deciding now; it needs
   deciding before art budget is spent.
-- **Do doors and other moving parts open?** Undecided, and now *blocking* — Phase 6d's hinge
-  rigging cannot start until it is answered. A door is already expressible: the slot graph supports a part hanging off a part, so a door
-  is a part in a `door_left` slot with its own mass, health and fracture data, and it can be shot
-  off today. What does not exist is *articulation* — a door that swings on a hinge rather than being
-  either attached or gone. The design has the pieces (`D06-S5.6` specifies a breakable constraint,
-  and `DEV-009` records that a part only gets one once it is a body of its own), but nothing builds
-  an articulated part, and the choice between "cosmetic hinge animation on the client" and "a real
-  constrained body" is a fork with very different costs.
+- **Do doors and other moving parts open?** Half-answered, and no longer blocking. The pipeline now
+  finds a door's hinge — axis, pivot and the angle it opens to, with the direction derived per side
+  so a left and a right door swing outwards rather than one of them through the cabin — and writes
+  it onto the part as data. What does not exist is anything that *animates* it: the runtime reads a
+  part's slot rotation and nothing ever changes it. So the remaining question is narrower and
+  cheaper than it was: should a door swing as a cosmetic animation on the client, or as a real
+  constrained physics body that a hit can bend? The data supports either, and the first is a small
+  addition to an existing system while the second is a new kind of body.
 - **Which engine does each car get?** Six configurations ship, I4 through V12, and each is audibly
   a different engine rather than a pitched copy. Which one a vehicle carries is currently derived
   from its power figure; making it an explicit authoring choice per vehicle is a one-line content
@@ -374,9 +455,16 @@ None of these are decided. They are here so the options are visible when a sessi
   a contract.
 - **The pipeline is still not a CI gate.** Generating the real fracture manifests is the last thing
   between it and `check`.
-- **Preparation pipeline stages 6–8 do not exist.** The tool reports them as pending rather than
-  skipping them silently, which is the right failure mode, but a prepared car today has unrepaired
-  geometry, no hinges and one destruction treatment for every part regardless of what it is made of.
+- **The pipeline prepares cars, and only cars** (`DISC-042`). A tank runs through it cleanly and
+  comes out as a single immobile 5.2 t chassis: its road wheels are labelled correctly and then
+  dissolved by a wheel model that admits four corners, and nothing in the vocabulary is a turret
+  or a track.
+- **The footprint mass estimate runs 8-9% under a real kerb weight**, which put the Stampede in
+  the `medium` class where the hand-authored one is `heavy`. `--mass` overrides it and the report
+  says which number it used, but a car prepared without one is a class light.
+- **A prepared part's material is decided by its label alone.** A carbon bonnet weighs what a steel
+  one does. The fix is a `materialOverrides` block in `parts.json`; the report already says what
+  material each part was given, so the gap is visible rather than silent.
 - **The split meshes are 32 MB**, of which 19 MB is one chassis, because each `.glb` embeds its own
   copy of the textures it uses. Two cars is tolerable; a roster is not. The fix is shared texture
   files rather than embedded ones, and it should happen before a third vehicle is authored.
@@ -394,9 +482,9 @@ None of these are decided. They are here so the options are visible when a sessi
 - **Every arena is tarmac.** The tyre loops ship for tarmac, gravel and metal, and the surface a
   wheel is on is hard-coded to the first because an arena declares none (`DEV-014`). The three files
   are correct and two of them can never play until arenas carry a surface.
-- **No damage morph targets exist yet**, so slot 23 is correct code driving nothing. Deformation
-  arrives with stage 7 of the preparation pipeline, and until then a damaged car looks undamaged
-  until a part comes off it entirely.
+- **No damage morph targets exist in shipped content yet**, so slot 23 is still correct code driving
+  nothing. The pipeline generates them now, but `assets/parts` has not been re-cut through it, so a
+  damaged car still looks undamaged until a part comes off it entirely.
 - **The renderer is one draw call per part with no culling and no batching.** Forty-one instances at
   eight cars is fine; a scrapyard full of debris on an integrated GPU has never been measured, and
   D12's performance budgets have never been run against a real frame.
@@ -453,7 +541,15 @@ of one corner of it.
 
 The honest remaining engineering, as opposed to tuning, is three items: a socket transport, the
 wiring that hands it to the two runtime shells, and lag compensation. Everything else on the "not
-done" list is content, Blender pipeline stages 6–8, or numbers somebody has to turn.
+done" list is content or numbers somebody has to turn — and as of this session, making content is a
+command rather than a project. A downloaded model goes in one end and a driveable, breakable,
+named-in-parts vehicle comes out the other, with doors that open and dent and windows that shatter,
+which is what stops "a roster" being expensive.
+
+One honest qualifier on that, learned this session by trying it: it makes **cars**. Drop a tank in
+and it runs, reports cleanly, and hands back one immobile lump — because a road-wheel set, a
+rotating turret and a track are three things the pipeline has no vocabulary for. That is a real
+piece of work, it is now scoped, and nothing about it is urgent while the game has one body style.
 
 The risk profile has one addition this session, and it is a different kind from the audio lessons
 that preceded it. Those were all about measurement — measure both halves of a ratio; a total can be
@@ -463,6 +559,14 @@ them reveals**: the networking document requires a client to send two things its
 does not contain, and neither the document review nor the blueprint validator could see it, because
 both messages are perfectly consistent with everything around them — they are simply absent. The
 counter-measure is the one already in use: build the real artefact, and let it disagree.
+
+This session added a sharper version of the same lesson, and it is worth stating plainly because it
+will recur. The tank was built to answer a question about tanks. What it actually found was that any
+model exported without a common parent — an ordinary thing — had thirty of its thirty-one objects
+deleted before the first measurement, silently, with a clean exit and a well-formed report. Both
+shipped cars survived only by accident of how they were exported. **Two examples are not a test
+set**: every threshold in this pipeline was measured against the same two cars, and the only way to
+find out what it assumes is to feed it something it was not built for.
 
 There is also a standing structural risk worth repeating. `game-client` cannot be built in this
 environment (`DISC-024`), so the largest module in the project remains the least verified. This

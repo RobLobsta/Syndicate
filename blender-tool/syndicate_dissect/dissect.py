@@ -189,28 +189,118 @@ def load_model(model_dir: Path):
     apply_import_correction(model_dir)
 
 
+#: A root carrying less than this share of the scene's triangles is a candidate for being
+#: scenery rather than vehicle. The Eclipse's stray icospheres are 80 triangles in 283,352
+#: — 0.028% — and the sparsest root of a flat-exported tank is 0.65%, so the two cases this
+#: has been measured against are more than an order of magnitude apart either side of it.
+_NEGLIGIBLE_TRIANGLE_FRACTION = 0.001
+
+#: How far outside the vehicle's silhouette a negligible root must reach before it is judged
+#: foreign, as a fraction of the vehicle's bounding diagonal. A badge sitting proud of the
+#: bonnet stays; a lighting sphere standing 40 cm above the roof does not.
+_OUTSIDE_MARGIN_FRACTION = 0.02
+
+
 def drop_foreign_roots() -> list[str]:
-    """Deletes every root subtree except the one holding the most geometry.
+    """Deletes every root subtree that is scenery rather than vehicle.
 
     A downloaded scene is not only the vehicle. The Eclipse arrives with two one-metre
     icospheres — a lighting rig the author left in — which are legitimate mesh objects and
     would otherwise be welded into the chassis, dragging its bounding box out by a metre on
     each side and its collision hull with it.
+
+    This used to keep the single root subtree holding the most objects, which works only
+    because both shipped cars arrive as one parented hierarchy. A great many models are not
+    built that way. A scene of 31 unparented meshes — an ordinary way to export a tank — gives
+    every root a count of one, and the tie went to whichever the iteration reached first: 30 of
+    the 31 objects were deleted, and the pipeline went on to describe the survivor as a 2.9 m
+    vehicle (DISC-041).
+
+    Foreignness is therefore decided per root, on two conditions that must **both** hold:
+
+    * the root carries a negligible share of the scene's triangles, and
+    * it reaches outside the silhouette of everything that is not negligible.
+
+    Neither alone is safe. Weight alone deletes the low-poly wheels of a high-poly body.
+    Position alone keeps the icospheres, which sit concentric with the car and whose bounds
+    overlap it on every axis — it is that they stand 40 cm proud of the roof that gives them
+    away. Requiring both also biases the stage towards keeping, which is the error worth
+    preferring: junk that survives widens a bounding box, and a later stage reports it as a
+    stray shell, whereas geometry deleted here is gone with nothing left to notice it.
     """
-    counts: dict[str, int] = {}
+    bounds: dict[str, tuple[list[float], list[float]]] = {}
+    triangles: dict[str, int] = {}
     for obj in bpy.context.scene.objects:
         if obj.type != "MESH" or not len(obj.data.vertices):
             continue
-        counts[_root_of(obj).name] = counts.get(_root_of(obj).name, 0) + 1
-    if not counts:
+        root = _root_of(obj).name
+        triangles[root] = triangles.get(root, 0) + len(obj.data.polygons)
+        lo, hi = _world_bounds(obj)
+        if root not in bounds:
+            bounds[root] = (lo, hi)
+        else:
+            was_lo, was_hi = bounds[root]
+            bounds[root] = (
+                [min(a, b) for a, b in zip(was_lo, lo, strict=True)],
+                [max(a, b) for a, b in zip(was_hi, hi, strict=True)],
+            )
+    if not triangles:
         return []
-    keep = max(counts, key=counts.get)
+
+    foreign = _foreign_roots(bounds, triangles)
     dropped = []
     for obj in list(bpy.context.scene.objects):
-        if _root_of(obj).name != keep:
+        if _root_of(obj).name in foreign:
             dropped.append(obj.name)
             bpy.data.objects.remove(obj, do_unlink=True)
     return dropped
+
+
+def _world_bounds(obj) -> tuple[list[float], list[float]]:
+    """One object's axis-aligned bounds in world space."""
+    corners = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+    return (
+        [min(c[axis] for c in corners) for axis in range(3)],
+        [max(c[axis] for c in corners) for axis in range(3)],
+    )
+
+
+def _foreign_roots(bounds: dict, triangles: dict) -> set[str]:
+    """The roots that are both negligible and outside the vehicle, in sorted order (G11)."""
+    names = sorted(bounds)
+    total = sum(triangles.values())
+    if total <= 0:
+        return set()
+
+    negligible = {
+        name
+        for name in names
+        if triangles.get(name, 0) < _NEGLIGIBLE_TRIANGLE_FRACTION * total
+    }
+    substantial = [name for name in names if name not in negligible]
+    if not substantial:
+        # Every root is a speck, so there is no silhouette to judge against and nothing here
+        # can tell vehicle from scenery. Keep it all; the later stages measure it anyway.
+        return set()
+
+    lo = [min(bounds[name][0][axis] for name in substantial) for axis in range(3)]
+    hi = [max(bounds[name][1][axis] for name in substantial) for axis in range(3)]
+    diagonal = math.sqrt(sum((hi[axis] - lo[axis]) ** 2 for axis in range(3)))
+    margin = _OUTSIDE_MARGIN_FRACTION * diagonal
+    return {
+        name
+        for name in negligible
+        if not _bounds_contain(lo, hi, bounds[name], margin)
+    }
+
+
+def _bounds_contain(lo, hi, inner, margin: float) -> bool:
+    """Whether ``inner`` fits inside ``(lo, hi)`` once the outer box is grown by ``margin``."""
+    inner_lo, inner_hi = inner
+    return all(
+        inner_lo[axis] >= lo[axis] - margin and inner_hi[axis] <= hi[axis] + margin
+        for axis in range(3)
+    )
 
 
 def bake_armature_poses() -> int:
