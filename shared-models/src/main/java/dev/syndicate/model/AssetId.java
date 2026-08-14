@@ -10,7 +10,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * An authored, permanent content identifier: {@code armor_plate_medium_01}.
+ * An authored, permanent content identifier: {@code panel_plate_medium_01}.
  *
  * <p>One of the three identifier kinds of docs/00_master_index.md#D00-S4.5, and the only one
  * permitted in authored content files (D00-R19). It is a distinct type rather than a bare

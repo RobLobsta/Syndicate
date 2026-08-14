@@ -16,7 +16,7 @@ class AssetIdTest {
 
     @Test
     void lowercaseSnakeIds_areAccepted() {
-        assertThat(AssetId.of("armor_plate_medium_01").value()).isEqualTo("armor_plate_medium_01");
+        assertThat(AssetId.of("panel_plate_medium_01").value()).isEqualTo("panel_plate_medium_01");
         assertThat(AssetId.of("abc").value()).isEqualTo("abc");
     }
 
@@ -36,7 +36,7 @@ class AssetIdTest {
 
     @Test
     void isValid_answersWithoutThrowing() {
-        assertThat(AssetId.isValid("armor_plate_01")).isTrue();
+        assertThat(AssetId.isValid("panel_plate_01")).isTrue();
         assertThat(AssetId.isValid("Armor")).isFalse();
         assertThat(AssetId.isValid(null)).isFalse();
     }
@@ -44,6 +44,6 @@ class AssetIdTest {
     @Test
     void ordering_isLexicographicForDeterministicIteration() {
         // G3: asset maps are iterated in sorted order, never hash order.
-        assertThat(AssetId.of("armor_a").compareTo(AssetId.of("armor_b"))).isNegative();
+        assertThat(AssetId.of("panel_a").compareTo(AssetId.of("panel_b"))).isNegative();
     }
 }

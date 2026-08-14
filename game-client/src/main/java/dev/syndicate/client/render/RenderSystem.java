@@ -189,6 +189,12 @@ public final class RenderSystem implements EntitySystem {
     private void drawScene(World world) {
         drawnThisFrame = 0;
         context.batch().begin(context.camera().camera());
+        // Ground first: either the generated terrain or the flat box, never both.
+        TerrainModel terrain = context.terrainModel();
+        if (terrain != null) {
+            context.batch().render(terrain.instance(), context.environment().environment());
+            drawnThisFrame++;
+        }
         ArenaModel arena = context.arenaModel();
         if (arena != null) {
             context.batch().render(arena.instance(), context.environment().environment());

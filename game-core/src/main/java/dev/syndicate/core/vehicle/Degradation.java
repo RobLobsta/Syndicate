@@ -196,7 +196,7 @@ public final class Degradation {
 
         // armor — protection scales with what is left of the plate. Mass is not a StatBlock stat
         // and so cannot appear here at all, which is one way D05-R20 is structurally true.
-        table.put(PartCategory.ARMOR, Map.of(Stat.ARMOR_VALUE, new DegradationRule(DegradationProfile.LINEAR, 0.10f)));
+        table.put(PartCategory.PANEL, Map.of(Stat.ARMOR_VALUE, new DegradationRule(DegradationProfile.LINEAR, 0.10f)));
 
         // chassis — the vehicle gets sluggish, and loses less of its brakes than of its engine.
         Map<Stat, DegradationRule> chassis = new EnumMap<>(Stat.class);

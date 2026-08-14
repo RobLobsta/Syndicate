@@ -15,8 +15,16 @@ public enum PartCategory {
     /** The single root part. Destroying it destroys the vehicle; it never detaches. */
     CHASSIS(false, true),
 
-    /** Absorbs damage before what it covers. */
-    ARMOR(true, true),
+    /**
+     * Bodywork: a door, a bonnet, a bootlid, a wing, a bumper. Absorbs damage before what it covers.
+     *
+     * <p>Called {@code ARMOR} until DEC-073. The rename separates two things that had come to share
+     * a word: what a part <em>is</em> (bodywork the vehicle came with) and how much protection it
+     * <em>gives</em>, which is {@code armorValue} and which every category carries. It also leaves
+     * the word "armour" free for fitted plating, should the product ever offer a choice of it —
+     * D01-NG1 says it does not today.
+     */
+    PANEL(true, true),
 
     /** Ground contact, drive, steering. Not in the compound shape — wheels are ray casts (D06-S4.3). */
     WHEEL(true, false),

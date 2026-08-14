@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
 class FractureSystemTest {
 
     private static final AssetId ASSEMBLY = AssetId.of("assembly_medium_01");
-    private static final AssetId MANIFEST = AssetId.of("fracture_armor_front");
+    private static final AssetId MANIFEST = AssetId.of("fracture_panel_front");
 
     private static final float CHASSIS_MASS_KG = 1200f;
     private static final float PLATE_MASS_KG = 320f;
@@ -58,15 +58,15 @@ class FractureSystemTest {
     void setUp() {
         NativeResourceTracker.install();
         scene = new DestructionTestScene(1337L);
-        scene.registerManifest(MANIFEST, AssetId.of("part_root_armor_front"), PLATE_MASS_KG, SHARD_COUNT);
+        scene.registerManifest(MANIFEST, AssetId.of("part_root_panel_front"), PLATE_MASS_KG, SHARD_COUNT);
         vehicle = scene.spawnVehicle(
                 ASSEMBLY,
                 List.of(
                         PartSpec.of("root", PartCategory.CHASSIS, CHASSIS_MASS_KG, new Vector3()),
-                        PartSpec.of("root/armor_front", PartCategory.ARMOR, PLATE_MASS_KG, new Vector3(0f, 0f, 2f))
+                        PartSpec.of("root/panel_front", PartCategory.PANEL, PLATE_MASS_KG, new Vector3(0f, 0f, 2f))
                                 .fracturing(MANIFEST)),
                 new Vector3(0f, 40f, 0f));
-        plate = scene.partAt(vehicle, "root/armor_front");
+        plate = scene.partAt(vehicle, "root/panel_front");
         debris = scene.world().family(ComponentQuery.all(DebrisTagComponent.class));
     }
 
@@ -130,7 +130,7 @@ class FractureSystemTest {
         assertThat(chassis.totalMassKg).isEqualTo(CHASSIS_MASS_KG, within(0.01f));
         assertThat(scene.world().getComponent(vehicle, RigidBodyComponent.class).massKg)
                 .isEqualTo(CHASSIS_MASS_KG, within(0.01f));
-        assertThat(scene.shapes().vehicleCompound(vehicle).childIndexOf("root/armor_front"))
+        assertThat(scene.shapes().vehicleCompound(vehicle).childIndexOf("root/panel_front"))
                 .isEqualTo(-1);
     }
 
@@ -219,9 +219,9 @@ class FractureSystemTest {
                     ASSEMBLY,
                     List.of(
                             PartSpec.of("root", PartCategory.CHASSIS, 900f, new Vector3()),
-                            PartSpec.of("root/plate_a", PartCategory.ARMOR, 200f, new Vector3(0f, 0f, 1.5f))
+                            PartSpec.of("root/plate_a", PartCategory.PANEL, 200f, new Vector3(0f, 0f, 1.5f))
                                     .fracturing(manifest),
-                            PartSpec.of("root/plate_b", PartCategory.ARMOR, 200f, new Vector3(0f, 0f, -1.5f))
+                            PartSpec.of("root/plate_b", PartCategory.PANEL, 200f, new Vector3(0f, 0f, -1.5f))
                                     .fracturing(manifest)),
                     new Vector3(0f, 60f, 0f));
             big.destroyPart(big.partAt(assembly, "root/plate_a"));

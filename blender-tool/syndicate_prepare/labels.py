@@ -83,14 +83,14 @@ DESTRUCTION_CLASS = {
 #: ``SlotType`` (D05-S4.3), and a part.json carrying one of them does not load. These two tables
 #: are the mapping onto what the runtime actually has, and D15-S4.1 was amended to carry them.
 #:
-#: A door is exported as ``ARMOR`` rather than as some new category, and that is the right
+#: A door is exported as ``PANEL`` rather than as some new category, and that is the right
 #: answer rather than a compromise: an armour panel is precisely a part that covers a region of
 #: the vehicle, absorbs hits meant for what is behind it, and can be shot off. That is a door.
 PART_CATEGORY = {
     CHASSIS: "CHASSIS",
     WHEEL: "WHEEL",
     HUB: "UTILITY",
-    PANEL: "ARMOR",
+    PANEL: "PANEL",
     GLASS: "DECORATIVE",
     MIRROR: "DECORATIVE",
     LIGHT: "DECORATIVE",
@@ -108,7 +108,7 @@ SLOT_TYPE_REQUIRED = {
     CHASSIS: "ROOT",
     WHEEL: "WHEEL",
     HUB: "HARDPOINT",
-    PANEL: "ARMOR_PANEL",
+    PANEL: "PANEL",
     GLASS: "ACCESSORY",
     MIRROR: "ACCESSORY",
     LIGHT: "ACCESSORY",

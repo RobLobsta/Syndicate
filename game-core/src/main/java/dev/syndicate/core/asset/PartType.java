@@ -401,7 +401,7 @@ public final class PartType {
             return switch (category) {
                 case CHASSIS -> SlotType.ROOT;
                 case WHEEL -> SlotType.WHEEL;
-                case ARMOR -> SlotType.ARMOR_PANEL;
+                case PANEL -> SlotType.PANEL;
                 case WEAPON, UTILITY -> SlotType.HARDPOINT;
                 case DECORATIVE -> SlotType.ACCESSORY;
             };

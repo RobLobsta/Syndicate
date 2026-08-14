@@ -54,12 +54,12 @@ class VehicleCompoundTest {
         // (D07-S5.1), so two peers that attached the same parts in different orders must still agree
         // on which index means which part.
         List<VehicleCompound.Child> shuffled =
-                new ArrayList<>(children("root", "root/armor_a", "root/turret", "root/turret/barrel"));
+                new ArrayList<>(children("root", "root/panel_a", "root/turret", "root/turret/barrel"));
         Collections.shuffle(shuffled, new Random(9L));
 
         VehicleCompound compound = cache.buildVehicleCompound(1, ASSEMBLY, shuffled);
 
-        assertThat(compound.slotPaths()).containsExactly("root", "root/armor_a", "root/turret", "root/turret/barrel");
+        assertThat(compound.slotPaths()).containsExactly("root", "root/panel_a", "root/turret", "root/turret/barrel");
     }
 
     @Test

@@ -20,7 +20,8 @@ public enum SlotType {
     ROOT(EnumSet.of(PartCategory.CHASSIS)),
     WHEEL(EnumSet.of(PartCategory.WHEEL)),
     HARDPOINT(EnumSet.of(PartCategory.WEAPON, PartCategory.UTILITY)),
-    ARMOR_PANEL(EnumSet.of(PartCategory.ARMOR)),
+    /** A bodywork mount: a door aperture, a bonnet hinge line, a bumper mount. */
+    PANEL(EnumSet.of(PartCategory.PANEL)),
     TURRET_MOUNT(EnumSet.of(PartCategory.WEAPON)),
     ACCESSORY(EnumSet.of(PartCategory.DECORATIVE)),
     SUBSLOT(EnumSet.of(PartCategory.WEAPON, PartCategory.UTILITY, PartCategory.DECORATIVE));

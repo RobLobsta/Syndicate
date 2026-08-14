@@ -28,8 +28,10 @@ Four things that sentence leaves out, in the order they hurt:
 1. **There are no weapons.** Not "the weapons are unbalanced" — there is no weapon part in `assets/`.
    The firing, tracking, impact and scoring systems are all implemented and tested against nothing.
    Combat today is ramming.
-2. **The arena is a flat box** with a grid painted on it, 300 m square, four invisible walls. A 600 m
-   generated desert with dunes, passes, surfaces and a rim exists, collides, and has never been drawn.
+2. **The arenas are real places now, but bare ones.** Both generate from a theme and a seed — a
+   Desert Highway of dunes and scoured rock, a Scrapyard of flat compacted yard with spoil heaps
+   across it — and both are drawn. What they have not got is roads, structures, or anything to take
+   cover behind that was not extruded from a noise function.
 3. **Nothing has been tuned by a person.** Handling is a real supercar's published figures. Damage
    numbers are blueprint defaults. Bot difficulty is a scale nobody has lost to. The audio mix is a
    set of first guesses.
@@ -52,17 +54,18 @@ numbers, one renderer and one socket.
    ├── Bots, match flow, headless runner                        PROG-031
    ├── Client: render, HUD, camera, input, engine audio         PROG-027
    ├── Replication over loopback                                PROG-032
-   ├── Terrain generation, stage 1 of 4                         PROG-030
+   ├── Terrain: generation, themes, and the ground drawn        PROG-030
    └── Main menu, garage, and a build you can double-click      PROG-027
   ─────────────────────────────────────────────────────── you are here
   NEXT
    1. Guns                                    ← the game is not a game without these
-   2. Somewhere to fight                      ← terrain stages 2–4
+   2. Roads and structures                    ← terrain stages 3 and 4
    3. The 25-part cars
    4. Tuning, with a console to do it from    ← the alpha gate
    5. Options, and the rest of the shell
-   6. Sockets
-   7. Hardening and release
+   6. Terrain rendering, properly             ← needs a real GPU to measure
+   7. Sockets
+   8. Hardening and release
 ```
 
 ---
@@ -86,30 +89,24 @@ The systems are written, tested and idle.
 
 **Done when:** you can shoot a bot, its bonnet dents, and it shoots back.
 
-### Step 2 — Somewhere to fight
+### Step 2 — Roads and structures
 
-Terrain, stages 2 to 4 of the four D16 defines. Stage 1 is done.
+Stages 3 and 4 of the four D16 defines. Stages 1 and 2a are done: the ground generates from a theme,
+collides, and is drawn.
 
-- **2a. A top-down debug render** of the height, slope and surface grids to a PNG, from the
-  verification harness. No GL, no client. Do this first: the terrain has been verified by 19 tests
-  and never once looked at, and both of the last session's failures would have been obvious in one
-  glance at an image.
-- **2b. Draw it** (D16-S6). Chunked mesh from the same two grids the collision came from, frustum
-  culling, two LOD levels with skirts, tiling textures generated at load, an analytic sky driving the
-  skybox, the image-based lighting and the fog from one sun. This is the largest single piece of
-  client work the project has attempted. It is **not** environment-blocked any more (DISC-046):
-  the client builds, runs and screenshots in the sandbox under `xvfb-run`.
-- **2c. Make the desert the default arena** and retire the flat box, or rename it — `Scrapyard`
-  currently promises scenery that does not exist.
-- **2d. Roads and surfaces** (D16-S5.4, S5.10). The spline carve, cut and fill, and per-surface grip
+- **2a. Roads and surfaces** (D16-S5.4, S5.10). The spline carve, cut and fill, and per-surface grip
   at the wheel. This is what turns a landscape into an arena: a raised tarmac ribbon with sand either
-  side, cuttings you can be pushed into, and sand that is slower than tarmac. The surface grid it
-  needs already exists and is already populated.
-- **2e. Structures** (D16-S7). A factory, a placement pass, four or five things to place. Everything
-  that breaks them already exists (DEC-071), so the work is two new pieces plus a fracture run per
-  object.
-
-**Done when:** you are fighting in a place, not on a plane.
+  side, cuttings you can be pushed into, and — finally — sand that is slower than tarmac and sounds
+  different under the tyres. The surface grid it needs exists and is populated; what is missing is
+  the carve that puts tarmac in it and the four lines in the wheel code that read it. It is also
+  what makes the Desert *Highway* deserve its name.
+- **2b. Structures** (D16-S7). A factory, a placement pass, and four or five things to place.
+  Everything that breaks them already exists (DEC-071), so the work is two new pieces plus a fracture
+  run per object. This matters more for the Scrapyard than for the desert: a breaker's yard with no
+  wrecks in it is a quarry.
+- **2c. A third theme, once those two exist.** Themes are cheap now — a relief layer, a palette and
+  eight numbers — and the marginal one costs a day rather than a session. Worth waiting until roads
+  and structures are in, so a new theme arrives complete rather than as more empty ground.
 
 ### Step 3 — The 25-part cars
 
@@ -157,26 +154,25 @@ Once the game is worth playing, it needs the things a player expects around it: 
 in-match scoreboard, and persistence of the vehicle you last chose. Small, and all of it obvious once
 `GameShell` exists.
 
-### Step 6 — Sockets
+### Step 6 — Terrain rendering, properly
 
-What stands between here and real multiplayer, specifically:
+What exists draws the ground as one mesh, decimated to a stride, with a material per surface. That is
+enough to look at, drive on and judge — and it is not D16-S6. What is missing is everything that
+makes a 600 m arena hold a frame rate: chunking, frustum culling, two levels of detail with skirts,
+and generated tiling textures in place of flat colours. Plus the analytic sky driving the skybox, the
+image-based lighting and the fog from one sun (D16-S6.3), which is what stops the horizon being a
+flat grey band.
 
-1. **A socket transport.** One class implementing an interface that already exists — TCP for the
-   reliable channel, UDP for state — behind which every other piece of replication already works.
-2. **Wire the two runtime shells to build one.** Today both construct a world with no network
-   endpoints, so the four networking systems are absent from every shipping schedule. Single-player
-   should go through the in-process pair, which is what makes "there is no separate single-player
-   code path" true in practice rather than on paper — and exercises replication every time anyone
-   plays.
-3. **Lag compensation.** Rewinding a target to where the shooter saw it. Fully specified, nothing
-   written. Without it, hitting a moving car at 150 ms of latency means leading it by a car length.
-4. **The messages nobody has needed yet** — scoreboard, match phase, chat, ping. Their slots on the
-   wire are reserved so adding them cannot renumber what already ships.
+**This one genuinely needs hardware.** The development sandbox runs software GL at four to ten frames
+per second, which is the renderer being emulated and says nothing about how the real thing performs.
+Doing this work without a machine that can measure it is guessing.
 
-**Movable.** If multiplayer matters more to you than polish, this can come before step 5, or even
-before step 4 — but not before step 1, because there is no point synchronising a game with no guns.
+The decimation is also visible today: the desert's dune slip faces read as jagged where the stride
+skips them. That is the stride, not the classifier, and chunking fixes it.
 
-### Step 7 — Hardening and release
+### Step 7 — Sockets
+
+### Step 8 — Hardening and release
 
 The performance budgets, packaging and balance sweeps D12-S5.4 requires before anything ships.
 Bandwidth is now measurable for the first time: the budget is 128 kbit/s down and 32 kbit/s up per
@@ -218,21 +214,20 @@ Real work, no fixed place in the sequence.
 
 Not decided, and not for the assistant to decide alone.
 
-- **What `ARMOR` means.** It currently names both "plating a player bolts on" and "any body panel —
-  a door, a bonnet, a bumper". Both readings are defensible and they are not the same concept. Three
-  options, cheapest first: leave it and document it; rename the category to `PANEL` and reserve
-  `ARMOR`; or split it in two. **Recommendation: rename to `PANEL`** — it is a rename plus a doc
-  amendment, and it stops the word promising a loadout feature the product does not have (D01-NG1).
-  Full write-up in `.agent-memory/decisions/DEC-073.md`. Getting this wrong is cheap now and
-  expensive once several prepared vehicles ship.
-- **Whether the flat arena survives.** Once the desert is drawn, `arena_scrapyard_01` is either
-  deleted, kept as a test fixture, or actually built into the scrapyard its name promises.
 - **How far the garage goes.** D01-NG1 rules out a part-by-part editor and the data model permits
   one. The current garage picks a prebuilt vehicle, which is what the product says. If you want
   loadouts — pick a chassis, then bolt on weapons and plating — that is a product change, and it is
   the change that makes the `ARMOR` question above urgent rather than tidy.
-- **Whether single-player should route through the loopback pair** now or at step 6. Doing it early
+- **Whether single-player should route through the loopback pair** now or at step 7. Doing it early
   costs a session and tests replication continuously; doing it late keeps the current path simple.
+- **Whether `armorValue` should follow `ARMOR` into a rename.** The category became `PANEL`; the
+  stat stayed `armorValue`, because it is the protection a part gives and every category carries it,
+  including wheels and the chassis. That separation is deliberate and now leaves the word "armour"
+  free for fitted plating if the garage ever offers a choice of it. If you would rather the word
+  disappeared entirely, the rename is mechanical but touches the JSON schema and the Blender tool.
+- **Whether a match should be able to pick its theme**, rather than its arena. `--arena` names a
+  file; nothing stops a mode from naming a theme and generating a fresh map with spawn points placed
+  to suit. That is a small change to the arena loader and a real change to what a "map" is.
 
 ---
 

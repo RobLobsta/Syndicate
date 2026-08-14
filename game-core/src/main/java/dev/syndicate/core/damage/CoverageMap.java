@@ -92,7 +92,7 @@ public final class CoverageMap {
                     coverableSlotPaths.add(parentPath + "/" + coveredSlotId);
                 }
             }
-            if (partType.category() != PartCategory.ARMOR) {
+            if (partType.category() != PartCategory.PANEL) {
                 continue;
             }
             if (isDeadOrGone(world, partEntity)) {

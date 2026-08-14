@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.syndicate.core.ai.BotDifficultyParams;
 import dev.syndicate.core.ai.BotDifficultyTable;
+import dev.syndicate.core.arena.ArenaTheme;
 import dev.syndicate.core.arena.TerrainParams;
 import dev.syndicate.core.util.Transform;
 import dev.syndicate.core.vehicle.DegradationProfile;
@@ -96,7 +97,7 @@ public final class AssetLoader {
         /**
          * @param partTypeId the part being loaded
          * @param collisionSourceRef the {@code assets.collisionSource} string from {@code part.json},
-         *     e.g. {@code mesh.glb#node=armor_plate_medium_01_col}; null when the part declares none
+         *     e.g. {@code mesh.glb#node=panel_plate_medium_01_col}; null when the part declares none
          * @param partDirectory the part's directory, so an implementation can resolve a relative path
          * @return the mesh, or null when it cannot be produced — the part is then skipped with A503
          */
@@ -652,8 +653,13 @@ public final class AssetLoader {
     /**
      * Reads the optional {@code terrain} block (D16-S4.2), or null when there is none.
      *
+     * <p><b>The theme supplies every default.</b> An arena that says {@code "theme": "scrapyard"}
+     * and nothing else gets a coherent scrapyard, because the relief amplitude, the feature spacing,
+     * the rim and the surface palette all come from {@link ArenaTheme}. Anything explicitly authored
+     * overrides it — but authoring nothing is the intended case, not a degenerate one.
+     *
      * <p>A missing block is not a finding: a flat arena is legal (D16-R4). A block that is present
-     * and inconsistent with the arena's bounds is A410, and a block naming an unknown biome is A413.
+     * and inconsistent with the arena's bounds is A410, and a block naming an unknown theme is A413.
      * Both are errors rather than warnings, because every terrain query maps world to grid by
      * arithmetic — a grid that does not cover the bounds does not fail, it silently reads the ground
      * from the wrong place.
@@ -664,15 +670,13 @@ public final class AssetLoader {
         if (node == null || node.isMissingNode() || node.isNull()) {
             return null;
         }
-        TerrainParams.Biome biome =
-                enumValue(TerrainParams.Biome.class, node.path("biome").asText("DESERT"));
-        if (biome == null) {
-            issues.add(ValidationIssue.error(
-                    "A413",
-                    arenaId.value(),
-                    "unknown terrain biome \"" + node.path("biome").asText() + "\""));
+        String themeName = node.path("theme").asText(ArenaTheme.DESERT_HIGHWAY.name());
+        ArenaTheme theme = ArenaTheme.parse(themeName);
+        if (theme == null) {
+            issues.add(ValidationIssue.error("A413", arenaId.value(), "unknown arena theme \"" + themeName + "\""));
             return null;
         }
+        ArenaTheme.Shape shape = theme.shape();
 
         float spanX = boundsMax.x - boundsMin.x;
         float cellSizeM = (float) node.path("cellSizeM").asDouble(TerrainParams.DEFAULT_CELL_SIZE_M);
@@ -686,15 +690,15 @@ public final class AssetLoader {
                     node.path("seed").asLong(0L),
                     cellSizeM,
                     gridSize,
-                    biome,
-                    (float) node.path("reliefM").asDouble(16.0),
-                    (float) node.path("baseFrequency").asDouble(0.0035),
-                    node.path("octaves").asInt(5),
-                    (float) node.path("duneWindDeg").asDouble(115.0),
-                    (float) node.path("duneWavelengthM").asDouble(90.0),
-                    (float) node.path("duneHeightM").asDouble(9.0),
-                    (float) node.path("borderWidthM").asDouble(60.0),
-                    (float) node.path("borderRiseM").asDouble(40.0),
+                    theme,
+                    (float) node.path("reliefM").asDouble(shape.reliefM()),
+                    (float) node.path("baseFrequency").asDouble(shape.baseFrequency()),
+                    node.path("octaves").asInt(shape.octaves()),
+                    (float) node.path("featureBearingDeg").asDouble(shape.featureBearingDeg()),
+                    (float) node.path("featureWavelengthM").asDouble(shape.featureWavelengthM()),
+                    (float) node.path("featureHeightM").asDouble(shape.featureHeightM()),
+                    (float) node.path("borderWidthM").asDouble(shape.borderWidthM()),
+                    (float) node.path("borderRiseM").asDouble(shape.borderRiseM()),
                     (float) node.path("maxDrivableSlopeDeg").asDouble(TerrainParams.MAX_DRIVABLE_SLOPE_DEG));
         } catch (IllegalArgumentException e) {
             issues.add(ValidationIssue.error("A410", arenaId.value(), e.getMessage()));

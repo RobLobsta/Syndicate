@@ -59,7 +59,7 @@ class StatBlockTest {
         assertThat(SlotType.WHEEL.acceptsCategory(PartCategory.WHEEL)).isTrue();
         assertThat(SlotType.WHEEL.acceptsCategory(PartCategory.WEAPON)).isFalse();
         assertThat(SlotType.HARDPOINT.accepts()).containsExactlyInAnyOrder(PartCategory.WEAPON, PartCategory.UTILITY);
-        assertThat(SlotType.ARMOR_PANEL.acceptsCategory(PartCategory.ARMOR)).isTrue();
+        assertThat(SlotType.PANEL.acceptsCategory(PartCategory.PANEL)).isTrue();
         assertThat(SlotType.TURRET_MOUNT.acceptsCategory(PartCategory.UTILITY)).isFalse();
         assertThat(SlotType.ACCESSORY.accepts()).containsExactly(PartCategory.DECORATIVE);
         assertThat(SlotType.SUBSLOT.accepts()).doesNotContain(PartCategory.CHASSIS, PartCategory.WHEEL);

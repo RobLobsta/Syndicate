@@ -66,7 +66,7 @@ class DetachSystemTest {
                 ASSEMBLY,
                 List.of(
                         PartSpec.of("root", PartCategory.CHASSIS, CHASSIS_MASS_KG, new Vector3()),
-                        PartSpec.of("root/armor_front", PartCategory.ARMOR, PLATE_MASS_KG, new Vector3(0f, 0f, 2f)),
+                        PartSpec.of("root/panel_front", PartCategory.PANEL, PLATE_MASS_KG, new Vector3(0f, 0f, 2f)),
                         PartSpec.of("root/turret", PartCategory.WEAPON, TURRET_MASS_KG, new Vector3(0f, 0.6f, 0f)),
                         PartSpec.of(
                                 "root/turret/barrel", PartCategory.WEAPON, BARREL_MASS_KG, new Vector3(0f, 0f, 1.2f)),
@@ -98,7 +98,7 @@ class DetachSystemTest {
     @Test
     void t1_aDestroyedPart_detachesAndBecomesOneDebrisBody() {
         // AC-D07-15 (T1). A part with no fracture manifest leaves in one piece (D07-E5).
-        int plate = scene.partAt(vehicle, "root/armor_front");
+        int plate = scene.partAt(vehicle, "root/panel_front");
         scene.destroyPart(plate);
 
         scene.step();
@@ -107,7 +107,7 @@ class DetachSystemTest {
         assertThat(scene.world().isAlive(plate)).isFalse();
         assertThat(detached)
                 .extracting(PartDetachedEvent::slotPath, PartDetachedEvent::reason)
-                .containsExactly(tuple("root/armor_front", DetachReason.DESTROYED));
+                .containsExactly(tuple("root/panel_front", DetachReason.DESTROYED));
     }
 
     @Test
@@ -117,7 +117,7 @@ class DetachSystemTest {
         scene.step();
         float before = scene.world().getComponent(vehicle, VehicleChassisComponent.class).totalMassKg;
 
-        scene.destroyPart(scene.partAt(vehicle, "root/armor_front"));
+        scene.destroyPart(scene.partAt(vehicle, "root/panel_front"));
         scene.step();
 
         VehicleChassisComponent chassis = scene.world().getComponent(vehicle, VehicleChassisComponent.class);
@@ -133,7 +133,7 @@ class DetachSystemTest {
         // give the same answer, which is why this test spins it.
         scene.bodyOf(vehicle).setLinearVelocity(new Vector3(12f, 0f, 0f));
         scene.bodyOf(vehicle).setAngularVelocity(new Vector3(0f, 3f, 0f));
-        scene.destroyPart(scene.partAt(vehicle, "root/armor_front"));
+        scene.destroyPart(scene.partAt(vehicle, "root/panel_front"));
 
         scene.step();
 
@@ -269,11 +269,11 @@ class DetachSystemTest {
                     ASSEMBLY,
                     List.of(
                             PartSpec.of("root", PartCategory.CHASSIS, CHASSIS_MASS_KG, new Vector3()),
-                            PartSpec.of("root/armor_front", PartCategory.ARMOR, PLATE_MASS_KG, new Vector3(0f, 0f, 2f))
+                            PartSpec.of("root/panel_front", PartCategory.PANEL, PLATE_MASS_KG, new Vector3(0f, 0f, 2f))
                                     .hanging()),
                     new Vector3(0f, 60f, 0f));
             Family hangingDebris = hanging.world().family(ComponentQuery.all(DebrisTagComponent.class));
-            int plate = hanging.partAt(assembly, "root/armor_front");
+            int plate = hanging.partAt(assembly, "root/panel_front");
             hanging.destroyPart(plate);
 
             hanging.step(DetachSystem.HANGING_TICKS - 1);
@@ -295,7 +295,7 @@ class DetachSystemTest {
     void detachmentIsOneWay_andASecondTriggerOnTheSamePartIsANoOp() {
         // D07-R21 / G9 / D05-E5. Two triggers firing on one part in a tick is normal; the second
         // must not produce a second debris body or a second event.
-        int plate = scene.partAt(vehicle, "root/armor_front");
+        int plate = scene.partAt(vehicle, "root/panel_front");
         scene.destroyPart(plate);
 
         scene.step(3);

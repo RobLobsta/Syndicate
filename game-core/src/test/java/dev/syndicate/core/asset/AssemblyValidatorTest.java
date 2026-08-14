@@ -28,7 +28,7 @@ class AssemblyValidatorTest {
     private static final AssetId ASSEMBLY = AssetId.of("assembly_medium_raider");
     private static final AssetId CHASSIS = AssetId.of("chassis_medium_01");
     private static final AssetId WHEEL = AssetId.of("wheel_road_01");
-    private static final AssetId PLATE = AssetId.of("armor_plate_medium_01");
+    private static final AssetId PLATE = AssetId.of("panel_plate_medium_01");
 
     /** A one-metre box, the smallest mesh whose hull encloses a volume. */
     private static MeshData box() {
@@ -52,14 +52,14 @@ class AssemblyValidatorTest {
         chassis.slot(SlotDefinition.of("wheel_fr", SlotType.WHEEL, at(1f, -0.4f, 1.4f), 200f));
         chassis.slot(SlotDefinition.of("wheel_rl", SlotType.WHEEL, at(-1f, -0.4f, -1.4f), 200f));
         chassis.slot(SlotDefinition.of("wheel_rr", SlotType.WHEEL, at(1f, -0.4f, -1.4f), 200f));
-        chassis.slot(SlotDefinition.of("armor_front", SlotType.ARMOR_PANEL, at(0f, 0f, 2f), 400f));
+        chassis.slot(SlotDefinition.of("panel_front", SlotType.PANEL, at(0f, 0f, 2f), 400f));
 
         return new InMemoryAssetIndex()
                 .put(chassis.build())
                 .put(PartType.builder(WHEEL, PartCategory.WHEEL, box())
                         .massKg(50f)
                         .build())
-                .put(PartType.builder(PLATE, PartCategory.ARMOR, box())
+                .put(PartType.builder(PLATE, PartCategory.PANEL, box())
                         .massKg(340f)
                         .build());
     }
@@ -112,7 +112,7 @@ class AssemblyValidatorTest {
         // its parent is not the tree the author drew.
         List<AssemblyDef.PartPlacement> parts = new ArrayList<>(fourWheels());
         parts.add(new AssemblyDef.PartPlacement(
-                "root/somewhere_else", "root", "armor_front", PLATE, AssemblyDef.Overrides.NONE));
+                "root/somewhere_else", "root", "panel_front", PLATE, AssemblyDef.Overrides.NONE));
 
         assertThat(codes(AssemblyValidator.validate(assemblyOf(parts), catalogue())))
                 .contains("A303");
@@ -132,7 +132,7 @@ class AssemblyValidatorTest {
         // D05-S4.3. An armour panel slot takes armour; putting a wheel there would give the vehicle
         // a fifth wheel bolted to its face.
         List<AssemblyDef.PartPlacement> parts = new ArrayList<>(fourWheels());
-        parts.add(AssemblyDef.PartPlacement.of("root", "armor_front", WHEEL));
+        parts.add(AssemblyDef.PartPlacement.of("root", "panel_front", WHEEL));
 
         assertThat(codes(AssemblyValidator.validate(assemblyOf(parts), catalogue())))
                 .contains("A305");
@@ -144,9 +144,9 @@ class AssemblyValidatorTest {
         // this plate is 900.
         InMemoryAssetIndex assets = catalogue();
         assets.put(
-                PartType.builder(PLATE, PartCategory.ARMOR, box()).massKg(900f).build());
+                PartType.builder(PLATE, PartCategory.PANEL, box()).massKg(900f).build());
         List<AssemblyDef.PartPlacement> parts = new ArrayList<>(fourWheels());
-        parts.add(AssemblyDef.PartPlacement.of("root", "armor_front", PLATE));
+        parts.add(AssemblyDef.PartPlacement.of("root", "panel_front", PLATE));
 
         assertThat(codes(AssemblyValidator.validate(assemblyOf(parts), assets))).contains("A306");
     }
@@ -154,8 +154,8 @@ class AssemblyValidatorTest {
     @Test
     void aSlotFilledTwice_isA307() {
         List<AssemblyDef.PartPlacement> parts = new ArrayList<>(fourWheels());
-        parts.add(AssemblyDef.PartPlacement.of("root", "armor_front", PLATE));
-        parts.add(AssemblyDef.PartPlacement.of("root", "armor_front", PLATE));
+        parts.add(AssemblyDef.PartPlacement.of("root", "panel_front", PLATE));
+        parts.add(AssemblyDef.PartPlacement.of("root", "panel_front", PLATE));
 
         assertThat(codes(AssemblyValidator.validate(assemblyOf(parts), catalogue())))
                 .contains("A307");

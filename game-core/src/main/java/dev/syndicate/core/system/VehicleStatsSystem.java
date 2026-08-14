@@ -367,7 +367,7 @@ public final class VehicleStatsSystem implements EntitySystem {
                 steerWheels++;
             }
 
-            if (partStats.category == PartCategory.ARMOR) {
+            if (partStats.category == PartCategory.PANEL) {
                 HealthComponent health = world.getComponent(partEntity, HealthComponent.class);
                 float baseArmor =
                         partStats.baseStats.resolve(Stat.ARMOR_VALUE, health == null ? 0f : health.armorValue);

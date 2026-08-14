@@ -34,7 +34,7 @@ SLOT_ACCEPTS = {
     "ROOT": {"CHASSIS"},
     "WHEEL": {"WHEEL"},
     "HARDPOINT": {"WEAPON", "UTILITY"},
-    "ARMOR_PANEL": {"ARMOR"},
+    "PANEL": {"PANEL"},
     "TURRET_MOUNT": {"WEAPON"},
     "ACCESSORY": {"DECORATIVE"},
     "SUBSLOT": {"WEAPON", "UTILITY", "DECORATIVE"},

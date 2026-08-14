@@ -76,9 +76,9 @@ class TerrainGeneratorTest {
     @Test
     void twoIndependentlyBuiltGeneratorsAgree() {
         TerrainParams a = new TerrainParams(
-                SEED, 1f, 601, TerrainParams.Biome.DESERT, 16f, 0.0035f, 5, 115f, 90f, 9f, 60f, 28f, 25f);
+                SEED, 1f, 601, ArenaTheme.DESERT_HIGHWAY, 16f, 0.0035f, 5, 115f, 90f, 9f, 60f, 28f, 25f);
         TerrainParams b = new TerrainParams(
-                SEED, 1f, 601, TerrainParams.Biome.DESERT, 16f, 0.0035f, 5, 115f, 90f, 9f, 60f, 28f, 25f);
+                SEED, 1f, 601, ArenaTheme.DESERT_HIGHWAY, 16f, 0.0035f, 5, 115f, 90f, 9f, 60f, 28f, 25f);
         assertThat(TerrainGenerator.generate(MIN, MAX, 0f, b).fieldHash())
                 .isEqualTo(TerrainGenerator.generate(MIN, MAX, 0f, a).fieldHash());
     }
@@ -86,7 +86,7 @@ class TerrainGeneratorTest {
     /**
      * T-D16-4: a dune's slip face stands at the angle of repose.
      *
-     * <p>This is the property the desert biome's whole gameplay hangs on (D16-R2): the face is above
+     * <p>This is the property the desert theme's whole gameplay hangs on (D16-R2): the face is above
      * {@code MAX_DRIVABLE_SLOPE_DEG} and therefore a wall, while the windward side is below it and
      * therefore a ramp. Measured on the dune layer alone, because that is what the property is
      * about — the finished field adds the broad landform's own slope on top, which tilts individual
@@ -99,13 +99,13 @@ class TerrainGeneratorTest {
                 params.seed(),
                 params.cellSizeM(),
                 params.gridSize(),
-                TerrainParams.Biome.DESERT,
+                ArenaTheme.DESERT_HIGHWAY,
                 0f, // no broad relief
                 params.baseFrequency(),
                 params.octaves(),
-                params.duneWindDeg(),
-                params.duneWavelengthM(),
-                params.duneHeightM(),
+                params.featureBearingDeg(),
+                params.featureWavelengthM(),
+                params.featureHeightM(),
                 0f, // no border rise
                 0f,
                 params.maxDrivableSlopeDeg());
@@ -364,20 +364,20 @@ class TerrainGeneratorTest {
     @Test
     void gridSizeIsValidatedAtConstruction() {
         assertThatThrownBy(() -> new TerrainParams(
-                        1L, 1f, 600, TerrainParams.Biome.DESERT, 16f, 0.0035f, 5, 0f, 90f, 9f, 0f, 0f, 25f))
+                        1L, 1f, 600, ArenaTheme.DESERT_HIGHWAY, 16f, 0.0035f, 5, 0f, 90f, 9f, 0f, 0f, 25f))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("odd");
         assertThatThrownBy(() -> new TerrainParams(
-                        1L, 1f, 63, TerrainParams.Biome.DESERT, 16f, 0.0035f, 5, 0f, 90f, 9f, 0f, 0f, 25f))
+                        1L, 1f, 63, ArenaTheme.DESERT_HIGHWAY, 16f, 0.0035f, 5, 0f, 90f, 9f, 0f, 0f, 25f))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("gridSize");
     }
 
-    /** A flat biome is flat, which is what keeps the existing physics fixtures meaningful. */
+    /** A flat theme is flat, which is what keeps the existing physics fixtures meaningful. */
     @Test
-    void theTarmacBiomeIsTarmacThroughout() {
-        TerrainParams params = new TerrainParams(
-                SEED, 1f, 601, TerrainParams.Biome.TARMAC_FLAT, 3f, 0.0035f, 4, 0f, 90f, 0f, 0f, 0f, 25f);
+    void theProvingGroundIsTarmacThroughout() {
+        TerrainParams params =
+                new TerrainParams(SEED, 1f, 601, ArenaTheme.PROVING_GROUND, 3f, 0.0035f, 4, 0f, 90f, 0f, 0f, 0f, 25f);
         TerrainField field = TerrainGenerator.generate(MIN, MAX, 0f, params);
         assertThat(field.surfaceAt(0f, 0f)).isEqualTo(Surface.TARMAC);
         assertThat(field.surfaceAt(-250f, 180f)).isEqualTo(Surface.TARMAC);

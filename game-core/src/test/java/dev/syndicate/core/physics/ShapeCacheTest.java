@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 @Tag("integration")
 class ShapeCacheTest {
 
-    private static final AssetId PLATE = AssetId.of("armor_plate_front");
+    private static final AssetId PLATE = AssetId.of("panel_plate_front");
     private static final AssetId SPHERE = AssetId.of("shard_sphere_source");
 
     static {

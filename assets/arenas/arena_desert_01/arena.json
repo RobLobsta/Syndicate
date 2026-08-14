@@ -1,41 +1,168 @@
 {
   "schemaVersion": "1.0.0",
   "arenaId": "arena_desert_01",
-  "displayName": "Dune Sea",
-  "boundsMin": { "x": -300.0, "y": -40.0, "z": -300.0 },
-  "boundsMax": { "x": 300.0, "y": 120.0, "z": 300.0 },
+  "displayName": "Desert Highway",
+  "boundsMin": {
+    "x": -300.0,
+    "y": -40.0,
+    "z": -300.0
+  },
+  "boundsMax": {
+    "x": 300.0,
+    "y": 120.0,
+    "z": 300.0
+  },
   "groundY": 0.0,
   "killPlaneY": -30.0,
   "terrain": {
-    "seed": 20260814,
+    "theme": "DESERT_HIGHWAY",
+    "seed": 0,
     "cellSizeM": 1.0,
-    "gridSize": 601,
-    "biome": "DESERT",
-    "reliefM": 16.0,
-    "baseFrequency": 0.0035,
-    "octaves": 5,
-    "duneWindDeg": 115.0,
-    "duneWavelengthM": 90.0,
-    "duneHeightM": 9.0,
-    "borderWidthM": 60.0,
-    "borderRiseM": 40.0,
-    "maxDrivableSlopeDeg": 25.0
+    "gridSize": 601
   },
   "spawnPoints": [
-    { "id": "sp_a_01", "team": 0, "position": { "x": -140.0, "y": 1.0, "z": -110.0 }, "yawDeg": 45.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_a_02", "team": 0, "position": { "x": -140.0, "y": 1.0, "z": -70.0 }, "yawDeg": 45.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_a_03", "team": 0, "position": { "x": -140.0, "y": 1.0, "z": -30.0 }, "yawDeg": 45.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_a_04", "team": 0, "position": { "x": -140.0, "y": 1.0, "z": 10.0 }, "yawDeg": 45.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_b_01", "team": 1, "position": { "x": 140.0, "y": 1.0, "z": 110.0 }, "yawDeg": 225.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_b_02", "team": 1, "position": { "x": 140.0, "y": 1.0, "z": 70.0 }, "yawDeg": 225.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_b_03", "team": 1, "position": { "x": 140.0, "y": 1.0, "z": 30.0 }, "yawDeg": 225.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_b_04", "team": 1, "position": { "x": 140.0, "y": 1.0, "z": -10.0 }, "yawDeg": 225.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_free_01", "team": -1, "position": { "x": 90.0, "y": 1.0, "z": -150.0 }, "yawDeg": 135.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_free_02", "team": -1, "position": { "x": -90.0, "y": 1.0, "z": 150.0 }, "yawDeg": 315.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_free_03", "team": -1, "position": { "x": 0.0, "y": 1.0, "z": 0.0 }, "yawDeg": 90.0, "clearanceRadiusM": 12.0 },
-    { "id": "sp_free_04", "team": -1, "position": { "x": -30.0, "y": 1.0, "z": -180.0 }, "yawDeg": 0.0, "clearanceRadiusM": 12.0 }
+    {
+      "id": "sp_a_01",
+      "team": 0,
+      "position": {
+        "x": -140.0,
+        "y": 1.0,
+        "z": -110.0
+      },
+      "yawDeg": 45.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_a_02",
+      "team": 0,
+      "position": {
+        "x": -140.0,
+        "y": 1.0,
+        "z": -70.0
+      },
+      "yawDeg": 45.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_a_03",
+      "team": 0,
+      "position": {
+        "x": -140.0,
+        "y": 1.0,
+        "z": -30.0
+      },
+      "yawDeg": 45.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_a_04",
+      "team": 0,
+      "position": {
+        "x": -140.0,
+        "y": 1.0,
+        "z": 10.0
+      },
+      "yawDeg": 45.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_b_01",
+      "team": 1,
+      "position": {
+        "x": 140.0,
+        "y": 1.0,
+        "z": 110.0
+      },
+      "yawDeg": 225.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_b_02",
+      "team": 1,
+      "position": {
+        "x": 140.0,
+        "y": 1.0,
+        "z": 70.0
+      },
+      "yawDeg": 225.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_b_03",
+      "team": 1,
+      "position": {
+        "x": 140.0,
+        "y": 1.0,
+        "z": 30.0
+      },
+      "yawDeg": 225.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_b_04",
+      "team": 1,
+      "position": {
+        "x": 140.0,
+        "y": 1.0,
+        "z": -10.0
+      },
+      "yawDeg": 225.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_free_01",
+      "team": -1,
+      "position": {
+        "x": 90.0,
+        "y": 1.0,
+        "z": -150.0
+      },
+      "yawDeg": 135.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_free_02",
+      "team": -1,
+      "position": {
+        "x": -90.0,
+        "y": 1.0,
+        "z": 150.0
+      },
+      "yawDeg": 315.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_free_03",
+      "team": -1,
+      "position": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "yawDeg": 90.0,
+      "clearanceRadiusM": 12.0
+    },
+    {
+      "id": "sp_free_04",
+      "team": -1,
+      "position": {
+        "x": -30.0,
+        "y": 1.0,
+        "z": -180.0
+      },
+      "yawDeg": 0.0,
+      "clearanceRadiusM": 12.0
+    }
   ],
-  "assets": { "collision": null, "visual": null, "navmesh": null },
-  "modes": ["DEATHMATCH", "TEAM_DEATHMATCH", "LAST_MACHINE"],
+  "assets": {
+    "collision": null,
+    "visual": null,
+    "navmesh": null
+  },
+  "modes": [
+    "DEATHMATCH",
+    "TEAM_DEATHMATCH",
+    "LAST_MACHINE"
+  ],
   "payloadPath": null
 }

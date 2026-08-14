@@ -153,7 +153,11 @@ public final class ClientRuntime implements AutoCloseable {
         world.registerSystems(systems);
 
         if (arena != null) {
-            ArenaFactory.load(world, physics, shapes, arena);
+            ArenaFactory.LoadedArena loaded = ArenaFactory.load(world, physics, shapes, arena);
+            // The ground has to be handed to the renderer here rather than built with it: generating
+            // it needs the physics world, and drawing it needs a GL context. Without this the
+            // scrapyard's heaps collide and nothing draws them, which reads as broken physics.
+            render.useTerrain(loaded.terrain());
             Vector3 centre =
                     new Vector3(arena.boundsMin()).add(arena.boundsMax()).scl(0.5f);
             centre.y = arena.groundY();

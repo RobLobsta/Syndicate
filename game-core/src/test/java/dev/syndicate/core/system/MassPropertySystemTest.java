@@ -57,8 +57,8 @@ class MassPropertySystemTest {
                 List.of(
                         PartSpec.of("root", PartCategory.CHASSIS, CHASSIS_MASS_KG, new Vector3()),
                         PartSpec.of(
-                                "root/armor_front",
-                                PartCategory.ARMOR,
+                                "root/panel_front",
+                                PartCategory.PANEL,
                                 PLATE_MASS_KG,
                                 new Vector3(0f, 0f, PLATE_OFFSET_Z_M))),
                 new Vector3(0f, 20f, 0f));
@@ -101,7 +101,7 @@ class MassPropertySystemTest {
         // T-D06-6 / AC-D06-8 / AC-D07-14. The whole point of slot 15 is that this happens before the
         // next physics step: a vehicle is never stepped with the mass it had before it lost a part.
         recompute();
-        int plate = scene.partAt(vehicle, "root/armor_front");
+        int plate = scene.partAt(vehicle, "root/panel_front");
 
         PartDetachment.detach(scene.world(), scene.shapes(), vehicle, plate, DetachReason.DESTROYED, 0L);
         recompute();
@@ -129,7 +129,7 @@ class MassPropertySystemTest {
                 scene.world(),
                 scene.shapes(),
                 vehicle,
-                scene.partAt(vehicle, "root/armor_front"),
+                scene.partAt(vehicle, "root/panel_front"),
                 DetachReason.DESTROYED,
                 0L);
         recompute();
@@ -190,7 +190,7 @@ class MassPropertySystemTest {
                 scene.world(),
                 scene.shapes(),
                 vehicle,
-                scene.partAt(vehicle, "root/armor_front"),
+                scene.partAt(vehicle, "root/panel_front"),
                 DetachReason.DESTROYED,
                 4L);
 

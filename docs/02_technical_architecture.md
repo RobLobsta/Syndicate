@@ -224,7 +224,7 @@ dev.syndicate.core
 | DTO / wire record | `<Noun>Dto` or `<Noun>Message` | `PartDefinitionDto`, `SnapshotMessage` |
 | Enum constant | `SCREAMING_SNAKE` | `DAMAGE_TYPE_KINETIC` → declared as `KINETIC` in `DamageType` |
 | Constant | `static final` `SCREAMING_SNAKE` | `TICK_DT` |
-| Asset ID literal | lowercase snake (D00-R19) | `armor_plate_medium_01` |
+| Asset ID literal | lowercase snake (D00-R19) | `panel_plate_medium_01` |
 | Units in field names | suffix the unit | `massKg`, `maxSpeedMps`, `dtSeconds`, `pitchDeg` |
 | Boolean field | `is`/`has`/`can` prefix | `isDetached`, `hasFractureData` |
 
@@ -290,23 +290,23 @@ dev.syndicate.core
 <!-- D02-S5.2 -->### 5.2 Data Flow: Art to Gameplay
 
 ```pseudo
-1. Artist authors clean mesh in art-source/parts/armor_plate_medium_01.blend
+1. Artist authors clean mesh in art-source/parts/panel_plate_medium_01.blend
    with material slots named per D08-S4.1 and scale in metres, Z-up.
 
 2. Agent invokes:
      blender --background --factory-startup \
              --python -m syndicate_fracture -- \
-             --input art-source/parts/armor_plate_medium_01.blend \
-             --out   assets/parts/armor_plate_medium_01/ \
+             --input art-source/parts/panel_plate_medium_01.blend \
+             --out   assets/parts/panel_plate_medium_01/ \
              --seed  1337 --shards 24 --damage-morphs 4
 
 3. Tool writes:
-     assets/parts/armor_plate_medium_01/mesh.glb          # intact mesh + damage morphs
-     assets/parts/armor_plate_medium_01/shards.glb        # shard meshes
-     assets/parts/armor_plate_medium_01/fracture_manifest.json
+     assets/parts/panel_plate_medium_01/mesh.glb          # intact mesh + damage morphs
+     assets/parts/panel_plate_medium_01/shards.glb        # shard meshes
+     assets/parts/panel_plate_medium_01/fracture_manifest.json
    and exits 0 only if its self-verification passed (D09-S7).
 
-4. Human/agent authors assets/parts/armor_plate_medium_01/part.json  (D08-S4.2),
+4. Human/agent authors assets/parts/panel_plate_medium_01/part.json  (D08-S4.2),
    referencing the manifest and declaring slots, health, stats.
 
 5. asset-pipeline validates part.json + fracture_manifest.json against schemas/,
