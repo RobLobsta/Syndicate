@@ -21,7 +21,7 @@
     "z": 0.080219
   },
   "densityKgPerM3": 2500.0,
-  "generatedAt": "2026-08-15T17:57:51Z",
+  "generatedAt": "2026-08-15T18:47:41Z",
   "inertiaDiagonal": {
     "x": -2.30628,
     "y": -0.210656,
@@ -1135,7 +1135,7 @@
     }
   ],
   "sourceFile": "../assets/vehicles/vehicle_stampede_01/parts/glass_stampede_rear_window_01/mesh.glb",
-  "sourceHash": "sha256:ad144ef2100323f47f374346b7ccdb2f1bfb91033cea3ab673dea85dc68ab8dd",
+  "sourceHash": "sha256:33b9d1710ee10593269a65b315d6bdcd824642c5f59099734f990574133a5358",
   "toolVersion": "0.1.0",
   "topologyHash": "sha256:aff214f1a8a761bd47add3f22ae74e9a0a992486fa3774e2cf3e9e4954c61d84",
   "verification": {

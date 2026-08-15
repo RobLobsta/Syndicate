@@ -1,141 +1,191 @@
 {
   "schemaVersion": "1.0.0",
-  "styleId": "style_syndicate_default",
-  "displayName": "Syndicate — industrial dystopia",
+  "styleId": "style_syndicate_wasteland",
+  "displayName": "Syndicate — wasteland industrial",
   "notes": [
-    "The house art style (docs/15_vehicle_preparation_pipeline.md#D15-S9).",
+    "The house art style (docs/15_vehicle_preparation_pipeline.md#D15-S4.5).",
     "",
     "Every vehicle in this game is downloaded art by a different artist with a different idea of",
     "what a car looks like. One is a photoscanned supercar, the next a flat-shaded cartoon with",
     "primary-colour paint and no textures at all. Dropped in side by side they read as two games.",
     "",
-    "This table is what makes them read as one. It is applied per MATERIAL, in Blender, before any",
-    "geometry is touched, and it does exactly one thing: it moves every surface's colour and its",
-    "reflectance into a band the whole roster shares. Grimy, desaturated, weathered metal under a",
-    "sodium-lit sky; paint that has been outdoors for a decade; chrome that has gone dull; glass",
-    "that is dirty. Realistic rather than stylised, dark rather than bright, worn rather than new.",
+    "This table is what makes them read as one, and it is aimed at a specific look: Crossout's",
+    "wasteland, between the Syndicate's cold industrial plate and the Ravagers' black machinery lit",
+    "from inside. Bare oxidised steel, sand-blasted paint, warm rust, and cold cyan light. Nothing",
+    "is showroom and nothing is bright.",
+    "",
+    "THREE MECHANISMS, applied in this order, and the last two are what stop an imported asset from",
+    "looking wrong beside the rest:",
+    "",
+    "  1. Each surface's own row moves it into a colour band and a reflectance (see `surfaces`).",
+    "  2. `palette` SNAPS its hue to the nearest allowed one. This is what makes a roster look like",
+    "     one artist rather than like nine well-behaved artists: a limited hue wheel is most of what",
+    "     a coherent art style IS. Six hues, and a lamp is exempt.",
+    "  3. `tone` clamps the finished LUMINANCE of everything into one band. This is the answer to",
+    "     brights and darks clashing: no imported material may be brighter than the brightest thing",
+    "     already in the scene or darker than the darkest, whatever its own row allowed. It is the",
+    "     one rule that holds across every surface and every model.",
     "",
     "It does NOT touch the properties the labelling ensemble reads as evidence (D15-S4.2 C2): a",
     "material's alpha mode, its transmission, its backface culling and its NAME survive the pass",
-    "untouched. Normalising those would make every windscreen opaque and every glass cue useless,",
-    "which is the one way this pass could break the pipeline that runs after it.",
+    "untouched. Normalising those would make every windscreen opaque and every glass cue useless.",
     "",
-    "Colour bands are HSV. saturationMax and value[Min,Max] are clamps, not assignments: a red car",
-    "stays a red car, it just stops being a TOY red car. hueShiftDeg is applied first and exists so",
-    "a surface whose real-world hue is not a free choice -- rust, sodium light -- can be pinned.",
-    "",
-    "grime is how far the clamped colour is then dragged toward grimeColour. It is the difference",
-    "between a clean render and something that has been driven through a scrapyard."
+    "Colour bands are HSV. saturationMax and value[Min,Max] are clamps, not assignments. A null",
+    "metallic or roughness means PRESERVE the artist's own value."
   ],
 
-  "grimeColour": { "r": 0.106, "g": 0.086, "b": 0.067 },
+  "grimeColour": { "r": 0.094, "g": 0.079, "b": 0.064 },
+
+  "palette": {
+    "notes": [
+      "The hue wheel this game is allowed to use, in degrees, with how hard a colour is pulled onto",
+      "the nearest one. Six hues and no more -- that restriction is the style.",
+      "",
+      "Two warm (rust and sand), two cold (gunmetal and the Ravager cyan), one faction red, one",
+      "sodium amber. Every one of them appears somewhere in Crossout's palette and none of them is a",
+      "primary. `pull` of 1 would quantise outright; 0.75 keeps a trace of the original so two reds",
+      "that started apart do not end up literally identical."
+    ],
+    "hues": [
+      { "name": "rust", "hueDeg": 22.0 },
+      { "name": "sand", "hueDeg": 41.0 },
+      { "name": "sodium", "hueDeg": 33.0 },
+      { "name": "faction_red", "hueDeg": 6.0 },
+      { "name": "gunmetal", "hueDeg": 210.0 },
+      { "name": "ravager_cyan", "hueDeg": 188.0 }
+    ],
+    "pull": 0.75,
+    "exemptSurfaces": ["light"]
+  },
+
+  "tone": {
+    "notes": [
+      "The global luminance band, applied last, to everything. Rec. 709 luma.",
+      "",
+      "This is the rule the user asked for by name: nothing imported may clash on brightness. A",
+      "0.03 floor keeps a black part from becoming a hole in the frame -- shape has to survive in",
+      "shadow -- and a 0.62 ceiling keeps white plastic and blown-out photoscan albedo from",
+      "punching through a scene whose brightest natural surface is weathered steel.",
+      "",
+      "`accentSaturationMax` is the other half of coherence: after everything above, no surface may",
+      "be more saturated than this. Crossout's vehicles are almost achromatic with small saturated",
+      "accents, and this is what enforces the 'almost'.",
+      "",
+      "Lamps are exempt from the ceiling and only from the ceiling. A headlight that is not the",
+      "brightest thing in the frame does not read as a headlight."
+    ],
+    "luminanceMin": 0.03,
+    "luminanceMax": 0.62,
+    "accentSaturationMax": 0.55,
+    "exemptFromCeiling": ["light"]
+  },
 
   "surfaces": [
     {
       "surface": "body_paint",
       "displayName": "Body paint",
       "hueShiftDeg": 0.0,
-      "saturationMax": 0.45,
+      "saturationMax": 0.38,
       "valueMin": 0.05,
-      "valueMax": 0.42,
-      "metallic": 0.25,
-      "roughness": 0.52,
-      "grime": 0.30,
-      "notes": "Hue is preserved -- a faction colour is gameplay. Saturation and value are not: a 1.0/1.0 cartoon red becomes an oxidised 0.45/0.42 one."
+      "valueMax": 0.40,
+      "metallic": 0.22,
+      "roughness": 0.58,
+      "grime": 0.34,
+      "notes": "Hue survives the row and is then snapped to the palette -- a red car stays the reddest thing the palette has. Saturation and value do not survive: a 1.0/1.0 cartoon red becomes sand-blasted."
     },
     {
       "surface": "neutral",
       "displayName": "Everything the pass could not identify",
       "hueShiftDeg": 4.0,
-      "saturationMax": 0.60,
+      "saturationMax": 0.34,
       "valueMin": 0.02,
-      "valueMax": 0.78,
+      "valueMax": 0.66,
       "metallic": null,
       "roughness": null,
-      "grime": 0.18,
-      "notes": "The fallback, and the most important row in the table. On a real car most materials are body-coloured panels and details that no cue names, and forcing them into the trim band -- near-black, non-metallic, rough -- turns the whole vehicle into grey mush and erases an alloy wheel's spokes outright. So this row barely moves anything: it clamps a cartoon's saturation, adds a little dirt, and leaves metallic and roughness exactly as the artist set them. A null means preserve."
+      "grime": 0.22,
+      "notes": "The fallback, and the most important row in the table. On a real car most materials are body-coloured panels and details that no cue names, and forcing them into the trim band -- near-black, non-metallic, rough -- turns the whole vehicle into grey mush and erases an alloy wheel's spokes outright. So this row barely moves anything: it clamps saturation, adds a little dirt, and leaves metallic and roughness exactly as the artist set them. The palette snap and the tone band still apply, which is what keeps it in the family."
     },
     {
       "surface": "trim",
       "displayName": "Plastic trim, bumpers, cladding",
       "hueShiftDeg": 0.0,
-      "saturationMax": 0.14,
+      "saturationMax": 0.12,
       "valueMin": 0.03,
-      "valueMax": 0.30,
+      "valueMax": 0.28,
       "metallic": 0.0,
-      "roughness": 0.78,
+      "roughness": 0.80,
       "grime": 0.45,
-      "notes": "Almost achromatic. Unpainted plastic on a real vehicle is grey-black and goes chalky, and it is the surface that most gives a cartoon model away. Only a material a cue actually IDENTIFIED as trim lands here -- anything unrecognised takes the neutral row above, which is a different and much gentler thing."
+      "notes": "Almost achromatic. Unpainted plastic on a real vehicle is grey-black and goes chalky, and it is the surface that most gives a cartoon model away. Only a material a cue actually IDENTIFIED as trim lands here -- anything unrecognised takes the neutral row, which is much gentler."
     },
     {
       "surface": "chrome",
       "displayName": "Bare and plated metal",
-      "hueShiftDeg": 18.0,
-      "saturationMax": 0.12,
-      "valueMin": 0.18,
-      "valueMax": 0.62,
+      "hueShiftDeg": 12.0,
+      "saturationMax": 0.14,
+      "valueMin": 0.16,
+      "valueMax": 0.56,
       "metallic": 1.0,
-      "roughness": 0.34,
-      "grime": 0.25,
-      "notes": "Roughness well above a showroom 0.05: dull, pitted, slightly warm. Mirror chrome is the single strongest 'this is a render' signal there is."
+      "roughness": 0.38,
+      "grime": 0.30,
+      "notes": "Roughness well above a showroom 0.05: dull, pitted, warm. Mirror chrome is the single strongest 'this is a render' signal there is, and there is no chrome anywhere in a scrapyard."
     },
     {
       "surface": "glass",
       "displayName": "Glazing",
       "hueShiftDeg": 0.0,
-      "saturationMax": 0.10,
-      "valueMin": 0.30,
-      "valueMax": 0.80,
+      "saturationMax": 0.16,
+      "valueMin": 0.22,
+      "valueMax": 0.58,
       "metallic": 0.0,
-      "roughness": 0.10,
-      "grime": 0.12,
-      "notes": "Transmission and alpha are NOT written here -- they are labelling evidence (D15-R6). Only the tint and the surface roughness are."
+      "roughness": 0.14,
+      "grime": 0.20,
+      "notes": "Dirtier and darker than real glass, and tinted toward gunmetal by the palette snap. Transmission and alpha are NOT written here -- they are labelling evidence (D15-R6). Only the tint and the surface roughness are."
     },
     {
       "surface": "tyre",
       "displayName": "Rubber",
       "hueShiftDeg": 0.0,
       "saturationMax": 0.06,
-      "valueMin": 0.015,
-      "valueMax": 0.09,
+      "valueMin": 0.02,
+      "valueMax": 0.10,
       "metallic": 0.0,
       "roughness": 0.92,
       "grime": 0.55,
-      "notes": "Near black, entirely rough, heavily dusted. A tyre rendered as dark grey plastic is the second strongest render signal."
+      "notes": "Near black, entirely rough, heavily dusted -- but above the tone floor, so a tyre is a shape in shadow rather than a hole. A tyre rendered as dark grey plastic is the second strongest render signal."
     },
     {
       "surface": "light",
       "displayName": "Lamp lenses and reflectors",
       "hueShiftDeg": 0.0,
-      "saturationMax": 0.55,
-      "valueMin": 0.25,
-      "valueMax": 0.90,
+      "saturationMax": 0.70,
+      "valueMin": 0.30,
+      "valueMax": 0.95,
       "metallic": 0.0,
-      "roughness": 0.18,
-      "grime": 0.20,
-      "notes": "The one surface allowed to stay bright, because a lamp that is not brighter than the car around it does not read as a lamp. Emission strength is preserved rather than rewritten."
+      "roughness": 0.16,
+      "grime": 0.12,
+      "notes": "The one surface exempt from both the palette snap and the tone ceiling. A lamp is allowed a hue the vehicles are not -- this is where the Ravagers' cyan and a tail light's red live -- and it must be the brightest thing in frame or it does not read as a lamp."
     },
     {
       "surface": "grille",
       "displayName": "Grilles, meshes and vents",
-      "hueShiftDeg": 20.0,
-      "saturationMax": 0.20,
+      "hueShiftDeg": 16.0,
+      "saturationMax": 0.22,
       "valueMin": 0.02,
-      "valueMax": 0.16,
-      "metallic": 0.65,
-      "roughness": 0.70,
+      "valueMax": 0.18,
+      "metallic": 0.70,
+      "roughness": 0.72,
       "grime": 0.55,
-      "notes": "Dark, half metallic and filthy. A grille collects everything the road throws at it."
+      "notes": "Dark, half metallic and filthy, snapping to rust. A grille collects everything the road throws at it."
     },
     {
       "surface": "interior",
       "displayName": "Cabin",
       "hueShiftDeg": 0.0,
-      "saturationMax": 0.16,
-      "valueMin": 0.01,
-      "valueMax": 0.14,
+      "saturationMax": 0.14,
+      "valueMin": 0.02,
+      "valueMax": 0.16,
       "metallic": 0.0,
-      "roughness": 0.86,
+      "roughness": 0.88,
       "grime": 0.35,
       "notes": "Barely visible through glazing in play, and dark enough that it never draws the eye away from the exterior."
     },
@@ -143,13 +193,13 @@
       "surface": "underbody",
       "displayName": "Underbody, structure and mechanicals",
       "hueShiftDeg": 22.0,
-      "saturationMax": 0.28,
-      "valueMin": 0.015,
-      "valueMax": 0.13,
-      "metallic": 0.55,
-      "roughness": 0.85,
-      "grime": 0.65,
-      "notes": "The hue shift is deliberate and is toward rust. Nothing under a vehicle in this game has ever been washed."
+      "saturationMax": 0.30,
+      "valueMin": 0.02,
+      "valueMax": 0.15,
+      "metallic": 0.60,
+      "roughness": 0.86,
+      "grime": 0.62,
+      "notes": "The hue shift is toward rust and the palette then pins it there. Nothing under a vehicle in this game has ever been washed."
     }
   ],
 
@@ -162,11 +212,15 @@
       "A stylised source is REPLACED: its base-colour textures are disconnected and the flat house",
       "colour takes over, which is what 'reskinned into my style' means for a model whose textures",
       "are flat colour anyway. A realistic source is only PULLED toward the palette by",
-      "realisticStrength, because its textures carry detail worth keeping."
+      "realisticStrength, because its textures carry detail worth keeping.",
+      "",
+      "The palette snap and the tone band are NOT scaled by strength. They are the two rules that",
+      "make a new asset fit, and a rule that applies at 55% to one model and 100% to the next is not",
+      "a rule -- it is the drift it exists to prevent."
     ],
     "saturationMeanAbove": 0.42,
     "texturedFractionBelow": 0.35,
     "stylisedStrength": 1.0,
-    "realisticStrength": 0.55
+    "realisticStrength": 0.62
   }
 }

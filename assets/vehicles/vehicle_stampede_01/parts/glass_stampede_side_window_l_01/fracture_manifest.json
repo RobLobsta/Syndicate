@@ -21,7 +21,7 @@
     "z": 0.723738
   },
   "densityKgPerM3": 2500.0,
-  "generatedAt": "2026-08-15T17:57:55Z",
+  "generatedAt": "2026-08-15T18:47:45Z",
   "inertiaDiagonal": {
     "x": -4.721521,
     "y": -4.748877,
@@ -1145,7 +1145,7 @@
     }
   ],
   "sourceFile": "../assets/vehicles/vehicle_stampede_01/parts/glass_stampede_side_window_l_01/mesh.glb",
-  "sourceHash": "sha256:ea958c33c62d41e35399344a4215b084d23f8cf6c2823e66da9ae05544ca0b2b",
+  "sourceHash": "sha256:b4018517fcf0b841051856270be646a3cfbfd5fdb934e7251c23758bf5889cb0",
   "toolVersion": "0.1.0",
   "topologyHash": "sha256:8ba5da5b1537b5cce9550fe6488582fb3a8894af47e41e3f6ef337d2ce2f6b95",
   "verification": {

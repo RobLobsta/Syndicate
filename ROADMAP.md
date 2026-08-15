@@ -1,6 +1,6 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-15 (end of SESS-033)
+**Last updated:** 2026-08-15 (end of SESS-034)
 
 This is the plan, in order. Each step below is meant to be picked up from the top: everything above
 "you are here" is done, everything below it is not, and the order is the order they should be done
@@ -226,11 +226,14 @@ Not decided, and not for the assistant to decide alone.
   free for fitted plating if the garage ever offers a choice of it. If you would rather the word
   disappeared entirely, the rename is mechanical but touches the JSON schema and the Blender tool.
 - **What the house style should actually look like.** `assets/materials/style.json` is ten surface
-  roles with a colour band and a reflectance each, set to a grimy industrial reading of the brief:
-  desaturated paint, dull chrome, black rough rubber, everything dusted. It is one file and every
-  number in it is a taste decision made without you. The current result is a charcoal car with a
-  warm cast, which you have now seen — move the numbers if it is not what you meant. The pipeline
-  re-runs in about ninety seconds a vehicle.
+  roles, a six-hue palette and a luminance band, aimed at Crossout's wasteland. Every number in it
+  is a taste decision; the pipeline re-runs in about ninety seconds a vehicle, and the report says
+  what the result measured. The hue list is the highest-leverage thing to change.
+- **Whether the ground should follow the same palette.** The vehicles are now held inside one
+  luminance band and the generated terrain is not — it comes from `ArenaTheme` (D16) and reads
+  noticeably lighter than the cars sitting on it. Unifying the two is the single biggest remaining
+  "the scene does not look right" item, and it is a change to a different system than the style
+  table.
 - **When it should be dark.** Night is a launch option (`--night`) and the `N` key today, because
   headlights needed something to be visible against. Time of day is properly an arena's property —
   D16-S4 already reserves a `sky` block — and whether a match picks its hour, cycles through one, or

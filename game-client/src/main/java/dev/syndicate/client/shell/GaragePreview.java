@@ -20,7 +20,10 @@ import dev.syndicate.core.asset.AssetIndex;
 import dev.syndicate.core.asset.PartType;
 import dev.syndicate.core.asset.SlotDefinition;
 import dev.syndicate.core.util.Transform;
+import dev.syndicate.core.vehicle.StatBlock;
+import dev.syndicate.core.vehicle.VehicleFactory;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.PartCategory;
 import java.util.ArrayList;
 import java.util.List;
 import net.mgsx.gltf.scene3d.shaders.PBRShaderProvider;
@@ -176,6 +179,7 @@ public final class GaragePreview implements Disposable {
             placed.add(new Placed(chassisInstance, new Matrix4()));
         }
 
+        int wheelCount = countWheels(assembly, assets);
         for (AssemblyDef.PartPlacement placement : assembly.parts()) {
             // Only parts bolted straight to the chassis. Sub-slots would need the chain walked, and
             // nothing shipped has one — when something does, this becomes the same recursion
@@ -185,17 +189,52 @@ public final class GaragePreview implements Disposable {
             }
             SlotDefinition slot = chassis.slots().get(placement.parentSlotId());
             ModelInstance instance = partModels.instanceOf(placement.partTypeId());
+            PartType part = assets.partType(placement.partTypeId());
             if (slot == null || instance == null) {
                 continue;
             }
             Matrix4 local = new Matrix4();
             Transform transform = slot.localTransform();
             transform.toMatrix(local);
+            local.translate(0f, -suspensionDrop(part, wheelCount), 0f);
             placed.add(new Placed(instance, local));
         }
 
         measure();
         LOG.info("garage preview: {} drew {} parts, radius {} m", assemblyId.value(), placed.size(), radiusM);
+    }
+
+    /**
+     * How far below its slot a part hangs at rest, in metres. Zero for anything but a wheel.
+     *
+     * <p>A wheel's slot is the <b>suspension connection point</b>, not the axle: Bullet hangs the
+     * wheel a rest length below the point {@code addWheel} is given, and the vehicle then settles
+     * one static sag back up (D15-R45b). This screen has no Bullet world to do that in, so it does
+     * the arithmetic itself — and without it every wheel is drawn a fifth of a metre high, tucked
+     * up inside its own arch, and the car looks like it is sitting on its floor pan.
+     *
+     * <p>The two figures come from the same places the physics reads them: the rest length from the
+     * part's handling block, the stiffness from its {@code SUSPENSION_STIFFNESS} stat.
+     */
+    private static float suspensionDrop(PartType part, int wheelCount) {
+        if (part == null || part.category() != PartCategory.WHEEL) {
+            return 0f;
+        }
+        float stiffness =
+                part.stats().resolve(StatBlock.Stat.SUSPENSION_STIFFNESS, VehicleFactory.WHEEL_SUSPENSION_STIFFNESS);
+        return part.handling().suspensionRestLengthM() - VehicleFactory.staticSagM(stiffness, wheelCount);
+    }
+
+    /** How many wheels this assembly stands on, which is what fixes the sag per corner. */
+    private static int countWheels(AssemblyDef assembly, AssetIndex assets) {
+        int wheels = 0;
+        for (AssemblyDef.PartPlacement placement : assembly.parts()) {
+            PartType part = assets.partType(placement.partTypeId());
+            if (part != null && part.category() == PartCategory.WHEEL) {
+                wheels++;
+            }
+        }
+        return wheels;
     }
 
     /** The bounding sphere of everything placed, which is what the camera frames. */

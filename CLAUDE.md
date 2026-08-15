@@ -38,6 +38,10 @@ The companion **destruction tool** is a headless Blender 4.2 Python CLI applicat
 | `docs/15_vehicle_preparation_pipeline.md` | Turning a downloaded vehicle model into labelled parts: taxonomy, cue ensemble, `parts.json` overrides, geometry repair, hinge rigging, per-class destruction authoring, audio inventory |
 | `docs/16_procedural_arena_generation.md` | Runtime terrain and sky generation: height field, dunes and slopes, road carving, ground surfaces, structure placement, destructible structures |
 
+`RUNNING_THE_CLIENT.md`, in the repository root, is **not** a blueprint: it is the runbook for
+building and running `game-client` headlessly and capturing frames from it. It lives outside `docs/`
+precisely because everything in `docs/` is a numbered contract and this is not one.
+
 ### ID convention
 
 Every section carries a stable ID in an HTML comment on the header line:
@@ -162,6 +166,13 @@ Steps 1–3 and 12–14 are unconditional. Steps 5–6 are what make the middle 
 Update it at the end of **every** session, before or alongside the session summary, following the checklist in its own §6: move the "we are here" marker and the system-catalogue progress bar, replace §2 with what this session did, re-cut §3's "what is next", add any choice you deliberately left to the user, and rewrite §5 only if the honest answer changed. Restructure the file freely as the work demands — reorder phases, split them, delete ones that stopped making sense. Unlike `docs/`, it is a convenience rather than a contract.
 
 A session that skipped it leaves the next one, and the user, reading a plan for a project that no longer exists.
+
+**Looking at it counts as a check.** `game-client` builds, runs headlessly under `xvfb`, and
+captures PNGs, and `RUNNING_THE_CLIENT.md` is the runbook — including the workaround for the
+sandbox that blocks the one dependency it needs. Any claim about how the game *looks* should be a
+capture from the real client rather than an inference from the code: a style pass shipped a car
+with black discs for wheels past eleven passing unit tests (`DISC-051`), and the garage drew every
+wheel a fifth of a metre inside its own arch for three sessions, because nobody had looked.
 
 Before reporting a task complete, run the checks the change touches:
 

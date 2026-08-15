@@ -21,7 +21,7 @@
     "z": -0.007708
   },
   "densityKgPerM3": 2500.0,
-  "generatedAt": "2026-08-15T17:58:07Z",
+  "generatedAt": "2026-08-15T18:47:57Z",
   "inertiaDiagonal": {
     "x": 0.032543,
     "y": 1.455407,
@@ -1143,7 +1143,7 @@
     }
   ],
   "sourceFile": "../assets/vehicles/vehicle_stampede_01/parts/glass_stampede_windscreen_1_01/mesh.glb",
-  "sourceHash": "sha256:dd7c95066dc8765680e9899174e47d9a47a2365cc6876872c8b28eddc3fdad6b",
+  "sourceHash": "sha256:9727b60c004582f13b60dceae6e66211b334be29d8436483ac056daf3701f646",
   "toolVersion": "0.1.0",
   "topologyHash": "sha256:a8ae69ef67fe86324536da7595a3a973df8ac86872631311620e68ff423efd58",
   "verification": {

@@ -180,10 +180,91 @@ def test_a_tyre_goes_black_and_a_chrome_goes_dull(table):
     assert style.restyle_scalar(0.02, table.surfaces[style.CHROME].roughness, 1.0) > 0.3
 
 
-def test_strength_zero_leaves_a_colour_alone(table):
-    before = (0.42, 0.13, 0.77)
+def test_strength_zero_leaves_a_conforming_colour_alone(table):
+    """Everything the surface row does is scaled by strength. The tone band is not."""
+    before = (0.30, 0.22, 0.18)
+    assert style.conforms(before, table, style.TRIM), "the fixture must start inside the band"
     after = style.restyle(before, table.surfaces[style.TRIM], table, 0.0, "x", 1)
     assert after == pytest.approx(before)
+
+
+# ---- The palette (R47i) --------------------------------------------------------------------
+
+
+def test_a_hue_is_pulled_onto_the_nearest_allowed_one(table):
+    """A limited hue wheel is most of what a coherent art style is."""
+    allowed = {round(h) for h in table.palette.hues_deg}
+    for degrees in (0, 45, 90, 150, 200, 260, 300, 350):
+        source = colorsys.hsv_to_rgb(degrees / 360.0, 0.9, 0.6)
+        styled = style.restyle(source, table.surfaces[style.BODY_PAINT], table, 1.0, "p", 1)
+        hue = colorsys.rgb_to_hsv(*styled)[0] * 360.0
+        nearest = min(allowed, key=lambda t: min(abs(hue - t), 360 - abs(hue - t)))
+        assert min(abs(hue - nearest), 360 - abs(hue - nearest)) < 25.0, degrees
+
+
+def test_the_snap_takes_the_short_way_round_the_wheel(table):
+    """A hue at 350 and a target at 6 are 16 degrees apart, not 344."""
+    snapped = table.palette.snap(350.0 / 360.0, style.BODY_PAINT) * 360.0
+    assert snapped > 340.0 or snapped < 20.0
+
+
+def test_a_lamp_keeps_its_own_hue(table):
+    """The one surface exempt: a tail light is red and a Ravager glow is cyan, palette or not."""
+    assert style.LIGHT in table.palette.exempt
+    red = colorsys.hsv_to_rgb(0.0, 0.9, 0.8)
+    cyan = colorsys.hsv_to_rgb(0.5, 0.9, 0.8)
+    for source in (red, cyan):
+        styled = style.restyle(source, table.surfaces[style.LIGHT], table, 1.0, "lamp", 1)
+        before = colorsys.rgb_to_hsv(*source)[0]
+        after = colorsys.rgb_to_hsv(*styled)[0]
+        assert abs(after - before) < 0.03
+
+
+# ---- The tone band (R47j, R47k) ----------------------------------------------------------------
+
+
+def test_nothing_finishes_outside_the_tone_band(table):
+    """The rule the whole thing exists for: no import clashes on brightness.
+
+    Swept over every surface and the extremes an imported asset can arrive at — blown-out white
+    photoscan albedo, pure black, and a fully saturated primary.
+    """
+    for surface in style.SURFACES:
+        row = table.surfaces[surface]
+        for source in ((1.0, 1.0, 1.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.35)):
+            for strength in (0.0, 0.62, 1.0):
+                styled = style.restyle(source, row, table, strength, surface, 1)
+                assert style.conforms(styled, table, surface), (surface, source, strength)
+
+
+def test_white_is_pulled_down_and_black_is_lifted_off_the_floor(table):
+    row = table.surfaces[style.NEUTRAL]
+    white = style.restyle((1.0, 1.0, 1.0), row, table, 1.0, "w", 1)
+    black = style.restyle((0.0, 0.0, 0.0), row, table, 1.0, "b", 1)
+
+    assert style.luminance(white) <= table.tone.luminance_max + 1e-4
+    # A black part must stay a shape in shadow rather than becoming a hole in the frame.
+    assert style.luminance(black) >= table.tone.luminance_min - 1e-4
+
+
+def test_a_lamp_may_break_the_ceiling_and_not_the_floor(table):
+    """A headlight that is not the brightest thing in frame does not read as a headlight."""
+    assert style.LIGHT in table.tone.exempt_from_ceiling
+    lit = style.restyle((1.0, 0.98, 0.92), table.surfaces[style.LIGHT], table, 1.0, "lamp", 1)
+    assert style.luminance(lit) > table.tone.luminance_max
+    assert style.conforms(lit, table, style.LIGHT)
+    # And the exemption is only the ceiling, and only for a lamp.
+    assert not style.conforms(lit, table, style.BODY_PAINT)
+
+
+def test_the_conformance_report_counts_what_it_wrote(table):
+    inside = style.restyle((0.9, 0.2, 0.2), table.surfaces[style.NEUTRAL], table, 1.0, "a", 1)
+    written = [("a", style.NEUTRAL, inside), ("b", style.BODY_PAINT, (1.0, 1.0, 1.0))]
+    report = style.conformance_report(written, table)
+
+    assert report["materials"] == 2
+    assert report["outsideBand"] == 1
+    assert report["offenders"][0]["material"] == "b"
 
 
 def test_a_tint_never_darkens_past_the_floor(table):

@@ -100,6 +100,31 @@ public final class VehicleFactory {
     /** Default spring constant, overridable per wheel by {@code SUSPENSION_STIFFNESS} (D05-S4.5). */
     public static final float WHEEL_SUSPENSION_STIFFNESS = 30f;
 
+    /**
+     * How far a resting vehicle's suspension is compressed, in metres (D15-R45b).
+     *
+     * <p>No vehicle stands on fully extended springs. Bullet's suspension force is
+     * {@code stiffness · compression · chassisMass}, so equilibrium at
+     * {@code stiffness · sag · m = m · g / n} gives {@code sag = g / (stiffness · n)} — and,
+     * usefully, the vehicle's <em>mass cancels</em>. Eight centimetres on four wheels at the
+     * reference stiffness.
+     *
+     * <p>Public because two things outside the physics need it and neither can run a simulation to
+     * find it out: the preparation pipeline, which places a wheel's slot one sag above its axle so
+     * the car rests at the ride height the artist modelled, and the garage, which draws a vehicle
+     * with no Bullet world at all and would otherwise show every wheel a rest length up inside its
+     * own arch.
+     *
+     * @param stiffness the wheel's spring constant
+     * @param wheelCount how many wheels the vehicle stands on
+     */
+    public static float staticSagM(float stiffness, int wheelCount) {
+        if (stiffness <= 0f || wheelCount <= 0) {
+            return 0f;
+        }
+        return Math.abs(SimulationConstants.WORLD_GRAVITY_Y) / (stiffness * wheelCount);
+    }
+
     /** Damping while the suspension relaxes (D06-S4.5 {@code suspensionDamping}). */
     public static final float WHEEL_DAMPING_RELAXATION = HandlingBlock.REFERENCE_SUSPENSION_DAMPING;
 

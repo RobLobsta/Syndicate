@@ -150,11 +150,96 @@ class SourceMaterial:
     alpha_mode: str = "OPAQUE"
     emissive: float = 0.0
     has_base_texture: bool = False
+
+    #: Mean Rec. 709 luma of the base-colour image, or ``None`` when there is no texture.
+    #:
+    #: The one measurement that lets the tone band mean anything for a textured model. Behind a
+    #: texture the base-colour socket is a multiplier (DISC-048), so the *material's* colour says
+    #: nothing about how bright the surface will actually be — that is in the image, and a
+    #: blown-out photoscan albedo is precisely the import the band exists to catch.
+    texture_luminance: float | None = None
+
     triangles: int = 0
 
     #: Filled in by :func:`classify_scene`.
     surface: str | None = None
     because: str = ""
+
+
+@dataclass(frozen=True)
+class Palette:
+    """The hue wheel the whole game is allowed to use (D15-R47i).
+
+    A limited hue set is most of what a coherent art style *is*. Six hues, snapped to at
+    :attr:`pull` strength, is the difference between a roster that looks like one artist and one
+    that looks like nine well-behaved artists.
+    """
+
+    hues_deg: tuple[float, ...] = ()
+    pull: float = 0.0
+    exempt: frozenset[str] = frozenset()
+
+    def snap(self, hue: float, surface: str) -> float:
+        """Pull a hue (in ``[0,1)``) onto the nearest allowed one."""
+        if not self.hues_deg or self.pull <= 0.0 or surface in self.exempt:
+            return hue
+        degrees = (hue % 1.0) * 360.0
+        nearest = min(self.hues_deg, key=lambda target: _hue_distance_deg(degrees, target))
+        # Shortest way round the wheel: a hue at 350 and a target at 6 are 16 degrees apart, and
+        # interpolating the raw numbers would take it the long way through green.
+        delta = _signed_hue_delta_deg(degrees, nearest)
+        return ((degrees + delta * self.pull) % 360.0) / 360.0
+
+
+@dataclass(frozen=True)
+class Tone:
+    """The global luminance band every surface finishes inside (D15-R47j).
+
+    The answer to "brights and darks clashing". Each surface row is a statement about *that*
+    surface; this is the one rule that holds across all of them, so an imported material cannot be
+    brighter than the brightest thing already in the scene however its own row was written.
+    """
+
+    luminance_min: float = 0.0
+    luminance_max: float = 1.0
+    accent_saturation_max: float = 1.0
+    exempt_from_ceiling: frozenset[str] = frozenset()
+
+    def apply(self, colour: tuple[float, float, float], surface: str) -> tuple[float, float, float]:
+        hue, saturation, value = colorsys.rgb_to_hsv(*colour)
+        saturation = min(saturation, _clamp01(self.accent_saturation_max))
+        toned = colorsys.hsv_to_rgb(hue, saturation, value)
+
+        luma = luminance(toned)
+        ceiling = 1.0 if surface in self.exempt_from_ceiling else self.luminance_max
+        if luma <= 0.0:
+            # Pure black carries no hue to scale; lift it to the floor as neutral grey.
+            return (self.luminance_min,) * 3
+        if luma < self.luminance_min:
+            return _scale_to_luminance(toned, self.luminance_min, luma)
+        if luma > ceiling:
+            return _scale_to_luminance(toned, ceiling, luma)
+        return toned
+
+
+def luminance(colour: tuple[float, float, float]) -> float:
+    """Rec. 709 luma. What "how bright is this" means when the answer must survive a hue change."""
+    return 0.2126 * colour[0] + 0.7152 * colour[1] + 0.0722 * colour[2]
+
+
+def _scale_to_luminance(colour, target: float, current: float):
+    scale = target / current
+    return tuple(_clamp01(component * scale) for component in colour)
+
+
+def _hue_distance_deg(a: float, b: float) -> float:
+    delta = abs(a - b) % 360.0
+    return min(delta, 360.0 - delta)
+
+
+def _signed_hue_delta_deg(frm: float, to: float) -> float:
+    delta = (to - frm + 540.0) % 360.0 - 180.0
+    return delta
 
 
 @dataclass
@@ -168,6 +253,8 @@ class StyleTable:
     textured_fraction_below: float
     stylised_strength: float
     realistic_strength: float
+    palette: Palette = Palette()
+    tone: Tone = Tone()
 
     @classmethod
     def load(cls, path: Path) -> StyleTable:
@@ -203,6 +290,24 @@ class StyleTable:
 
         grime = document.get("grimeColour") or {}
         stylised = document.get("stylisedSource") or {}
+        palette_doc = document.get("palette") or {}
+        tone_doc = document.get("tone") or {}
+        palette = Palette(
+            hues_deg=tuple(float(entry["hueDeg"]) for entry in palette_doc.get("hues", [])),
+            pull=float(palette_doc.get("pull", 0.0)),
+            exempt=frozenset(palette_doc.get("exemptSurfaces", [])),
+        )
+        tone = Tone(
+            luminance_min=float(tone_doc.get("luminanceMin", 0.0)),
+            luminance_max=float(tone_doc.get("luminanceMax", 1.0)),
+            accent_saturation_max=float(tone_doc.get("accentSaturationMax", 1.0)),
+            exempt_from_ceiling=frozenset(tone_doc.get("exemptFromCeiling", [])),
+        )
+        if tone.luminance_min > tone.luminance_max:
+            raise StyleError(
+                f"{where}: tone.luminanceMin {tone.luminance_min} is above luminanceMax "
+                f"{tone.luminance_max}"
+            )
         return cls(
             style_id=document.get("styleId", "style_unnamed"),
             surfaces=surfaces,
@@ -215,6 +320,8 @@ class StyleTable:
             textured_fraction_below=float(stylised.get("texturedFractionBelow", 0.35)),
             stylised_strength=float(stylised.get("stylisedStrength", 1.0)),
             realistic_strength=float(stylised.get("realisticStrength", 0.55)),
+            palette=palette,
+            tone=tone,
         )
 
 
@@ -433,21 +540,25 @@ def restyle(
 ) -> tuple[float, float, float]:
     """Move one base colour into a surface's band, then dirty it.
 
-    Four steps, in this order, and the order is the whole design:
+    Six steps, in this order, and the order is the whole design:
 
     1. **Shift the hue** by the surface's ``hueShiftDeg``. Only rust and sodium do this.
-    2. **Clamp saturation and value** into the surface's band. This is a clamp rather than an
-       assignment so that a red car stays red: the hue is gameplay (a faction colour, a livery),
-       the saturation is what makes it a toy.
-    3. **Drag toward grime** by the surface's ``grime``, with a small deterministic jitter so two
+    2. **Snap the hue** onto the palette's nearest allowed one (D15-R47i). Six hues for the whole
+       game: a red car stays the reddest thing the palette has rather than being *its own* red.
+    3. **Clamp saturation and value** into the surface's band. A clamp rather than an assignment,
+       so a red car stays red — the hue is gameplay, the saturation is what makes it a toy.
+    4. **Drag toward grime** by the surface's ``grime``, with a small deterministic jitter so two
        materials in one role are not identical.
-    4. **Blend the result against the original** by ``strength``. A photoscanned car is pulled
+    5. **Blend the result against the original** by ``strength``. A photoscanned car is pulled
        part of the way; a cartoon is taken all of it.
+    6. **Clamp the luminance** into the global tone band (D15-R47j), unscaled by strength. This is
+       the rule that stops an imported asset clashing on brightness with everything already there.
     """
     original = tuple(_clamp01(component) for component in colour)
     hue, saturation, value = colorsys.rgb_to_hsv(*original)
 
     hue = (hue + style.hue_shift_deg / 360.0) % 1.0
+    hue = table.palette.snap(hue, style.surface)
     saturation = min(saturation, _clamp01(style.saturation_max))
     value = min(max(value, _clamp01(style.value_min)), _clamp01(style.value_max))
     styled = colorsys.hsv_to_rgb(hue, saturation, value)
@@ -457,7 +568,11 @@ def restyle(
         _lerp(styled[axis], table.grime_colour[axis], grime) for axis in range(3)
     )
     strength = _clamp01(strength)
-    return tuple(_lerp(original[axis], dirtied[axis], strength) for axis in range(3))
+    blended = tuple(_lerp(original[axis], dirtied[axis], strength) for axis in range(3))
+    # The tone band is applied AFTER the strength blend and is not scaled by it. A rule that
+    # applies at 62% to one model and 100% to the next is not a rule -- it is the drift it exists
+    # to prevent, and this is the one rule that has to hold across every surface and every import.
+    return table.tone.apply(blended, style.surface)
 
 
 def tint_for(
@@ -466,6 +581,7 @@ def tint_for(
     strength: float,
     jitter_key: str = "",
     seed: int = 1,
+    texture_luminance: float | None = None,
 ) -> tuple[float, float, float]:
     """The base-colour **factor** for a material whose colour comes from a texture.
 
@@ -483,7 +599,73 @@ def tint_for(
     """
     tinted = restyle((0.5, 0.5, 0.5), style, table, strength, jitter_key, seed)
     hue, saturation, value = colorsys.rgb_to_hsv(*tinted)
-    return colorsys.hsv_to_rgb(hue, saturation, min(1.0, max(TINT_VALUE_MIN, value / 0.5)))
+    tint = colorsys.hsv_to_rgb(hue, saturation, min(1.0, max(TINT_VALUE_MIN, value / 0.5)))
+    return _fit_to_band(tint, table, style.surface, texture_luminance)
+
+
+def _fit_to_band(tint, table: StyleTable, surface: str, texture_luminance: float | None):
+    """Scale a tint so that ``texture x tint`` finishes inside the global tone band.
+
+    Without this the band is a rule about untextured materials only, which is a rule about almost
+    nothing: 41 of the shipped Eclipse's 60 materials are textured. With it, a photoscan whose
+    albedo is twice as bright as the roster is darkened by exactly the factor that brings it in,
+    and one that is already in range is not touched at all.
+
+    The scale is applied to the tint and not to the image, so the texture ships as the artist made
+    it and the correction is one number in the material — which is also the only way it can be
+    undone by changing a table.
+    """
+    ceiling_for = 1.0 if surface in table.tone.exempt_from_ceiling else table.tone.luminance_max
+    if texture_luminance is None:
+        # An unmeasured texture is the one case where the effective brightness is unknown, and a
+        # tint above the ceiling can only ever produce something above it. Clamping the tint itself
+        # is the conservative reading: the worst it does is darken an already-dark texture slightly.
+        tint_luma = luminance(tint)
+        if tint_luma > ceiling_for and tint_luma > 0.0:
+            return tuple(_clamp01(c * ceiling_for / tint_luma) for c in tint)
+        return tint
+    if texture_luminance <= 0.0:
+        return tint
+    tint_luma = luminance(tint)
+    if tint_luma <= 0.0:
+        return tint
+    effective = texture_luminance * tint_luma
+    ceiling = ceiling_for
+    if effective > ceiling:
+        return tuple(_clamp01(c * ceiling / effective) for c in tint)
+    if effective < table.tone.luminance_min:
+        return tuple(_clamp01(c * table.tone.luminance_min / effective) for c in tint)
+    return tint
+
+
+def effective_colour(material: SourceMaterial, written: tuple[float, float, float]):
+    """What a surface will actually render as: its texture's mean times what was written to it.
+
+    For an untextured material that is just the colour. For a textured one it is the product, and
+    that product is the quantity :func:`conforms` has to be asked about — the socket alone is a
+    multiplier and says nothing about brightness.
+    """
+    if material.texture_luminance is None:
+        return written
+    return tuple(_clamp01(component * material.texture_luminance) for component in written)
+
+
+def conforms(colour: tuple[float, float, float], table: StyleTable, surface: str) -> bool:
+    """Whether a finished colour is inside the style's global tone band (D15-R47k).
+
+    The conformance test a new asset has to pass, and the reason the band is a table entry rather
+    than a constant in the code: it is checkable. Every material of every prepared vehicle is
+    measured against it and the run reports how many failed, which is what makes "each new asset
+    conforms to the current style" an assertion rather than a hope.
+    """
+    ceiling = 1.0 if surface in table.tone.exempt_from_ceiling else table.tone.luminance_max
+    luma = luminance(colour)
+    saturation = colorsys.rgb_to_hsv(*(_clamp01(c) for c in colour))[1]
+    return (
+        luma >= table.tone.luminance_min - 1e-4
+        and luma <= ceiling + 1e-4
+        and saturation <= table.tone.accent_saturation_max + 1e-4
+    )
 
 
 def restyle_scalar(value: float, target: float, strength: float) -> float:
@@ -561,6 +743,8 @@ def _measure_material(material, triangle_count: int) -> SourceMaterial:
                 float(base.default_value[2]),
             )
         record.has_base_texture = bool(base.links)
+        if record.has_base_texture:
+            record.texture_luminance = _base_texture_luminance(base)
     record.metallic = _socket_float(principled, "Metallic", 0.0)
     record.roughness = _socket_float(principled, "Roughness", 0.5)
     record.base_alpha = _socket_float(principled, "Alpha", 1.0)
@@ -581,6 +765,82 @@ def _measure_material(material, triangle_count: int) -> SourceMaterial:
             brightness = 0.0
     record.emissive = float(strength) * float(brightness)
     return record
+
+
+#: Pixels above which a base-colour image is not measured.
+#:
+#: Four megapixels — a 2048-square texture — which every texture either shipped car uses is
+#: comfortably under. The read below materialises the whole buffer as float32, so this is the line
+#: between "a few megabytes for a number" and "a quarter of a gigabyte for the same number".
+MAX_MEASURED_PIXELS = 4_000_000
+
+
+def _base_texture_luminance(socket) -> float | None:
+    """Mean Rec. 709 luma of the image feeding a Base Color socket, or None.
+
+    Three things about a glTF import make the obvious version wrong, and all three were found by
+    probing a real model rather than by reading the API:
+
+    *The importer does not connect the image directly.* It inserts a ``Mix`` so the base-colour
+    factor multiplies the texture, so the socket's immediate upstream node is not the image. The
+    search walks upstream to a bounded depth instead of looking one link back.
+
+    *An imported image has no data until something asks for it.* ``has_data`` is ``False`` on a
+    freshly imported material even though the file is perfectly readable, so gating on it skips
+    every texture on the vehicle.
+
+    *``image.copy()`` does not copy the pixels.* Copying and scaling to a thumbnail is the obvious
+    cheap read and it returns pure white for every image on both shipped cars — the copy is lazy,
+    and scaling something with no data fills it. ``foreach_get`` on the original is the read that
+    reports what is actually in the file.
+    """
+    if bpy is None:  # pragma: no cover
+        return None
+    image = _upstream_image(socket)
+    if image is None or image.size[0] < 1 or image.size[1] < 1:
+        return None
+    if image.size[0] * image.size[1] > MAX_MEASURED_PIXELS:
+        return None
+    try:
+        import numpy
+
+        buffer = numpy.empty(len(image.pixels), dtype=numpy.float32)
+        image.pixels.foreach_get(buffer)
+    except (RuntimeError, ReferenceError, MemoryError, ImportError):  # pragma: no cover
+        return None
+    if buffer.size < 4:
+        return None
+    channels = buffer.reshape(-1, 4)
+    return float(
+        0.2126 * channels[:, 0].mean()
+        + 0.7152 * channels[:, 1].mean()
+        + 0.0722 * channels[:, 2].mean()
+    )
+
+
+#: How far upstream of a Base Color socket an image may be before the search gives up.
+#:
+#: Four. The glTF importer's own graph is one Mix deep; anything much beyond that is a material
+#: somebody built by hand, where guessing which of several images is "the" base colour would be
+#: worse than reporting none.
+MAX_TEXTURE_SEARCH_DEPTH = 4
+
+
+def _upstream_image(socket, depth: int = 0):
+    """The first image feeding a socket, following links through intermediate nodes."""
+    if depth > MAX_TEXTURE_SEARCH_DEPTH or not getattr(socket, "links", None):
+        return None
+    for link in socket.links:
+        node = link.from_node
+        if getattr(node, "type", None) == "TEX_IMAGE":
+            if getattr(node, "image", None) is not None:
+                return node.image
+            continue
+        for upstream in getattr(node, "inputs", ()):
+            found = _upstream_image(upstream, depth + 1)
+            if found is not None:
+                return found
+    return None
 
 
 def _principled_of(material):
@@ -621,6 +881,7 @@ def apply_to_scene(table: StyleTable, seed: int) -> dict:
     scene = classify_scene(read_scene_materials(), table)
     restyled = 0
     detached = 0
+    written: list[tuple[str, str, tuple[float, float, float]]] = []
     for record in scene.materials:
         material = bpy.data.materials.get(record.name)
         principled = None if material is None else _principled_of(material)
@@ -638,10 +899,13 @@ def apply_to_scene(table: StyleTable, seed: int) -> dict:
                 detached += 1
                 record.has_base_texture = False
             colour = (
-                tint_for(style, table, scene.strength, record.name, seed)
+                tint_for(
+                    style, table, scene.strength, record.name, seed, record.texture_luminance
+                )
                 if record.has_base_texture
                 else restyle(record.base_colour, style, table, scene.strength, record.name, seed)
             )
+            written.append((record.name, record.surface, effective_colour(record, colour)))
             # A socket of another shape is left alone rather than half-written.
             with contextlib.suppress(TypeError, ValueError):
                 base.default_value = (colour[0], colour[1], colour[2], 1.0)
@@ -678,8 +942,46 @@ def apply_to_scene(table: StyleTable, seed: int) -> dict:
         "texturesDetached": detached,
         "preserved": ["name", "alphaMode", "alpha", "transmission", "backfaceCulling",
                       "emissionStrength"],
+        "conformance": conformance_report(written, table),
     })
     return report
+
+
+def conformance_report(written, table: StyleTable) -> dict:
+    """How much of what was written is inside the style's tone band (D15-R47k).
+
+    A self-check in the D09 spirit: the band is guaranteed by construction, so a non-zero
+    ``outsideBand`` is a defect in this module rather than a fact about the model — which is
+    exactly why it is worth measuring on every run rather than asserting once in a test.
+
+    The luminance range is reported because it is the number a person looking at a new asset
+    beside the roster actually wants: how bright the brightest thing on this vehicle is.
+    """
+    if not written:
+        return {"materials": 0, "outsideBand": 0, "offenders": []}
+    offenders = [
+        {
+            "material": name,
+            "surface": surface,
+            "luminance": round(luminance(colour), 4),
+            # A base colour factor is a MULTIPLIER, so a texture darker than the floor cannot be
+            # lifted into the band by any value of it. Reported as its own thing rather than as a
+            # failure, because the honest answer is "this texture is nearly black" and the fix is
+            # to replace the texture, which is a decision about the art.
+            "unliftable": luminance(colour) < table.tone.luminance_min,
+        }
+        for name, surface, colour in written
+        if not conforms(colour, table, surface)
+    ]
+    luminances = [luminance(colour) for _n, _s, colour in written]
+    return {
+        "materials": len(written),
+        "outsideBand": len(offenders),
+        "unliftable": sum(1 for entry in offenders if entry["unliftable"]),
+        "band": [table.tone.luminance_min, table.tone.luminance_max],
+        "luminanceRange": [round(min(luminances), 4), round(max(luminances), 4)],
+        "offenders": sorted(offenders, key=lambda entry: entry["material"])[:8],
+    }
 
 
 def _set_socket(node, name: str, value: float) -> None:
