@@ -54,7 +54,20 @@ public final class LocalPlayerFactory {
      *     loaded for them to drive
      */
     public static int join(World world, AssetIndex assets, GameMode mode, String displayName) {
-        AssetId assembly = firstAssembly(assets);
+        return join(world, assets, mode, displayName, null);
+    }
+
+    /**
+     * Creates the local player driving a chosen vehicle.
+     *
+     * @param selectedAssembly what the player picked in the garage, or null to take the first in
+     *     the catalogue. An id that is not loaded also falls back rather than refusing to join —
+     *     content going missing under a saved choice should cost the player a different car, not
+     *     the match (G18).
+     */
+    public static int join(
+            World world, AssetIndex assets, GameMode mode, String displayName, AssetId selectedAssembly) {
+        AssetId assembly = resolveAssembly(assets, selectedAssembly);
         if (assembly == null) {
             LOG.error("no assemblies are loaded; the local player has nothing to drive (D11-R12)");
             return dev.syndicate.core.ecs.EntityId.NULL;
@@ -86,11 +99,18 @@ public final class LocalPlayerFactory {
     /**
      * The assembly the local player drives.
      *
-     * <p>The lowest id in the catalogue, which is a placeholder for a vehicle-selection screen that
-     * does not exist. Lowest rather than first-encountered so it is the same car every run (G3) and
-     * a handling change can be judged against the previous session's.
+     * <p>The garage's choice when there is one. Without it, the lowest id in the catalogue —
+     * lowest rather than first-encountered so a launch that skips the menu (`--auto-start`, and
+     * every capture in CI) picks the same car every run on every machine (G3), and a handling
+     * change can be judged against the previous session's.
      */
-    private static AssetId firstAssembly(AssetIndex assets) {
+    private static AssetId resolveAssembly(AssetIndex assets, AssetId selectedAssembly) {
+        if (selectedAssembly != null && assets.assembly(selectedAssembly) != null) {
+            return selectedAssembly;
+        }
+        if (selectedAssembly != null) {
+            LOG.warn("assembly {} is not loaded; falling back to the catalogue's first", selectedAssembly.value());
+        }
         return assets.assemblyIds().stream()
                 .min(java.util.Comparator.comparing(AssetId::value))
                 .orElse(null);

@@ -30,7 +30,7 @@ class AssetLoaderTest {
 
     private static final AssetId CHASSIS = AssetId.of("chassis_medium_01");
     private static final AssetId WHEEL = AssetId.of("wheel_road_01");
-    private static final AssetId PLATE = AssetId.of("armor_plate_medium_01");
+    private static final AssetId PLATE = AssetId.of("panel_plate_medium_01");
     private static final AssetId RAIDER = AssetId.of("vehicle_medium_raider_01");
 
     /**
@@ -85,12 +85,12 @@ class AssetLoaderTest {
         PartType plate = index.partType(PLATE);
 
         assertThat(plate).isNotNull();
-        assertThat(plate.category()).isEqualTo(PartCategory.ARMOR);
+        assertThat(plate.category()).isEqualTo(PartCategory.PANEL);
         assertThat(plate.massKg()).isEqualTo(160f);
         assertThat(plate.maxHp()).isEqualTo(900f);
         assertThat(plate.armorValue()).isEqualTo(45f);
         assertThat(plate.breakImpulseN()).isEqualTo(4000f);
-        assertThat(plate.slotTypeRequired()).isEqualTo(SlotType.ARMOR_PANEL);
+        assertThat(plate.slotTypeRequired()).isEqualTo(SlotType.PANEL);
         // D07-S5.7 T1: this one hangs by a thread before it falls.
         assertThat(plate.hangsBeforeFalling()).isTrue();
         assertThat(plate.materialId()).isEqualTo(AssetId.of("steel_hardened"));
@@ -115,11 +115,11 @@ class AssetLoaderTest {
         // D05-S4.3. A slot is authored on the parent, so re-authoring the chassis moves that
         // hardpoint on every vehicle using it.
         PartType chassis = index.partType(CHASSIS);
-        SlotDefinition armour = chassis.slot("armor_front");
+        SlotDefinition armour = chassis.slot("panel_front");
 
         assertThat(chassis.slots().keySet())
-                .containsExactly("armor_front", "wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr");
-        assertThat(armour.slotType()).isEqualTo(SlotType.ARMOR_PANEL);
+                .containsExactly("panel_front", "wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr");
+        assertThat(armour.slotType()).isEqualTo(SlotType.PANEL);
         assertThat(armour.maxMassKg()).isEqualTo(400f);
         assertThat(armour.localTransform().position.epsilonEquals(0f, 0.1f, 1.8f, 1e-5f))
                 .isTrue();
@@ -138,7 +138,7 @@ class AssetLoaderTest {
         assertThat(raider.parts())
                 .extracting(AssemblyDef.PartPlacement::slotPath)
                 .containsExactly(
-                        "root/armor_front", "root/wheel_fl", "root/wheel_fr", "root/wheel_rl", "root/wheel_rr");
+                        "root/panel_front", "root/wheel_fl", "root/wheel_fr", "root/wheel_rl", "root/wheel_rr");
         assertThat(AssemblyValidator.validate(raider, index)).isEmpty();
     }
 
@@ -152,7 +152,7 @@ class AssetLoaderTest {
         assertThat(raider.placementAt("root/wheel_fl").overrides().isDriven()).isFalse();
         assertThat(raider.placementAt("root/wheel_rr").overrides().isDriven()).isTrue();
         // Absent means "the part type decides", which is not the same as false.
-        assertThat(raider.placementAt("root/armor_front").overrides().isSteering())
+        assertThat(raider.placementAt("root/panel_front").overrides().isSteering())
                 .isNull();
     }
 
@@ -192,7 +192,7 @@ class AssetLoaderTest {
         Files.createDirectories(part);
         Files.writeString(
                 part.resolve("part.json"),
-                "{\"schemaVersion\":\"2.0.0\",\"partTypeId\":\"future_part_01\",\"category\":\"ARMOR\"}");
+                "{\"schemaVersion\":\"2.0.0\",\"partTypeId\":\"future_part_01\",\"category\":\"PANEL\"}");
 
         AssetLoader future = new AssetLoader(BOXES);
         future.loadFrom(root);
@@ -206,7 +206,7 @@ class AssetLoaderTest {
         Files.createDirectories(part);
         Files.writeString(
                 part.resolve("part.json"),
-                "{\"schemaVersion\":\"1.0.0\",\"partTypeId\":\"named_another\",\"category\":\"ARMOR\","
+                "{\"schemaVersion\":\"1.0.0\",\"partTypeId\":\"named_another\",\"category\":\"PANEL\","
                         + "\"massKg\":10,\"maxHp\":10,\"breakImpulseN\":10}");
 
         AssetLoader mismatched = new AssetLoader(BOXES);
@@ -226,7 +226,7 @@ class AssetLoaderTest {
             Files.createDirectories(part);
             Files.writeString(
                     part.resolve("part.json"),
-                    "{\"schemaVersion\":\"1.0.0\",\"partTypeId\":\"empty_part_01\",\"category\":\"ARMOR\"}");
+                    "{\"schemaVersion\":\"1.0.0\",\"partTypeId\":\"empty_part_01\",\"category\":\"PANEL\"}");
         } catch (IOException e) {
             throw new AssertionError(e);
         }

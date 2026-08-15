@@ -52,7 +52,7 @@ class LifetimeSystemTest {
                 ASSEMBLY,
                 List.of(
                         PartSpec.of("root", PartCategory.CHASSIS, CHASSIS_MASS_KG, new Vector3()),
-                        PartSpec.of("root/armor_front", PartCategory.ARMOR, PLATE_MASS_KG, new Vector3(0f, 0f, 2f))),
+                        PartSpec.of("root/panel_front", PartCategory.PANEL, PLATE_MASS_KG, new Vector3(0f, 0f, 2f))),
                 new Vector3(0f, 40f, 0f));
         debris = scene.world().family(ComponentQuery.all(DebrisTagComponent.class));
     }
@@ -108,7 +108,7 @@ class LifetimeSystemTest {
         // AC-D07-17's other half, and the reason this system exists: before it, MAX_DEBRIS_BODIES
         // recycling was the only thing bounding the debris population, so a quiet corner of the
         // arena kept its scrap for the whole match.
-        scene.destroyPart(scene.partAt(vehicle, "root/armor_front"));
+        scene.destroyPart(scene.partAt(vehicle, "root/panel_front"));
         scene.step();
         assertThat(debris.size()).isEqualTo(1);
 

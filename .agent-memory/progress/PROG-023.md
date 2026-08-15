@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/04_entity_component_model.md#D04-S4.4, docs/10_networking_multiplayer.md#D10-S5.4, docs/10_networking_multiplayer.md#D10-S5.5
 
-**Status:** active
+**Status:** superseded (by PROG-032)
 
 ## Summary
 The four networking slots of D04-S4.4 — 2, 18, 19 and 20 — are implemented, and with them the

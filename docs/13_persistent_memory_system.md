@@ -75,10 +75,24 @@ Requirements are numbered `R1..Rn`, cited as `D13-R4`.
 ├── spec_deviations/           # Where implementation diverged from a blueprint, and why
 │   └── DEV-001.md
 └── session_summaries/         # One brief summary per coding session
-    └── SESS-001.md
+    ├── SESS-001.md
+    └── archive/               # Consolidated-away entries, kept but not read (D13-S4.1.1)
+        └── SESS-002.md
 ```
 
-**R2.** No other directories or files may exist under `.agent-memory/`, with one exception: an empty category directory may contain a zero-byte `.gitkeep` so that git tracks it. No nesting below the category level. No binary files, no images, no attachments.
+**R2.** No other directories or files may exist under `.agent-memory/`, with two exceptions: an empty category directory may contain a zero-byte `.gitkeep` so that git tracks it, and any category directory may contain an `archive/` subdirectory as defined in D13-S4.1.1. No further nesting. No binary files, no images, no attachments.
+
+<!-- D13-S4.1.1 -->#### 4.1.1 The archive
+
+**R2a.** Each category directory MAY contain an `archive/` subdirectory. An entry moved into it keeps its filename, its ID, and its contents unchanged.
+
+**R2b.** Archived entries are **not indexed**, are **not linted** beyond their location, and are **not read at session start**. They remain in git and on disk so that "why was this done?" can still be answered by searching; they are simply no longer part of what a session must load to be oriented.
+
+**R2c.** An entry may be archived only when a **consolidating entry exists that covers the same ground**, and the consolidating entry names what it consolidates. Archiving is never a way to make an inconvenient record go away: an entry that is *wrong* is superseded (D13-S5.6) and stays in place, because the wrong path must remain visible so it is not re-walked.
+
+**R2d.** In practice only `session_summaries/` accumulates fast enough to need this. A session summary's value decays within a few sessions — its durable content is the decisions, discoveries and progress it links to, all of which live elsewhere. Consolidate them into an era entry when they exceed roughly a dozen, keeping the most recent three verbatim.
+
+**R2e.** ID numbering never restarts and never reuses. An archived `SESS-004` means `SESS-004` is spent.
 
 **R3.** Category semantics — an entry belongs to exactly one:
 

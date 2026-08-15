@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/04_entity_component_model.md#D04-S4.4, docs/06_physics_simulation.md#D06-S5.5, docs/14_test_environment.md#D14-S5.11
 
-**Status:** active
+**Status:** superseded (by PROG-026)
 
 ## Summary
 The shipped content is now a vehicle rather than a set of files that describe one. Both cars settle

@@ -63,7 +63,7 @@ Requirements are numbered `R1..Rn`, cited as `D08-R7`.
 ```
 art-source/
 ├── parts/
-│   ├── armor/armor_plate_medium_01.blend
+│   ├── panels/panel_plate_medium_01.blend
 │   ├── wheels/wheel_road_01.blend
 │   ├── weapons/weapon_autocannon_01.blend
 │   └── chassis/chassis_medium_01.blend
@@ -98,14 +98,14 @@ art-source/
 ```json
 {
   "schemaVersion": "1.0.0",
-  "partTypeId": "armor_plate_medium_01",
+  "partTypeId": "panel_plate_medium_01",
   "displayName": "Medium Armour Plate",
-  "category": "armor",
+  "category": "panel",
   "massKg": 160.0,
   "maxHp": 900.0,
   "armorValue": 45.0,
   "materialId": "steel_hardened",
-  "slotTypeRequired": "ARMOR_PANEL",
+  "slotTypeRequired": "PANEL",
   "powerCost": 12.5,
   "breakImpulseN": 4000.0,
   "hangsBeforeFalling": true,
@@ -148,7 +148,7 @@ art-source/
     "visualMesh": "mesh.glb",
     "shardMesh": "shards.glb",
     "fractureManifest": "fracture_manifest.json",
-    "collisionSource": "mesh.glb#node=armor_plate_medium_01_col",
+    "collisionSource": "mesh.glb#node=panel_plate_medium_01_col",
     "morphTargets": ["dmg_25", "dmg_50", "dmg_75", "dmg_100"]
   },
   "tags": ["starter", "medium"]
@@ -302,7 +302,7 @@ assets/
 ├── materials/materials.json
 ├── balance/classes.json                   # power budget class targets (D05-R32)
 ├── parts/
-│   └── armor_plate_medium_01/
+│   └── panel_plate_medium_01/
 │       ├── part.json
 │       ├── mesh.glb                       # intact mesh + damage morphs + _col node
 │       ├── shards.glb                     # shard meshes
@@ -514,7 +514,7 @@ function AssetRegistry.load(assetRoot, headless):
 | A410 | ERROR | `terrain.gridSize` inconsistent with `bounds` and `cellSizeM` (D16-S9 E1) |
 | A411 | ERROR | A spawn point is unreachable from another over the drivable grid (D16-S9 E3) |
 | A412 | ERROR | A structure's `footprint.radiusM` does not enclose its geometry (D16-S9 E8) |
-| A413 | ERROR | `terrain.biome` names a value outside the closed set (D16-S9 E13) |
+| A413 | ERROR | `terrain.theme` names a value outside the closed set (D16-S9 E13) |
 | A414 | ERROR | Generated relief puts a spawn point below `killPlaneY` (D16-S9 E15) |
 | A415 | WARN | Every structure candidate for a placement rule was rejected (D16-S9 E7) |
 | **A5xx — mesh and manifest agreement** | | |
@@ -662,7 +662,7 @@ function assertMajorVersionMatches(fileVersion):
 | T-D08-5 | Duplicate a `slotId` | A207 |
 | T-D08-6 | `covers` a slot on a different part | A208 |
 | T-D08-7 | Build an assembly with two chassis | A301 |
-| T-D08-8 | Attach a weapon to an `ARMOR_PANEL` slot | A305 |
+| T-D08-8 | Attach a weapon to a `PANEL` slot | A305 |
 | T-D08-9 | Assembly with 2 wheels | A309 |
 | T-D08-10 | Change a part's mass without updating `expected` | A310 |
 | T-D08-11 | Push one vehicle 5% over its class power budget | A312 |

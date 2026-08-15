@@ -151,7 +151,7 @@ The section path `99.9` is **reserved and never allocated in any document**. It 
 
 | Kind | Form | Lifetime | Defined in |
 |---|---|---|---|
-| **Asset ID** (`PartTypeId`, `VehicleTypeId`, `MaterialId`) | lowercase snake string, e.g. `armor_plate_medium_01` | Permanent, authored, content-addressed by name | D08-S4.2 |
+| **Asset ID** (`PartTypeId`, `VehicleTypeId`, `MaterialId`) | lowercase snake string, e.g. `panel_plate_medium_01` | Permanent, authored, content-addressed by name | D08-S4.2 |
 | **Entity ID** (`EntityId`) | unsigned 32-bit integer with generation counter | One match; stable across the network within a match | D04-S6 |
 | **Local handle** (Bullet pointer, render handle) | native/JVM reference | One process, one frame-to-frame lifetime | D06-S4 |
 
@@ -321,7 +321,7 @@ function requiredSectionsPresent(doc):
 | **Chassis** | The single root part of a vehicle. Owns the primary rigid body and the vehicle's slot graph root. Cannot be detached; destroying it destroys the vehicle. | Not "frame mesh"; the chassis is a part. |
 | **Part** | A discrete, individually simulated and individually damageable component of a vehicle. Has mass, health, a part type, a slot attachment, and stats. | Not a shard; not a mesh. |
 | **Part Type** | The authored, immutable definition of a class of parts, identified by a `PartTypeId`. Instances of a part type are parts. | Not a category (see Part Category). |
-| **Part Category** | One of: `chassis`, `armor`, `wheel`, `weapon`, `utility`, `decorative`. Determines slot compatibility and stat contribution rules. | Not a part type. |
+| **Part Category** | One of: `chassis`, `panel`, `wheel`, `weapon`, `utility`, `decorative`. Determines slot compatibility and stat contribution rules. | Not a part type. |
 | **Slot** | A named attachment point on a part, with a position, orientation, accepted slot type, and capacity of one part. | Not a UI inventory slot. |
 | **Slot Graph** | The directed tree of parts rooted at the chassis, where each edge is an occupied slot. | Not the physics constraint graph (which is derived from it). |
 | **Assembly** | An authored vehicle definition: a part list plus slot bindings. Serialised as an *assembly manifest*. | Not a runtime vehicle instance. |

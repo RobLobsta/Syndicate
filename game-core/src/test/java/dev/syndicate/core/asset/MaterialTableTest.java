@@ -105,7 +105,7 @@ class MaterialTableTest {
     @Test
     void destructionClassDefaultsFromCategory() {
         assertThat(DestructionClass.forCategory(PartCategory.CHASSIS)).isEqualTo(DestructionClass.STRUCTURAL);
-        assertThat(DestructionClass.forCategory(PartCategory.ARMOR)).isEqualTo(DestructionClass.SHEET_METAL);
+        assertThat(DestructionClass.forCategory(PartCategory.PANEL)).isEqualTo(DestructionClass.SHEET_METAL);
         assertThat(DestructionClass.forCategory(PartCategory.WHEEL)).isEqualTo(DestructionClass.RIGID);
         assertThat(DestructionClass.forCategory(PartCategory.WEAPON)).isEqualTo(DestructionClass.RIGID);
         assertThat(DestructionClass.forCategory(PartCategory.DECORATIVE)).isEqualTo(DestructionClass.NONE);

@@ -56,8 +56,8 @@ class DamagePipelineTest {
                 AssetId.of("assembly_target_01"),
                 List.of(
                         PartSpec.of("root", PartCategory.CHASSIS, CHASSIS_MASS_KG, new Vector3()),
-                        PartSpec.of("root/plate_front", PartCategory.ARMOR, PLATE_MASS_KG, new Vector3(0f, 0.4f, 1.2f)),
-                        PartSpec.of("root/plate_rear", PartCategory.ARMOR, PLATE_MASS_KG, new Vector3(0f, 0.4f, -1.2f)),
+                        PartSpec.of("root/plate_front", PartCategory.PANEL, PLATE_MASS_KG, new Vector3(0f, 0.4f, 1.2f)),
+                        PartSpec.of("root/plate_rear", PartCategory.PANEL, PLATE_MASS_KG, new Vector3(0f, 0.4f, -1.2f)),
                         PartSpec.of(
                                 "root/plate_front/greeble", PartCategory.DECORATIVE, 5f, new Vector3(0f, 0.2f, 0f))),
                 new Vector3(0f, 4f, 0f));

@@ -68,7 +68,7 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 | `chassis` | The structural body — everything not separately labelled | `CHASSIS` | `ROOT` | never (D05-R26) | `structural` |
 | `wheel` | Tyre, rim, hub and disc: what rotates about the axle | `WHEEL` | `WHEEL` | yes | `rigid` |
 | `hub` | Caliper, upright, dust shield: unsprung, does **not** rotate | `UTILITY` | `HARDPOINT` | with its wheel | `rigid` |
-| `panel` | Bonnet, boot lid, doors, wings, bumpers | `ARMOR` | `ARMOR_PANEL` | yes | `sheet_metal` |
+| `panel` | Bonnet, boot lid, doors, wings, bumpers | `PANEL` | `PANEL` | yes | `sheet_metal` |
 | `glass` | Windscreen, side and rear glass, lamp lenses | `DECORATIVE` | `ACCESSORY` | shatters | `glass` |
 | `mirror` | Wing mirrors | `DECORATIVE` | `ACCESSORY` | yes | `rigid` |
 | `light` | Lamp housings and reflectors | `DECORATIVE` | `ACCESSORY` | yes | `rigid` |
@@ -78,7 +78,7 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 | `drivetrain` | Engine, exhaust, radiator | `UTILITY` | `HARDPOINT` | yes | `structural` |
 | `unclassified` | Everything the ensemble could not decide | `CHASSIS` | `ROOT` | never | `sheet_metal` |
 
-**R1a.** The two middle columns are the **actual** members of `PartCategory` (D05-S4.2) and `SlotType` (D05-S4.3), and a part.json carrying anything else does not load. An earlier version of this table named `HUB`, `PANEL`, `GLASS`, `DECAL` and `INTERNAL` as slot roles; none of those is a `SlotType`, and the pipeline that emits assets had to invent the mapping or emit files the loader rejects. The pairing is constrained: `SlotType.acceptsCategory` must accept each row's category in each row's slot type, which is why a door is an `ARMOR` part in an `ARMOR_PANEL` slot. That is not a compromise — an armour panel is precisely a part that covers a region of the vehicle, absorbs the hits meant for what is behind it, and can be shot off, and so is a door.
+**R1a.** The two middle columns are the **actual** members of `PartCategory` (D05-S4.2) and `SlotType` (D05-S4.3), and a part.json carrying anything else does not load. An earlier version of this table named `HUB`, `PANEL`, `GLASS`, `DECAL` and `INTERNAL` as slot roles; none of those is a `SlotType`, and the pipeline that emits assets had to invent the mapping or emit files the loader rejects. The pairing is constrained: `SlotType.acceptsCategory` must accept each row's category in each row's slot type, which is why a door is a `PANEL` part in a `PANEL` slot. The category was called `ARMOR` when this table was written; it is called `PANEL` now precisely because a door, a bonnet and a bumper are bodywork rather than fitted plating, and the two should not share a word (DEC-073).
 
 **R2.** `unclassified` is a **first-class outcome, not a failure**. It merges into the chassis, which is always a correct-if-coarse answer, and it is reported by count and by triangle share so the operator can see how much of the car the pipeline could not name.
 

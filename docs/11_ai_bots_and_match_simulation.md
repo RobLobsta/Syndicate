@@ -245,7 +245,7 @@ function selectAimPoint(bot, target):
     # Prefer parts whose loss most degrades the target, weighted by how exposed they are.
     candidates = target.visibleParts.sortedBy(slotPath)            # deterministic
     best = argmax(candidates, key = part ->
-              partValueWeight(part.category)          # wheel 1.0, weapon 0.9, armor 0.3
+              partValueWeight(part.category)          # wheel 1.0, weapon 0.9, panel 0.3
             * exposureFactor(part)                    # uncovered parts score higher
             * (1.0 - part.healthFraction * 0.5)       # nearly-dead parts are worth finishing
             * hitProbability(bot, part))              # small parts at range score lower

@@ -159,5 +159,11 @@
     "LAST_MACHINE",
     "TIME_TRIAL"
   ],
-  "payloadPath": null
+  "payloadPath": null,
+  "terrain": {
+    "theme": "SCRAPYARD",
+    "seed": 0,
+    "cellSizeM": 1.0,
+    "gridSize": 301
+  }
 }

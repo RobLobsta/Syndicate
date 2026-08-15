@@ -114,7 +114,7 @@ MIN_MAX_HP = 25.0
 
 #: Armour per kilogram, for the two categories that carry armour at all. The Eclipse's chassis
 #: is 18.0 at 1350 kg; a 29 kg door lands at 10, which is the right order beside it.
-ARMOR_PER_KG = {"CHASSIS": 0.0133, "ARMOR": 0.35}
+ARMOR_PER_KG = {"CHASSIS": 0.0133, "PANEL": 0.35}
 
 #: Break impulse in N·s per kilogram (D06-R22 — the unit is impulse, not force). Again from
 #: the shipped parts: 22000 on a 1350 kg chassis, 3200 on a 37.5 kg wheel.

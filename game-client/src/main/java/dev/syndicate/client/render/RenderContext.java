@@ -27,6 +27,7 @@ public final class RenderContext implements Disposable {
     private final RenderEnvironment environment;
     private final PartModels partModels;
     private final ArenaModel arenaModel;
+    private TerrainModel terrainModel;
     private final ModelBatch batch;
     private final ParticleRenderer particles;
     private final ChaseCamera camera;
@@ -58,9 +59,29 @@ public final class RenderContext implements Disposable {
         return partModels;
     }
 
-    /** The arena's drawable geometry, or null when no arena is loaded. */
+    /** The arena's drawable box, or null when no arena is loaded or the arena has terrain. */
     public ArenaModel arenaModel() {
-        return arenaModel;
+        return terrainModel == null ? arenaModel : null;
+    }
+
+    /** The generated ground, or null on a flat arena. */
+    public TerrainModel terrainModel() {
+        return terrainModel;
+    }
+
+    /**
+     * Hands over the generated ground once the arena has been loaded.
+     *
+     * <p>Set afterwards rather than passed to the constructor because the field does not exist yet
+     * when this is built: generating it needs the physics world, and this needs a GL context. From
+     * here the box floor and walls stop being drawn — an arena has either generated ground or the
+     * flat box, never both, and drawing both would put a plane through every heap.
+     */
+    public void useTerrain(dev.syndicate.core.arena.TerrainField field) {
+        if (terrainModel != null) {
+            terrainModel.dispose();
+        }
+        terrainModel = field == null ? null : new TerrainModel(field);
     }
 
     public ModelBatch batch() {
@@ -90,6 +111,9 @@ public final class RenderContext implements Disposable {
         batch.dispose();
         particles.dispose();
         hud.dispose();
+        if (terrainModel != null) {
+            terrainModel.dispose();
+        }
         if (arenaModel != null) {
             arenaModel.dispose();
         }

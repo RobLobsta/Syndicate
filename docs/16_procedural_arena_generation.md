@@ -162,7 +162,7 @@ without deciding to lose that.
   "seed": 20260814,
   "cellSizeM": 1.0,
   "gridSize": 601,
-  "biome": "desert",
+  "theme": "desert_highway",
   "reliefM": 16.0,
   "baseFrequency": 0.0035,
   "octaves": 5,
@@ -188,10 +188,31 @@ regression fixture is one, and a test that measures a braking distance wants a f
 field is square and axis-aligned with the arena bounds, so a world position maps to a cell by
 arithmetic rather than by search.
 
-**R6.** `biome` is a closed set: `desert`, `tarmac_flat`. It selects which layer stack D16-S5.2 runs
-and which surface table D16-S4.4 row is the default. It is closed rather than free-form because every
-member costs a generator path, a surface set and a texture generator, and a biome nobody has
-generated is worse than one that does not exist.
+**R6.** `theme` is a closed set: `desert_highway`, `scrapyard`, `proving_ground`. It is the **whole**
+answer to what kind of place an arena is — it selects the relief layer D16-S5.2 runs, the surface
+palette D16-S4.4 assigns, and the ground albedo R17 feeds to the sky. It is closed rather than
+free-form because every member costs a relief layer, a surface palette and a texture set, and a theme
+nobody has generated is worse than one that does not exist.
+
+**R6a.** **A theme supplies every other value in the `terrain` block.** An arena that declares only
+`theme` and `seed` gets a coherent landscape; anything it declares explicitly overrides the theme's
+figure. This replaces the earlier `biome` field, which selected a generator branch while leaving the
+eight numbers that decide how a place feels in the arena file — so "make a scrapyard" meant knowing
+which of them to change together, and two arenas of the same biome could differ more than two biomes.
+
+**R6b.** **`seed: 0` means a new landscape every match.** The terrain seed is then derived from the
+match seed and the arena id rather than authored, so a theme is a generator of maps rather than one
+map. It stays deterministic under G4 — the match seed is shared by every peer and replayed by the
+offline runner — so authority and client generate identical ground and a match is reproducible from
+its seed alone. A non-zero seed is honoured exactly, which is what a regression fixture and a
+hand-tuned map both need.
+
+**R6c.** **A match-seeded arena re-seeds rather than failing R58's playability check.** Some fraction
+of seeds partition the map, and under R6b the first player to draw one would get a crash on the
+loading screen. The check itself does not soften; the response to it becomes "discard this landscape
+and generate another", up to a bounded number of attempts. An arena with a declared seed still fails
+hard, because there is no other seed to move to and substituting one would mean an authored map
+quietly becoming a different map.
 
 <!-- D16-S4.3 -->### 4.3 Road Corridors
 
@@ -273,7 +294,7 @@ light, the baked image-based lighting, the skybox and the fog colour are all der
 (D16-S6.3). A scene whose sky and shadows disagree about where the sun is reads as wrong before a
 viewer can say why, and today's sun direction is a constant compiled into the client.
 
-**R17.** `groundAlbedo` is the biome's average ground colour, and it feeds the sky model's ground
+**R17.** `groundAlbedo` is the theme's average ground colour, and it feeds the sky model's ground
 bounce. Desert sand bouncing warm light into shadowed surfaces is most of why a desert looks like a
 desert rather than like a blue-lit quarry.
 
@@ -369,7 +390,7 @@ and the arena definition.
 
 ```
 [1] base relief          fBm over the whole grid                     → heights
-[2] biome layer          dunes / plateaus, oriented                  → heights
+[2] theme relief layer   dunes / heaps, oriented where it has one    → heights
 [3] border falloff       rise the outer band to impassable           → heights
 [4] road carve           per road, in array order: cut and fill      → heights, surfaces
 [5] pad flatten          per structure candidate                     → heights
@@ -906,7 +927,7 @@ an assembly" and the cheap version has been lost.
 | E10 | The height field's body is placed at `groundY` rather than the AABB midpoint | Terrain visibly offset from its collision by half the relief. Prevented by R48; asserted by AC-D16-9. |
 | E11 | Client and server disagree on the field by one ULP | Desynchronised prediction. Caught by AC-D16-2 before it can ship; caused by breaking one of R61's four rules. |
 | E12 | A vehicle drives outside the grid | Queries clamp (R53). The border rim and the kill plane handle the rest. |
-| E13 | `biome` names an unimplemented value | A413 ERROR at load. The enum is closed (R6). |
+| E13 | `theme` names an unimplemented value | A413 ERROR at load. The enum is closed (R6). |
 | E14 | A structure part is destroyed but its children are already debris | No-op; the detach trigger is idempotent on a part that has already left (DEC-018). |
 | E15 | Terrain relief puts a spawn point below `killPlaneY` | A414 ERROR. Bounds and kill plane are authored; the generator does not silently move either. |
 

@@ -69,9 +69,9 @@ public enum DestructionClass {
      * <em>is</em>. This is the projection between them, and it exists so every part has a
      * destruction treatment without every part.json having to name one.
      *
-     * <p>{@code ARMOR} maps to {@code SHEET_METAL} rather than {@code STRUCTURAL}: a plate is bolted
-     * on, and what a player watches is it crumpling and falling off, not the frame behind it
-     * buckling.
+     * <p>{@code PANEL} maps to {@code SHEET_METAL} rather than {@code STRUCTURAL}: bodywork is hung
+     * on the frame, and what a player watches is it crumpling and falling off, not the frame behind
+     * it buckling.
      */
     public static DestructionClass forCategory(PartCategory category) {
         if (category == null) {
@@ -79,7 +79,7 @@ public enum DestructionClass {
         }
         return switch (category) {
             case CHASSIS -> STRUCTURAL;
-            case ARMOR -> SHEET_METAL;
+            case PANEL -> SHEET_METAL;
             case WHEEL, WEAPON, UTILITY -> RIGID;
             case DECORATIVE -> NONE;
         };

@@ -496,7 +496,7 @@ class LoopbackReplicationTest {
         world.addComponent(vehicleEntity, new PlayerInputComponent());
 
         int chassisPart = addPart(world, vehicleEntity, "root");
-        int armourPart = addPart(world, vehicleEntity, "root/armor_front");
+        int armourPart = addPart(world, vehicleEntity, "root/panel_front");
 
         VehicleChassisComponent chassis = new VehicleChassisComponent();
         chassis.assemblyId = assemblyId;
@@ -512,7 +512,7 @@ class LoopbackReplicationTest {
         SlotNode armourNode = new SlotNode();
         armourNode.parentEntity = chassisPart;
         armourNode.childEntity = armourPart;
-        armourNode.slotPath = "root/armor_front";
+        armourNode.slotPath = "root/panel_front";
         graph.nodes.add(armourNode);
         world.addComponent(vehicleEntity, graph);
 

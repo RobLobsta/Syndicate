@@ -147,9 +147,9 @@ blender --background --factory-startup [<input.blend>] \
   "toolVersion": "0.1.0",
   "blenderVersion": "4.2.1",
   "generatedAt": "2026-08-07T14:02:11Z",
-  "sourceFile": "art-source/parts/armor/armor_plate_medium_01.blend",
+  "sourceFile": "art-source/parts/panels/panel_plate_medium_01.blend",
   "sourceHash": "sha256:9f2c…",
-  "partTypeId": "armor_plate_medium_01",
+  "partTypeId": "panel_plate_medium_01",
   "materialId": "steel_hardened",
   "seed": 1337,
   "parameters": {
@@ -177,7 +177,7 @@ blender --background --factory-startup [<input.blend>] \
   "shardCount": 24,
   "shards": [
     {
-      "id": "armor_plate_medium_01_shard_000",
+      "id": "panel_plate_medium_01_shard_000",
       "name": "shard_000",
       "index": 0,
       "massKg": 6.83,
@@ -856,8 +856,8 @@ function verifyDeterminism(args):
   "exitName": "MASS_IMPLAUSIBLE",
   "toolVersion": "0.1.0",
   "blenderVersion": "4.2.1",
-  "input": "art-source/parts/armor/armor_plate_medium_01.blend",
-  "object": "armor_plate_medium_01",
+  "input": "art-source/parts/panels/panel_plate_medium_01.blend",
+  "object": "panel_plate_medium_01",
   "stage": "mass_assignment",
   "seed": 1337,
   "message": "shard mass sum 143.20 kg deviates 10.5% from part mass 160.00 kg",

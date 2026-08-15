@@ -156,10 +156,10 @@ class DegradationTest {
         Map<Stat, DegradationRule> overrides =
                 Map.of(Stat.ARMOR_VALUE, new DegradationRule(DegradationProfile.NONE, 1f));
 
-        assertThat(Degradation.degradeScalar(PartCategory.ARMOR, Stat.ARMOR_VALUE, 45f, 0.1f, overrides))
+        assertThat(Degradation.degradeScalar(PartCategory.PANEL, Stat.ARMOR_VALUE, 45f, 0.1f, overrides))
                 .isEqualTo(45f);
         // The table still answers for a stat the override does not name.
-        assertThat(Degradation.ruleFor(PartCategory.ARMOR, Stat.ARMOR_VALUE, Map.of())
+        assertThat(Degradation.ruleFor(PartCategory.PANEL, Stat.ARMOR_VALUE, Map.of())
                         .profile())
                 .isEqualTo(DegradationProfile.LINEAR);
     }

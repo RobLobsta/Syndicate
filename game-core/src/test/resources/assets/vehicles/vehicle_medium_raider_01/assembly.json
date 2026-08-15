@@ -10,7 +10,7 @@
     { "slotPath": "root/wheel_fr", "parentSlotPath": "root", "parentSlotId": "wheel_fr", "partTypeId": "wheel_road_01", "overrides": { "isSteering": true, "isDriven": false } },
     { "slotPath": "root/wheel_rl", "parentSlotPath": "root", "parentSlotId": "wheel_rl", "partTypeId": "wheel_road_01", "overrides": { "isSteering": false, "isDriven": true } },
     { "slotPath": "root/wheel_rr", "parentSlotPath": "root", "parentSlotId": "wheel_rr", "partTypeId": "wheel_road_01", "overrides": { "isSteering": false, "isDriven": true } },
-    { "slotPath": "root/armor_front", "parentSlotPath": "root", "parentSlotId": "armor_front", "partTypeId": "armor_plate_medium_01", "overrides": {} }
+    { "slotPath": "root/panel_front", "parentSlotPath": "root", "parentSlotId": "panel_front", "partTypeId": "panel_plate_medium_01", "overrides": {} }
   ],
   "cosmetics": { "paintSchemeId": "scheme_rust_01" },
   "expected": {

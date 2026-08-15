@@ -11,6 +11,7 @@ import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
 import dev.syndicate.core.arena.TerrainField;
 import dev.syndicate.core.arena.TerrainGenerator;
+import dev.syndicate.core.arena.TerrainParams;
 import dev.syndicate.core.asset.ArenaDef;
 import dev.syndicate.core.asset.MeshData;
 import dev.syndicate.core.component.RigidBodyComponent;
@@ -161,6 +162,110 @@ public final class ArenaFactory {
     }
 
     /**
+     * How many seeds a match-seeded arena may try before giving up.
+     *
+     * <p>A rejection costs one generation — 187 ms on the 600 m desert — so a handful of attempts is
+     * imperceptible at load and a run of eight failures means the theme's own numbers are wrong
+     * rather than the seed being unlucky.
+     */
+    public static final int MAX_SEED_ATTEMPTS = 8;
+
+    /**
+     * Generates ground that is actually playable, rejecting seeds that are not (D16-R58, A411).
+     *
+     * <p>D16-R27 says an arena a player cannot get around is broken rather than difficult, and that
+     * it must be caught at load rather than by whoever spawns in the sealed bowl. That was a hard
+     * failure while every arena declared a fixed, hand-checked seed. It cannot stay one now that a
+     * theme generates a <b>new landscape every match</b>: some fraction of seeds partition the map,
+     * and the first player to draw one would get a crash on the loading screen.
+     *
+     * <p>So an unplayable field is <em>discarded and re-seeded</em> rather than thrown. The check
+     * itself does not soften — nothing unplayable ever reaches a player — but the response to it
+     * becomes "try another one", which is the only response compatible with generating maps rather
+     * than authoring them.
+     *
+     * <p>An arena with a declared seed still fails hard on the first attempt, because there is no
+     * other seed to move to and silently substituting one would mean an authored map quietly
+     * becoming a different map.
+     */
+    private static TerrainField generatePlayable(
+            World world, ArenaDef arena, List<TerrainGenerator.Pad> pads, List<Vector3> spawnPositions) {
+
+        boolean matchSeeded = arena.terrain().seed() == 0L;
+        int attempts = matchSeeded ? MAX_SEED_ATTEMPTS : 1;
+        String lastFinding = null;
+
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            TerrainParams params = seedFor(arena.terrain(), world, arena.arenaId(), attempt);
+            TerrainField field =
+                    TerrainGenerator.generate(arena.boundsMin(), arena.boundsMax(), arena.groundY(), params, pads);
+            lastFinding = TerrainGenerator.playabilityFinding(field, spawnPositions);
+            if (lastFinding == null) {
+                if (attempt > 0) {
+                    LOG.info(
+                            "arena {} accepted seed {} on attempt {} of {}",
+                            arena.arenaId().value(),
+                            params.seed(),
+                            attempt + 1,
+                            attempts);
+                }
+                return field;
+            }
+            LOG.info("arena {} rejected seed {}: {}", arena.arenaId().value(), params.seed(), lastFinding);
+        }
+
+        throw new IllegalStateException("arena " + arena.arenaId().value() + ": " + lastFinding + " — after " + attempts
+                + " seed" + (attempts == 1 ? "" : "s") + " (D16-R58, A411)");
+    }
+
+    /**
+     * The terrain seed this match generates from.
+     *
+     * <p>A declared non-zero seed is honoured exactly: that arena is the same landscape every time,
+     * which is what a regression fixture and a hand-tuned map both need.
+     *
+     * <p><b>Zero means "a new one every match."</b> The seed is then derived from the match seed and
+     * the arena's id, so a theme becomes a generator of maps rather than one map — you fight in a
+     * scrapyard, not in <em>the</em> scrapyard. Deriving from the match seed rather than from the
+     * clock is what keeps it legal under G4: the match seed is shared by every peer and replayed by
+     * the offline runner, so authority and client generate the identical ground, and a match can be
+     * reproduced from its seed alone.
+     *
+     * <p>The arena id is mixed in so that two arenas in one match — a future best-of-three — do not
+     * come out as the same landscape wearing two names, and the attempt number so that a rejected
+     * seed's replacement is a different landscape rather than the same one again.
+     */
+    private static TerrainParams seedFor(TerrainParams declared, World world, AssetId arenaId, int attempt) {
+        if (declared.seed() != 0L) {
+            return declared;
+        }
+        long mixed = world.random().matchSeed() * 0x9E3779B97F4A7C15L
+                + arenaId.value().hashCode()
+                + attempt * 0x632BE59BD9B4E019L;
+        // A final avalanche so neighbouring match seeds do not produce visibly related landscapes.
+        mixed ^= mixed >>> 29;
+        mixed *= 0xBF58476D1CE4E5B9L;
+        mixed ^= mixed >>> 32;
+        // Never zero, or "derive it" would be indistinguishable from the derived value next time.
+        long seed = mixed == 0L ? 1L : mixed;
+        LOG.info("arena {} generates from match-derived seed {}", arenaId.value(), seed);
+        return new TerrainParams(
+                seed,
+                declared.cellSizeM(),
+                declared.gridSize(),
+                declared.theme(),
+                declared.reliefM(),
+                declared.baseFrequency(),
+                declared.octaves(),
+                declared.featureBearingDeg(),
+                declared.featureWavelengthM(),
+                declared.featureHeightM(),
+                declared.borderWidthM(),
+                declared.borderRiseM(),
+                declared.maxDrivableSlopeDeg());
+    }
+
+    /**
      * Generates an arena's ground and puts one height field body in the world (D16-S5.8).
      *
      * <p>No walls. The border rise (D16-S5.5) is the boundary, and it is a soft one on purpose: a
@@ -180,15 +285,7 @@ public final class ArenaFactory {
             pads.add(new TerrainGenerator.Pad(point.position().x, point.position().z, point.clearanceRadiusM()));
         }
 
-        TerrainField field =
-                TerrainGenerator.generate(arena.boundsMin(), arena.boundsMax(), arena.groundY(), arena.terrain(), pads);
-        // D16-R27: an arena a player cannot get around, or can drive out of, is not a difficult
-        // arena but a broken one, and it must be caught here rather than by whoever spawns in the
-        // bowl. Hard failure rather than a warning, deliberately.
-        String finding = TerrainGenerator.playabilityFinding(field, spawnPositions);
-        if (finding != null) {
-            throw new IllegalStateException("arena " + arena.arenaId().value() + ": " + finding + " (D16-R58, A411)");
-        }
+        TerrainField field = generatePlayable(world, arena, pads, spawnPositions);
 
         Entity entity = world.createEntity();
         int entityId = entity.id();

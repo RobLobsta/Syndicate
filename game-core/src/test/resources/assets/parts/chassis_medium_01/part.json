@@ -21,8 +21,8 @@
     { "slotId": "wheel_rl", "slotType": "WHEEL", "localPosition": { "x": -0.9, "y": -0.4, "z": -1.4 }, "maxMassKg": 120.0, "covers": [] },
     { "slotId": "wheel_rr", "slotType": "WHEEL", "localPosition": { "x": 0.9, "y": -0.4, "z": -1.4 }, "maxMassKg": 120.0, "covers": [] },
     {
-      "slotId": "armor_front",
-      "slotType": "ARMOR_PANEL",
+      "slotId": "panel_front",
+      "slotType": "PANEL",
       "localPosition": { "x": 0.0, "y": 0.1, "z": 1.8 },
       "localRotationDeg": { "x": 0.0, "y": 0.0, "z": 0.0, "order": "XYZ" },
       "maxMassKg": 400.0,

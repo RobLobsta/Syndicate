@@ -24,6 +24,9 @@ public final class MemoryStore {
 
     private final Path root;
     private final Map<MemoryCategory, List<MemoryEntry>> byCategory = new EnumMap<>(MemoryCategory.class);
+    /** The one subdirectory a category may hold (D13-S4.1.1). */
+    public static final String ARCHIVE_DIRECTORY = "archive";
+
     private final List<String> structureViolations = new ArrayList<>();
 
     private MemoryStore(Path root) {
@@ -66,8 +69,14 @@ public final class MemoryStore {
             for (Path file : files.sorted().toList()) {
                 String name = file.getFileName().toString();
                 if (Files.isDirectory(file)) {
-                    structureViolations.add(
-                            category.directory() + "/" + name + ": no nesting below the category level (D13-R2)");
+                    if (ARCHIVE_DIRECTORY.equals(name)) {
+                        // D13-R2b: archived entries are kept and searchable but are not indexed, not
+                        // linted, and not read at session start. Skipping them here is what makes
+                        // that true of every tool built on this store.
+                        continue;
+                    }
+                    structureViolations.add(category.directory() + "/" + name
+                            + ": only an 'archive/' subdirectory is permitted below a category (D13-R2, D13-R2a)");
                     continue;
                 }
                 if (".gitkeep".equals(name)) {

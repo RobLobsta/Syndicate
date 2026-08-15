@@ -4,7 +4,7 @@
 **Category:** discoveries
 **Related Docs:** docs/02_technical_architecture.md#D02-S4.1, docs/12_testing_validation_ci.md#D12-S5.4
 
-**Status:** active
+**Status:** superseded (by DISC-046)
 
 ## Summary
 `game-client` cannot be compiled in the remote agent sandbox: its one JitPack-only dependency, `gdx-gltf` (DEV-001), is denied by the egress proxy with a 403 on CONNECT, and the artifact is not in the Gradle cache. Every other module builds and tests normally. The workaround is to compile the touched package directly with `javac` against the cached jars, which type-checks the code without resolving the unreachable dependency.

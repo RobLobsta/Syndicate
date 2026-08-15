@@ -231,7 +231,7 @@ CONTROL MAPPING (per tick):
 |---|---|---|---|
 | `wheel` | Traction, then steering authority | Slight pull, longer stops | Wheel visibly buckled; barely grips; vehicle crabs |
 | `weapon` | Fire rate, then accuracy | Noticeably slower cadence | Sputtering, wide spread, frequent stalls |
-| `armor` | Effective armour value only (never mass until destroyed) | Cracked and dented; absorbs less | Hanging off; near-zero protection |
+| `panel` | Effective armour value only (never mass until destroyed) | Cracked and dented; absorbs less | Hanging off; near-zero protection |
 | `chassis` | Engine force and structural integrity | Sluggish, engine noise change | Crawling; one more hit ends the life |
 | `utility` | Its specific effect (e.g. radar range, ammo feed) | Reduced effect | Effect near zero |
 | `decorative` | Nothing functional | Visual only | Falls off |

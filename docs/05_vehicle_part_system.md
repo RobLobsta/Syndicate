@@ -72,7 +72,7 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 | Category | Role | Contributes | May be destroyed | Detaches on destroy | In compound shape |
 |---|---|---|---|---|---|
 | `chassis` | Root; owns the vehicle body, engine, and base slots | mass, engine force, base armour, all slots | Yes → vehicle destroyed | No (vehicle ends) | Yes (root shape) |
-| `armor` | Protection; absorbs damage before what it covers | mass, armour value, `covers` relationship | Yes | Yes | Yes |
+| `panel` | Bodywork; absorbs damage before what it covers | mass, armour value, `covers` relationship | Yes | Yes | Yes |
 | `wheel` | Ground contact, drive, steering | mass, traction, steering, suspension | Yes | Yes | No (ray-cast wheel) |
 | `weapon` | Damage output | mass, fire rate, damage, spread, ammo | Yes | Yes | Yes |
 | `utility` | Support effects (ammo feed, radar, cooler, plating booster) | mass, its specific stat modifiers | Yes | Yes | Yes |
@@ -85,11 +85,11 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 | Part type | Category | Typical mass | Notes |
 |---|---|---|---|
 | `chassis_light_01` / `_medium_01` / `_heavy_01` | chassis | 600 / 900 / 1400 kg | Differ in slot count, engine force, base armour |
-| `armor_plate_light_01` / `_medium_01` / `_heavy_01` | armor | 60 / 160 / 340 kg | Differ in armour value and health |
-| `armor_bumper_01` | armor | 120 kg | Front-only slot type; high `COLLISION` resistance |
+| `panel_plate_light_01` / `_medium_01` / `_heavy_01` | panel | 60 / 160 / 340 kg | Differ in armour value and health |
+| `panel_bumper_01` | panel | 120 kg | Front-only slot type; high `COLLISION` resistance |
 | `wheel_road_01` | wheel | 45 kg | High grip on hard surfaces |
 | `wheel_offroad_01` | wheel | 60 kg | Better on loose surfaces, lower top speed |
-| `wheel_armored_01` | wheel | 95 kg | Double health, heavy |
+| `wheel_reinforced_01` | wheel | 95 kg | Double health, heavy |
 | `weapon_autocannon_01` | weapon | 180 kg | D01-S4.4 family `AUTOCANNON` |
 | `weapon_cannon_01` | weapon | 320 kg | `CANNON` |
 | `weapon_shotgun_01` | weapon | 140 kg | `SHOTGUN` |
@@ -98,7 +98,7 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 | `weapon_laser_01` | weapon | 210 kg | `LASER` |
 | `utility_ammo_feed_01` | utility | 70 kg | +15% fire rate to all weapons |
 | `utility_radiator_01` | utility | 85 kg | −30% heat accumulation |
-| `utility_reinforcer_01` | utility | 150 kg | +10% health to all `armor` parts |
+| `utility_reinforcer_01` | utility | 150 kg | +10% health to all `panel` parts |
 | `deco_spoiler_01`, `deco_exhaust_01` | decorative | 25 / 12 kg | Mass only |
 
 <!-- D05-S4.3 -->### 4.3 Slot System and Slot Graph
@@ -122,7 +122,7 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 | `ROOT` | `chassis` | 1 (implicit, the vehicle root) |
 | `WHEEL` | `wheel` | 4–6 |
 | `HARDPOINT` | `weapon`, `utility` | 2–4 |
-| `ARMOR_PANEL` | `armor` | 4–10 |
+| `PANEL` | `panel` | 4–10 |
 | `TURRET_MOUNT` | `weapon` | 0–1 |
 | `ACCESSORY` | `decorative` | 2–6 |
 | `SUBSLOT` | `weapon`, `utility`, `decorative` | on parts, e.g. a turret's barrel slot |
@@ -135,7 +135,7 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
                             ┌──────────────────────┐
                             │  chassis_medium_01   │  root
                             └───┬───┬───┬───┬───┬──┘
-        wheel_fl ◄──WHEEL───────┘   │   │   │   └────ARMOR_PANEL──► armor_plate_front
+        wheel_fl ◄──WHEEL───────┘   │   │   │   └────PANEL───────► panel_plate_front
         wheel_fr ◄──WHEEL───────────┘   │   └────────HARDPOINT────► weapon_autocannon_01
         wheel_rl ◄──WHEEL───────────────┘                              │
                                                                        └──SUBSLOT──► deco_muzzle
@@ -143,7 +143,7 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 
 **R12.** Structural changes (attach/detach) increment `SlotGraphComponent.structuralVersion`. Every cache derived from the graph — compound shape, aggregated stats, mass properties, coverage map — is invalidated by a version change and recomputed in the same tick (G10).
 
-**R13. Coverage.** An `armor` part *covers* the slots named in its slot definition's `covers` list. While a covering armour part is present and not `DESTROYED`, hits that resolve to a covered part are first absorbed by the armour (D07-S5.1). When the armour is destroyed or detached, covered parts gain the `EXPOSED` modifier (D01-R11). Coverage is a *slot* relationship, not a geometric one, so it is deterministic and cheap.
+**R13. Coverage.** A `panel` part *covers* the slots named in its slot definition's `covers` list. While a covering panel is present and not `DESTROYED`, hits that resolve to a covered part are first absorbed by the panel (D07-S5.1). When the panel is destroyed or detached, covered parts gain the `EXPOSED` modifier (D01-R11). Coverage is a *slot* relationship, not a geometric one, so it is deterministic and cheap.
 
 <!-- D05-S4.4 -->### 4.4 Part Properties
 
@@ -335,7 +335,7 @@ DEGRADATION_TABLE:
   weapon      spreadRad      (INVERTED)            LINEAR        0.35    accuracy fades
   weapon      damagePerShot                        NONE          1.00    a hit is a hit (readability)
   armor       armorValue                           LINEAR        0.10    protection scales with plate
-  armor       massKg                               NONE          1.00    R20 — mass never degrades
+  panel       massKg                               NONE          1.00    R20 — mass never degrades
   chassis     engineForceN                         LINEAR        0.45    vehicle gets sluggish
   chassis     brakeForceN                          LINEAR        0.60
   utility     its declared stats                   LINEAR        0.25
@@ -458,8 +458,8 @@ function recomputeVehicleStats(vehicle):
     v.maxSteerRad        = steerWheels.isEmpty() ? 0.0 : mean(w.effectiveStats.maxSteerRad)
     v.steerRateRadPerSec = steerWheels.isEmpty() ? 0.0 : mean(w.effectiveStats.steerRateRadPerSec)
 
-    v.armorRatingAvg = liveParts.filter(armor).isEmpty() ? 0.0
-                       : mean(p.effectiveStats.armorValue for p in armorParts)
+    v.armorRatingAvg = liveParts.filter(panel).isEmpty() ? 0.0
+                       : mean(p.effectiveStats.armorValue for p in panelParts)
 
     # ---- Phase 4: derived stats (never authored, D05-R16) --------------------
     m = vehicle.totalMassKg
@@ -519,13 +519,13 @@ RULES:
 
 ```pseudo
 function rebuildCoverageMap(vehicle):
-    # Which live armour part protects which slot. Rebuilt on structuralVersion change.
+    # Which live panel protects which slot. Rebuilt on structuralVersion change.
     map = {}
-    for armorPart in vehicle.partsOfCategory(armor) sortedBy slotPath:
-        if armorPart.state in {DESTROYED, DETACHED}: continue
-        for coveredSlotId in armorPart.slotDef.covers:
-            coveredPath = parentPathOf(armorPart) + "/" + coveredSlotId
-            map[coveredPath] = armorPart.entity          # last writer wins; assets are
+    for panelPart in vehicle.partsOfCategory(panel) sortedBy slotPath:
+        if panelPart.state in {DESTROYED, DETACHED}: continue
+        for coveredSlotId in panelPart.slotDef.covers:
+            coveredPath = parentPathOf(panelPart) + "/" + coveredSlotId
+            map[coveredPath] = panelPart.entity          # last writer wins; assets are
                                                           # validated to avoid double cover
     vehicle.coverageMap = map
 
@@ -589,7 +589,7 @@ function isExposed(vehicle, part):
 | ID | Scenario | Expected |
 |---|---|---|
 | T-D05-1 | Validate an assembly with two chassis | Rejected with "exactly one root" |
-| T-D05-2 | Attach a weapon to an `ARMOR_PANEL` slot | Rejected with a category/slot-type message |
+| T-D05-2 | Attach a weapon to a `PANEL` slot | Rejected with a category/slot-type message |
 | T-D05-3 | Attach a 400 kg part to a `maxMassKg = 200` slot | Rejected |
 | T-D05-4 | Build a 65-part assembly | Rejected |
 | T-D05-5 | Evaluate `degradationMultiplier` for every profile at h ∈ {1, .75, .66, .5, .33, .25, .01} | Matches D05-S5.4 to 1e-6 |

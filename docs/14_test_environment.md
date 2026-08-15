@@ -164,18 +164,18 @@ record Measurement:
 ```json
 {
   "schemaVersion": "1.0.0",
-  "asset": "assets/parts/armor_plate_medium_01",
+  "asset": "assets/parts/panel_plate_medium_01",
   "timestamp": "2026-08-07T14:22:31Z",
   "mode": "headless",
   "harnessVersion": "0.1.0",
   "toolVersion": "0.1.0",
   "seed": 1337,
   "target": {
-    "assetDir": "assets/parts/armor_plate_medium_01",
-    "manifest": "assets/parts/armor_plate_medium_01/fracture_manifest.json",
-    "partDefinition": "assets/parts/armor_plate_medium_01/part.json",
+    "assetDir": "assets/parts/panel_plate_medium_01",
+    "manifest": "assets/parts/panel_plate_medium_01/fracture_manifest.json",
+    "partDefinition": "assets/parts/panel_plate_medium_01/part.json",
     "assembly": null,
-    "golden": "fixtures/golden/armor_plate_medium_01.manifest.json"
+    "golden": "fixtures/golden/panel_plate_medium_01.manifest.json"
   },
   "checks": [
     {

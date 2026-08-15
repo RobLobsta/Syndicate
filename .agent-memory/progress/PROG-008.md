@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/09_blender_destruction_tool.md#D09-S5.1, docs/14_test_environment.md#D14-S5.2, docs/13_persistent_memory_system.md#D13-S4.1
 
-**Status:** active
+**Status:** superseded (by PROG-029)
 
 ## Summary
 The Blender destruction tool fractures a mesh, verifies its own output and exits with the D09-S4.3

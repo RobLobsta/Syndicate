@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/15_vehicle_preparation_pipeline.md#D15-S8, docs/02_technical_architecture.md#D02-S4.5
 
-**Status:** active
+**Status:** superseded (by PROG-027)
 
 ## Summary
 Engine audio moves out of the bank and into the runtime. `EngineSynth` renders an engine from its live state a block at a time; `EngineMixer` places up to 24 of them in the world with distance, panning, air absorption and propagation delay; `EngineRunState` maps ignition, shutdown and damage onto synthesiser parameters. The bank goes 74 files to 47, and the two tests that could not fail are replaced by five that can.

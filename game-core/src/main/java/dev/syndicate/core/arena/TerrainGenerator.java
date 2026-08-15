@@ -109,6 +109,41 @@ public final class TerrainGenerator {
     public static final float PAD_RAMP_SLOPE_FRAC = 0.8f;
 
     /** Slope above which sand is scoured off and gravel shows (D16-R41). */
+    /** Octaves in the heap layer. Two is a lump, four starts to look like separate piles. */
+    public static final int HEAP_OCTAVES = 4;
+
+    /**
+     * Fraction of the rectified heap field that stays flat ground.
+     *
+     * <p>The number that decides whether a scrapyard is a yard with piles in it or a field of
+     * hillocks. Against {@link #HEAP_PEAK} this leaves roughly a sixth of the map carrying a heap,
+     * which is what makes them cover you go around rather than terrain you drive over.
+     */
+    public static final double HEAP_FLOOR = 0.60;
+
+    /**
+     * Where the rectified heap field actually tops out.
+     *
+     * <p><b>Measured, not assumed.</b> {@code fbm} normalises by the sum of its octave amplitudes,
+     * which bounds it to [-1, 1] in principle; in practice gradient noise summed over four octaves
+     * reaches ±0.44, so the rectified field spans about 0.28 to 0.72 and never approaches either
+     * end. Dividing by {@code 1 - HEAP_FLOOR} — the obvious thing, and what this did first — scales
+     * the tallest heap on the map to a twelfth of its intended height, which is how a 14 m spoil
+     * heap arrived as a 1.2 m bump and left the whole arena drivable.
+     */
+    public static final double HEAP_PEAK = 0.72;
+
+    /**
+     * Shapes a heap's flanks. Above 1 the pile has a broad base and a defined top.
+     *
+     * <p>Two is steep enough that a heap reads as tipped material rather than as a hill, and shallow
+     * enough that a car can get up the easier faces.
+     */
+    public static final double HEAP_EXPONENT = 2.0;
+
+    /** Keeps the heap layer's noise independent of the landform's at the same seed. */
+    public static final long HEAP_SEED_SALT = 0x7F4A7C15L;
+
     public static final float GRAVEL_SLOPE_DEG = 18.0f;
 
     /** How far above the field's mean a plateau cap must stand to show rock (D16-R41). */
@@ -172,24 +207,26 @@ public final class TerrainGenerator {
         int grid = params.gridSize();
         float[] heights = new float[params.sampleCount()];
 
-        // Wind rotation, evaluated once rather than per sample. The one place this class needs
-        // trigonometry at all, and it is two calls for the whole arena rather than 361,000.
-        double windRad = StrictMath.toRadians(params.duneWindDeg());
-        double windCos = StrictMath.cos(windRad);
-        double windSin = StrictMath.sin(windRad);
+        // Feature-layer rotation, evaluated once rather than per sample. The one place this class
+        // needs trigonometry at all, and it is two calls for the whole arena rather than 361,000.
+        double bearingRad = StrictMath.toRadians(params.featureBearingDeg());
+        double bearingCos = StrictMath.cos(bearingRad);
+        double bearingSin = StrictMath.sin(bearingRad);
         double reposeTan = StrictMath.tan(StrictMath.toRadians(TerrainParams.SAND_REPOSE_DEG));
+        ArenaTheme.Relief relief = params.theme().relief();
 
-        // [1] and [2]: broad relief, then the biome layer. Row-major, ascending, and that order is
-        // part of the contract (D16-R61 rule 3).
+        // [1] and [2]: broad relief, then the theme's relief layer. Row-major, ascending, and that
+        // order is part of the contract (D16-R61 rule 3).
         for (int j = 0; j < grid; j++) {
             double z = min.z + j * (double) params.cellSizeM();
             for (int i = 0; i < grid; i++) {
                 double x = min.x + i * (double) params.cellSizeM();
                 double h = params.reliefM()
                         * TerrainNoise.fbm(x, z, params.baseFrequency(), params.octaves(), params.seed());
-                if (params.biome() == TerrainParams.Biome.DESERT) {
-                    h += duneHeight(x, z, params, windCos, windSin, reposeTan);
-                }
+                h += switch (relief) {
+                    case DUNES -> duneHeight(x, z, params, bearingCos, bearingSin, reposeTan);
+                    case HEAPS -> heapHeight(x, z, params);
+                    case NONE -> 0.0;};
                 heights[j * grid + i] = (float) h;
             }
         }
@@ -227,6 +264,38 @@ public final class TerrainGenerator {
      * every dune below full height too gentle — which, since crest heights are modulated down to 55%,
      * would have been most of them.
      */
+    /**
+     * The {@link ArenaTheme.Relief#HEAPS} layer: discrete piles on otherwise flat ground.
+     *
+     * <p>Deliberately not a second kind of hill. Fractal noise used directly gives rolling relief
+     * everywhere, and a breaker's yard is flat ground with heaps <em>on</em> it — the flatness
+     * between the piles is what makes them cover rather than scenery. Raising a rectified noise
+     * field to a power does exactly that: values near zero are pushed to nothing and the ground
+     * stays flat, while the few high values keep most of their height and become piles.
+     *
+     * <p>Isotropic, unlike the dune layer: a spoil heap has no prevailing wind, so
+     * {@code featureBearingDeg} is ignored here and a scrapyard's is zero to say so.
+     *
+     * <p>No repose correction. A heap of crushed scrap stands steeper than dry sand and is meant to
+     * be climbable from some angles and not others; the {@link #HEAP_EXPONENT} shapes the flanks and
+     * the drivability pass decides what that costs, rather than a slip face being solved for.
+     */
+    private static double heapHeight(double x, double z, TerrainParams params) {
+        // One cycle of noise per feature wavelength, so "heaps about 55 m apart" is what the number
+        // means here as much as "dune crests 90 m apart" is what it means in the dune layer.
+        double frequency = 1.0 / params.featureWavelengthM();
+        double n = TerrainNoise.fbm(x, z, frequency, HEAP_OCTAVES, params.seed() ^ HEAP_SEED_SALT);
+
+        // fbm is signed and roughly symmetric; rectify to [0,1] so the lower half of the field
+        // becomes flat yard rather than pits.
+        double normalised = 0.5 + 0.5 * n;
+        if (normalised <= HEAP_FLOOR) {
+            return 0.0;
+        }
+        double above = Math.min(1.0, (normalised - HEAP_FLOOR) / (HEAP_PEAK - HEAP_FLOOR));
+        return params.featureHeightM() * Math.pow(above, HEAP_EXPONENT);
+    }
+
     private static double duneHeight(
             double x, double z, TerrainParams params, double windCos, double windSin, double reposeTan) {
 
@@ -236,7 +305,7 @@ public final class TerrainGenerator {
         double warpFreq = params.baseFrequency() * 2.0;
         long warpSeed = params.seed() ^ 0x51ED270BL;
         double warp = TerrainNoise.fbm(x, z, warpFreq, DUNE_DETAIL_OCTAVES, warpSeed);
-        double phase = u / params.duneWavelengthM() + PHASE_WARP * warp;
+        double phase = u / params.featureWavelengthM() + PHASE_WARP * warp;
         double t = phase - Math.floor(phase);
 
         // How fast phase advances *here*, per metre along the wind. The nominal 1/wavelength plus
@@ -245,7 +314,7 @@ public final class TerrainGenerator {
         double stepZ = WARP_DERIVATIVE_STEP_M * windSin;
         double warpAhead = TerrainNoise.fbm(x + stepX, z + stepZ, warpFreq, DUNE_DETAIL_OCTAVES, warpSeed);
         double warpBehind = TerrainNoise.fbm(x - stepX, z - stepZ, warpFreq, DUNE_DETAIL_OCTAVES, warpSeed);
-        double nominalGradient = 1.0 / params.duneWavelengthM();
+        double nominalGradient = 1.0 / params.featureWavelengthM();
         double phaseGradient = nominalGradient + PHASE_WARP * (warpAhead - warpBehind) / (2.0 * WARP_DERIVATIVE_STEP_M);
         phaseGradient = Math.max(phaseGradient, MIN_PHASE_GRADIENT_FRAC * nominalGradient);
 
@@ -254,10 +323,10 @@ public final class TerrainGenerator {
         if (crestScale <= 0.0) {
             return 0.0;
         }
-        double amplitude = params.duneHeightM() * crestScale;
+        double amplitude = params.featureHeightM() * crestScale;
 
         // The slip face occupies `slipFraction` of a phase cycle, and a phase cycle is
-        // `1 / phaseGradient` metres of ground *here* — not `duneWavelengthM`, which is only the
+        // `1 / phaseGradient` metres of ground *here* — not `featureWavelengthM`, which is only the
         // mean. Solving with the local figure is what makes every face stand at repose rather than
         // only the faces where the warp happens to be flat.
         double slipFraction = amplitude * phaseGradient / reposeTan;
@@ -394,12 +463,13 @@ public final class TerrainGenerator {
     private static byte[] classify(TerrainField field, TerrainParams params) {
         int grid = params.gridSize();
         byte[] surfaces = new byte[params.sampleCount()];
-        if (params.biome() == TerrainParams.Biome.TARMAC_FLAT) {
-            java.util.Arrays.fill(surfaces, (byte) Surface.TARMAC.ordinal());
+        ArenaTheme.Palette palette = params.theme().palette();
+        if (palette.isUniform()) {
+            java.util.Arrays.fill(surfaces, (byte) palette.floor().ordinal());
             return surfaces;
         }
-        // The rock-exposure height is a fraction of the field's own relief rather than an absolute,
-        // so a low-relief arena does not come out entirely rock and a tall one entirely sand.
+        // The exposure height is a fraction of the field's own relief rather than an absolute, so a
+        // low-relief arena does not come out entirely capped and a tall one entirely floor.
         float exposure = field.minHeight() + ROCK_EXPOSURE_FRAC * (field.maxHeight() - field.minHeight());
         for (int j = 0; j < grid; j++) {
             for (int i = 0; i < grid; i++) {
@@ -407,16 +477,16 @@ public final class TerrainGenerator {
                 float height = field.heightAtSample(i, j);
                 Surface s;
                 if (slope > TerrainParams.SAND_REPOSE_DEG + 2f) {
-                    // Sand does not sit on a face steeper than its own angle of repose, so what shows
-                    // there is what is under it. That it also grips better than it looks is the
-                    // payoff for deriving the rule rather than painting it (D16-R42).
-                    s = Surface.ROCK;
+                    // Loose material does not sit on a face steeper than its own angle of repose, so
+                    // what shows there is what is under it. That it also grips better than it looks
+                    // is the payoff for deriving the rule rather than painting it (D16-R42).
+                    s = palette.pastRepose();
                 } else if (height > exposure) {
-                    s = Surface.ROCK;
+                    s = palette.high();
                 } else if (slope > GRAVEL_SLOPE_DEG) {
-                    s = Surface.GRAVEL;
+                    s = palette.slope();
                 } else {
-                    s = Surface.SAND;
+                    s = palette.floor();
                 }
                 surfaces[j * grid + i] = (byte) s.ordinal();
             }

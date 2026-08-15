@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/15_vehicle_preparation_pipeline.md#D15-S8, docs/04_entity_component_model.md#D04-S4.4, docs/06_physics_simulation.md#D06-S5.5
 
-**Status:** active
+**Status:** superseded (by PROG-027)
 
 ## Summary
 The bank goes from 52 sounds to 74 and from six silent-in-practice families to none. Engines are rebuilt as exhaust pulse trains with formants and real firing geometry, forced induction exists as a second voice, and the three families that had correct files and no triggers — tyre, weapon, debris settle — now have them.

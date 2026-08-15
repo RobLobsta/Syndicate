@@ -187,7 +187,7 @@ public final class AssemblyValidator {
     private static void checkCoverage(AssemblyLayout layout, List<ValidationIssue> issues) {
         Set<String> covered = new HashSet<>();
         for (AssemblyLayout.PlacedPart part : layout.parts()) {
-            if (part.type().category() != PartCategory.ARMOR || part.slot() == null) {
+            if (part.type().category() != PartCategory.PANEL || part.slot() == null) {
                 continue;
             }
             for (String coveredSlotId : part.slot().covers()) {
