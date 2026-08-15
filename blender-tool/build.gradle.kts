@@ -223,49 +223,6 @@ tasks.register("processFixtures") {
     }
 }
 
-/**
- * Cuts the whole-vehicle source art into per-part meshes (DEV-013's remaining half).
- *
- * Deliberately not wired into `check` or into any other task. It writes into `assets/parts/`,
- * which is committed content: running it is a decision to re-cut the art, and it belongs in the
- * commit that does so rather than in every build. `--dry-run` reports the classification without
- * writing anything, which is the form worth running when the classifier's thresholds change.
- */
-tasks.register("dissectVehicles") {
-    group = "build"
-    description = "Splits art-source/vehicles/* into assets/parts/* (chassis + wheels)."
-    val artRoot = rootProject.layout.projectDirectory.dir("art-source/vehicles").asFile
-    val partsRoot = rootProject.layout.projectDirectory.dir("assets/parts").asFile
-    val projectDir = layout.projectDirectory.asFile
-    val required = blenderRequired
-    doLast {
-        val vehicles = artRoot.listFiles()?.filter { it.isDirectory }?.sortedBy { it.name }.orEmpty()
-        if (vehicles.isEmpty()) {
-            logger.warn("SKIPPED :blender-tool:dissectVehicles — no models in $artRoot")
-            return@doLast
-        }
-        for (vehicle in vehicles) {
-            val result = providers.exec {
-                workingDir = projectDir
-                commandLine(
-                    "python3", "-m", "syndicate_dissect",
-                    "--model", vehicle.absolutePath,
-                    "--vehicle", vehicle.name,
-                    "--out", partsRoot.absolutePath,
-                )
-                isIgnoreExitValue = true
-            }
-            val code = result.result.get().exitValue
-            if (code != 0) {
-                val message = "dissect ${vehicle.name} exited $code"
-                if (required) throw GradleException(message) else logger.warn("SKIPPED — $message")
-                continue
-            }
-            logger.lifecycle("dissectVehicles: ${vehicle.name} -> $partsRoot")
-        }
-    }
-}
-
 tasks.named("check") {
     dependsOn(lint, unitTest)
 }
@@ -278,8 +235,8 @@ tasks.named("check") {
  * `classifyVehicles` runs stages 1 to 6 and writes only a report. It is what to run when a
  * threshold in the cue ensemble changed and the question is what that did to the labelling.
  *
- * `prepareVehicles` runs all nine and writes `assets/parts/` and `assets/vehicles/` — committed
- * content. Running it is a decision to re-cut the art and belongs in the commit that does so,
+ * `prepareVehicles` runs all nine and writes `assets/vehicles/<vehicleTypeId>/` — its parts, its
+ * `manifest.json` and its `assembly.json`, all committed content. Running it is a decision to re-cut the art and belongs in the commit that does so,
  * which is why it is wired into no other task, exactly as `dissectVehicles` is not.
  *
  * Both are strict: D15-R13 makes an under-labelled model a non-zero exit, and the point of
@@ -297,12 +254,13 @@ fun registerPreparation(taskName: String, taskDescription: String, writeAssets: 
         val toolDir = layout.projectDirectory.asFile
         val vehiclesDir = rootProject.layout.projectDirectory.dir("art-source/vehicles").asFile
         val reportRoot = rootProject.layout.buildDirectory.dir("prepare-reports").get().asFile
-        val partsRoot = rootProject.layout.projectDirectory.dir("assets/parts").asFile
-        val assembliesRoot = rootProject.layout.projectDirectory.dir("assets/vehicles").asFile
+        val assetRoot = rootProject.layout.projectDirectory.dir("assets").asFile
         val materialTable =
             rootProject.layout.projectDirectory.file("assets/materials/materials.json").asFile
         val balanceTable =
             rootProject.layout.projectDirectory.file("assets/balance/classes.json").asFile
+        val styleTable =
+            rootProject.layout.projectDirectory.file("assets/materials/style.json").asFile
 
         // Resolved at configuration time into plain strings: a `doLast` that built the command
         // would capture the script object, which the configuration cache cannot serialise
@@ -316,13 +274,15 @@ fun registerPreparation(taskName: String, taskDescription: String, writeAssets: 
                         "--strict",
                         "--material-table", materialTable.absolutePath,
                         "--balance-table", balanceTable.absolutePath,
+                        "--style-table", styleTable.absolutePath,
                         "--report", File(reportRoot, "${dir.name}.json").absolutePath,
                     )
                     if (writeAssets) {
-                        arguments += listOf(
-                            "--out", partsRoot.absolutePath,
-                            "--vehicles", assembliesRoot.absolutePath,
-                        )
+                        // One root, not two paths. The tool derives
+                        // `vehicles/vehicle_<name>_01/parts` from it, so a vehicle's parts land
+                        // under the vehicle that owns them without the build knowing the rule
+                        // (D08-R14b).
+                        arguments += listOf("--assets", assetRoot.absolutePath)
                     }
                     dir.name to prepareCommand(*arguments.toTypedArray())
                 }
@@ -366,7 +326,7 @@ registerPreparation(
 
 registerPreparation(
     "prepareVehicles",
-    "Turns art-source/vehicles/ into assets/parts and assets/vehicles (D15-S5.1, all 9 stages).",
+    "Turns art-source/vehicles/ into assets/vehicles/<id>/parts (D15-S5.1, all 9 stages).",
     writeAssets = true,
 )
 
@@ -386,8 +346,7 @@ tasks.register<Exec>("verifyPreparedAssets") {
     workingDir = layout.projectDirectory.asFile
     commandLine(
         "python3", "tools/verify_prepared.py",
-        rootProject.layout.projectDirectory.dir("assets/parts").asFile.absolutePath,
-        rootProject.layout.projectDirectory.dir("assets/vehicles").asFile.absolutePath,
+        rootProject.layout.projectDirectory.dir("assets").asFile.absolutePath,
     )
     val available = bpyModuleAvailable
     onlyIf { task ->

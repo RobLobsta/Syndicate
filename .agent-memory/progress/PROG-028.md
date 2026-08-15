@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/08_asset_pipeline.md#D08-S4.2, docs/08_asset_pipeline.md#D08-S5.2, docs/05_vehicle_part_system.md#D05-S5.6
 
-**Status:** active
+**Status:** superseded (by PROG-034)
 
 Supersedes: PROG-012
 

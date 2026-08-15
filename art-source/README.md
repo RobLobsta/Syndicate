@@ -18,7 +18,7 @@ art-source/
 mesh — which is the state art arrives in and *not* the state the game can use: a vehicle is a
 chassis and four wheels, each its own part with its own mass, health and damage state
 (`D05-S4.1`). Splitting one into the other is a Blender job that has not been done yet, so these
-files sit here rather than in `assets/parts/`. `DEV-013` in `.agent-memory/spec_deviations/`
+files sit here rather than under a vehicle's own `parts/`. `DEV-013` in `.agent-memory/spec_deviations/`
 records the bucket and why.
 
 ---
@@ -112,3 +112,16 @@ what the two captured views are for, and it is how the Eclipse's 180° yaw was f
 3. Write `import.json` until `MODEL-004` through `MODEL-007` pass.
 4. Render it and look at both views. Fix the yaw if the front is at −Z.
 5. Write `SOURCE.md`: where it came from, its licence, the credit line, and what you measured.
+
+## What a model directory holds
+
+| File | What it is | Written by |
+|---|---|---|
+| `scene.gltf` / `scene.bin` / `textures/` | the downloaded model, untouched | the artist |
+| `license.txt`, `SOURCE.md` | its licence and where it came from | you |
+| `import.json` | the correction into the game's units and axes | `syndicate-prepare` (DEC-065) |
+| `parts.json` | per-model label overrides, where the cue ensemble needs help | you, if needed |
+| `profile.json` | the researched figures for the real car this is | you, if you have them |
+
+Only the first two are required. `syndicate-prepare` derives everything else from the geometry, and
+each of the last three is a way of telling it something the geometry does not say.

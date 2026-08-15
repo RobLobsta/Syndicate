@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.AssetPaths;
 import dev.syndicate.model.SimulationConstants;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -89,7 +90,7 @@ public final class AssetIndexBuilder {
         index.put("schemaVersion", INDEX_SCHEMA_VERSION);
 
         Map<String, JsonNode> materials = readMaterials(assetRoot);
-        Map<String, JsonNode> parts = readParts(assetRoot, materials.keySet());
+        Map<String, PartRecord> parts = readParts(assetRoot, materials.keySet());
         List<ObjectNode> vehicles = readVehicles(assetRoot, parts);
         List<ObjectNode> arenas = readArenas(assetRoot);
         checkBalanceClasses(assetRoot, vehicles);
@@ -98,15 +99,20 @@ public final class AssetIndexBuilder {
         materials.values().forEach(materialArray::add);
 
         ArrayNode partArray = index.putArray("parts");
-        for (Map.Entry<String, JsonNode> entry : parts.entrySet()) {
+        for (Map.Entry<String, PartRecord> entry : parts.entrySet()) {
+            JsonNode document = entry.getValue().document();
             ObjectNode summary = mapper.createObjectNode();
             summary.put("partTypeId", entry.getKey());
-            summary.put("path", "parts/" + entry.getKey());
-            summary.put("category", entry.getValue().path("category").asText(""));
-            summary.put("massKg", entry.getValue().path("massKg").asDouble(0d));
-            summary.put("maxHp", entry.getValue().path("maxHp").asDouble(0d));
-            summary.put("powerCost", entry.getValue().path("powerCost").asDouble(0d));
-            summary.put("materialId", entry.getValue().path("materialId").asText(""));
+            summary.put("path", entry.getValue().path());
+            // Which vehicle owns this part, or null for one in the shared library. The index is
+            // what a tool reads instead of walking the tree, so the ownership the tree encodes as
+            // a directory has to survive into it (D08-R14b).
+            summary.put("ownedBy", entry.getValue().owner());
+            summary.put("category", document.path("category").asText(""));
+            summary.put("massKg", document.path("massKg").asDouble(0d));
+            summary.put("maxHp", document.path("maxHp").asDouble(0d));
+            summary.put("powerCost", document.path("powerCost").asDouble(0d));
+            summary.put("materialId", document.path("materialId").asText(""));
             partArray.add(summary);
         }
 
@@ -157,10 +163,11 @@ public final class AssetIndexBuilder {
 
     // ---- Parts (D08-S4.2) ------------------------------------------------------------
 
-    private Map<String, JsonNode> readParts(Path assetRoot, Set<String> materialIds) {
-        Map<String, JsonNode> byId = new TreeMap<>();
-        for (Path directory : childDirectories(assetRoot.resolve("parts"))) {
+    private Map<String, PartRecord> readParts(Path assetRoot, Set<String> materialIds) {
+        Map<String, PartRecord> byId = new TreeMap<>();
+        for (Path directory : AssetPaths.partDirectories(assetRoot)) {
             String directoryName = directory.getFileName().toString();
+            String owner = AssetPaths.owningVehicle(assetRoot, directory);
             JsonNode root = readJson(directory.resolve("part.json"), directoryName);
             if (root == null || !checkSchemaVersion(root, directoryName)) {
                 continue;
@@ -174,8 +181,14 @@ public final class AssetIndexBuilder {
                 findings.add(
                         Finding.error("A105", id, "partTypeId does not equal its directory name " + directoryName));
             }
-            if (byId.put(id, root) != null) {
-                findings.add(Finding.error("A106", id, "duplicate partTypeId across the catalogue"));
+            PartRecord previous = byId.put(id, new PartRecord(root, relativePath(assetRoot, directory), owner));
+            if (previous != null) {
+                findings.add(Finding.error(
+                        "A106",
+                        id,
+                        "declared twice — once in " + previous.path() + " and again in "
+                                + relativePath(assetRoot, directory)
+                                + "; a part type is owned by exactly one directory (D08-R14b)"));
             }
 
             double massKg = root.path("massKg").asDouble(0d);
@@ -197,6 +210,48 @@ public final class AssetIndexBuilder {
             checkPowerCost(id, root);
         }
         return byId;
+    }
+
+    /**
+     * One part as the walk found it: its document, where it lives, and which vehicle owns it.
+     *
+     * <p>The last two are what {@link AssetPaths}'s two buckets add. Before the split every part
+     * lived in one flat directory and its path was its id; now the path is what a duplicate-id
+     * finding has to name to be actionable, and the owner is what A315 is a rule about.
+     *
+     * @param owner the {@code vehicleTypeId} owning this part, or null for a shared one
+     */
+    private record PartRecord(JsonNode document, String path, String owner) {}
+
+    /**
+     * A315: a vehicle may use the shared library and its own parts, and nothing else.
+     *
+     * <p>The rule the two-bucket layout exists to make checkable. A vehicle-owned part is cut from
+     * one car's art and fitted to that car's slot graph, so another vehicle referencing it gets
+     * geometry that is the wrong size, in the wrong place, with a mass derived from a body it is not
+     * on. That is the failure the flat directory could not prevent and could not detect.
+     *
+     * <p>A part in {@code parts/} is shared by construction and is always in scope: that is what
+     * makes a modular weapon modular.
+     */
+    private void checkPartOwnership(String vehicleTypeId, String vehicleDirectory, String partTypeId, PartRecord part) {
+        if (part.owner() == null || part.owner().equals(vehicleDirectory)) {
+            return;
+        }
+        findings.add(Finding.error(
+                "A315",
+                vehicleTypeId,
+                "part type " + partTypeId + " belongs to " + part.owner()
+                        + "; a vehicle may reference its own parts and the shared library only (D08-R14b)"));
+    }
+
+    /** An asset-root-relative path with forward slashes, so the index reads the same on any OS. */
+    private static String relativePath(Path assetRoot, Path directory) {
+        return assetRoot
+                .toAbsolutePath()
+                .relativize(directory.toAbsolutePath())
+                .toString()
+                .replace('\\', '/');
     }
 
     /** A207 and A208: slot ids are unique within a part, and {@code covers} names slots on it. */
@@ -327,9 +382,9 @@ public final class AssetIndexBuilder {
 
     // ---- Vehicles (D08-S4.4) ---------------------------------------------------------
 
-    private List<ObjectNode> readVehicles(Path assetRoot, Map<String, JsonNode> parts) {
+    private List<ObjectNode> readVehicles(Path assetRoot, Map<String, PartRecord> parts) {
         List<ObjectNode> summaries = new ArrayList<>();
-        for (Path directory : childDirectories(assetRoot.resolve("vehicles"))) {
+        for (Path directory : AssetPaths.vehicleDirectories(assetRoot)) {
             String directoryName = directory.getFileName().toString();
             JsonNode root = readJson(directory.resolve("assembly.json"), directoryName);
             if (root == null || !checkSchemaVersion(root, directoryName)) {
@@ -345,23 +400,26 @@ public final class AssetIndexBuilder {
                 findings.add(Finding.error("A301", id, "chassis " + chassisId + " is not a loaded part type"));
                 continue;
             }
-            if (!"CHASSIS"
-                    .equalsIgnoreCase(parts.get(chassisId).path("category").asText(""))) {
+            JsonNode chassis = parts.get(chassisId).document();
+            if (!"CHASSIS".equalsIgnoreCase(chassis.path("category").asText(""))) {
                 findings.add(Finding.error("A301", id, "the root part " + chassisId + " is not a chassis"));
             }
+            checkPartOwnership(id, directoryName, chassisId, parts.get(chassisId));
 
-            double totalMassKg = parts.get(chassisId).path("massKg").asDouble(0d);
-            double powerBudget = parts.get(chassisId).path("powerCost").asDouble(0d);
+            double totalMassKg = chassis.path("massKg").asDouble(0d);
+            double powerBudget = chassis.path("powerCost").asDouble(0d);
             int partCount = 1;
             int wheelCount = 0;
             Set<String> occupiedSlots = new TreeSet<>();
             for (JsonNode placement : root.path("parts")) {
                 String partTypeId = placement.path("partTypeId").asText("");
-                JsonNode part = parts.get(partTypeId);
-                if (part == null) {
+                PartRecord record = parts.get(partTypeId);
+                if (record == null) {
                     findings.add(Finding.error("A304", id, "part type " + partTypeId + " is not in the catalogue"));
                     continue;
                 }
+                JsonNode part = record.document();
+                checkPartOwnership(id, directoryName, partTypeId, record);
                 String slotPath = placement.path("slotPath").asText("");
                 String expectedPath = placement.path("parentSlotPath").asText("") + "/"
                         + placement.path("parentSlotId").asText("");

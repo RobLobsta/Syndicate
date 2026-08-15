@@ -1,0 +1,28 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=glass_eclipse_side_window_r_01_col",
+    "fractureManifest": "fracture_manifest.json",
+    "shardMesh": "shards.glb",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 250.0,
+  "category": "DECORATIVE",
+  "destructionClass": "GLASS",
+  "displayName": "Side Window Glass (Right)",
+  "hangsBeforeFalling": true,
+  "massKg": 7.862,
+  "materialId": "glass",
+  "maxHp": 25.0,
+  "partTypeId": "glass_eclipse_side_window_r_01",
+  "powerCost": 0.268,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "glass",
+    "prepared",
+    "side_window"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=light_eclipse_tail_r_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 387.8,
+  "category": "DECORATIVE",
+  "destructionClass": "RIGID",
+  "displayName": "Tail Light (Right)",
+  "hangsBeforeFalling": false,
+  "massKg": 4.562,
+  "materialId": "plastic",
+  "maxHp": 45.6,
+  "partTypeId": "light_eclipse_tail_r_01",
+  "powerCost": 0.59,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "light",
+    "prepared",
+    "tail"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=glass_stampede_windscreen_01_col",
+    "fractureManifest": "fracture_manifest.json",
+    "shardMesh": "shards.glb",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 415.3,
+  "category": "DECORATIVE",
+  "destructionClass": "GLASS",
+  "displayName": "Windscreen Glass",
+  "hangsBeforeFalling": true,
+  "massKg": 20.767,
+  "materialId": "glass",
+  "maxHp": 62.3,
+  "partTypeId": "glass_stampede_windscreen_01",
+  "powerCost": 0.711,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "glass",
+    "prepared",
+    "windscreen"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=decal_eclipse_r_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 250.0,
+  "category": "DECORATIVE",
+  "destructionClass": "NONE",
+  "displayName": "Decal (Right)",
+  "hangsBeforeFalling": false,
+  "massKg": 0.804,
+  "materialId": "trim",
+  "maxHp": 25.0,
+  "partTypeId": "decal_eclipse_r_01",
+  "powerCost": 0.05,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "decal",
+    "prepared"
+  ]
+}

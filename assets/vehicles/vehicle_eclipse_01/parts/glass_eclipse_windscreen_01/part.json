@@ -1,0 +1,28 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=glass_eclipse_windscreen_01_col",
+    "fractureManifest": "fracture_manifest.json",
+    "shardMesh": "shards.glb",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 461.0,
+  "category": "DECORATIVE",
+  "destructionClass": "GLASS",
+  "displayName": "Windscreen Glass",
+  "hangsBeforeFalling": true,
+  "massKg": 23.05,
+  "materialId": "glass",
+  "maxHp": 69.2,
+  "partTypeId": "glass_eclipse_windscreen_01",
+  "powerCost": 0.802,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "glass",
+    "prepared",
+    "windscreen"
+  ]
+}

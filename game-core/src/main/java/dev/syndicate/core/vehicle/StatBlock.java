@@ -27,6 +27,11 @@ import java.util.Arrays;
  * line (DEC-032). Without it a vehicle's tractive force is constant at every speed, which makes the
  * derived top speed of D05-S5.6 phase 4 a function of the <em>launch</em> force — and a car
  * calibrated to a real 0-100 time then reports a top speed several times what it has.
+ *
+ * <p>{@code MODULE_DURATION_S} and {@code MODULE_COOLDOWN_S} are the sixteenth and seventeenth,
+ * added with {@link dev.syndicate.core.asset.ModuleBlock} and amended into D05-S4.5 in the same
+ * commit. They are stats rather than fields on that block for the reason every other number is: a
+ * damaged cloak must stay lit for less time, and only a stat degrades.
  */
 public final class StatBlock {
 
@@ -46,7 +51,9 @@ public final class StatBlock {
         SPREAD_RAD,
         HEAT_PER_SHOT,
         PROJECTILE_SPEED_MPS,
-        SENSOR_RANGE_M;
+        SENSOR_RANGE_M,
+        MODULE_DURATION_S,
+        MODULE_COOLDOWN_S;
 
         /** How many stats exist. Cached because it is an array length on a hot path. */
         public static final int COUNT = values().length;

@@ -1,0 +1,28 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=glass_stampede_rear_window_01_col",
+    "fractureManifest": "fracture_manifest.json",
+    "shardMesh": "shards.glb",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 428.0,
+  "category": "DECORATIVE",
+  "destructionClass": "GLASS",
+  "displayName": "Rear Window Glass",
+  "hangsBeforeFalling": true,
+  "massKg": 21.398,
+  "materialId": "glass",
+  "maxHp": 64.2,
+  "partTypeId": "glass_stampede_rear_window_01",
+  "powerCost": 0.733,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "glass",
+    "prepared",
+    "rear_window"
+  ]
+}

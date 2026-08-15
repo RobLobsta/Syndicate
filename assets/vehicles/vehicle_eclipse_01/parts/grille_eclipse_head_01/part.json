@@ -1,0 +1,26 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=grille_eclipse_head_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 250.0,
+  "category": "DECORATIVE",
+  "destructionClass": "RIGID",
+  "displayName": "Head Grille",
+  "hangsBeforeFalling": false,
+  "massKg": 0.832,
+  "materialId": "plastic",
+  "maxHp": 25.0,
+  "partTypeId": "grille_eclipse_head_01",
+  "powerCost": 0.108,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "grille",
+    "head",
+    "prepared"
+  ]
+}

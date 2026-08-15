@@ -1,0 +1,1260 @@
+{
+  "displayName": "Stampede",
+  "generatedBy": "syndicate-prepare (D15-S5.1)",
+  "hardpoints": [
+    {
+      "localPosition": {
+        "x": 0.0,
+        "y": 0.8524,
+        "z": 1.7729
+      },
+      "maxMassKg": 157.5,
+      "slotId": "hardpoint_bonnet",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "localPosition": {
+        "x": -0.9589,
+        "y": 0.7562,
+        "z": 0.0018
+      },
+      "maxMassKg": 157.5,
+      "slotId": "hardpoint_flank_l",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "localPosition": {
+        "x": 0.9589,
+        "y": 0.7562,
+        "z": 0.0018
+      },
+      "maxMassKg": 157.5,
+      "slotId": "hardpoint_flank_r",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "localPosition": {
+        "x": 0.0,
+        "y": 0.9074,
+        "z": -1.8676
+      },
+      "maxMassKg": 157.5,
+      "slotId": "hardpoint_rear",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "localPosition": {
+        "x": 0.0,
+        "y": 1.4024,
+        "z": -0.0965
+      },
+      "maxMassKg": 157.5,
+      "slotId": "turret_main",
+      "slotType": "TURRET_MOUNT"
+    }
+  ],
+  "parts": [
+    {
+      "armorValue": 20.77,
+      "breakImpulseN": 24983.9,
+      "category": "CHASSIS",
+      "destruction": {
+        "morphTargets": [
+          "dmg_25",
+          "dmg_50",
+          "dmg_75",
+          "dmg_100"
+        ],
+        "notes": [
+          "damage morphs generated at 0.03 m amplitude"
+        ],
+        "planned": {
+          "destructionClass": "STRUCTURAL",
+          "fractureShards": 0,
+          "morphTargets": [
+            "dmg_25",
+            "dmg_50",
+            "dmg_75",
+            "dmg_100"
+          ],
+          "subdivideEdgeM": 0.6,
+          "yieldImpulseNs": 9000.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "STRUCTURAL",
+      "detachable": false,
+      "displayName": "Chassis",
+      "geometry": {
+        "areaM2": 52.1561,
+        "enclosedM3": 8.76468,
+        "originM": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "shells": 849,
+        "triangles": 108744
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "chassis",
+      "massKg": 1561.493,
+      "materialId": "steel",
+      "maxHp": 3123.0,
+      "partTypeId": "chassis_stampede_01",
+      "powerCost": 40.887,
+      "role": null,
+      "side": "c",
+      "slots": [
+        "root"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 428.0,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "GLASS",
+          "fractureShards": 24,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 24
+      },
+      "destructionClass": "GLASS",
+      "detachable": true,
+      "displayName": "Rear Window Glass",
+      "geometry": {
+        "areaM2": 1.7091,
+        "enclosedM3": 0.796438,
+        "originM": {
+          "x": -0.0297,
+          "y": 1.0044,
+          "z": -1.4206
+        },
+        "shells": 3,
+        "triangles": 574
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "glass",
+      "massKg": 21.398,
+      "materialId": "glass",
+      "maxHp": 64.2,
+      "partTypeId": "glass_stampede_rear_window_01",
+      "powerCost": 0.733,
+      "role": "rear_window",
+      "side": "c",
+      "slots": [
+        "glass_rear_window"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 250.0,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "GLASS",
+          "fractureShards": 24,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 24
+      },
+      "destructionClass": "GLASS",
+      "detachable": true,
+      "displayName": "Side Window Glass (Left)",
+      "geometry": {
+        "areaM2": 0.6956,
+        "enclosedM3": 0.265511,
+        "originM": {
+          "x": -0.7439,
+          "y": 1.103,
+          "z": -0.3807
+        },
+        "shells": 3,
+        "triangles": 363
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "glass",
+      "massKg": 8.822,
+      "materialId": "glass",
+      "maxHp": 26.5,
+      "partTypeId": "glass_stampede_side_window_l_01",
+      "powerCost": 0.298,
+      "role": "side_window",
+      "side": "l",
+      "slots": [
+        "glass_side_window_l"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 250.0,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "GLASS",
+          "fractureShards": 24,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 24
+      },
+      "destructionClass": "GLASS",
+      "detachable": true,
+      "displayName": "Side Window Glass (Right)",
+      "geometry": {
+        "areaM2": 0.6956,
+        "enclosedM3": 0.25312,
+        "originM": {
+          "x": 0.6844,
+          "y": 1.103,
+          "z": -0.3807
+        },
+        "shells": 3,
+        "triangles": 363
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "glass",
+      "massKg": 8.844,
+      "materialId": "glass",
+      "maxHp": 26.5,
+      "partTypeId": "glass_stampede_side_window_r_01",
+      "powerCost": 0.298,
+      "role": "side_window",
+      "side": "r",
+      "slots": [
+        "glass_side_window_r"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 415.3,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "GLASS",
+          "fractureShards": 24,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 24
+      },
+      "destructionClass": "GLASS",
+      "detachable": true,
+      "displayName": "Windscreen Glass",
+      "geometry": {
+        "areaM2": 1.6592,
+        "enclosedM3": 0.689466,
+        "originM": {
+          "x": -0.0297,
+          "y": 1.1176,
+          "z": 0.4682
+        },
+        "shells": 2,
+        "triangles": 781
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "glass",
+      "massKg": 20.767,
+      "materialId": "glass",
+      "maxHp": 62.3,
+      "partTypeId": "glass_stampede_windscreen_01",
+      "powerCost": 0.711,
+      "role": "windscreen",
+      "side": "c",
+      "slots": [
+        "glass_windscreen"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 250.0,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "GLASS",
+          "fractureShards": 24,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 24
+      },
+      "destructionClass": "GLASS",
+      "detachable": true,
+      "displayName": "Windscreen Glass",
+      "geometry": {
+        "areaM2": 0.289,
+        "enclosedM3": 0.082083,
+        "originM": {
+          "x": -0.0297,
+          "y": 0.6759,
+          "z": 1.9606
+        },
+        "shells": 2,
+        "triangles": 2112
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "glass",
+      "massKg": 3.837,
+      "materialId": "glass",
+      "maxHp": 25.0,
+      "partTypeId": "glass_stampede_windscreen_1_01",
+      "powerCost": 0.124,
+      "role": "windscreen",
+      "side": "c",
+      "slots": [
+        "glass_windscreen_1"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 656.7,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Head Grille",
+      "geometry": {
+        "areaM2": 0.4292,
+        "enclosedM3": 0.117587,
+        "originM": {
+          "x": -0.0297,
+          "y": 0.7778,
+          "z": 0.5021
+        },
+        "shells": 10,
+        "triangles": 1420
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "grille",
+      "massKg": 7.726,
+      "materialId": "plastic",
+      "maxHp": 77.3,
+      "partTypeId": "grille_stampede_head_01",
+      "powerCost": 0.978,
+      "role": "head",
+      "side": "c",
+      "slots": [
+        "grille_head"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 485.4,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Head Grille",
+      "geometry": {
+        "areaM2": 0.3173,
+        "enclosedM3": 0.20525,
+        "originM": {
+          "x": -0.0297,
+          "y": 0.4543,
+          "z": 2.1773
+        },
+        "shells": 30,
+        "triangles": 190
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "grille",
+      "massKg": 5.711,
+      "materialId": "plastic",
+      "maxHp": 57.1,
+      "partTypeId": "grille_stampede_head_1_01",
+      "powerCost": 0.723,
+      "role": "head",
+      "side": "c",
+      "slots": [
+        "grille_head_1"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 250.0,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Head Grille (Left)",
+      "geometry": {
+        "areaM2": 0.1236,
+        "enclosedM3": 0.051211,
+        "originM": {
+          "x": -0.3763,
+          "y": 0.9026,
+          "z": 1.6911
+        },
+        "shells": 1,
+        "triangles": 44
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "grille",
+      "massKg": 2.224,
+      "materialId": "plastic",
+      "maxHp": 25.0,
+      "partTypeId": "grille_stampede_head_l_01",
+      "powerCost": 0.282,
+      "role": "head",
+      "side": "l",
+      "slots": [
+        "grille_head_l"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 250.0,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Head Grille (Right)",
+      "geometry": {
+        "areaM2": 0.0614,
+        "enclosedM3": 0.008258,
+        "originM": {
+          "x": 0.4942,
+          "y": 0.8901,
+          "z": 0.3239
+        },
+        "shells": 5,
+        "triangles": 565
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "grille",
+      "massKg": 1.105,
+      "materialId": "plastic",
+      "maxHp": 25.0,
+      "partTypeId": "grille_stampede_head_r_01",
+      "powerCost": 0.14,
+      "role": "head",
+      "side": "r",
+      "slots": [
+        "grille_head_r"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 250.0,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Head Grille (Right)",
+      "geometry": {
+        "areaM2": 0.1236,
+        "enclosedM3": 0.051085,
+        "originM": {
+          "x": 0.3168,
+          "y": 0.9026,
+          "z": 1.6911
+        },
+        "shells": 1,
+        "triangles": 44
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "grille",
+      "massKg": 2.224,
+      "materialId": "plastic",
+      "maxHp": 25.0,
+      "partTypeId": "grille_stampede_head_r_1_01",
+      "powerCost": 0.282,
+      "role": "head",
+      "side": "r",
+      "slots": [
+        "grille_head_r_1"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 250.0,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Tail Grille (Left)",
+      "geometry": {
+        "areaM2": 0.1162,
+        "enclosedM3": 0.073233,
+        "originM": {
+          "x": -0.2273,
+          "y": 0.847,
+          "z": -2.2628
+        },
+        "shells": 3,
+        "triangles": 113
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "grille",
+      "massKg": 2.091,
+      "materialId": "plastic",
+      "maxHp": 25.0,
+      "partTypeId": "grille_stampede_tail_l_01",
+      "powerCost": 0.265,
+      "role": "tail",
+      "side": "l",
+      "slots": [
+        "grille_tail_l"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 250.0,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Tail Grille (Left)",
+      "geometry": {
+        "areaM2": 0.1076,
+        "enclosedM3": 0.002085,
+        "originM": {
+          "x": -0.176,
+          "y": 0.732,
+          "z": -1.3568
+        },
+        "shells": 14,
+        "triangles": 1640
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "grille",
+      "massKg": 1.937,
+      "materialId": "plastic",
+      "maxHp": 25.0,
+      "partTypeId": "grille_stampede_tail_l_1_01",
+      "powerCost": 0.245,
+      "role": "tail",
+      "side": "l",
+      "slots": [
+        "grille_tail_l_1"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 250.0,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Tail Grille (Right)",
+      "geometry": {
+        "areaM2": 0.1162,
+        "enclosedM3": 0.073129,
+        "originM": {
+          "x": 0.1679,
+          "y": 0.847,
+          "z": -2.2628
+        },
+        "shells": 3,
+        "triangles": 113
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "grille",
+      "massKg": 2.091,
+      "materialId": "plastic",
+      "maxHp": 25.0,
+      "partTypeId": "grille_stampede_tail_r_01",
+      "powerCost": 0.265,
+      "role": "tail",
+      "side": "r",
+      "slots": [
+        "grille_tail_r"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 250.0,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Tail Grille (Right)",
+      "geometry": {
+        "areaM2": 0.0737,
+        "enclosedM3": 0.001604,
+        "originM": {
+          "x": 0.1473,
+          "y": 0.6645,
+          "z": -1.3889
+        },
+        "shells": 10,
+        "triangles": 1141
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "grille",
+      "massKg": 1.326,
+      "materialId": "plastic",
+      "maxHp": 25.0,
+      "partTypeId": "grille_stampede_tail_r_1_01",
+      "powerCost": 0.168,
+      "role": "tail",
+      "side": "r",
+      "slots": [
+        "grille_tail_r_1"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 1268.9,
+      "category": "UTILITY",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Hub (Left)",
+      "geometry": {
+        "areaM2": 1.6723,
+        "enclosedM3": 0.290587,
+        "originM": {
+          "x": -0.8835,
+          "y": 0.3929,
+          "z": 1.2987
+        },
+        "shells": 195,
+        "triangles": 1466
+      },
+      "hinged": false,
+      "instances": 2,
+      "label": "hub",
+      "massKg": 14.928,
+      "materialId": "steel",
+      "maxHp": 149.3,
+      "partTypeId": "hub_stampede_front_01",
+      "powerCost": 1.891,
+      "role": null,
+      "side": "l",
+      "slots": [
+        "hub_fl",
+        "hub_fr"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 1098.0,
+      "category": "UTILITY",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Hub (Left)",
+      "geometry": {
+        "areaM2": 1.4446,
+        "enclosedM3": 0.331533,
+        "originM": {
+          "x": -0.6684,
+          "y": 0.409,
+          "z": -1.4437
+        },
+        "shells": 357,
+        "triangles": 2140
+      },
+      "hinged": false,
+      "instances": 2,
+      "label": "hub",
+      "massKg": 12.918,
+      "materialId": "steel",
+      "maxHp": 129.2,
+      "partTypeId": "hub_stampede_rear_01",
+      "powerCost": 1.636,
+      "role": null,
+      "side": "l",
+      "slots": [
+        "hub_rl",
+        "hub_rr"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 418.5,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "NONE",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "NONE",
+      "detachable": false,
+      "displayName": "Interior",
+      "geometry": {
+        "areaM2": 3.9857,
+        "enclosedM3": 0.425388,
+        "originM": {
+          "x": -0.0297,
+          "y": 0.7614,
+          "z": -0.5009
+        },
+        "shells": 76,
+        "triangles": 11049
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "interior",
+      "massKg": 13.95,
+      "materialId": "trim",
+      "maxHp": 69.8,
+      "partTypeId": "interior_stampede_01",
+      "powerCost": 0.847,
+      "role": null,
+      "side": "c",
+      "slots": [
+        "interior"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 251.3,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "NONE",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "NONE",
+      "detachable": false,
+      "displayName": "Interior (Left)",
+      "geometry": {
+        "areaM2": 2.3938,
+        "enclosedM3": 0.180952,
+        "originM": {
+          "x": -0.4286,
+          "y": 0.7575,
+          "z": -0.0779
+        },
+        "shells": 128,
+        "triangles": 14992
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "interior",
+      "massKg": 8.378,
+      "materialId": "trim",
+      "maxHp": 41.9,
+      "partTypeId": "interior_stampede_l_01",
+      "powerCost": 0.508,
+      "role": null,
+      "side": "l",
+      "slots": [
+        "interior_l"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 401.1,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "NONE",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "NONE",
+      "detachable": false,
+      "displayName": "Interior (Right)",
+      "geometry": {
+        "areaM2": 3.8204,
+        "enclosedM3": 0.307871,
+        "originM": {
+          "x": 0.3329,
+          "y": 0.7523,
+          "z": -0.0994
+        },
+        "shells": 151,
+        "triangles": 27287
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "interior",
+      "massKg": 13.371,
+      "materialId": "trim",
+      "maxHp": 66.9,
+      "partTypeId": "interior_stampede_r_01",
+      "powerCost": 0.811,
+      "role": null,
+      "side": "r",
+      "slots": [
+        "interior_r"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 662.9,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Head Light (Left)",
+      "geometry": {
+        "areaM2": 0.4333,
+        "enclosedM3": 0.115946,
+        "originM": {
+          "x": -0.7928,
+          "y": 0.4551,
+          "z": 1.8953
+        },
+        "shells": 30,
+        "triangles": 3932
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "light",
+      "massKg": 7.799,
+      "materialId": "plastic",
+      "maxHp": 78.0,
+      "partTypeId": "light_stampede_head_l_01",
+      "powerCost": 0.988,
+      "role": "head",
+      "side": "l",
+      "slots": [
+        "light_fl"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 704.4,
+      "category": "DECORATIVE",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Head Light (Right)",
+      "geometry": {
+        "areaM2": 0.4604,
+        "enclosedM3": 0.130733,
+        "originM": {
+          "x": 0.7333,
+          "y": 0.4624,
+          "z": 1.889
+        },
+        "shells": 32,
+        "triangles": 3950
+      },
+      "hinged": false,
+      "instances": 1,
+      "label": "light",
+      "massKg": 8.287,
+      "materialId": "plastic",
+      "maxHp": 82.9,
+      "partTypeId": "light_stampede_head_r_01",
+      "powerCost": 1.049,
+      "role": "head",
+      "side": "r",
+      "slots": [
+        "light_fr"
+      ]
+    },
+    {
+      "armorValue": 16.01,
+      "breakImpulseN": 1830.0,
+      "category": "PANEL",
+      "destruction": {
+        "morphTargets": [
+          "dmg_25",
+          "dmg_50",
+          "dmg_75",
+          "dmg_100"
+        ],
+        "notes": [],
+        "planned": {
+          "destructionClass": "SHEET_METAL",
+          "fractureShards": 0,
+          "morphTargets": [
+            "dmg_25",
+            "dmg_50",
+            "dmg_75",
+            "dmg_100"
+          ],
+          "subdivideEdgeM": 0.08,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "SHEET_METAL",
+      "detachable": true,
+      "displayName": "Door Panel (Left)",
+      "geometry": {
+        "areaM2": 2.3342,
+        "enclosedM3": 0.381838,
+        "originM": {
+          "x": -0.8836,
+          "y": 0.6332,
+          "z": -0.0105
+        },
+        "shells": 3,
+        "triangles": 5042
+      },
+      "hinged": true,
+      "instances": 1,
+      "label": "panel",
+      "massKg": 45.75,
+      "materialId": "steel",
+      "maxHp": 366.0,
+      "partTypeId": "panel_stampede_door_l_01",
+      "powerCost": 5.643,
+      "role": "door",
+      "side": "l",
+      "slots": [
+        "panel_door_l"
+      ]
+    },
+    {
+      "armorValue": 9.58,
+      "breakImpulseN": 1095.0,
+      "category": "PANEL",
+      "destruction": {
+        "morphTargets": [
+          "dmg_25",
+          "dmg_50",
+          "dmg_75",
+          "dmg_100"
+        ],
+        "notes": [],
+        "planned": {
+          "destructionClass": "SHEET_METAL",
+          "fractureShards": 0,
+          "morphTargets": [
+            "dmg_25",
+            "dmg_50",
+            "dmg_75",
+            "dmg_100"
+          ],
+          "subdivideEdgeM": 0.08,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "SHEET_METAL",
+      "detachable": true,
+      "displayName": "Door Panel (Right)",
+      "geometry": {
+        "areaM2": 1.3967,
+        "enclosedM3": 0.253212,
+        "originM": {
+          "x": 0.8713,
+          "y": 0.5976,
+          "z": -0.0105
+        },
+        "shells": 1,
+        "triangles": 2386
+      },
+      "hinged": true,
+      "instances": 1,
+      "label": "panel",
+      "massKg": 27.375,
+      "materialId": "steel",
+      "maxHp": 219.0,
+      "partTypeId": "panel_stampede_door_r_01",
+      "powerCost": 3.377,
+      "role": "door",
+      "side": "r",
+      "slots": [
+        "panel_door_r"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 2774.9,
+      "category": "WHEEL",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Wheel (Left)",
+      "geometry": {
+        "areaM2": 3.6273,
+        "enclosedM3": 0.727657,
+        "originM": {
+          "x": -0.8837,
+          "y": 0.3552,
+          "z": 1.3904
+        },
+        "shells": 248,
+        "triangles": 8107
+      },
+      "hinged": false,
+      "instances": 2,
+      "label": "wheel",
+      "massKg": 32.646,
+      "materialId": "rubber",
+      "maxHp": 326.5,
+      "partTypeId": "wheel_stampede_front_01",
+      "powerCost": 4.134,
+      "role": null,
+      "side": "l",
+      "slots": [
+        "wheel_fl",
+        "wheel_fr"
+      ]
+    },
+    {
+      "armorValue": 0.0,
+      "breakImpulseN": 3039.2,
+      "category": "WHEEL",
+      "destruction": {
+        "morphTargets": [],
+        "notes": [],
+        "planned": {
+          "destructionClass": "RIGID",
+          "fractureShards": 0,
+          "morphTargets": [],
+          "subdivideEdgeM": 0.0,
+          "yieldImpulseNs": 0.0
+        },
+        "shards": 0
+      },
+      "destructionClass": "RIGID",
+      "detachable": true,
+      "displayName": "Wheel (Left)",
+      "geometry": {
+        "areaM2": 4.1633,
+        "enclosedM3": 0.823519,
+        "originM": {
+          "x": -0.8832,
+          "y": 0.362,
+          "z": -1.3209
+        },
+        "shells": 299,
+        "triangles": 8282
+      },
+      "hinged": false,
+      "instances": 2,
+      "label": "wheel",
+      "massKg": 35.755,
+      "materialId": "rubber",
+      "maxHp": 357.6,
+      "partTypeId": "wheel_stampede_rear_01",
+      "powerCost": 4.528,
+      "role": null,
+      "side": "l",
+      "slots": [
+        "wheel_rl",
+        "wheel_rr"
+      ]
+    }
+  ],
+  "schemaVersion": "1.0.0",
+  "source": {
+    "massSource": "the researched kerb mass of the Ford Mustang GTD (2025)",
+    "modelDir": "../art-source/vehicles/stampede",
+    "referenceVehicle": "Ford Mustang GTD (2025)",
+    "seed": 1,
+    "sourceKind": "realistic",
+    "styleId": "style_syndicate_default"
+  },
+  "totals": {
+    "chassisMassKg": 1561.493,
+    "deformableParts": 3,
+    "fracturedParts": 5,
+    "hingedParts": 2,
+    "partTypes": 26,
+    "placedParts": 30,
+    "powerBudget": 84.0,
+    "totalMassKg": 1969.0,
+    "triangles": 206840
+  },
+  "vehicleClass": "heavy",
+  "vehicleTypeId": "vehicle_stampede_01"
+}

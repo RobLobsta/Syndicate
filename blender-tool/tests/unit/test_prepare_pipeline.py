@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from syndicate_prepare import manifest as manifest_module
 from syndicate_prepare import prepare
 from syndicate_prepare.destruction import TREATMENTS, treatment_for
 from syndicate_prepare.labels import (
@@ -104,15 +105,40 @@ def test_the_assembly_references_only_parts_that_were_written(built):
         assert row["partTypeId"] in written
 
 
-def test_every_slot_the_chassis_offers_is_filled_by_exactly_one_row(built):
-    chassis = next(
+def chassis_document(built):
+    return next(
         json.loads(Path(path).read_text())
         for path in built["build"]["written"]
         if path.endswith("part.json") and "chassis_pickup_01" in path
     )
-    offered = sorted(slot["slotId"] for slot in chassis["slots"])
+
+
+def test_every_part_slot_the_chassis_offers_is_filled_by_exactly_one_row(built):
+    chassis = chassis_document(built)
+    offered = sorted(
+        slot["slotId"]
+        for slot in chassis["slots"]
+        if slot["slotId"] not in manifest_module.HARDPOINT_SLOT_IDS
+    )
     filled = sorted(row["parentSlotId"] for row in built["build"]["assembly"]["parts"])
     assert offered == filled
+
+
+def test_the_chassis_offers_hardpoints_and_the_assembly_fills_none_of_them(built):
+    """D15-R42: a mounting point for content this model does not contain."""
+    chassis = chassis_document(built)
+    hardpoints = {
+        slot["slotId"]: slot
+        for slot in chassis["slots"]
+        if slot["slotId"] in manifest_module.HARDPOINT_SLOT_IDS
+    }
+    assert set(hardpoints) == set(manifest_module.HARDPOINT_SLOT_IDS)
+    assert not hardpoints.keys() & {
+        row["parentSlotId"] for row in built["build"]["assembly"]["parts"]
+    }
+    # Every one of them must take a real weapon, not a badge.
+    for slot in hardpoints.values():
+        assert slot["maxMassKg"] >= manifest_module.HARDPOINT_MIN_MASS_KG
 
 
 def test_the_report_blocks_name_every_stage(built):

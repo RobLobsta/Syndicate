@@ -6,9 +6,12 @@ be done from the tool side, on the two things they cannot check for each other: 
 mesh named in a `part.json` **exists and contains the nodes and morph targets it promises**,
 and that the assembly and the parts agree about slots.
 
-Run it after `syndicate-prepare --out`:
+Run it after `syndicate-prepare --assets`:
 
-    python3 tools/verify_prepared.py <parts dir> <vehicles dir>
+    python3 tools/verify_prepared.py <asset root>
+
+It walks both part buckets of D08-R14b — the shared library in `parts/` and each vehicle's own
+`vehicles/<id>/parts/` — because a vehicle's assembly may reference either.
 
 Exit 0 if the vehicle would load, 1 with a list of findings if not. It needs a Blender host,
 because the only honest way to ask what is in a `.glb` is to open it.
@@ -27,6 +30,19 @@ COLLISION_SUFFIX = "_col"
 
 #: The canonical damage morph names (D08-R6, D07-S5.5).
 CANONICAL_MORPHS = ["dmg_25", "dmg_50", "dmg_75", "dmg_100"]
+
+#: Slots a prepared vehicle offers and deliberately leaves empty (D15-R42, `manifest.HARDPOINTS`).
+#: A hardpoint with nothing on it is the normal state of every vehicle in the game until a player
+#: fits something, so "offered and never filled" is a finding for every other slot and not for
+#: these. Matched by id rather than by slot type, because a brake hub also sits in a
+#: HARDPOINT-typed slot (DEC-063) and a missing one is a real finding.
+UNFILLED_SLOT_IDS = {
+    "turret_main",
+    "hardpoint_bonnet",
+    "hardpoint_rear",
+    "hardpoint_flank_l",
+    "hardpoint_flank_r",
+}
 
 
 def read_glb(path: Path) -> dict:
@@ -48,11 +64,24 @@ def read_glb(path: Path) -> dict:
     return contents
 
 
-def verify(parts_root: Path, vehicles_root: Path) -> list[str]:
+def part_directories(asset_root: Path) -> list[Path]:
+    """Every part directory under an asset root, shared first (`AssetPaths.partDirectories`)."""
+    directories = sorted(
+        child for child in (asset_root / "parts").glob("*") if child.is_dir()
+    )
+    for vehicle in sorted(child for child in (asset_root / "vehicles").glob("*") if child.is_dir()):
+        directories.extend(
+            sorted(child for child in (vehicle / "parts").glob("*") if child.is_dir())
+        )
+    return directories
+
+
+def verify(asset_root: Path) -> list[str]:
     findings: list[str] = []
     parts: dict[str, dict] = {}
+    vehicles_root = asset_root / "vehicles"
 
-    for directory in sorted(parts_root.iterdir()):
+    for directory in part_directories(asset_root):
         manifest = directory / "part.json"
         if not manifest.is_file():
             findings.append(f"{directory.name}: no part.json")
@@ -96,8 +125,12 @@ def verify(parts_root: Path, vehicles_root: Path) -> list[str]:
             if optional in assets and not (directory / assets[optional]).is_file():
                 findings.append(f"{directory.name}: {assets[optional]} is missing")
 
-    for directory in sorted(vehicles_root.iterdir()):
-        assembly = json.loads((directory / "assembly.json").read_text())
+    for directory in sorted(child for child in vehicles_root.glob("*") if child.is_dir()):
+        assembly_file = directory / "assembly.json"
+        if not assembly_file.is_file():
+            findings.append(f"{directory.name}: no assembly.json")
+            continue
+        assembly = json.loads(assembly_file.read_text())
         chassis = parts.get(assembly["chassis"])
         if chassis is None:
             findings.append(f"{directory.name}: chassis {assembly['chassis']} was not exported")
@@ -129,6 +162,8 @@ def verify(parts_root: Path, vehicles_root: Path) -> list[str]:
         if len(filled) != len(set(filled)):
             findings.append(f"{directory.name}: a slot is filled twice")
         for unused in sorted(set(offered) - set(filled)):
+            if unused in UNFILLED_SLOT_IDS:
+                continue
             findings.append(f"{directory.name}: slot {unused} is offered and never filled")
 
         total = sum(parts[row["partTypeId"]]["massKg"] for row in assembly["parts"])
@@ -149,11 +184,13 @@ def verify(parts_root: Path, vehicles_root: Path) -> list[str]:
 
 
 def main() -> int:
-    parts_root, vehicles_root = Path(sys.argv[1]), Path(sys.argv[2])
-    findings = verify(parts_root, vehicles_root)
+    asset_root = Path(sys.argv[1])
+    findings = verify(asset_root)
+    vehicles = [child for child in (asset_root / "vehicles").glob("*") if child.is_dir()]
     document = {
-        "parts": len(list(parts_root.iterdir())),
-        "vehicles": len(list(vehicles_root.iterdir())),
+        "assetRoot": str(asset_root),
+        "parts": len(part_directories(asset_root)),
+        "vehicles": len(vehicles),
         "findings": findings,
         "ok": not findings,
     }

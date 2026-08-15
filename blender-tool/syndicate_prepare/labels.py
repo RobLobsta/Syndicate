@@ -27,6 +27,7 @@ DECAL = "decal"
 GRILLE = "grille"
 INTERIOR = "interior"
 DRIVETRAIN = "drivetrain"
+WEAPON = "weapon"
 UNCLASSIFIED = "unclassified"
 
 #: Every label, in the order D15-S4.1 tabulates them.
@@ -42,6 +43,7 @@ LABELS = (
     GRILLE,
     INTERIOR,
     DRIVETRAIN,
+    WEAPON,
     UNCLASSIFIED,
 )
 
@@ -58,6 +60,7 @@ SLOT_ROLE = {
     GRILLE: "ACCESSORY",
     INTERIOR: None,
     DRIVETRAIN: "INTERNAL",
+    WEAPON: "TURRET_MOUNT",
     UNCLASSIFIED: "ROOT",
 }
 
@@ -75,6 +78,7 @@ DESTRUCTION_CLASS = {
     GRILLE: "RIGID",
     INTERIOR: "NONE",
     DRIVETRAIN: "STRUCTURAL",
+    WEAPON: "RIGID",
     UNCLASSIFIED: "SHEET_METAL",
 }
 
@@ -98,6 +102,7 @@ PART_CATEGORY = {
     GRILLE: "DECORATIVE",
     INTERIOR: "DECORATIVE",
     DRIVETRAIN: "UTILITY",
+    WEAPON: "WEAPON",
     UNCLASSIFIED: "CHASSIS",
 }
 
@@ -116,6 +121,7 @@ SLOT_TYPE_REQUIRED = {
     GRILLE: "ACCESSORY",
     INTERIOR: "ACCESSORY",
     DRIVETRAIN: "HARDPOINT",
+    WEAPON: "TURRET_MOUNT",
     UNCLASSIFIED: "ROOT",
 }
 
@@ -136,6 +142,7 @@ DEFAULT_MATERIAL = {
     GRILLE: "plastic",
     INTERIOR: "trim",
     DRIVETRAIN: "steel",
+    WEAPON: "steel_hardened",
     UNCLASSIFIED: "steel",
 }
 
@@ -152,6 +159,7 @@ DETACHES = {
     GRILLE: True,
     INTERIOR: False,
     DRIVETRAIN: True,
+    WEAPON: True,
     UNCLASSIFIED: False,
 }
 
@@ -202,6 +210,11 @@ ROTATION_SYMMETRY_MIN_DEG = 300.0
 
 #: Sectors the circle is divided into when measuring that coverage (D15-R21).
 ROTATION_SECTORS = 24
+
+#: Length-to-width ratio above which a `weapon` part's geometry is a barrel rather than a
+#: mount, and is therefore a cannon rather than an autocannon (D15-R41). A tank gun is ten
+#: times as long as it is wide; a turret ring is not.
+BARREL_ASPECT_MIN = 4.0
 
 #: A shell this far outside the body's hull is a stray fragment (D15-S5.5).
 STRAY_SHELL_M = 8.0

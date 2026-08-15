@@ -1,62 +1,218 @@
 {
-  "schemaVersion": "1.0.0",
-  "vehicleTypeId": "vehicle_eclipse_01",
-  "displayName": "Eclipse",
-  "vehicleClass": "medium",
-  "unlockLevel": 0,
   "chassis": "chassis_eclipse_01",
-  "parts": [
-    {
-      "slotPath": "root/wheel_fl",
-      "parentSlotPath": "root",
-      "parentSlotId": "wheel_fl",
-      "partTypeId": "wheel_eclipse_front_01",
-      "overrides": {
-        "isSteering": true,
-        "isDriven": false
-      }
-    },
-    {
-      "slotPath": "root/wheel_fr",
-      "parentSlotPath": "root",
-      "parentSlotId": "wheel_fr",
-      "partTypeId": "wheel_eclipse_front_01",
-      "overrides": {
-        "isSteering": true,
-        "isDriven": false
-      }
-    },
-    {
-      "slotPath": "root/wheel_rl",
-      "parentSlotPath": "root",
-      "parentSlotId": "wheel_rl",
-      "partTypeId": "wheel_eclipse_rear_01",
-      "overrides": {
-        "isSteering": false,
-        "isDriven": true
-      }
-    },
-    {
-      "slotPath": "root/wheel_rr",
-      "parentSlotPath": "root",
-      "parentSlotId": "wheel_rr",
-      "partTypeId": "wheel_eclipse_rear_01",
-      "overrides": {
-        "isSteering": false,
-        "isDriven": true
-      }
-    }
-  ],
   "cosmetics": {
     "paintSchemeId": "scheme_default_01"
   },
+  "displayName": "Eclipse",
   "expected": {
-    "totalMassKg": 1500.0,
-    "powerBudget": 74.0,
     "comLocal": {
-      "x": 0.0,
-      "y": 0.672,
-      "z": 0.186
+      "x": -0.0009,
+      "y": 0.6611,
+      "z": 0.1791
+    },
+    "powerBudget": 74.0,
+    "totalMassKg": 1500.0
+  },
+  "parts": [
+    {
+      "parentSlotId": "decal_r",
+      "parentSlotPath": "root",
+      "partTypeId": "decal_eclipse_r_01",
+      "slotPath": "root/decal_r"
+    },
+    {
+      "parentSlotId": "glass_rear_window",
+      "parentSlotPath": "root",
+      "partTypeId": "glass_eclipse_rear_window_01",
+      "slotPath": "root/glass_rear_window"
+    },
+    {
+      "parentSlotId": "glass_side_window_l",
+      "parentSlotPath": "root",
+      "partTypeId": "glass_eclipse_side_window_l_01",
+      "slotPath": "root/glass_side_window_l"
+    },
+    {
+      "parentSlotId": "glass_side_window_r",
+      "parentSlotPath": "root",
+      "partTypeId": "glass_eclipse_side_window_r_01",
+      "slotPath": "root/glass_side_window_r"
+    },
+    {
+      "parentSlotId": "glass_windscreen",
+      "parentSlotPath": "root",
+      "partTypeId": "glass_eclipse_windscreen_01",
+      "slotPath": "root/glass_windscreen"
+    },
+    {
+      "parentSlotId": "grille_head",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_eclipse_head_01",
+      "slotPath": "root/grille_head"
+    },
+    {
+      "parentSlotId": "grille_head_1",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_eclipse_head_1_01",
+      "slotPath": "root/grille_head_1"
+    },
+    {
+      "parentSlotId": "grille_head_l",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_eclipse_head_l_01",
+      "slotPath": "root/grille_head_l"
+    },
+    {
+      "parentSlotId": "grille_head_l_1",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_eclipse_head_l_1_01",
+      "slotPath": "root/grille_head_l_1"
+    },
+    {
+      "parentSlotId": "grille_head_l_2",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_eclipse_head_l_2_01",
+      "slotPath": "root/grille_head_l_2"
+    },
+    {
+      "parentSlotId": "grille_head_r",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_eclipse_head_r_01",
+      "slotPath": "root/grille_head_r"
+    },
+    {
+      "parentSlotId": "grille_tail",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_eclipse_tail_01",
+      "slotPath": "root/grille_tail"
+    },
+    {
+      "parentSlotId": "grille_tail_l",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_eclipse_tail_l_01",
+      "slotPath": "root/grille_tail_l"
+    },
+    {
+      "parentSlotId": "grille_tail_l_1",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_eclipse_tail_l_1_01",
+      "slotPath": "root/grille_tail_l_1"
+    },
+    {
+      "parentSlotId": "grille_tail_r",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_eclipse_tail_r_01",
+      "slotPath": "root/grille_tail_r"
+    },
+    {
+      "parentSlotId": "grille_tail_r_1",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_eclipse_tail_r_1_01",
+      "slotPath": "root/grille_tail_r_1"
+    },
+    {
+      "parentSlotId": "hub_fl",
+      "parentSlotPath": "root",
+      "partTypeId": "hub_eclipse_front_01",
+      "slotPath": "root/hub_fl"
+    },
+    {
+      "parentSlotId": "hub_fr",
+      "parentSlotPath": "root",
+      "partTypeId": "hub_eclipse_front_01",
+      "slotPath": "root/hub_fr"
+    },
+    {
+      "parentSlotId": "hub_rl",
+      "parentSlotPath": "root",
+      "partTypeId": "hub_eclipse_rear_01",
+      "slotPath": "root/hub_rl"
+    },
+    {
+      "parentSlotId": "hub_rr",
+      "parentSlotPath": "root",
+      "partTypeId": "hub_eclipse_rear_01",
+      "slotPath": "root/hub_rr"
+    },
+    {
+      "parentSlotId": "light_head_l",
+      "parentSlotPath": "root",
+      "partTypeId": "light_eclipse_head_l_01",
+      "slotPath": "root/light_head_l"
+    },
+    {
+      "parentSlotId": "light_head_r",
+      "parentSlotPath": "root",
+      "partTypeId": "light_eclipse_head_r_01",
+      "slotPath": "root/light_head_r"
+    },
+    {
+      "parentSlotId": "light_tail_l",
+      "parentSlotPath": "root",
+      "partTypeId": "light_eclipse_tail_l_01",
+      "slotPath": "root/light_tail_l"
+    },
+    {
+      "parentSlotId": "light_tail_r",
+      "parentSlotPath": "root",
+      "partTypeId": "light_eclipse_tail_r_01",
+      "slotPath": "root/light_tail_r"
+    },
+    {
+      "parentSlotId": "panel_door_l",
+      "parentSlotPath": "root",
+      "partTypeId": "panel_eclipse_door_l_01",
+      "slotPath": "root/panel_door_l"
+    },
+    {
+      "parentSlotId": "panel_door_r",
+      "parentSlotPath": "root",
+      "partTypeId": "panel_eclipse_door_r_01",
+      "slotPath": "root/panel_door_r"
+    },
+    {
+      "overrides": {
+        "isDriven": false,
+        "isSteering": true
+      },
+      "parentSlotId": "wheel_fl",
+      "parentSlotPath": "root",
+      "partTypeId": "wheel_eclipse_front_01",
+      "slotPath": "root/wheel_fl"
+    },
+    {
+      "overrides": {
+        "isDriven": false,
+        "isSteering": true
+      },
+      "parentSlotId": "wheel_fr",
+      "parentSlotPath": "root",
+      "partTypeId": "wheel_eclipse_front_01",
+      "slotPath": "root/wheel_fr"
+    },
+    {
+      "overrides": {
+        "isDriven": true,
+        "isSteering": false
+      },
+      "parentSlotId": "wheel_rl",
+      "parentSlotPath": "root",
+      "partTypeId": "wheel_eclipse_rear_01",
+      "slotPath": "root/wheel_rl"
+    },
+    {
+      "overrides": {
+        "isDriven": true,
+        "isSteering": false
+      },
+      "parentSlotId": "wheel_rr",
+      "parentSlotPath": "root",
+      "partTypeId": "wheel_eclipse_rear_01",
+      "slotPath": "root/wheel_rr"
     }
-  }
+  ],
+  "schemaVersion": "1.0.0",
+  "unlockLevel": 0,
+  "vehicleClass": "medium",
+  "vehicleTypeId": "vehicle_eclipse_01"
 }

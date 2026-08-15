@@ -1,0 +1,26 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=light_stampede_head_r_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 704.4,
+  "category": "DECORATIVE",
+  "destructionClass": "RIGID",
+  "displayName": "Head Light (Right)",
+  "hangsBeforeFalling": false,
+  "massKg": 8.287,
+  "materialId": "plastic",
+  "maxHp": 82.9,
+  "partTypeId": "light_stampede_head_r_01",
+  "powerCost": 1.049,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "head",
+    "light",
+    "prepared"
+  ]
+}

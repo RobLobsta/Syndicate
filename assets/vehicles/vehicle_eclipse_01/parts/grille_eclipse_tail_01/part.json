@@ -1,0 +1,26 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=grille_eclipse_tail_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 947.2,
+  "category": "DECORATIVE",
+  "destructionClass": "RIGID",
+  "displayName": "Tail Grille",
+  "hangsBeforeFalling": false,
+  "massKg": 11.144,
+  "materialId": "plastic",
+  "maxHp": 111.4,
+  "partTypeId": "grille_eclipse_tail_01",
+  "powerCost": 1.441,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "grille",
+    "prepared",
+    "tail"
+  ]
+}

@@ -39,17 +39,26 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="also write the report here, so a run that is being read by a human keeps a copy",
     )
     parser.add_argument(
+        "--assets",
+        type=Path,
+        default=None,
+        help="the asset root to write into. The vehicle's parts go to "
+        "<assets>/vehicles/vehicle_<name>_01/parts and its assembly beside them. Without it "
+        "the run classifies and reports but exports nothing, which is the form to run when a "
+        "threshold changed",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         default=None,
-        help="write the parts here (assets/parts). Without it the run classifies and reports "
-        "but exports nothing, which is the form to run when a threshold changed",
+        help="write the parts to this exact directory, overriding --assets. For a one-off run "
+        "into a scratch directory; the normal path is --assets",
     )
     parser.add_argument(
         "--vehicles",
         type=Path,
         default=None,
-        help="write the assembly here (assets/vehicles)",
+        help="write the assembly under this directory, overriding --assets",
     )
     parser.add_argument("--mass", type=float, default=None,
                         help="the vehicle's kerb mass in kg; inferred from its footprint if absent")
@@ -59,12 +68,48 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--material-table", type=Path,
                         default=Path("assets/materials/materials.json"))
     parser.add_argument("--balance-table", type=Path, default=Path("assets/balance/classes.json"))
+    parser.add_argument("--style-table", type=Path, default=Path("assets/materials/style.json"),
+                        help="the house style every source material is normalised into (D15-S9)")
+    parser.add_argument(
+        "--no-style",
+        action="store_true",
+        help="skip the style normalisation of D15-S9 and keep the source's own materials",
+    )
     parser.add_argument(
         "--no-write-import",
         action="store_true",
         help="do not record the derived correction in the model's import.json (DEC-036)",
     )
     return parser.parse_args(argv)
+
+
+def vehicle_type_id(vehicle: str) -> str:
+    """The assembly id a vehicle name produces, which is also its directory (D08-R6).
+
+    Duplicated from :func:`syndicate_prepare.manifest.build_assembly_document`\'s own
+    ``f"vehicle_{vehicle}_01"`` as three characters rather than imported, because importing it
+    would pull the manifest module — and through it the whole pipeline — into a CLI that must be
+    able to parse its arguments and reject them before Blender is ever touched.
+    """
+    return f"vehicle_{vehicle}_01"
+
+
+def resolve_outputs(args) -> tuple[Path | None, Path | None]:
+    """Where this run writes: the vehicle\'s own parts directory, and the vehicles root.
+
+    ``--assets`` is the normal form and derives both, which is what makes a part
+    *vehicle-owned* by construction rather than by an operator remembering to pass the right
+    path (D08-R14b). ``--out`` and ``--vehicles`` remain for a scratch run and override it.
+    """
+    parts_out = args.out
+    vehicles_out = args.vehicles
+    if args.assets is not None:
+        vehicles_root = args.assets / "vehicles"
+        if parts_out is None:
+            parts_out = vehicles_root / vehicle_type_id(args.vehicle) / "parts"
+        if vehicles_out is None:
+            vehicles_out = vehicles_root
+    return parts_out, vehicles_out
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -79,6 +124,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"model directory {args.model} does not exist", file=sys.stderr)
         return EXIT_INPUT_MISSING
 
+    parts_out, vehicles_out = resolve_outputs(args)
+
     real_stdout = os.dup(1)
     os.dup2(2, 1)  # DISC-002: keep Blender's C-level chatter out of the document
     try:
@@ -92,10 +139,12 @@ def main(argv: list[str] | None = None) -> int:
                 seed=args.seed,
                 mass_kg=args.mass,
                 display_name=args.display_name,
-                out=args.out,
-                vehicles_out=args.vehicles,
+                out=parts_out,
+                vehicles_out=vehicles_out,
                 material_table=args.material_table,
                 balance_table=args.balance_table,
+                style_table=args.style_table,
+                normalise_style=not args.no_style,
                 write_import=not args.no_write_import,
             )
         )

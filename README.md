@@ -20,8 +20,9 @@ each car sound like the car it was derived from.
 What that sentence does not say, and should:
 
 - **There are no weapons in the shipped content.** Every system that fires, tracks and scores a
-  weapon hit is implemented and tested, and `assets/parts/` holds two chassis and four wheels.
-  Combat in a real match is collisions.
+  weapon hit is implemented and tested, and the shared part library `assets/parts/` is empty. The
+  mountings exist — every vehicle offers a turret mount and four hardpoints — and nothing hangs on
+  them. Combat in a real match is collisions.
 - **Nobody has tuned anything.** Handling is a real supercar's published figures; damage numbers are
   blueprint defaults; the bots ship at a difficulty nobody has lost to.
 - **The arena you play in is a flat box.** A 600 m generated desert exists, collides, and has never

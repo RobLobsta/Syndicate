@@ -1,0 +1,26 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=grille_stampede_head_l_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 250.0,
+  "category": "DECORATIVE",
+  "destructionClass": "RIGID",
+  "displayName": "Head Grille (Left)",
+  "hangsBeforeFalling": false,
+  "massKg": 2.224,
+  "materialId": "plastic",
+  "maxHp": 25.0,
+  "partTypeId": "grille_stampede_head_l_01",
+  "powerCost": 0.282,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "grille",
+    "head",
+    "prepared"
+  ]
+}

@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.model.Node;
 import com.badlogic.gdx.utils.Disposable;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.AssetPaths;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -88,9 +89,13 @@ public final class PartModels implements Disposable {
         if (cached != null || missing.contains(partTypeId)) {
             return cached;
         }
-        Path meshPath = assetRoot.resolve("parts").resolve(partTypeId).resolve(MESH_FILE);
-        FileHandle handle = new FileHandle(meshPath.toFile());
-        if (!handle.exists()) {
+        // A part lives either in the shared library or under the vehicle that owns it
+        // (D08-R14b); the resolver knows both and is the one place that does.
+        Path partDirectory = AssetPaths.partDirectory(assetRoot, partTypeId);
+        FileHandle handle = partDirectory == null
+                ? null
+                : new FileHandle(partDirectory.resolve(MESH_FILE).toFile());
+        if (handle == null || !handle.exists()) {
             LOG.warn("part {} has no {}; it will simulate but not draw (D08-S4.2)", partTypeId, MESH_FILE);
             missing.add(partTypeId);
             return null;

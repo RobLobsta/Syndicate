@@ -52,6 +52,7 @@ public final class PartType {
     private final StatBlock stats;
     private final HandlingBlock handling;
     private final WeaponBlock weapon;
+    private final ModuleBlock module;
     private final Map<StatBlock.Stat, DegradationRule> degradationOverrides;
     private final Map<String, SlotDefinition> slots;
     private final AssetId fractureManifestRef;
@@ -74,6 +75,7 @@ public final class PartType {
         this.stats = new StatBlock().set(builder.stats);
         this.handling = builder.handling;
         this.weapon = builder.weapon;
+        this.module = builder.module;
         this.degradationOverrides = builder.degradationOverrides.isEmpty()
                 ? Map.of()
                 : Collections.unmodifiableMap(new EnumMap<>(builder.degradationOverrides));
@@ -174,6 +176,16 @@ public final class PartType {
      */
     public WeaponBlock weapon() {
         return weapon;
+    }
+
+    /**
+     * What kind of utility module this part is, or null for a part that is not one (D08-R6).
+     *
+     * <p>Null for the same reason {@link #weapon()} is: presence is what says the part has the
+     * capability at all, and a default family would make every accessory a radar.
+     */
+    public ModuleBlock module() {
+        return module;
     }
 
     /**
@@ -286,6 +298,7 @@ public final class PartType {
         private final StatBlock stats = new StatBlock();
         private HandlingBlock handling = HandlingBlock.REFERENCE;
         private WeaponBlock weapon;
+        private ModuleBlock module;
         private final Map<StatBlock.Stat, DegradationRule> degradationOverrides = new EnumMap<>(StatBlock.Stat.class);
         private final Map<String, SlotDefinition> slots = new TreeMap<>();
         private AssetId fractureManifestRef;
@@ -363,6 +376,12 @@ public final class PartType {
         /** Declares this part a weapon of the given family and configuration (D08-R5, D01-R8). */
         public Builder weapon(WeaponBlock value) {
             this.weapon = value;
+            return this;
+        }
+
+        /** Declares this part a utility module of the given family (D08-R6). */
+        public Builder module(ModuleBlock value) {
+            this.module = value;
             return this;
         }
 

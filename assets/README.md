@@ -26,25 +26,24 @@ assets/
 
 ---
 
-## Where to put a car model
+## Where a part lives
 
-**One `.glb` per part directory, always named `mesh.glb`.** A vehicle is not one model — it is a
-chassis and four wheels, each its own part with its own mass, health and damage state. That is the
-whole point of the game: parts come off individually.
+**One `.glb` per part directory, always named `mesh.glb`.** A vehicle is not one model — it is
+twenty-odd parts, each with its own mass, health and damage state. That is the whole point of the
+game: parts come off individually.
 
-For the two shipped vehicles:
+There are two places a part directory can be, and which one it is says what the part is for
+(`docs/08_asset_pipeline.md#D08-R14b`):
 
-| Put this model here | For |
-|---|---|
-| `assets/parts/chassis_eclipse_01/mesh.glb` | Eclipse body, no wheels |
-| `assets/parts/wheel_eclipse_front_01/mesh.glb` | Eclipse front wheel, one wheel |
-| `assets/parts/wheel_eclipse_rear_01/mesh.glb` | Eclipse rear wheel, one wheel |
-| `assets/parts/chassis_stampede_01/mesh.glb` | Stampede body, no wheels |
-| `assets/parts/wheel_stampede_front_01/mesh.glb` | Stampede front wheel |
-| `assets/parts/wheel_stampede_rear_01/mesh.glb` | Stampede rear wheel |
+| Where | What belongs there | Who may use it |
+|---|---|---|
+| `assets/vehicles/<vehicleTypeId>/parts/<partTypeId>/` | A chassis, door, wheel, bonnet — cut from that car's art | only that vehicle |
+| `assets/parts/<partTypeId>/` | A weapon, a utility module, a universal accessory | any vehicle |
 
-The directories already exist with their `part.json` in place, so a model dropped in is picked up
-with no further wiring.
+The two shipped vehicles' parts are produced by `./gradlew :blender-tool:prepareVehicles` from the
+models in `art-source/vehicles/`, and each vehicle's `parts/manifest.json` lists everything it is
+made of with the mass, stats and destruction behaviour of every piece. Nothing loads that file; it
+is there to be read.
 
 ### What the file must contain
 
@@ -106,8 +105,9 @@ so the slot positions can come straight off it.
 ## Adding a vehicle
 
 1. Add a profile to `VehicleProfiles` in `game-core` with its researched figures.
-2. Create `assets/parts/<chassis>/part.json` and the wheel parts, and
-   `assets/vehicles/<id>/assembly.json`.
+2. Drop the model into `art-source/vehicles/<name>/`, add a `profile.json` beside it with the
+   researched figures, and run `./gradlew :blender-tool:prepareVehicles`. It writes
+   `assets/vehicles/vehicle_<name>_01/` — the parts, their manifest and the assembly.
 3. Run `./gradlew :game-core:test`. `VEHICLES.md` is regenerated and the test fails until you commit
    it; the content tests fail if the JSON disagrees with the profile; the calibration tests fail if
    the vehicle does not reproduce the performance you claimed for it.

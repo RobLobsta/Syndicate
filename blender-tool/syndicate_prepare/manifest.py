@@ -37,6 +37,7 @@ from pathlib import Path
 
 from .destruction import MORPH_LEVELS, treatment_for
 from .labels import (
+    BARREL_ASPECT_MIN,
     CHASSIS,
     DEFAULT_MATERIAL,
     DESTRUCTION_CLASS,
@@ -46,10 +47,15 @@ from .labels import (
     PART_CATEGORY,
     SLOT_TYPE_REQUIRED,
     UNCLASSIFIED,
+    WEAPON,
     WHEEL,
 )
 
 SCHEMA_VERSION = "1.0.0"
+
+#: The name of the per-vehicle parts manifest, beside the parts it describes (D08-R14b). Must
+#: match ``dev.syndicate.model.AssetPaths.PARTS_MANIFEST_FILE``.
+PARTS_MANIFEST_FILE = "manifest.json"
 
 # ---- Mass (see the module docstring) ---------------------------------------------------
 
@@ -156,9 +162,67 @@ DEFAULT_WHEEL_HANDLING = {
     "suspensionRestLengthM": 0.3,
 }
 
+#: Gravity, as D00-S6.4 fixes it. Needed here for exactly one thing: the static sag of a wheel
+#: (see :func:`wheel_slot_lift`).
+GRAVITY_M_PER_S2 = 9.81
+
+#: The suspension stiffness a wheel gets when nothing overrides it, mirrored from
+#: ``VehicleFactory.WHEEL_SUSPENSION_STIFFNESS`` so this module needs no JVM to place a slot.
+DEFAULT_SUSPENSION_STIFFNESS = 30.0
+
+#: Metres by which two wheels on one axle may disagree about their distance from the centreline
+#: before the pipeline stops believing both of them (see :func:`slot_positions`). Two centimetres
+#: is more than real art's asymmetry and far less than a measurement fault.
+AXLE_SYMMETRY_TOLERANCE_M = 0.02
+
 #: Mass boundaries between the vehicle classes of ``assets/balance/classes.json``.
 CLASS_BOUNDARIES = ((1300.0, "light"), (1900.0, "medium"))
 HEAVIEST_CLASS = "heavy"
+
+
+# ---- Hardpoints (D15-S10) ------------------------------------------------------------------
+
+#: The mounting points every prepared vehicle offers, whether or not the model it was cut from
+#: had anything to put on them (D15-R42).
+#:
+#: This is the half of the vehicle that its own art cannot supply. Weapons and utility modules
+#: are **shared** content in ``assets/parts/`` — one autocannon fits every car — so they cannot
+#: be derived from a particular model the way a door can. What the pipeline can derive is
+#: *where they go*, and it derives it from the body's own box: a turret ring on the roof, a
+#: mount on the bonnet, one at the tail, and one on each flank.
+#:
+#: Each row is ``(slotId, slotType, x, y, z)`` where the three coordinates are fractions of the
+#: body box — ``x`` of the half width, ``y`` of the height above the ground plane, ``z`` of the
+#: length measured from the **rear**. The vehicle's front is ``z = 1``: that is the sense
+#: ``roles._front_fraction`` uses and the sense ``VehicleFactory`` builds its wheels in, and a
+#: hardpoint measured the other way round would put every gun on the boot lid.
+#:
+#: Four HARDPOINTs is exactly what D05-S4.3 allows a vehicle (2-4). The turret ring is a fifth
+#: slot of a different type, and TURRET_MOUNT has no such limit because a vehicle has at most
+#: one roof.
+HARDPOINTS = (
+    ("turret_main", "TURRET_MOUNT", 0.0, 1.02, 0.48),
+    ("hardpoint_bonnet", "HARDPOINT", 0.0, 0.62, 0.86),
+    ("hardpoint_rear", "HARDPOINT", 0.0, 0.66, 0.12),
+    ("hardpoint_flank_l", "HARDPOINT", -0.92, 0.55, 0.50),
+    ("hardpoint_flank_r", "HARDPOINT", 0.92, 0.55, 0.50),
+)
+
+#: The slot ids :data:`HARDPOINTS` produces. Named once so the pipeline, the manifest and every
+#: check that tolerates an empty slot agree about which slots are allowed to be empty.
+#:
+#: By id rather than by slot **type**, deliberately: a ``hub`` part already occupies a
+#: ``HARDPOINT``-typed slot (DEC-063), so a rule written against the type would let a missing
+#: brake hub pass as an unfitted weapon mount.
+HARDPOINT_SLOT_IDS = tuple(slot_id for slot_id, *_ in HARDPOINTS)
+
+#: Fraction of the vehicle's own mass a single hardpoint may carry. A 1500 kg car takes a
+#: 120 kg autocannon on any one mount and would not take four of them, which is what the power
+#: budget is for rather than this number.
+HARDPOINT_MASS_FRACTION = 0.08
+
+#: The lightest a hardpoint may be rated at, so a 400 kg buggy still mounts something.
+HARDPOINT_MIN_MASS_KG = 40.0
 
 
 class ManifestError(Exception):
@@ -374,9 +438,16 @@ def _origin_for(group, corner, body):
     gets its own bounds centre, which is where its mass acts (DEC-043) and therefore the
     point the compound shape wants it at.
     """
-    if corner is not None and group.label in (WHEEL, HUB):
-        return tuple(corner.axle)
-    del body
+    del corner, body
+    # For a wheel this is the axle, and that is not a coincidence: a wheel group is a disc,
+    # symmetric about its axle in every direction, so its bounding box centre *is* the axle.
+    #
+    # It used to be the corner's own `axle`, which is the bounding box of whichever shells voted
+    # "wheel" — a different and larger set that includes brake furniture. On the Stampede the two
+    # differed by 3.6 cm vertically and 3 cm across, which put every wheel off its own centre
+    # (a wheel spun about a point 3.6 cm off its middle wobbles visibly) and its track 6 cm wider
+    # than the car is sold as. The corner model still decides *which* shells are a wheel; it no
+    # longer decides where the wheel is.
     return tuple(group.centre)
 
 
@@ -463,6 +534,33 @@ def group_mass_kg(group, densities: dict[str, float]) -> float:
 MIN_PART_MASS_KG = 0.75
 
 
+def absorb_cornerless_wheels(parts, corners):
+    """Split off ``wheel`` and ``hub`` groups that belong to no corner (D15-R21).
+
+    A wheel is not a label, it is a **position**: the four things a car rides on, each at the end
+    of an axle the corner model measured. A group the nominal cue called a wheel and the corner
+    model never captured is not a fifth wheel — it is a fragment whose material happened to carry
+    the token, the same class of mistake DISC-037 records.
+
+    Shipping it as a wheel is not cosmetic. It takes a ``WHEEL`` slot on the chassis, and
+    ``VehicleFactory`` gives every wheel part a ray cast: the Stampede came out of the first run
+    with a 0.8 kg fifth wheel half a metre up the driver's door, and the car would have ridden on
+    it. Folded into the chassis it is what it always was — 104 triangles of bodywork.
+
+    :return: ``(kept, cornerless)``; the caller folds the second into the chassis group, so every
+        triangle is still accounted for exactly once (AC-D15-4).
+    """
+    named = {corner.name for corner in corners}
+    kept, cornerless = [], []
+    for group in parts:
+        if group.label not in (WHEEL, HUB):
+            kept.append(group)
+            continue
+        corners_of = {shell.corner for shell in group.shells if shell.corner}
+        (kept if corners_of & named else cornerless).append(group)
+    return kept, cornerless
+
+
 def absorb_small_parts(parts, densities: dict[str, float]):
     """Split groups into the ones worth a part and the ones that belong in the chassis.
 
@@ -480,18 +578,25 @@ def assign_masses(
     chassis: PreparedPart,
     densities: dict[str, float],
     target_kg: float,
+    fixed: dict | None = None,
 ) -> dict:
     """Weigh every part from its geometry and give the chassis the balance.
 
+    :param fixed: parts whose mass has already been settled by something more authoritative than
+        this arithmetic — today, a glass part weighed by its own fracture manifest. Their masses
+        are kept and counted; everything else is re-measured. Passing it is what makes a second
+        call to this function a *re-balance* rather than an undo.
     :return: the report block, including the case where the measured parts left the chassis
         too little and the vehicle's mass was raised to keep it above
         :data:`CHASSIS_MIN_FRACTION`.
     """
+    fixed = fixed or {}
     measured = 0.0
     for part in prepared:
         if part is chassis:
             continue
-        part.mass_kg = round(geometric_mass_kg(part, densities), 3)
+        if not fixed.get(part.part_type_id, {}).get("massOverrideKg"):
+            part.mass_kg = round(geometric_mass_kg(part, densities), 3)
         measured += part.mass_kg * max(1, len(part.instances))
 
     raised = False
@@ -521,19 +626,32 @@ def total_mass_kg(prepared: list[PreparedPart]) -> float:
     return sum(part.mass_kg * max(1, len(part.instances)) for part in prepared)
 
 
-def centre_of_mass(prepared: list[PreparedPart]) -> tuple[float, float, float]:
+def centre_of_mass(prepared: list[PreparedPart], placements: dict) -> tuple[float, float, float]:
     """The assembly's centre of mass, in chassis space (DEC-043: at each part's own centre).
 
+    Weighed at the points the **runtime** will weigh them, which is the slot position plus the
+    part's own centre in its own space — not at the geometry's position in the source model. The
+    two are the same for every part except a wheel, whose slot is deliberately a suspension
+    length above its axle (:func:`wheel_slot_lift`); computing the centre of mass from the
+    geometry put it 22 mm low on both shipped cars and A311 correctly refused the assembly.
+
     Every *instance* is weighed where it actually sits: a wheel type used on both sides of an
-    axle contributes at ``+x`` and at ``-x``, not twice at the canonical side's, which would
-    put the centre of mass of every prepared vehicle out on one flank.
+    axle contributes at ``+x`` and at ``-x``, not twice at the canonical side's.
+
+    :param placements: ``partTypeId -> [(slotId, position)]``, as :func:`slot_positions` returns
     """
     total = 0.0
     accumulated = [0.0, 0.0, 0.0]
     for part in prepared:
         centre = part.group.centre
+        # Where this part's mass acts within its own mesh (DEC-043). Zero for anything whose
+        # origin is already its centre, which is everything but a wheel.
+        offset = tuple(centre[axis] - part.origin[axis] for axis in range(3))
+        slots = [position for _slot, position in placements.get(part.part_type_id, [])]
         for instance in range(max(1, len(part.instances))):
-            if instance == 0:
+            if instance < len(slots):
+                placed = tuple(slots[instance][axis] + offset[axis] for axis in range(3))
+            elif instance == 0:
                 placed = centre
             elif instance - 1 < len(part.mirrored_groups):
                 placed = part.mirrored_groups[instance - 1].centre
@@ -610,6 +728,7 @@ def build_part_document(
     stats: dict | None,
     handling: dict | None,
     produced: dict | None = None,
+    weapon: dict | None = None,
 ) -> dict:
     """One ``part.json``, exactly as D08-S4.2 specifies it.
 
@@ -669,6 +788,11 @@ def build_part_document(
         document["handling"] = handling
     if treatment.yield_impulse_ns:
         document["yieldImpulseN"] = treatment.yield_impulse_ns
+    if part.label == WEAPON and weapon is not None:
+        # A built-in weapon: geometry the model came with, made able to fire (D15-R41). A
+        # modular weapon needs none of this -- it is authored content in the shared library
+        # and arrives with its own block.
+        document["weapon"] = weapon
     if part.hinge is not None:
         # D15-R30: a hinge is data on the part, not an armature. The runtime animates the
         # slot's local rotation about this axis; nothing here is a second transform hierarchy.
@@ -713,12 +837,87 @@ def build_slot(part: PreparedPart, slot_id: str, position: tuple[float, float, f
     }
 
 
-def slot_positions(part: PreparedPart) -> list[tuple[str, tuple[float, float, float]]]:
+def hardpoint_slots(body, total_mass_kg: float) -> list[dict]:
+    """The empty mounting points a prepared vehicle offers (D15-R42, :data:`HARDPOINTS`).
+
+    Empty is the point. Nothing is placed on them by this pipeline and the assembly it writes
+    references none of them — a hardpoint is a promise that a weapon or a module authored
+    elsewhere has somewhere to go, and the vehicle drives perfectly well with all five unused.
+
+    They are declared on the chassis, so the parts that fill them attach to the vehicle's root
+    and are validated against ``SlotType.acceptsCategory`` like any other placement (D05-S5.1).
+    """
+    capacity = round(max(HARDPOINT_MIN_MASS_KG, total_mass_kg * HARDPOINT_MASS_FRACTION), 1)
+    slots = []
+    for slot_id, slot_type, fx, fy, fz in HARDPOINTS:
+        slots.append({
+            "slotId": slot_id,
+            "slotType": slot_type,
+            "localPosition": {
+                "x": round(fx * body.half_width, 4),
+                "y": round(body.ground_y + fy * body.height, 4),
+                "z": round(body.lo[2] + fz * body.length, 4),
+            },
+            "localRotationDeg": {"x": 0.0, "y": 0.0, "z": 0.0, "order": "XYZ"},
+            "maxMassKg": capacity,
+            "covers": [],
+            "isDetachable": True,
+        })
+    return slots
+
+
+def weapon_block(part: PreparedPart, body) -> dict:
+    """The ``weapon`` block for a part the taxonomy labelled ``weapon`` (D15-R41, D08-R5).
+
+    A built-in weapon — a tank's main gun — is geometry that came with the model, so unlike a
+    modular weapon there is no authored definition to read. Two things are derived from the
+    geometry it is:
+
+    **Which family it is**, from its aspect ratio. A part that is at least
+    :data:`labels.BARREL_ASPECT_MIN` times as long as it is wide is a barrel and therefore a
+    ``CANNON``; anything shorter is a mount or a pod and is an ``AUTOCANNON``. Those two are the
+    only families the geometry can distinguish, and guessing between the other six would be
+    inventing content rather than deriving it.
+
+    **Where the muzzle is**, from the part's own forward extent: the far end of the barrel, on
+    its centreline, in the part's local space. ``+z`` is the vehicle's front (the sense
+    ``VehicleFactory`` builds wheels in), so the muzzle is at the part's ``hi[2]``.
+    """
+    del body
+    lo = tuple(min(shell.lo[i] for shell in part.group.shells) for i in range(3))
+    hi = tuple(max(shell.hi[i] for shell in part.group.shells) for i in range(3))
+    length = max(1e-6, hi[2] - lo[2])
+    width = max(1e-6, hi[0] - lo[0])
+    height = max(1e-6, hi[1] - lo[1])
+    aspect = length / max(width, height)
+    family = "CANNON" if aspect >= BARREL_ASPECT_MIN else "AUTOCANNON"
+    return {
+        "family": family,
+        "ammoCapacity": -1,
+        "blastRadiusM": 0.0,
+        "rangeM": 0.0,
+        "muzzleLocal": {
+            "x": round((lo[0] + hi[0]) * 0.5 - part.origin[0], 4),
+            "y": round((lo[1] + hi[1]) * 0.5 - part.origin[1], 4),
+            "z": round(hi[2] - part.origin[2], 4),
+        },
+    }
+
+
+def slot_positions(
+    part: PreparedPart,
+    stiffness: float = DEFAULT_SUSPENSION_STIFFNESS,
+    wheel_count: int = 4,
+) -> list[tuple[str, tuple[float, float, float]]]:
     """Every slot this part type fills, with the position each instance sits at.
 
     A shared wheel type fills two, and the second sits at the axle *it* was measured at rather
     than at the reflection of the first — a real car's two front axles are a few millimetres
     apart, and a wheel placed at the wrong one of them rides at a visible angle.
+
+    :param stiffness: the vehicle's suspension stiffness, and :param wheel_count: how many wheels
+        it stands on. Both are properties of the whole vehicle rather than of this part, and both
+        are needed for one reason: :func:`wheel_slot_lift`.
     """
     positions = [(part.instances[0], part.origin)] if part.instances else []
     for index, slot in enumerate(part.instances[1:]):
@@ -727,15 +926,180 @@ def slot_positions(part: PreparedPart) -> list[tuple[str, tuple[float, float, fl
         else:
             positions.append((slot, (-part.origin[0], part.origin[1], part.origin[2])))
     if part.label == WHEEL:
-        # A wheel slot is the **suspension connection point**, not the axle: Bullet's
-        # `addWheel` hangs the wheel `suspensionRestLengthM` below the point it is given,
-        # along the wheel direction. Emitting the axle here would bury every wheel 30 cm into
-        # the ground and leave the car sitting on its floor at rest.
-        lift = DEFAULT_WHEEL_HANDLING["suspensionRestLengthM"]
+        # Two wheels on one axle are symmetric about the centreline: that is what a track *is*.
+        # Each corner is measured independently (DEC-066) and on real art the two answers differ
+        # by millimetres, which is worth keeping. On the Stampede they differed by 6 cm, which is
+        # not asymmetry but a corner whose shells were cut differently — and a car whose left
+        # wheel is 6 cm further out than its right sits crooked and drives on two wheels.
+        canonical = abs(positions[0][1][0]) if positions else 0.0
+        mirrored = []
+        for index, (slot, position) in enumerate(positions):
+            x = position[0]
+            if index and abs(abs(x) - canonical) > AXLE_SYMMETRY_TOLERANCE_M:
+                x = canonical if x >= 0.0 else -canonical
+            mirrored.append((slot, (x, position[1], position[2])))
+        positions = mirrored
+
+        lift = wheel_slot_lift(stiffness, wheel_count)
         positions = [
             (slot, (position[0], position[1] + lift, position[2])) for slot, position in positions
         ]
     return positions
+
+
+def wheel_slot_lift(stiffness: float, wheel_count: int) -> float:
+    """How far above the axle a wheel's slot goes, in metres.
+
+    A wheel slot is the **suspension connection point**, not the axle: Bullet hangs the wheel
+    ``suspensionRestLengthM`` below the point it is given. Emitting the axle itself would bury
+    every wheel 30 cm into the ground.
+
+    Emitting ``axle + restLength`` — which this did until the prepared content shipped — is
+    wrong in the other direction, and subtly. That places the connection where the suspension is
+    fully **extended**, and no car stands on fully extended suspension: it stands at its static
+    ride height, one sag below. So the body settled 8 cm into the road, exactly the sag, and the
+    model's own ground plane no longer meant anything.
+
+    The sag is derivable and does not depend on the vehicle's mass. Bullet's suspension force is
+    ``stiffness · compression · chassisMass``, and equilibrium is
+    ``stiffness · sag · m = m · g / n``, so ``sag = g / (stiffness · n)``: 8.2 cm on four wheels
+    at the reference stiffness of 30, which is what was measured.
+    """
+    if stiffness <= 0.0 or wheel_count <= 0:
+        return DEFAULT_WHEEL_HANDLING["suspensionRestLengthM"]
+    sag = GRAVITY_M_PER_S2 / (stiffness * wheel_count)
+    return DEFAULT_WHEEL_HANDLING["suspensionRestLengthM"] - sag
+
+
+def stats_for(part: PreparedPart, chassis_stats: dict, researched) -> dict:
+    """The ``stats`` block one part carries, with any researched figures folded in (D15-S11).
+
+    Steering is authored on the **front** wheel type only. Every wheel gets grip and springs,
+    because every wheel has them; only a steering wheel contributes a steering lock, and D05-S5.6
+    phase 3 filters on ``isSteering`` — so putting the lock on all four would double it on a car
+    whose rear wheels were ever made to steer.
+    """
+    if part.is_chassis:
+        return dict(chassis_stats)
+    if part.label != WHEEL:
+        return {}
+    block = dict(researched.wheel_stats)
+    if part.corner is not None and part.corner.startswith("f"):
+        block.update(researched.steering_stats)
+    return block
+
+
+def handling_for(part: PreparedPart, researched) -> dict | None:
+    """The ``handling`` block one part carries: the class default, then any researched figures."""
+    if part.is_chassis:
+        return {**DEFAULT_CHASSIS_HANDLING, **researched.chassis_handling}
+    if part.label == WHEEL:
+        return {**DEFAULT_WHEEL_HANDLING, **researched.wheel_handling}
+    return None
+
+
+def build_parts_manifest(
+    vehicle_type_id: str,
+    display: str,
+    vehicle_class: str,
+    prepared: list[PreparedPart],
+    chassis: PreparedPart,
+    assembly: dict,
+    source: dict,
+    hardpoints: list[dict] | None = None,
+    produced: dict | None = None,
+) -> dict:
+    """``manifest.json`` — what this vehicle's parts are, and what each one is worth (D08-R14b).
+
+    It sits **in the parts directory it describes**, beside the twenty-odd part directories
+    rather than above them, because it is a description of that set and travels with it.
+
+    It is not a second source of truth and nothing loads it. Every number in it is copied from
+    the ``part.json`` written in the same run, and the asset gate validates those. What it is
+    for is the question neither a directory listing nor twenty separate files answers: *what did
+    the tool decide this vehicle is made of, and why*. A part's label, the cue that produced it,
+    its mass and where that mass came from, whether it dents or shatters or does neither, how
+    many triangles it cost, whether it hinges — one screen, in one file, sorted.
+
+    That question gets asked every time a prepared vehicle is wrong, and before this file the
+    only way to answer it was to re-run the pipeline and read the report from a build directory
+    that may not exist any more.
+    """
+    produced = produced or {}
+    rows = []
+    for part in prepared:
+        result = produced.get(part.part_type_id, {})
+        treatment = treatment_for(part.label)
+        category = PART_CATEGORY[part.label]
+        rows.append({
+            "partTypeId": part.part_type_id,
+            "displayName": display_name(part),
+            "category": category,
+            "label": part.label,
+            "role": part.role,
+            "side": part.side,
+            "slots": list(part.instances),
+            "instances": max(1, len(part.instances)),
+            "massKg": round(part.mass_kg, 3),
+            "maxHp": round(max(MIN_MAX_HP, HP_PER_KG[part.destruction_class] * part.mass_kg), 1),
+            "armorValue": round(ARMOR_PER_KG.get(category, 0.0) * part.mass_kg, 2),
+            "breakImpulseN": round(
+                max(MIN_BREAK_IMPULSE_NS,
+                    BREAK_IMPULSE_NS_PER_KG[part.destruction_class] * part.mass_kg), 1),
+            "powerCost": part.power_cost,
+            "materialId": part.material_id,
+            "destructionClass": part.destruction_class,
+            "detachable": DETACHES[part.label],
+            "hinged": part.hinge is not None,
+            "geometry": {
+                "triangles": part.group.triangles,
+                "areaM2": round(sum(shell.area_m2 for shell in part.all_shells), 4),
+                "enclosedM3": round(sum(shell.volume_m3 for shell in part.all_shells), 6),
+                "shells": len(part.all_shells),
+                "originM": {
+                    "x": round(part.origin[0], 4),
+                    "y": round(part.origin[1], 4),
+                    "z": round(part.origin[2], 4),
+                },
+            },
+            "destruction": {
+                "morphTargets": list(result.get("morphTargets") or []),
+                "shards": int(result.get("shards") or 0),
+                "planned": treatment.as_dict(),
+                "notes": list(result.get("notes") or []),
+            },
+        })
+
+    rows.sort(key=lambda row: row["partTypeId"])
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "vehicleTypeId": vehicle_type_id,
+        "displayName": display,
+        "vehicleClass": vehicle_class,
+        "generatedBy": "syndicate-prepare (D15-S5.1)",
+        "source": source,
+        "totals": {
+            "partTypes": len(rows),
+            "placedParts": sum(row["instances"] for row in rows),
+            "totalMassKg": round(total_mass_kg(prepared), 2),
+            "chassisMassKg": round(chassis.mass_kg, 3),
+            "powerBudget": assembly.get("expected", {}).get("powerBudget", 0.0),
+            "triangles": sum(row["geometry"]["triangles"] for row in rows),
+            "hingedParts": sum(1 for row in rows if row["hinged"]),
+            "fracturedParts": sum(1 for row in rows if row["destruction"]["shards"]),
+            "deformableParts": sum(1 for row in rows if row["destruction"]["morphTargets"]),
+        },
+        "hardpoints": [
+            {
+                "slotId": slot["slotId"],
+                "slotType": slot["slotType"],
+                "localPosition": slot["localPosition"],
+                "maxMassKg": slot["maxMassKg"],
+            }
+            for slot in sorted(hardpoints or [], key=lambda slot: slot["slotId"])
+        ],
+        "parts": rows,
+    }
 
 
 def build_assembly_document(
@@ -744,13 +1108,22 @@ def build_assembly_document(
     prepared: list[PreparedPart],
     chassis: PreparedPart,
     vehicle_class: str,
+    placements: dict | None = None,
 ) -> dict:
-    """The ``assembly.json`` of D08-S4.4 (DEC-019: the chassis is a field, not a row)."""
+    """The ``assembly.json`` of D08-S4.4 (DEC-019: the chassis is a field, not a row).
+
+    :param placements: the slot positions the chassis was authored with, so the declared centre
+        of mass is computed at the same points (see :func:`centre_of_mass`). Omitted only by a
+        test that does not care where the parts ended up.
+    """
+    placements = placements if placements is not None else {
+        part.part_type_id: slot_positions(part) for part in prepared
+    }
     rows = []
     for part in prepared:
         if part is chassis:
             continue
-        for slot, _position in slot_positions(part):
+        for slot, _position in placements.get(part.part_type_id, []):
             row = {
                 "slotPath": f"root/{slot}",
                 "parentSlotPath": "root",
@@ -766,7 +1139,7 @@ def build_assembly_document(
             rows.append(row)
 
     total = total_mass_kg(prepared)
-    com = centre_of_mass(prepared)
+    com = centre_of_mass(prepared, placements)
     return {
         "schemaVersion": SCHEMA_VERSION,
         "vehicleTypeId": f"vehicle_{vehicle}_01",

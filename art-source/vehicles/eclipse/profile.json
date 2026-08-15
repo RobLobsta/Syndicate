@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0.0",
+  "_notes": [
+    "The researched figures for this model (docs/15_vehicle_preparation_pipeline.md#D15-S11).",
+    "",
+    "syndicate-prepare derives everything else about a vehicle from its geometry, which is what",
+    "makes 'drop in a model' true. It cannot derive which car this IS: the published kerb mass,",
+    "the crank power and the drag area are research, and the difference between this car and the",
+    "Stampede is the entire content of the choice a player makes between them (DEC-033).",
+    "",
+    "Every number here is a copy. dev.syndicate.core.vehicle.VehicleProfiles.ECLIPSE is the",
+    "authority, it carries the derivations and the sources, and VehicleProfileContentTest asserts",
+    "the shipped content against it field by field — so a figure that drifts fails the build with",
+    "the name of the figure and both values.",
+    "",
+    "Stats are in the part.json shape: an object with add and/or mul. A mul is relative to the",
+    "runtime default, which is why the steering figures are ratios rather than radians."
+  ],
+
+  "displayName": "Eclipse",
+  "vehicleClass": "medium",
+  "referenceVehicle": "Maserati MC20 (2021-)",
+  "kerbMassKg": 1500.0,
+
+  "chassisStats": {
+    "engineForceN": { "add": 14808.1 },
+    "enginePowerW": { "add": 416700.0 },
+    "brakeForceN": { "add": 17536.5 }
+  },
+  "chassisHandling": {
+    "dragCoefficient": 0.4655,
+    "rollingResistance": 0.015,
+    "downforceCoefficient": 0.2
+  },
+
+  "wheelStats": {},
+  "wheelHandling": {
+    "suspensionCompression": 2.4,
+    "suspensionDamping": 2.3,
+    "rollInfluence": 0.15,
+    "suspensionRestLengthM": 0.3
+  },
+  "steeringStats": {
+    "maxSteerRad": { "mul": 1.145913 },
+    "steerRateRadPerSec": { "mul": 1.285714 }
+  }
+}

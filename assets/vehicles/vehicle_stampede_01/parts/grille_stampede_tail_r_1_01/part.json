@@ -1,0 +1,26 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=grille_stampede_tail_r_1_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 250.0,
+  "category": "DECORATIVE",
+  "destructionClass": "RIGID",
+  "displayName": "Tail Grille (Right)",
+  "hangsBeforeFalling": false,
+  "massKg": 1.326,
+  "materialId": "plastic",
+  "maxHp": 25.0,
+  "partTypeId": "grille_stampede_tail_r_1_01",
+  "powerCost": 0.168,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "grille",
+    "prepared",
+    "tail"
+  ]
+}

@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "1.0.0",
+  "styleId": "style_syndicate_default",
+  "displayName": "Syndicate — industrial dystopia",
+  "notes": [
+    "The house art style (docs/15_vehicle_preparation_pipeline.md#D15-S9).",
+    "",
+    "Every vehicle in this game is downloaded art by a different artist with a different idea of",
+    "what a car looks like. One is a photoscanned supercar, the next a flat-shaded cartoon with",
+    "primary-colour paint and no textures at all. Dropped in side by side they read as two games.",
+    "",
+    "This table is what makes them read as one. It is applied per MATERIAL, in Blender, before any",
+    "geometry is touched, and it does exactly one thing: it moves every surface's colour and its",
+    "reflectance into a band the whole roster shares. Grimy, desaturated, weathered metal under a",
+    "sodium-lit sky; paint that has been outdoors for a decade; chrome that has gone dull; glass",
+    "that is dirty. Realistic rather than stylised, dark rather than bright, worn rather than new.",
+    "",
+    "It does NOT touch the properties the labelling ensemble reads as evidence (D15-S4.2 C2): a",
+    "material's alpha mode, its transmission, its backface culling and its NAME survive the pass",
+    "untouched. Normalising those would make every windscreen opaque and every glass cue useless,",
+    "which is the one way this pass could break the pipeline that runs after it.",
+    "",
+    "Colour bands are HSV. saturationMax and value[Min,Max] are clamps, not assignments: a red car",
+    "stays a red car, it just stops being a TOY red car. hueShiftDeg is applied first and exists so",
+    "a surface whose real-world hue is not a free choice -- rust, sodium light -- can be pinned.",
+    "",
+    "grime is how far the clamped colour is then dragged toward grimeColour. It is the difference",
+    "between a clean render and something that has been driven through a scrapyard."
+  ],
+
+  "grimeColour": { "r": 0.106, "g": 0.086, "b": 0.067 },
+
+  "surfaces": [
+    {
+      "surface": "body_paint",
+      "displayName": "Body paint",
+      "hueShiftDeg": 0.0,
+      "saturationMax": 0.45,
+      "valueMin": 0.05,
+      "valueMax": 0.42,
+      "metallic": 0.25,
+      "roughness": 0.52,
+      "grime": 0.30,
+      "notes": "Hue is preserved -- a faction colour is gameplay. Saturation and value are not: a 1.0/1.0 cartoon red becomes an oxidised 0.45/0.42 one."
+    },
+    {
+      "surface": "trim",
+      "displayName": "Plastic trim, bumpers, cladding",
+      "hueShiftDeg": 0.0,
+      "saturationMax": 0.14,
+      "valueMin": 0.03,
+      "valueMax": 0.20,
+      "metallic": 0.0,
+      "roughness": 0.78,
+      "grime": 0.45,
+      "notes": "Almost achromatic. Unpainted plastic on a real vehicle is grey-black and goes chalky, and it is the surface that most gives a cartoon model away."
+    },
+    {
+      "surface": "chrome",
+      "displayName": "Bare and plated metal",
+      "hueShiftDeg": 18.0,
+      "saturationMax": 0.12,
+      "valueMin": 0.18,
+      "valueMax": 0.62,
+      "metallic": 1.0,
+      "roughness": 0.34,
+      "grime": 0.25,
+      "notes": "Roughness well above a showroom 0.05: dull, pitted, slightly warm. Mirror chrome is the single strongest 'this is a render' signal there is."
+    },
+    {
+      "surface": "glass",
+      "displayName": "Glazing",
+      "hueShiftDeg": 0.0,
+      "saturationMax": 0.10,
+      "valueMin": 0.30,
+      "valueMax": 0.80,
+      "metallic": 0.0,
+      "roughness": 0.10,
+      "grime": 0.12,
+      "notes": "Transmission and alpha are NOT written here -- they are labelling evidence (D15-R6). Only the tint and the surface roughness are."
+    },
+    {
+      "surface": "tyre",
+      "displayName": "Rubber",
+      "hueShiftDeg": 0.0,
+      "saturationMax": 0.06,
+      "valueMin": 0.015,
+      "valueMax": 0.09,
+      "metallic": 0.0,
+      "roughness": 0.92,
+      "grime": 0.55,
+      "notes": "Near black, entirely rough, heavily dusted. A tyre rendered as dark grey plastic is the second strongest render signal."
+    },
+    {
+      "surface": "light",
+      "displayName": "Lamp lenses and reflectors",
+      "hueShiftDeg": 0.0,
+      "saturationMax": 0.55,
+      "valueMin": 0.25,
+      "valueMax": 0.90,
+      "metallic": 0.0,
+      "roughness": 0.18,
+      "grime": 0.20,
+      "notes": "The one surface allowed to stay bright, because a lamp that is not brighter than the car around it does not read as a lamp. Emission strength is preserved rather than rewritten."
+    },
+    {
+      "surface": "grille",
+      "displayName": "Grilles, meshes and vents",
+      "hueShiftDeg": 20.0,
+      "saturationMax": 0.20,
+      "valueMin": 0.02,
+      "valueMax": 0.16,
+      "metallic": 0.65,
+      "roughness": 0.70,
+      "grime": 0.55,
+      "notes": "Dark, half metallic and filthy. A grille collects everything the road throws at it."
+    },
+    {
+      "surface": "interior",
+      "displayName": "Cabin",
+      "hueShiftDeg": 0.0,
+      "saturationMax": 0.16,
+      "valueMin": 0.01,
+      "valueMax": 0.14,
+      "metallic": 0.0,
+      "roughness": 0.86,
+      "grime": 0.35,
+      "notes": "Barely visible through glazing in play, and dark enough that it never draws the eye away from the exterior."
+    },
+    {
+      "surface": "underbody",
+      "displayName": "Underbody, structure and mechanicals",
+      "hueShiftDeg": 22.0,
+      "saturationMax": 0.28,
+      "valueMin": 0.015,
+      "valueMax": 0.13,
+      "metallic": 0.55,
+      "roughness": 0.85,
+      "grime": 0.65,
+      "notes": "The hue shift is deliberate and is toward rust. Nothing under a vehicle in this game has ever been washed."
+    }
+  ],
+
+  "stylisedSource": {
+    "notes": [
+      "How the pass decides whether it is looking at a cartoon or at a photoscan, and therefore",
+      "how hard to push. Both numbers are measured over the scene's materials, weighted by the",
+      "triangles each one covers, so one stray bright badge cannot make a realistic car cartoon.",
+      "",
+      "A stylised source is REPLACED: its base-colour textures are disconnected and the flat house",
+      "colour takes over, which is what 'reskinned into my style' means for a model whose textures",
+      "are flat colour anyway. A realistic source is only PULLED toward the palette by",
+      "realisticStrength, because its textures carry detail worth keeping."
+    ],
+    "saturationMeanAbove": 0.42,
+    "texturedFractionBelow": 0.35,
+    "stylisedStrength": 1.0,
+    "realisticStrength": 0.55
+  }
+}

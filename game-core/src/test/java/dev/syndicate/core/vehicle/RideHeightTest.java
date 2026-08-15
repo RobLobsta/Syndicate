@@ -40,15 +40,28 @@ import org.junit.jupiter.api.Test;
 @Tag("unit")
 class RideHeightTest {
 
-    /** The axles the dissection measured off the source art, in chassis-local metres. */
+    /**
+     * The axles the preparation pipeline measured off the source art, in chassis-local metres.
+     *
+     * <p>Front pair first, then rear. The Eclipse's are unchanged from the retired dissection's;
+     * the Stampede's moved about 3 cm outboard when a wheel's placement became the centre of the
+     * wheel part rather than of an island that included its brake hub.
+     */
     private static final Map<String, List<Vector3>> ART_AXLES = Map.of(
             "vehicle_eclipse_01",
                     List.of(new Vector3(0.8563f, 0.3559f, 1.4565f), new Vector3(0.8319f, 0.3594f, -1.2441f)),
             "vehicle_stampede_01",
-                    List.of(new Vector3(0.8540f, 0.3578f, 1.3904f), new Vector3(0.8535f, 0.3605f, -1.3270f)));
+                    List.of(new Vector3(0.8837f, 0.3552f, 1.3904f), new Vector3(0.8832f, 0.3620f, -1.3209f)));
 
-    /** Metres. Track and wheelbase are geometry; they should land where the art says. */
-    private static final float PLAN_TOLERANCE_M = 0.01f;
+    /**
+     * Metres. Track and wheelbase are geometry; they should land where the art says.
+     *
+     * <p>Measured on a <em>settled</em> car, which is why this is not tighter. Bullet reports a
+     * wheel's transform in world space, and a car whose rear axle carries more weight than its
+     * front sits nose-up by a fraction of a degree — which walks a front wheel forward by that
+     * angle times its axle height. On the Stampede that is 10 mm.
+     */
+    private static final float PLAN_TOLERANCE_M = 0.015f;
 
     /** Metres. The <em>mean</em> axle height is the ride height, and it should be the art's. */
     private static final float MEAN_HEIGHT_TOLERANCE_M = 0.01f;
