@@ -1,0 +1,45 @@
+{
+  "armorValue": 16.01,
+  "articulation": {
+    "axisLocal": {
+      "x": 0.0,
+      "y": 1.0,
+      "z": 0.0
+    },
+    "openDeg": 62.0,
+    "pivotLocal": {
+      "x": -0.8836,
+      "y": 0.6332,
+      "z": 0.6838
+    }
+  },
+  "assets": {
+    "collisionSource": "mesh.glb#node=panel_stampede_door_l_01_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 1830.0,
+  "category": "PANEL",
+  "destructionClass": "SHEET_METAL",
+  "displayName": "Door Panel (Left)",
+  "hangsBeforeFalling": false,
+  "massKg": 45.75,
+  "materialId": "steel",
+  "maxHp": 366.0,
+  "partTypeId": "panel_stampede_door_l_01",
+  "powerCost": 5.643,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "PANEL",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "door",
+    "panel",
+    "prepared"
+  ]
+}

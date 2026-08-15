@@ -7,11 +7,14 @@ package dev.syndicate.core.asset;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.AssetPaths;
 import dev.syndicate.model.AudioMaterial;
 import dev.syndicate.model.DamageType;
 import dev.syndicate.model.DestructionClass;
 import dev.syndicate.model.PartCategory;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Tag;
@@ -122,16 +125,51 @@ class MaterialTableTest {
         assertThat(DestructionClass.STRUCTURAL.hasDamageShapeKeys()).isTrue();
     }
 
-    /** Every shipped part gets a class, whether or not it authored one. */
+    /**
+     * Every shipped part gets the class it authored, or its category's when it authored none.
+     *
+     * <p>Both halves matter and only the second used to be shipped. The retired content was two
+     * chassis and four wheels, none of which declared a class, so "equals the category default"
+     * held for every part in the tree. It stopped holding the moment real vehicles shipped: a
+     * windscreen is a {@code DECORATIVE} part whose category default is {@code NONE} and which
+     * declares {@code GLASS}, which is exactly the override DEC-045 exists for — the material says
+     * what a part is made of, the part says how it fails.
+     */
     @Test
-    void everyShippedPartHasADestructionClass() {
+    void everyShippedPartGetsTheDestructionClassItAuthored() {
         assumeTrue(Files.isDirectory(ASSET_ROOT), "the shipped asset tree is not present");
         AssetLoader loader = new AssetLoader(BOXES);
         InMemoryAssetIndex index = loader.loadFrom(ASSET_ROOT);
 
         assumeTrue(!index.partTypes().isEmpty(), "no parts are loaded");
-        index.partTypes().forEach((id, part) -> assertThat(part.destructionClass())
-                .as("%s", id.value())
-                .isEqualTo(DestructionClass.forCategory(part.category())));
+        ObjectMapper mapper = new ObjectMapper();
+        index.partTypes().forEach((id, part) -> {
+            Path directory = AssetPaths.partDirectory(ASSET_ROOT, id.value());
+            assertThat(directory).as("directory of %s", id.value()).isNotNull();
+            DestructionClass expected;
+            try {
+                String declared = mapper.readTree(directory.resolve("part.json").toFile())
+                        .path("destructionClass")
+                        .asText(null);
+                expected = declared == null || declared.isBlank()
+                        ? DestructionClass.forCategory(part.category())
+                        : DestructionClass.valueOf(declared);
+            } catch (IOException e) {
+                throw new AssertionError("cannot read " + directory + "/part.json", e);
+            }
+            assertThat(part.destructionClass()).as("%s", id.value()).isEqualTo(expected);
+        });
+    }
+
+    /** At least one shipped part overrides its category's class, or the override path is untested. */
+    @Test
+    void theShippedTreeExercisesTheOverride() {
+        assumeTrue(Files.isDirectory(ASSET_ROOT), "the shipped asset tree is not present");
+        InMemoryAssetIndex index = new AssetLoader(BOXES).loadFrom(ASSET_ROOT);
+        assumeTrue(!index.partTypes().isEmpty(), "no parts are loaded");
+
+        assertThat(index.partTypes().values())
+                .as("a part whose class is not its category's default")
+                .anyMatch(part -> part.destructionClass() != DestructionClass.forCategory(part.category()));
     }
 }

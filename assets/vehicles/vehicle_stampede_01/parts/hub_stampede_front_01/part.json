@@ -1,0 +1,25 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=hub_stampede_front_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 1268.9,
+  "category": "UTILITY",
+  "destructionClass": "RIGID",
+  "displayName": "Hub (Left)",
+  "hangsBeforeFalling": false,
+  "massKg": 14.928,
+  "materialId": "steel",
+  "maxHp": 149.3,
+  "partTypeId": "hub_stampede_front_01",
+  "powerCost": 1.891,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "HARDPOINT",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "hub",
+    "prepared"
+  ]
+}

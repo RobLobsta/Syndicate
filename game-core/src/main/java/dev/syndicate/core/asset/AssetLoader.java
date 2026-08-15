@@ -18,13 +18,16 @@ import dev.syndicate.core.vehicle.DegradationRule;
 import dev.syndicate.core.vehicle.SlotType;
 import dev.syndicate.core.vehicle.StatBlock;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.AssetPaths;
 import dev.syndicate.model.AudioMaterial;
 import dev.syndicate.model.BotDifficulty;
 import dev.syndicate.model.DamageType;
 import dev.syndicate.model.DestructionClass;
 import dev.syndicate.model.GameMode;
+import dev.syndicate.model.ModuleFamily;
 import dev.syndicate.model.PartCategory;
 import dev.syndicate.model.SimulationConstants;
+import dev.syndicate.model.WeaponFamily;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -123,7 +126,14 @@ public final class AssetLoader {
     }
 
     /**
-     * Loads {@code materials/}, {@code parts/} and {@code vehicles/} beneath an asset root.
+     * Loads {@code materials/}, every part directory and {@code vehicles/} beneath an asset root.
+     *
+     * <p>Parts come from two places (D08-R14b, {@link AssetPaths}): the shared library in
+     * {@code parts/}, and each vehicle's own {@code vehicles/<id>/parts/}. Shared parts are read
+     * first so that a vehicle's assembly, read last, resolves against everything — a modular weapon
+     * as readily as its own chassis. The loader does not care which bucket a part came from beyond
+     * that ordering; the rule that a vehicle-owned part belongs to one vehicle is enforced by the
+     * asset gate, which can see the whole tree at once (D08-S5.4 A106, A315).
      *
      * <p>Assemblies are validated against the parts loaded in the same pass (D08-S5.3 step 3), so a
      * vehicle referencing a part that failed to load is reported as the assembly problem it is
@@ -132,10 +142,10 @@ public final class AssetLoader {
     public InMemoryAssetIndex loadFrom(Path assetRoot) {
         InMemoryAssetIndex index = new InMemoryAssetIndex();
         loadMaterials(assetRoot.resolve("materials").resolve("materials.json"), index);
-        for (Path directory : childDirectories(assetRoot.resolve("parts"))) {
+        for (Path directory : AssetPaths.partDirectories(assetRoot)) {
             loadPart(directory, index);
         }
-        for (Path directory : childDirectories(assetRoot.resolve("vehicles"))) {
+        for (Path directory : AssetPaths.vehicleDirectories(assetRoot)) {
             loadAssembly(directory, index);
         }
         for (Path directory : childDirectories(assetRoot.resolve("arenas"))) {
@@ -264,7 +274,7 @@ public final class AssetLoader {
 
     // ---- Parts (D08-S4.2) ------------------------------------------------------------
 
-    /** Reads one {@code assets/parts/<partTypeId>/part.json}. */
+    /** Reads one part directory's {@code part.json}, from either bucket (D08-R14b). */
     public void loadPart(Path partDirectory, InMemoryAssetIndex index) {
         Path file = partDirectory.resolve("part.json");
         JsonNode root = readJson(file, partDirectory.getFileName().toString());
@@ -344,6 +354,8 @@ public final class AssetLoader {
 
         readStats(root.path("stats"), partTypeId, category, builder);
         readHandling(root.path("handling"), partTypeId, builder);
+        readWeapon(root.path("weapon"), partTypeId, category, builder);
+        readModule(root.path("module"), partTypeId, category, builder);
         readDegradationOverrides(root.path("degradationOverrides"), partTypeId, builder);
         readSlots(root.path("slots"), partTypeId, builder);
 
@@ -382,9 +394,12 @@ public final class AssetLoader {
                     "breakImpulseN " + root.path("breakImpulseN").asDouble(0d)
                             + " must be positive; a zero threshold detaches the part on its first contact"));
         }
+        // An EMPTY stats object is not a declaration of stats. Every part the preparation
+        // pipeline writes carries `"stats": {}` — a uniform document shape, not a claim — and
+        // reading that as a violation made every decorative part on both shipped cars an error.
         if (category == PartCategory.DECORATIVE
                 && (root.path("armorValue").asDouble(0d) != 0d
-                        || root.path("stats").isObject())) {
+                        || !root.path("stats").isEmpty())) {
             issues.add(ValidationIssue.error(
                     "A205", partTypeId.value(), "a decorative part may declare no stats and no armour (D05-R6)"));
         }
@@ -438,6 +453,102 @@ public final class AssetLoader {
                     (float) node.path("maxSuspensionForceN").asDouble(reference.maxSuspensionForceN())));
         } catch (IllegalArgumentException e) {
             issues.add(ValidationIssue.error("A210", partTypeId.value(), "handling: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Reads the {@code weapon} block: what kind of weapon this part is (D08-R5, DEC-039).
+     *
+     * <p>Until this existed, {@code WeaponSystem} (8) could only fire a weapon a <em>test</em> had
+     * constructed: every path from {@code part.json} to {@link WeaponBlock} was missing, so a part
+     * declaring {@code "category": "WEAPON"} loaded as an inert lump and the block D08-R5 has
+     * specified since the beginning was silently discarded.
+     *
+     * <p>Two rules are enforced here rather than left to the gate, because both produce a part that
+     * loads and then behaves as nothing at all: a block on a part that is neither a weapon nor a
+     * utility is A216, and {@link WeaponFamily#RAM} is A217 — ramming is a chassis property whose
+     * damage comes from collision momentum, so a part claiming it would be a gun that never fires
+     * (the warning D00's family table has carried all along).
+     */
+    private void readWeapon(JsonNode node, AssetId partTypeId, PartCategory category, PartType.Builder builder) {
+        if (!node.isObject()) {
+            if (category == PartCategory.WEAPON) {
+                issues.add(ValidationIssue.warn(
+                        "A216",
+                        partTypeId.value(),
+                        "category is WEAPON but no weapon block is authored; this part cannot fire (D01-R8)"));
+            }
+            return;
+        }
+        if (category != PartCategory.WEAPON) {
+            issues.add(ValidationIssue.error(
+                    "A216",
+                    partTypeId.value(),
+                    "a weapon block is authored on a " + category + " part; only a WEAPON part may carry one"));
+            return;
+        }
+        WeaponFamily family = enumValue(WeaponFamily.class, node.path("family").asText(null));
+        if (family == null) {
+            issues.add(ValidationIssue.error(
+                    "A217",
+                    partTypeId.value(),
+                    "weapon.family \"" + node.path("family").asText() + "\" is not one of "
+                            + java.util.Arrays.toString(WeaponFamily.values())));
+            return;
+        }
+        if (family == WeaponFamily.RAM) {
+            issues.add(ValidationIssue.error(
+                    "A217", partTypeId.value(), "weapon.family RAM is a chassis property, not a part type (D01-S4.4)"));
+            return;
+        }
+        DamageType override = null;
+        String declaredDamage = node.path("damageType").asText(null);
+        if (declaredDamage != null && !declaredDamage.isBlank()) {
+            override = enumOrDefault(DamageType.class, declaredDamage, null, partTypeId, "weapon.damageType");
+        }
+        builder.weapon(new WeaponBlock(
+                family,
+                override,
+                node.path("ammoCapacity").asInt(WeaponBlock.UNLIMITED_AMMO),
+                (float) node.path("blastRadiusM").asDouble(0d),
+                (float) node.path("rangeM").asDouble(0d),
+                readVector(node.path("muzzleLocal"))));
+    }
+
+    /**
+     * Reads the {@code module} block: what kind of utility module this part is (D08-R6).
+     *
+     * <p>The same shape as {@link #readWeapon}, and the same two failure modes: a block on a part
+     * that is not a {@code UTILITY} is A218, and an unknown family is A219. A {@code UTILITY} part
+     * with no block is <b>not</b> a finding — the three passive modules of D05-S4.2 are entirely
+     * their stats and need no identity — but an <em>active</em> module does, which is exactly what
+     * the block is for.
+     */
+    private void readModule(JsonNode node, AssetId partTypeId, PartCategory category, PartType.Builder builder) {
+        if (!node.isObject()) {
+            return;
+        }
+        if (category != PartCategory.UTILITY) {
+            issues.add(ValidationIssue.error(
+                    "A218",
+                    partTypeId.value(),
+                    "a module block is authored on a " + category + " part; only a UTILITY part may carry one"));
+            return;
+        }
+        ModuleFamily family = enumValue(ModuleFamily.class, node.path("family").asText(null));
+        if (family == null) {
+            issues.add(ValidationIssue.error(
+                    "A219",
+                    partTypeId.value(),
+                    "module.family \"" + node.path("family").asText() + "\" is not one of "
+                            + java.util.Arrays.toString(ModuleFamily.values())));
+            return;
+        }
+        try {
+            builder.module(new ModuleBlock(family, node.path("charges").asInt(ModuleBlock.UNLIMITED_CHARGES), (float)
+                    node.path("radiusM").asDouble(0d)));
+        } catch (IllegalArgumentException e) {
+            issues.add(ValidationIssue.error("A219", partTypeId.value(), "module: " + e.getMessage()));
         }
     }
 

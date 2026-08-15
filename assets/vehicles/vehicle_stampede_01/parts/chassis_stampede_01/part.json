@@ -1,0 +1,660 @@
+{
+  "armorValue": 20.77,
+  "assets": {
+    "collisionSource": "mesh.glb#node=chassis_stampede_01_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 24983.9,
+  "category": "CHASSIS",
+  "destructionClass": "STRUCTURAL",
+  "displayName": "Chassis",
+  "handling": {
+    "downforceCoefficient": 1.3,
+    "dragCoefficient": 0.711113,
+    "rollingResistance": 0.014
+  },
+  "hangsBeforeFalling": false,
+  "massKg": 1561.493,
+  "materialId": "steel",
+  "maxHp": 3123.0,
+  "partTypeId": "chassis_stampede_01",
+  "powerCost": 40.887,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ROOT",
+  "slots": [
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.0297,
+        "y": 1.0044,
+        "z": -1.4206
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 32.1,
+      "slotId": "glass_rear_window",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.7439,
+        "y": 1.103,
+        "z": -0.3807
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 13.2,
+      "slotId": "glass_side_window_l",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.6844,
+        "y": 1.103,
+        "z": -0.3807
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 13.3,
+      "slotId": "glass_side_window_r",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.0297,
+        "y": 1.1176,
+        "z": 0.4682
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 31.2,
+      "slotId": "glass_windscreen",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.0297,
+        "y": 0.6759,
+        "z": 1.9606
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 5.8,
+      "slotId": "glass_windscreen_1",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.0297,
+        "y": 0.7778,
+        "z": 0.5021
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 11.6,
+      "slotId": "grille_head",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.0297,
+        "y": 0.4543,
+        "z": 2.1773
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 8.6,
+      "slotId": "grille_head_1",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.3763,
+        "y": 0.9026,
+        "z": 1.6911
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 3.3,
+      "slotId": "grille_head_l",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.4942,
+        "y": 0.8901,
+        "z": 0.3239
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 1.7,
+      "slotId": "grille_head_r",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.3168,
+        "y": 0.9026,
+        "z": 1.6911
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 3.3,
+      "slotId": "grille_head_r_1",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.2273,
+        "y": 0.847,
+        "z": -2.2628
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 3.1,
+      "slotId": "grille_tail_l",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.176,
+        "y": 0.732,
+        "z": -1.3568
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 2.9,
+      "slotId": "grille_tail_l_1",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.1679,
+        "y": 0.847,
+        "z": -2.2628
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 3.1,
+      "slotId": "grille_tail_r",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.1473,
+        "y": 0.6645,
+        "z": -1.3889
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 2.0,
+      "slotId": "grille_tail_r_1",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0,
+        "y": 0.8524,
+        "z": 1.7729
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 157.5,
+      "slotId": "hardpoint_bonnet",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.9589,
+        "y": 0.7562,
+        "z": 0.0018
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 157.5,
+      "slotId": "hardpoint_flank_l",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.9589,
+        "y": 0.7562,
+        "z": 0.0018
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 157.5,
+      "slotId": "hardpoint_flank_r",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0,
+        "y": 0.9074,
+        "z": -1.8676
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 157.5,
+      "slotId": "hardpoint_rear",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.8835,
+        "y": 0.3929,
+        "z": 1.2987
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 22.4,
+      "slotId": "hub_fl",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.8241,
+        "y": 0.3904,
+        "z": 1.2987
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 22.4,
+      "slotId": "hub_fr",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.6684,
+        "y": 0.409,
+        "z": -1.4437
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 19.4,
+      "slotId": "hub_rl",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.5999,
+        "y": 0.636,
+        "z": -1.4281
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 19.4,
+      "slotId": "hub_rr",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": false,
+      "localPosition": {
+        "x": -0.0297,
+        "y": 0.7614,
+        "z": -0.5009
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 20.9,
+      "slotId": "interior",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": false,
+      "localPosition": {
+        "x": -0.4286,
+        "y": 0.7575,
+        "z": -0.0779
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 12.6,
+      "slotId": "interior_l",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": false,
+      "localPosition": {
+        "x": 0.3329,
+        "y": 0.7523,
+        "z": -0.0994
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 20.1,
+      "slotId": "interior_r",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.7928,
+        "y": 0.4551,
+        "z": 1.8953
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 11.7,
+      "slotId": "light_fl",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.7333,
+        "y": 0.4624,
+        "z": 1.889
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 12.4,
+      "slotId": "light_fr",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.8836,
+        "y": 0.6332,
+        "z": -0.0105
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 68.6,
+      "slotId": "panel_door_l",
+      "slotType": "PANEL"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.8713,
+        "y": 0.5976,
+        "z": -0.0105
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 41.1,
+      "slotId": "panel_door_r",
+      "slotType": "PANEL"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0,
+        "y": 1.4024,
+        "z": -0.0965
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 157.5,
+      "slotId": "turret_main",
+      "slotType": "TURRET_MOUNT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.8837,
+        "y": 0.6007,
+        "z": 1.3904
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 49.0,
+      "slotId": "wheel_fl",
+      "slotType": "WHEEL"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.8837,
+        "y": 0.6022,
+        "z": 1.3904
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 49.0,
+      "slotId": "wheel_fr",
+      "slotType": "WHEEL"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.8832,
+        "y": 0.6075,
+        "z": -1.3209
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 53.6,
+      "slotId": "wheel_rl",
+      "slotType": "WHEEL"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.8832,
+        "y": 0.6075,
+        "z": -1.321
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 53.6,
+      "slotId": "wheel_rr",
+      "slotType": "WHEEL"
+    }
+  ],
+  "stats": {
+    "brakeForceN": {
+      "add": 25321.5
+    },
+    "engineForceN": {
+      "add": 16539.9
+    },
+    "enginePowerW": {
+      "add": 547200.0
+    }
+  },
+  "tags": [
+    "chassis",
+    "prepared"
+  ],
+  "yieldImpulseN": 9000.0
+}

@@ -75,7 +75,7 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 | `panel` | Bodywork; absorbs damage before what it covers | mass, armour value, `covers` relationship | Yes | Yes | Yes |
 | `wheel` | Ground contact, drive, steering | mass, traction, steering, suspension | Yes | Yes | No (ray-cast wheel) |
 | `weapon` | Damage output | mass, fire rate, damage, spread, ammo | Yes | Yes | Yes |
-| `utility` | Support effects (ammo feed, radar, cooler, plating booster) | mass, its specific stat modifiers | Yes | Yes | Yes |
+| `utility` | Support effects (ammo feed, radar, cooler, plating booster, cloak) | mass, its specific stat modifiers | Yes | Yes | Yes |
 | `decorative` | Cosmetic only | mass **only** | Yes | Yes | Yes (small hull) |
 
 **R6.** `decorative` parts carry mass and collide, but contribute no stat modifiers and no armour. They exist so that visual identity has physical consequence (P3) — a big spoiler is real weight — while never affecting balance beyond that mass. Cosmetic *skins* (D01-R28) are different: they change nothing at all.
@@ -187,6 +187,8 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 | `heatPerShot` | — | per-weapon | weapon, utility (`radiator`) |
 | `projectileSpeedMps` | m/s | per-weapon | weapon |
 | `sensorRangeM` | m | vehicle | utility (`radar`) |
+| `moduleDurationS` | s | per-module | utility (an **active** module: how long one activation lasts) |
+| `moduleCooldownS` | s | per-module | utility (an **active** module: how long before it may fire again) |
 
 **R16.** `maxSpeedMps` and `accelerationMps2` are **derived**, never authored. They come from engine force, engine power, mass, and drag (D05-S5.6). Authoring a top speed directly would let content contradict physics (P3).
 

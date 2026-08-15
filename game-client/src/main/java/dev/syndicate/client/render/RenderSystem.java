@@ -5,6 +5,7 @@
 package dev.syndicate.client.render;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.math.Vector3;
@@ -75,8 +76,12 @@ public final class RenderSystem implements EntitySystem {
     private Family undrawn;
     private Family players;
     private Family bursts;
+    private Family lamps;
 
     private int drawnThisFrame;
+
+    private final Vector3 lampPosition = new Vector3();
+    private final Vector3 lampDirection = new Vector3();
 
     /**
      * @param effects slot 24, read for the bursts it owns. This is a constructor dependency rather
@@ -109,6 +114,9 @@ public final class RenderSystem implements EntitySystem {
         undrawn = world.family(ComponentQuery.all(PartRefComponent.class).exclude(RenderModelComponent.class));
         drawable = world.family(ComponentQuery.all(RenderModelComponent.class, RenderTransformComponent.class));
         players = world.family(ComponentQuery.all(PlayerIdentityComponent.class, ScoreComponent.class));
+        // A lamp is a part with a render transform. Whether it is *lit* is decided per frame from
+        // the part's health, which is authoritative state this system only ever reads (G6).
+        lamps = world.family(ComponentQuery.all(PartRefComponent.class, RenderTransformComponent.class));
         bursts = effects.bursts();
     }
 
@@ -116,8 +124,10 @@ public final class RenderSystem implements EntitySystem {
     public void update(World world, float dtSeconds, long tick) {
         attachModels(world);
         aimCamera(world, dtSeconds);
+        placeLamps(world);
 
-        ScreenUtils.clear(0.42f, 0.50f, 0.60f, 1f, true);
+        Color sky = context.environment().sky();
+        ScreenUtils.clear(sky.r, sky.g, sky.b, 1f, true);
         Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
 
         drawScene(world);
@@ -150,6 +160,66 @@ public final class RenderSystem implements EntitySystem {
             model.modelInstance = part == null ? null : context.partModels().instanceOf(part.partTypeId);
             world.addComponent(entityId, model);
         }
+    }
+
+    // ---- Lamps ----------------------------------------------------------------------
+
+    /**
+     * Lights every lamp on every living part, then hands the nearest ones to the environment.
+     *
+     * <p>The whole of the on/off rule is here, and all of it is a <em>read</em> of authoritative
+     * state: a lamp lights while its part is alive and attached, and stops the moment the part is
+     * destroyed or comes off. That is the right way round for G6 — the cosmetic layer observes the
+     * simulation and never the reverse — and it means shooting a headlight out is already
+     * implemented by the damage model rather than by anything here.
+     *
+     * <p>A lamp's origin and direction are authored in the part's own space, so they are
+     * transformed by the part's render matrix. Using the <em>render</em> matrix rather than the
+     * simulation transform is the same rule the meshes follow: a beam that lagged its own lamp by a
+     * tick would visibly swing behind the car.
+     */
+    private void placeLamps(World world) {
+        VehicleLights lights = context.vehicleLights();
+        lights.begin();
+        float night = context.environment().nightFraction();
+        if (night <= 0f) {
+            lights.commit(context.environment(), night);
+            return;
+        }
+
+        Vector3 eye = context.camera().camera().position;
+        int[] entityIds = lamps.snapshot();
+        int count = lamps.size();
+        for (int i = 0; i < count; i++) {
+            int entityId = entityIds[i];
+            PartRefComponent part = world.getComponent(entityId, PartRefComponent.class);
+            if (part == null) {
+                continue;
+            }
+            PartLamps.Lamp lamp = context.partLamps().lampFor(part.partTypeId.value());
+            if (lamp == null || !isLit(world, entityId)) {
+                continue;
+            }
+            RenderTransformComponent render = world.getComponent(entityId, RenderTransformComponent.class);
+            if (render == null) {
+                continue;
+            }
+            lampPosition.set(lamp.origin()).mul(render.renderMatrix);
+            // The direction is rotated by the part's orientation and not translated, so it is
+            // transformed as a direction rather than as a point.
+            lampDirection.set(lamp.direction()).rot(render.renderMatrix).nor();
+            lights.add(lampPosition, lampDirection, lamp, eye);
+        }
+        lights.commit(context.environment(), night);
+    }
+
+    /** A lamp lights while its part is alive and has health left; a destroyed lamp is dark. */
+    private boolean isLit(World world, int entityId) {
+        if (!world.isAlive(entityId)) {
+            return false;
+        }
+        HealthComponent health = world.getComponent(entityId, HealthComponent.class);
+        return health == null || health.healthFraction > 0f;
     }
 
     // ---- Camera ---------------------------------------------------------------------
@@ -214,6 +284,13 @@ public final class RenderSystem implements EntitySystem {
             context.batch().render(instance, context.environment().environment());
             drawnThisFrame++;
         }
+        // Inside the same begin/end so the batch's sorter puts every blended cone after every
+        // opaque surface, which is the only order in which an additive beam reads as light.
+        context.vehicleLights()
+                .renderBeams(
+                        context.batch(),
+                        context.environment(),
+                        context.environment().nightFraction());
         context.batch().end();
     }
 

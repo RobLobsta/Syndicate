@@ -11,6 +11,7 @@ import dev.syndicate.core.asset.GltfModel;
 import dev.syndicate.core.asset.GltfOptions;
 import dev.syndicate.core.asset.GltfReader;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.AssetPaths;
 import dev.syndicate.verify.asset.FractureManifest;
 import dev.syndicate.verify.asset.GlbReader;
 import dev.syndicate.verify.asset.MeshData;
@@ -184,8 +185,12 @@ public final class VerifyMain {
     private static int runVehicle(VerifyOptions options) {
         long started = System.currentTimeMillis();
         Path assetRoot = options.assetRoot();
-        if (!Files.isDirectory(assetRoot.resolve("parts"))) {
-            LOG.error("no shipped asset tree at {} (expected {}/parts)", assetRoot, assetRoot);
+        if (AssetPaths.partDirectories(assetRoot).isEmpty()) {
+            LOG.error(
+                    "no shipped parts under {} (expected {}/parts or {}/vehicles/<id>/parts)",
+                    assetRoot,
+                    assetRoot,
+                    assetRoot);
             return INPUT_NOT_FOUND;
         }
 

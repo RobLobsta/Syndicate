@@ -1,0 +1,1402 @@
+{
+  "aabbMax": {
+    "x": 0.075436,
+    "y": 0.155736,
+    "z": 0.804208
+  },
+  "aabbMin": {
+    "x": -0.075436,
+    "y": -0.155736,
+    "z": -0.804208
+  },
+  "blenderVersion": "4.2.0",
+  "collision": {
+    "partHullPieces": 1,
+    "partHullVertexCount": 25,
+    "shardHullMaxVertexCount": 32
+  },
+  "comLocal": {
+    "x": -0.010921,
+    "y": 0.061447,
+    "z": 0.723738
+  },
+  "densityKgPerM3": 2500.0,
+  "generatedAt": "2026-08-15T18:47:45Z",
+  "inertiaDiagonal": {
+    "x": -4.721521,
+    "y": -4.748877,
+    "z": 0.064344
+  },
+  "materialId": "glass",
+  "morphStats": [],
+  "morphTargets": [],
+  "parameters": {
+    "damageMorphs": 0,
+    "hullMaxVerts": 32,
+    "minShardVolumeM3": 1e-06,
+    "morphAmplitude": 0.06,
+    "shardMode": "uniform",
+    "shards": 24
+  },
+  "partMassKg": 8.821884,
+  "partTypeId": "glass_stampede_side_window_l_01",
+  "partVolumeM3": 0.003529,
+  "schemaVersion": "1.0.0",
+  "seed": 1,
+  "shardCount": 24,
+  "shards": [
+    {
+      "aabbMax": {
+        "x": -0.039243,
+        "y": -0.061259,
+        "z": 0.539217
+      },
+      "aabbMin": {
+        "x": -0.080033,
+        "y": -0.154447,
+        "z": 0.374435
+      },
+      "centroid": {
+        "x": -0.0646,
+        "y": -0.121996,
+        "z": 0.462969
+      },
+      "faceCount": 88,
+      "hullVertexCount": 24,
+      "id": "glass_stampede_side_window_l_01_shard_000",
+      "index": 0,
+      "localTransform": {
+        "position": {
+          "x": -0.0646,
+          "y": -0.121996,
+          "z": 0.462969
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.197772,
+      "materialId": "glass",
+      "name": "shard_000",
+      "neighbors": [
+        2,
+        7,
+        10,
+        13
+      ],
+      "vertexCount": 48,
+      "volumeM3": 7.9e-05
+    },
+    {
+      "aabbMax": {
+        "x": -0.025146,
+        "y": -0.026626,
+        "z": 0.229765
+      },
+      "aabbMin": {
+        "x": -0.080178,
+        "y": -0.151719,
+        "z": 0.066607
+      },
+      "centroid": {
+        "x": -0.060224,
+        "y": -0.106671,
+        "z": 0.148711
+      },
+      "faceCount": 96,
+      "hullVertexCount": 28,
+      "id": "glass_stampede_side_window_l_01_shard_001",
+      "index": 1,
+      "localTransform": {
+        "position": {
+          "x": -0.060224,
+          "y": -0.106671,
+          "z": 0.148711
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.295023,
+      "materialId": "glass",
+      "name": "shard_001",
+      "neighbors": [
+        5,
+        12,
+        14,
+        18
+      ],
+      "vertexCount": 52,
+      "volumeM3": 0.000118
+    },
+    {
+      "aabbMax": {
+        "x": -0.019687,
+        "y": -0.010873,
+        "z": 0.381074
+      },
+      "aabbMin": {
+        "x": -0.080117,
+        "y": -0.15318,
+        "z": 0.282286
+      },
+      "centroid": {
+        "x": -0.059744,
+        "y": -0.103798,
+        "z": 0.340775
+      },
+      "faceCount": 80,
+      "hullVertexCount": 30,
+      "id": "glass_stampede_side_window_l_01_shard_002",
+      "index": 2,
+      "localTransform": {
+        "position": {
+          "x": -0.059744,
+          "y": -0.103798,
+          "z": 0.340775
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.192658,
+      "materialId": "glass",
+      "name": "shard_002",
+      "neighbors": [
+        0,
+        10,
+        12,
+        15
+      ],
+      "vertexCount": 44,
+      "volumeM3": 7.7e-05
+    },
+    {
+      "aabbMax": {
+        "x": -0.036779,
+        "y": -0.066405,
+        "z": -0.060018
+      },
+      "aabbMin": {
+        "x": -0.073792,
+        "y": -0.147597,
+        "z": -0.13942
+      },
+      "centroid": {
+        "x": -0.05872,
+        "y": -0.119038,
+        "z": -0.093889
+      },
+      "faceCount": 64,
+      "hullVertexCount": 23,
+      "id": "glass_stampede_side_window_l_01_shard_003",
+      "index": 3,
+      "localTransform": {
+        "position": {
+          "x": -0.05872,
+          "y": -0.119038,
+          "z": -0.093889
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.087443,
+      "materialId": "glass",
+      "name": "shard_003",
+      "neighbors": [
+        4,
+        6,
+        17
+      ],
+      "vertexCount": 36,
+      "volumeM3": 3.5e-05
+    },
+    {
+      "aabbMax": {
+        "x": -0.043859,
+        "y": -0.104022,
+        "z": -0.139187
+      },
+      "aabbMin": {
+        "x": -0.070436,
+        "y": -0.146136,
+        "z": -0.240031
+      },
+      "centroid": {
+        "x": -0.058439,
+        "y": -0.129389,
+        "z": -0.194381
+      },
+      "faceCount": 72,
+      "hullVertexCount": 25,
+      "id": "glass_stampede_side_window_l_01_shard_004",
+      "index": 4,
+      "localTransform": {
+        "position": {
+          "x": -0.058439,
+          "y": -0.129389,
+          "z": -0.194381
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.063743,
+      "materialId": "glass",
+      "name": "shard_004",
+      "neighbors": [
+        3,
+        9,
+        11,
+        16,
+        17
+      ],
+      "vertexCount": 40,
+      "volumeM3": 2.5e-05
+    },
+    {
+      "aabbMax": {
+        "x": -0.030347,
+        "y": -0.048263,
+        "z": 0.07811
+      },
+      "aabbMin": {
+        "x": -0.077655,
+        "y": -0.149604,
+        "z": -0.039439
+      },
+      "centroid": {
+        "x": -0.054707,
+        "y": -0.097163,
+        "z": 0.024732
+      },
+      "faceCount": 96,
+      "hullVertexCount": 32,
+      "id": "glass_stampede_side_window_l_01_shard_005",
+      "index": 5,
+      "localTransform": {
+        "position": {
+          "x": -0.054707,
+          "y": -0.097163,
+          "z": 0.024732
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.207821,
+      "materialId": "glass",
+      "name": "shard_005",
+      "neighbors": [
+        1,
+        6,
+        14,
+        18
+      ],
+      "vertexCount": 52,
+      "volumeM3": 8.3e-05
+    },
+    {
+      "aabbMax": {
+        "x": -0.024462,
+        "y": -0.036727,
+        "z": 0.007679
+      },
+      "aabbMin": {
+        "x": -0.076087,
+        "y": -0.148729,
+        "z": -0.07641
+      },
+      "centroid": {
+        "x": -0.054379,
+        "y": -0.101832,
+        "z": -0.04097
+      },
+      "faceCount": 96,
+      "hullVertexCount": 27,
+      "id": "glass_stampede_side_window_l_01_shard_006",
+      "index": 6,
+      "localTransform": {
+        "position": {
+          "x": -0.054379,
+          "y": -0.101832,
+          "z": -0.04097
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.13709,
+      "materialId": "glass",
+      "name": "shard_006",
+      "neighbors": [
+        3,
+        5,
+        17,
+        18
+      ],
+      "vertexCount": 52,
+      "volumeM3": 5.5e-05
+    },
+    {
+      "aabbMax": {
+        "x": 0.000413,
+        "y": 0.029394,
+        "z": 0.611365
+      },
+      "aabbMin": {
+        "x": -0.077229,
+        "y": -0.15489,
+        "z": 0.47926
+      },
+      "centroid": {
+        "x": -0.045881,
+        "y": -0.074512,
+        "z": 0.534722
+      },
+      "faceCount": 152,
+      "hullVertexCount": 32,
+      "id": "glass_stampede_side_window_l_01_shard_007",
+      "index": 7,
+      "localTransform": {
+        "position": {
+          "x": -0.045881,
+          "y": -0.074512,
+          "z": 0.534722
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.314282,
+      "materialId": "glass",
+      "name": "shard_007",
+      "neighbors": [
+        0,
+        10,
+        13,
+        20
+      ],
+      "vertexCount": 80,
+      "volumeM3": 0.000126
+    },
+    {
+      "aabbMax": {
+        "x": -0.005948,
+        "y": 0.018454,
+        "z": 0.804381
+      },
+      "aabbMin": {
+        "x": -0.069845,
+        "y": -0.155736,
+        "z": 0.624256
+      },
+      "centroid": {
+        "x": -0.045697,
+        "y": -0.088335,
+        "z": 0.704863
+      },
+      "faceCount": 148,
+      "hullVertexCount": 30,
+      "id": "glass_stampede_side_window_l_01_shard_008",
+      "index": 8,
+      "localTransform": {
+        "position": {
+          "x": -0.045697,
+          "y": -0.088335,
+          "z": 0.704863
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.468431,
+      "materialId": "glass",
+      "name": "shard_008",
+      "neighbors": [
+        13
+      ],
+      "vertexCount": 76,
+      "volumeM3": 0.000187
+    },
+    {
+      "aabbMax": {
+        "x": -0.006871,
+        "y": -0.026512,
+        "z": -0.228274
+      },
+      "aabbMin": {
+        "x": -0.065594,
+        "y": -0.145765,
+        "z": -0.305558
+      },
+      "centroid": {
+        "x": -0.041467,
+        "y": -0.097319,
+        "z": -0.25502
+      },
+      "faceCount": 112,
+      "hullVertexCount": 18,
+      "id": "glass_stampede_side_window_l_01_shard_009",
+      "index": 9,
+      "localTransform": {
+        "position": {
+          "x": -0.041467,
+          "y": -0.097319,
+          "z": -0.25502
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.10442,
+      "materialId": "glass",
+      "name": "shard_009",
+      "neighbors": [
+        4,
+        11,
+        16,
+        19
+      ],
+      "vertexCount": 60,
+      "volumeM3": 4.2e-05
+    },
+    {
+      "aabbMax": {
+        "x": -0.000128,
+        "y": 0.029658,
+        "z": 0.491567
+      },
+      "aabbMin": {
+        "x": -0.077183,
+        "y": -0.143529,
+        "z": 0.362866
+      },
+      "centroid": {
+        "x": -0.034704,
+        "y": -0.040627,
+        "z": 0.419908
+      },
+      "faceCount": 120,
+      "hullVertexCount": 32,
+      "id": "glass_stampede_side_window_l_01_shard_010",
+      "index": 10,
+      "localTransform": {
+        "position": {
+          "x": -0.034704,
+          "y": -0.040627,
+          "z": 0.419908
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.386869,
+      "materialId": "glass",
+      "name": "shard_010",
+      "neighbors": [
+        0,
+        2,
+        7,
+        15,
+        20
+      ],
+      "vertexCount": 64,
+      "volumeM3": 0.000155
+    },
+    {
+      "aabbMax": {
+        "x": 0.007601,
+        "y": 0.016847,
+        "z": -0.145249
+      },
+      "aabbMin": {
+        "x": -0.064786,
+        "y": -0.130085,
+        "z": -0.240712
+      },
+      "centroid": {
+        "x": -0.03361,
+        "y": -0.065568,
+        "z": -0.204509
+      },
+      "faceCount": 152,
+      "hullVertexCount": 11,
+      "id": "glass_stampede_side_window_l_01_shard_011",
+      "index": 11,
+      "localTransform": {
+        "position": {
+          "x": -0.03361,
+          "y": -0.065568,
+          "z": -0.204509
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.170282,
+      "materialId": "glass",
+      "name": "shard_011",
+      "neighbors": [
+        4,
+        9,
+        16,
+        17,
+        23
+      ],
+      "vertexCount": 80,
+      "volumeM3": 6.8e-05
+    },
+    {
+      "aabbMax": {
+        "x": 0.026976,
+        "y": 0.081346,
+        "z": 0.286318
+      },
+      "aabbMin": {
+        "x": -0.080178,
+        "y": -0.15225,
+        "z": 0.166321
+      },
+      "centroid": {
+        "x": -0.030711,
+        "y": -0.032858,
+        "z": 0.236128
+      },
+      "faceCount": 152,
+      "hullVertexCount": 17,
+      "id": "glass_stampede_side_window_l_01_shard_012",
+      "index": 12,
+      "localTransform": {
+        "position": {
+          "x": -0.030711,
+          "y": -0.032858,
+          "z": 0.236128
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.562486,
+      "materialId": "glass",
+      "name": "shard_012",
+      "neighbors": [
+        1,
+        2,
+        14,
+        15,
+        20,
+        22
+      ],
+      "vertexCount": 80,
+      "volumeM3": 0.000225
+    },
+    {
+      "aabbMax": {
+        "x": 0.010945,
+        "y": 0.055697,
+        "z": 0.652594
+      },
+      "aabbMin": {
+        "x": -0.070931,
+        "y": -0.155144,
+        "z": 0.516036
+      },
+      "centroid": {
+        "x": -0.030395,
+        "y": -0.04297,
+        "z": 0.593276
+      },
+      "faceCount": 148,
+      "hullVertexCount": 27,
+      "id": "glass_stampede_side_window_l_01_shard_013",
+      "index": 13,
+      "localTransform": {
+        "position": {
+          "x": -0.030395,
+          "y": -0.04297,
+          "z": 0.593276
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.388739,
+      "materialId": "glass",
+      "name": "shard_013",
+      "neighbors": [
+        0,
+        7,
+        8,
+        20
+      ],
+      "vertexCount": 76,
+      "volumeM3": 0.000155
+    },
+    {
+      "aabbMax": {
+        "x": 0.009204,
+        "y": 0.043336,
+        "z": 0.167255
+      },
+      "aabbMin": {
+        "x": -0.064824,
+        "y": -0.110914,
+        "z": 0.048949
+      },
+      "centroid": {
+        "x": -0.028107,
+        "y": -0.027463,
+        "z": 0.11209
+      },
+      "faceCount": 112,
+      "hullVertexCount": 30,
+      "id": "glass_stampede_side_window_l_01_shard_014",
+      "index": 14,
+      "localTransform": {
+        "position": {
+          "x": -0.028107,
+          "y": -0.027463,
+          "z": 0.11209
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.26807,
+      "materialId": "glass",
+      "name": "shard_014",
+      "neighbors": [
+        1,
+        5,
+        12,
+        18,
+        22
+      ],
+      "vertexCount": 60,
+      "volumeM3": 0.000107
+    },
+    {
+      "aabbMax": {
+        "x": 0.021832,
+        "y": 0.071421,
+        "z": 0.368644
+      },
+      "aabbMin": {
+        "x": -0.075837,
+        "y": -0.141119,
+        "z": 0.284331
+      },
+      "centroid": {
+        "x": -0.024158,
+        "y": -0.015873,
+        "z": 0.316544
+      },
+      "faceCount": 104,
+      "hullVertexCount": 26,
+      "id": "glass_stampede_side_window_l_01_shard_015",
+      "index": 15,
+      "localTransform": {
+        "position": {
+          "x": -0.024158,
+          "y": -0.015873,
+          "z": 0.316544
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.266093,
+      "materialId": "glass",
+      "name": "shard_015",
+      "neighbors": [
+        2,
+        10,
+        12,
+        20,
+        22
+      ],
+      "vertexCount": 56,
+      "volumeM3": 0.000106
+    },
+    {
+      "aabbMax": {
+        "x": 0.013602,
+        "y": 0.01659,
+        "z": -0.229989
+      },
+      "aabbMin": {
+        "x": -0.057559,
+        "y": -0.133869,
+        "z": -0.550149
+      },
+      "centroid": {
+        "x": -0.022915,
+        "y": -0.061778,
+        "z": -0.343942
+      },
+      "faceCount": 260,
+      "hullVertexCount": 9,
+      "id": "glass_stampede_side_window_l_01_shard_016",
+      "index": 16,
+      "localTransform": {
+        "position": {
+          "x": -0.022915,
+          "y": -0.061778,
+          "z": -0.343942
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.357241,
+      "materialId": "glass",
+      "name": "shard_016",
+      "neighbors": [
+        4,
+        9,
+        11,
+        19,
+        21,
+        23
+      ],
+      "vertexCount": 134,
+      "volumeM3": 0.000143
+    },
+    {
+      "aabbMax": {
+        "x": 0.044134,
+        "y": 0.095886,
+        "z": -0.05238
+      },
+      "aabbMin": {
+        "x": -0.067773,
+        "y": -0.138051,
+        "z": -0.221964
+      },
+      "centroid": {
+        "x": -0.014279,
+        "y": -0.015495,
+        "z": -0.129838
+      },
+      "faceCount": 184,
+      "hullVertexCount": 9,
+      "id": "glass_stampede_side_window_l_01_shard_017",
+      "index": 17,
+      "localTransform": {
+        "position": {
+          "x": -0.014279,
+          "y": -0.015495,
+          "z": -0.129838
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.579115,
+      "materialId": "glass",
+      "name": "shard_017",
+      "neighbors": [
+        3,
+        4,
+        6,
+        11,
+        18,
+        22,
+        23
+      ],
+      "vertexCount": 96,
+      "volumeM3": 0.000232
+    },
+    {
+      "aabbMax": {
+        "x": 0.065621,
+        "y": 0.135695,
+        "z": 0.116661
+      },
+      "aabbMin": {
+        "x": -0.043775,
+        "y": -0.056104,
+        "z": -0.091175
+      },
+      "centroid": {
+        "x": 0.003724,
+        "y": 0.031583,
+        "z": 0.000535
+      },
+      "faceCount": 192,
+      "hullVertexCount": 14,
+      "id": "glass_stampede_side_window_l_01_shard_018",
+      "index": 18,
+      "localTransform": {
+        "position": {
+          "x": 0.003724,
+          "y": 0.031583,
+          "z": 0.000535
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.655908,
+      "materialId": "glass",
+      "name": "shard_018",
+      "neighbors": [
+        1,
+        5,
+        6,
+        14,
+        17,
+        22,
+        23
+      ],
+      "vertexCount": 100,
+      "volumeM3": 0.000262
+    },
+    {
+      "aabbMax": {
+        "x": 0.05669,
+        "y": 0.089294,
+        "z": -0.249461
+      },
+      "aabbMin": {
+        "x": -0.022067,
+        "y": -0.075727,
+        "z": -0.496942
+      },
+      "centroid": {
+        "x": 0.013446,
+        "y": 0.015406,
+        "z": -0.342994
+      },
+      "faceCount": 212,
+      "hullVertexCount": 32,
+      "id": "glass_stampede_side_window_l_01_shard_019",
+      "index": 19,
+      "localTransform": {
+        "position": {
+          "x": 0.013446,
+          "y": 0.015406,
+          "z": -0.342994
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.226452,
+      "materialId": "glass",
+      "name": "shard_019",
+      "neighbors": [
+        9,
+        16,
+        21,
+        23
+      ],
+      "vertexCount": 112,
+      "volumeM3": 9.1e-05
+    },
+    {
+      "aabbMax": {
+        "x": 0.065654,
+        "y": 0.145811,
+        "z": 0.55407
+      },
+      "aabbMin": {
+        "x": -0.015608,
+        "y": 0.008386,
+        "z": 0.274442
+      },
+      "centroid": {
+        "x": 0.020793,
+        "y": 0.07313,
+        "z": 0.400562
+      },
+      "faceCount": 196,
+      "hullVertexCount": 18,
+      "id": "glass_stampede_side_window_l_01_shard_020",
+      "index": 20,
+      "localTransform": {
+        "position": {
+          "x": 0.020793,
+          "y": 0.07313,
+          "z": 0.400562
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.602374,
+      "materialId": "glass",
+      "name": "shard_020",
+      "neighbors": [
+        7,
+        10,
+        12,
+        13,
+        15,
+        22
+      ],
+      "vertexCount": 100,
+      "volumeM3": 0.000241
+    },
+    {
+      "aabbMax": {
+        "x": 0.076661,
+        "y": 0.121548,
+        "z": -0.321929
+      },
+      "aabbMin": {
+        "x": -0.026956,
+        "y": -0.096017,
+        "z": -0.804698
+      },
+      "centroid": {
+        "x": 0.025887,
+        "y": 0.009814,
+        "z": -0.555814
+      },
+      "faceCount": 348,
+      "hullVertexCount": 17,
+      "id": "glass_stampede_side_window_l_01_shard_021",
+      "index": 21,
+      "localTransform": {
+        "position": {
+          "x": 0.025887,
+          "y": 0.009814,
+          "z": -0.555814
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.756192,
+      "materialId": "glass",
+      "name": "shard_021",
+      "neighbors": [
+        16,
+        19,
+        23
+      ],
+      "vertexCount": 178,
+      "volumeM3": 0.000302
+    },
+    {
+      "aabbMax": {
+        "x": 0.082239,
+        "y": 0.162582,
+        "z": 0.284956
+      },
+      "aabbMin": {
+        "x": -0.006865,
+        "y": 0.024566,
+        "z": -0.067236
+      },
+      "centroid": {
+        "x": 0.044234,
+        "y": 0.108137,
+        "z": 0.126661
+      },
+      "faceCount": 220,
+      "hullVertexCount": 13,
+      "id": "glass_stampede_side_window_l_01_shard_022",
+      "index": 22,
+      "localTransform": {
+        "position": {
+          "x": 0.044234,
+          "y": 0.108137,
+          "z": 0.126661
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.877542,
+      "materialId": "glass",
+      "name": "shard_022",
+      "neighbors": [
+        12,
+        14,
+        15,
+        17,
+        18,
+        20,
+        23
+      ],
+      "vertexCount": 112,
+      "volumeM3": 0.000351
+    },
+    {
+      "aabbMax": {
+        "x": 0.082028,
+        "y": 0.156963,
+        "z": -0.065728
+      },
+      "aabbMin": {
+        "x": -0.002106,
+        "y": 0.007464,
+        "z": -0.349328
+      },
+      "centroid": {
+        "x": 0.047632,
+        "y": 0.092615,
+        "z": -0.204349
+      },
+      "faceCount": 180,
+      "hullVertexCount": 14,
+      "id": "glass_stampede_side_window_l_01_shard_023",
+      "index": 23,
+      "localTransform": {
+        "position": {
+          "x": 0.047632,
+          "y": 0.092615,
+          "z": -0.204349
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 0.655839,
+      "materialId": "glass",
+      "name": "shard_023",
+      "neighbors": [
+        11,
+        16,
+        17,
+        18,
+        19,
+        21,
+        22
+      ],
+      "vertexCount": 90,
+      "volumeM3": 0.000262
+    }
+  ],
+  "sourceFile": "../assets/vehicles/vehicle_stampede_01/parts/glass_stampede_side_window_l_01/mesh.glb",
+  "sourceHash": "sha256:b4018517fcf0b841051856270be646a3cfbfd5fdb934e7251c23758bf5889cb0",
+  "toolVersion": "0.1.0",
+  "topologyHash": "sha256:8ba5da5b1537b5cce9550fe6488582fb3a8894af47e41e3f6ef337d2ce2f6b95",
+  "verification": {
+    "checks": [
+      {
+        "expected": "> 0.01 kg",
+        "id": "TV-001",
+        "measured": "min 0.0637 kg, max 0.8775 kg over 24 shards",
+        "name": "All shards have positive mass",
+        "status": "pass"
+      },
+      {
+        "expected": "strictly increasing",
+        "id": "TV-003",
+        "measured": "[]",
+        "name": "Shape key severity increases across levels",
+        "status": "pass"
+      },
+      {
+        "expected": "4..64 verts, positive volume",
+        "id": "TV-004",
+        "measured": "25 verts, volume 0.006092 m3",
+        "name": "Hull part is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "24 verts, volume 0.000084 m3",
+        "name": "Hull shard_000 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "28 verts, volume 0.000135 m3",
+        "name": "Hull shard_001 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "30 verts, volume 0.000091 m3",
+        "name": "Hull shard_002 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "23 verts, volume 0.000035 m3",
+        "name": "Hull shard_003 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "25 verts, volume 0.000026 m3",
+        "name": "Hull shard_004 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "32 verts, volume 0.000090 m3",
+        "name": "Hull shard_005 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "27 verts, volume 0.000060 m3",
+        "name": "Hull shard_006 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "32 verts, volume 0.000159 m3",
+        "name": "Hull shard_007 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "30 verts, volume 0.000152 m3",
+        "name": "Hull shard_008 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "18 verts, volume 0.000075 m3",
+        "name": "Hull shard_009 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "32 verts, volume 0.000190 m3",
+        "name": "Hull shard_010 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "11 verts, volume 0.000993 m3",
+        "name": "Hull shard_011 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "17 verts, volume 0.000836 m3",
+        "name": "Hull shard_012 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "27 verts, volume 0.000124 m3",
+        "name": "Hull shard_013 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "30 verts, volume 0.000128 m3",
+        "name": "Hull shard_014 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "26 verts, volume 0.000142 m3",
+        "name": "Hull shard_015 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "9 verts, volume 0.003306 m3",
+        "name": "Hull shard_016 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "9 verts, volume 0.001109 m3",
+        "name": "Hull shard_017 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "14 verts, volume 0.003370 m3",
+        "name": "Hull shard_018 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "32 verts, volume 0.000183 m3",
+        "name": "Hull shard_019 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "18 verts, volume 0.005638 m3",
+        "name": "Hull shard_020 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "17 verts, volume 0.007512 m3",
+        "name": "Hull shard_021 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "13 verts, volume 0.006602 m3",
+        "name": "Hull shard_022 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "14 verts, volume 0.001178 m3",
+        "name": "Hull shard_023 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "equal sets",
+        "id": "TV-005",
+        "measured": "manifest 24, exported 24",
+        "name": "Manifest shard count matches exported meshes",
+        "status": "pass"
+      },
+      {
+        "expected": "[]",
+        "id": "TV-006",
+        "measured": "[]",
+        "name": "Morph targets present in exported mesh",
+        "status": "pass"
+      },
+      {
+        "expected": "within 2.0%",
+        "id": "TV-007",
+        "measured": "8.8219 kg vs 8.8219 kg",
+        "name": "Total shard mass conserves part mass",
+        "status": "pass"
+      },
+      {
+        "expected": "max/total <= 0.70, max/min <= 200",
+        "id": "TV-008",
+        "measured": "max/total 0.099, max/min 13.8",
+        "name": "Shard mass distribution is not pathological",
+        "status": "pass"
+      },
+      {
+        "expected": "all finite",
+        "id": "TV-009",
+        "measured": "checked 24 shards + intact mesh",
+        "name": "No NaN or Inf in any output vertex",
+        "status": "pass"
+      },
+      {
+        "expected": "0.01..20.0 m",
+        "id": "TV-010",
+        "measured": "1.6084 m",
+        "name": "Extents are plausible (unit check)",
+        "status": "pass"
+      },
+      {
+        "expected": "no schema violations",
+        "id": "TV-011",
+        "measured": "no violations",
+        "name": "Manifest conforms to schema",
+        "status": "pass"
+      },
+      {
+        "expected": "all equal",
+        "id": "TV-012",
+        "measured": "array 24, count 24, shards 24",
+        "name": "Manifest shard array matches shardCount",
+        "status": "pass"
+      }
+    ],
+    "passed": true,
+    "warnings": []
+  }
+}

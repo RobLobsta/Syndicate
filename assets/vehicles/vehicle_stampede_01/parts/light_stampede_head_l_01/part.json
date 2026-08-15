@@ -1,0 +1,48 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=light_stampede_head_l_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 662.9,
+  "category": "DECORATIVE",
+  "destructionClass": "RIGID",
+  "displayName": "Head Light (Left)",
+  "hangsBeforeFalling": false,
+  "light": {
+    "castsBeam": true,
+    "colorRgb": {
+      "b": 0.88,
+      "g": 0.96,
+      "r": 1.0
+    },
+    "coneInnerDeg": 13.0,
+    "coneOuterDeg": 34.0,
+    "directionLocal": {
+      "x": 0.0,
+      "y": -0.061,
+      "z": 0.9981
+    },
+    "intensity": 34.0,
+    "originLocal": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.2909
+    },
+    "rangeM": 55.0
+  },
+  "massKg": 7.799,
+  "materialId": "plastic",
+  "maxHp": 78.0,
+  "partTypeId": "light_stampede_head_l_01",
+  "powerCost": 0.988,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "head",
+    "light",
+    "prepared"
+  ]
+}

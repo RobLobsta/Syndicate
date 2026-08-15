@@ -1,0 +1,25 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=hub_eclipse_rear_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 2090.7,
+  "category": "UTILITY",
+  "destructionClass": "RIGID",
+  "displayName": "Hub (Left)",
+  "hangsBeforeFalling": false,
+  "massKg": 24.596,
+  "materialId": "steel",
+  "maxHp": 246.0,
+  "partTypeId": "hub_eclipse_rear_01",
+  "powerCost": 3.181,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "HARDPOINT",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "hub",
+    "prepared"
+  ]
+}

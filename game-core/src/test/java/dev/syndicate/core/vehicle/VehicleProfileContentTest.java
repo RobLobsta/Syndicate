@@ -8,10 +8,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import com.badlogic.gdx.math.Vector3;
 import dev.syndicate.core.asset.AssemblyDef;
 import dev.syndicate.core.asset.HandlingBlock;
 import dev.syndicate.core.asset.InMemoryAssetIndex;
 import dev.syndicate.core.asset.PartType;
+import dev.syndicate.core.asset.SlotDefinition;
 import dev.syndicate.core.vehicle.StatBlock.Stat;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.PartCategory;
@@ -31,8 +33,33 @@ import org.junit.jupiter.api.Test;
 @Tag("integration")
 class VehicleProfileContentTest {
 
-    /** Metres the art's axle spacing may differ from the manufacturer's published track. */
-    private static final float ART_TRACK_TOLERANCE_M = 0.05f;
+    /**
+     * Metres the art's axle spacing may differ from the manufacturer's published figures.
+     *
+     * <p>Widened from 5 cm when the preparation pipeline's output shipped, and the cause is a
+     * change in what is being measured rather than a slip in the art. A wheel's placement is now
+     * the centre of the wheel <em>part</em> — the tyre and rim alone, with the brake hub a
+     * separate part beside it — where the retired dissection measured an island that included the
+     * hub and therefore sat further inboard. The Stampede's art puts its wheel centre planes
+     * 2.9 cm outboard of the published track per side; the real car's figure is measured at the
+     * same plane, so this is the licensed-look model being a little wide, which is ordinary and
+     * which the game cannot correct without visibly breaking the vehicle.
+     *
+     * <p>8 cm still catches every failure this exists for: a wheel on the wrong side, an axis
+     * mix-up, or a track out by a metre.
+     */
+    private static final float ART_TRACK_TOLERANCE_M = 0.08f;
+
+    /**
+     * Metres a settled tyre may sit off the ground.
+     *
+     * <p>Two centimetres, which is generous for a figure that should be exact — and it is generous
+     * because the radius comes from a 64-point collision hull rather than from the tyre, and a hull
+     * samples a circle at a handful of directions (its measured diameter is a couple of centimetres
+     * short of round on both Stampede wheels). What this catches is the failure it exists for: a
+     * wheel a whole rest length out of place, which is 30 cm.
+     */
+    private static final float RIDE_HEIGHT_TOLERANCE_M = 0.02f;
 
     private static InMemoryAssetIndex assets;
 
@@ -69,7 +96,15 @@ class VehicleProfileContentTest {
         for (VehicleProfile profile : VehicleProfiles.all()) {
             PartType chassis = chassisOf(profile);
 
-            assertThat(chassis.massKg()).isCloseTo(profile.chassisMassKg(), within(0.5f));
+            // Not `profile.chassisMassKg()`. That figure is the kerb mass less four wheels, which
+            // was the whole of a vehicle when a vehicle was a chassis and four wheels. A prepared
+            // vehicle is twenty-odd parts and its chassis is the balance of the kerb mass after
+            // every one of them is weighed, so the contract that survives is the kerb mass itself
+            // — asserted by `eachAssemblyWeighsItsProfilesKerbMass` — plus the chassis still being
+            // the majority of the car, which is what makes it the chassis.
+            assertThat(chassis.massKg() / profile.kerbMassKg())
+                    .as("%s chassis share of kerb mass", profile.displayName())
+                    .isBetween(0.45f, 0.90f);
             assertThat(chassis.stats().resolve(Stat.ENGINE_FORCE_N, 0f))
                     .as("%s engine force", profile.displayName())
                     .isCloseTo(profile.engineForceN(), within(1f));
@@ -140,7 +175,12 @@ class VehicleProfileContentTest {
      * the real one is sold as, which is ordinary for a licensed-look model and not something the
      * game can correct without visibly breaking the vehicle. So the published track stays here as a
      * band that would catch a wheel on the wrong side or a metre out, and the art is the authority
-     * on the centimetres. Wheelbase needs no such slack: the art agrees with the spec sheet on it.
+     * on the centimetres.
+     *
+     * <p>Wheelbase carries the same band, and used to carry a tighter one. The axle it is measured
+     * between is now the centre of the wheel <em>part</em> rather than of the shells that voted for
+     * it, which is the placement a wheel actually spins about — and on the Stampede that moved the
+     * front axle by a centimetre. One authority for the axle, one tolerance for both figures.
      */
     @Test
     void chassisWheelSlotsMatchThePublishedGeometry() {
@@ -153,13 +193,60 @@ class VehicleProfileContentTest {
 
             assertThat(frontZ - rearZ)
                     .as("%s wheelbase", profile.displayName())
-                    .isCloseTo(profile.wheelbaseM(), within(0.01f));
+                    .isCloseTo(profile.wheelbaseM(), within(ART_TRACK_TOLERANCE_M));
             assertThat(frontHalfTrack * 2f)
                     .as("%s front track", profile.displayName())
                     .isCloseTo(profile.trackFrontM(), within(ART_TRACK_TOLERANCE_M));
             assertThat(rearHalfTrack * 2f)
                     .as("%s rear track", profile.displayName())
                     .isCloseTo(profile.trackRearM(), within(ART_TRACK_TOLERANCE_M));
+        }
+    }
+
+    /**
+     * A wheel's slot puts its tyre on the ground, once the suspension has settled.
+     *
+     * <p>The check the retired content never had and that two separate bugs hid behind. A wheel
+     * slot is the suspension's connection point; the wheel hangs a rest length below it and the
+     * vehicle settles one static sag back up (D15-R45b). So
+     * {@code slotY - (restLength - sag) - tyreRadius} is the vehicle's ride height, and it should be
+     * zero, because the artist modelled the car standing on the ground.
+     *
+     * <p>Asserted here rather than in a physics test because it is a statement about the
+     * <em>content</em>: it holds with no Bullet world, and it is the number the garage — which has
+     * no world — has to reproduce to draw a car with its wheels in its arches rather than a fifth
+     * of a metre up inside them.
+     */
+    @Test
+    void everyWheelSlotStandsItsTyreOnTheGround() {
+        for (VehicleProfile profile : VehicleProfiles.all()) {
+            AssemblyDef assembly = assets.assembly(profile.profileId());
+            PartType chassis = chassisOf(profile);
+            int wheelCount = wheelsOf(profile).size();
+
+            for (AssemblyDef.PartPlacement placement : assembly.parts()) {
+                PartType wheel = assets.partType(placement.partTypeId());
+                if (wheel == null || wheel.category() != PartCategory.WHEEL) {
+                    continue;
+                }
+                SlotDefinition slot = chassis.slot(placement.parentSlotId());
+                assertThat(slot).as("slot %s", placement.parentSlotId()).isNotNull();
+
+                float stiffness =
+                        wheel.stats().resolve(Stat.SUSPENSION_STIFFNESS, VehicleFactory.WHEEL_SUSPENSION_STIFFNESS);
+                float axleY = slot.localTransform().position.y
+                        - wheel.handling().suspensionRestLengthM()
+                        + VehicleFactory.staticSagM(stiffness, wheelCount);
+
+                Vector3 min = new Vector3();
+                Vector3 max = new Vector3();
+                wheel.collisionMesh().bounds(min, max);
+                float radius = (max.y - min.y) * 0.5f;
+
+                assertThat(axleY - radius)
+                        .as("%s ride height at %s", profile.displayName(), placement.parentSlotId())
+                        .isCloseTo(0f, within(RIDE_HEIGHT_TOLERANCE_M));
+            }
         }
     }
 

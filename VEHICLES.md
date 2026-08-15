@@ -36,12 +36,14 @@ The numbers a tuning pass changes. Steering and grip are authored on the wheel p
 
 ## Content
 
-Where each vehicle's files live. Drop a `mesh.glb` into a part's directory and it is that part's model — see `assets/README.md`.
+Each vehicle owns its parts (D08-R14b): they live under it, and only its own assembly may use them. `parts/manifest.json` lists every one with its mass, its stats and how it fails.
 
-| Vehicle | Assembly | Chassis part | Wheel parts |
+| Vehicle | Directory | Its parts | What it is made of |
 |---|---|---|---|
-| **Eclipse** | `assets/vehicles/vehicle_eclipse_01/` | `assets/parts/chassis_eclipse_01/` | `assets/parts/wheel_eclipse_front_01/`, `assets/parts/wheel_eclipse_rear_01/` |
-| **Stampede** | `assets/vehicles/vehicle_stampede_01/` | `assets/parts/chassis_stampede_01/` | `assets/parts/wheel_stampede_front_01/`, `assets/parts/wheel_stampede_rear_01/` |
+| **Eclipse** | `assets/vehicles/vehicle_eclipse_01/` | `assets/vehicles/vehicle_eclipse_01/parts/` | `assets/vehicles/vehicle_eclipse_01/parts/manifest.json` |
+| **Stampede** | `assets/vehicles/vehicle_stampede_01/` | `assets/vehicles/vehicle_stampede_01/parts/` | `assets/vehicles/vehicle_stampede_01/parts/manifest.json` |
+
+Modular content — weapons, utility modules, universal accessories — lives in `assets/parts/` instead and fits any vehicle with a free hardpoint. Every vehicle above offers a `turret_main` and four `hardpoint_*` slots.
 
 ## Sources
 

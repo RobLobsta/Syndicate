@@ -1,0 +1,31 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=wheel_eclipse_rear_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 3353.5,
+  "category": "WHEEL",
+  "destructionClass": "RIGID",
+  "displayName": "Wheel (Left)",
+  "handling": {
+    "rollInfluence": 0.15,
+    "suspensionCompression": 2.4,
+    "suspensionDamping": 2.3,
+    "suspensionRestLengthM": 0.3
+  },
+  "hangsBeforeFalling": false,
+  "massKg": 39.453,
+  "materialId": "rubber",
+  "maxHp": 394.5,
+  "partTypeId": "wheel_eclipse_rear_01",
+  "powerCost": 5.102,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "WHEEL",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "prepared",
+    "wheel"
+  ]
+}

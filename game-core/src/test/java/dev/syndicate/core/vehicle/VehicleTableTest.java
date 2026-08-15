@@ -140,22 +140,25 @@ class VehicleTableTest {
         }
 
         out.append("\n## Content\n\n")
-                .append("Where each vehicle's files live. Drop a `mesh.glb` into a part's directory ")
-                .append("and it is that part's model — see `assets/README.md`.\n\n")
-                .append("| Vehicle | Assembly | Chassis part | Wheel parts |\n")
+                .append("Each vehicle owns its parts (D08-R14b): they live under it, and only its own ")
+                .append("assembly may use them. `parts/manifest.json` lists every one with its mass, ")
+                .append("its stats and how it fails.\n\n")
+                .append("| Vehicle | Directory | Its parts | What it is made of |\n")
                 .append("|---|---|---|---|\n");
         for (VehicleProfile p : VehicleProfiles.all()) {
-            String stem = p.profileId().value().replaceFirst("^vehicle_", "");
+            String id = p.profileId().value();
             out.append(String.format(
                     Locale.ROOT,
-                    "| **%s** | `assets/vehicles/%s/` | `assets/parts/chassis_%s/` | `assets/parts/wheel_%s_front_01/`,"
-                            + " `assets/parts/wheel_%s_rear_01/` |%n",
+                    "| **%s** | `assets/vehicles/%s/` | `assets/vehicles/%s/parts/` |"
+                            + " `assets/vehicles/%s/parts/manifest.json` |%n",
                     p.displayName(),
-                    p.profileId().value(),
-                    stem,
-                    wheelStem(stem),
-                    wheelStem(stem)));
+                    id,
+                    id,
+                    id));
         }
+        out.append("\nModular content — weapons, utility modules, universal accessories — lives in ")
+                .append("`assets/parts/` instead and fits any vehicle with a free hardpoint. Every ")
+                .append("vehicle above offers a `turret_main` and four `hardpoint_*` slots.\n");
 
         out.append("\n## Sources\n\n");
         for (VehicleProfile p : VehicleProfiles.all()) {
@@ -166,12 +169,6 @@ class VehicleTableTest {
                 .append("and labelled as estimates in the profile's Javadoc — for a race car that is ")
                 .append("most of the aerodynamics.\n");
         return out.toString();
-    }
-
-    /** {@code apex_gt_01} to {@code apex}, which is how the wheel part ids are named. */
-    private static String wheelStem(String chassisStem) {
-        int cut = chassisStem.indexOf('_');
-        return cut < 0 ? chassisStem : chassisStem.substring(0, cut);
     }
 
     private static Path repositoryRoot() {

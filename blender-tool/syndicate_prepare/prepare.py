@@ -3,6 +3,7 @@
 ::
 
     1. Load, pose, and correct        (D09-S5.1 conventions; DISC-016 for why posing is first)
+    1b. Normalise the materials        (D15-S9, syndicate_prepare.style)
     2. Repair geometry                 (D15-S5.5, syndicate_prepare.cleanup)
     3. Separate into connected shells  (D15-S5.2)
     4. Label shells                    (D15-S4.2 ensemble, D15-S4.3 overrides, roles, corners)
@@ -28,8 +29,20 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import cleanup, cues, destruction, exporter, grouping, hinges, manifest, repair, roles
-from .labels import CHASSIS, MAX_SHELLS, UNCLASSIFIED, WHEEL
+from . import (
+    cleanup,
+    cues,
+    destruction,
+    exporter,
+    grouping,
+    hinges,
+    manifest,
+    profile,
+    repair,
+    roles,
+    style,
+)
+from .labels import CHASSIS, LIGHT, MAX_SHELLS, UNCLASSIFIED, WEAPON
 from .overrides import Overrides
 from .shell import Shell
 
@@ -76,6 +89,28 @@ def load_and_correct(model_dir: Path) -> dict:
     correction = _read_import_json(model_dir)
     meshes = [obj for obj in bpy.data.objects if obj.type == "MESH"] if HAVE_BPY else []
     return {"objects": len(meshes), "correction": correction}
+
+
+def normalise_materials(options) -> dict:
+    """Stage 1b: move every source material into the house style (D15-S9, D15-R40).
+
+    A missing or malformed style table is reported and the run continues unstyled, rather than
+    failing: the vehicle that comes out is still a correct vehicle, it just does not match the
+    roster, and refusing to prepare a car because a palette file was moved would be the wrong
+    trade. ``--no-style`` is the same outcome asked for deliberately.
+    """
+    if not options.normalise_style:
+        return {"applied": False, "reason": "disabled with --no-style"}
+    try:
+        table = style.StyleTable.load(options.style_table)
+    except style.StyleError as error:
+        return {"applied": False, "reason": str(error)}
+    try:
+        report = style.apply_to_scene(table, options.seed)
+    except style.StyleError as error:  # pragma: no cover - needs a Blender host to reach
+        return {"applied": False, "reason": str(error)}
+    report["applied"] = True
+    return report
 
 
 def _read_import_json(model_dir: Path) -> dict:
@@ -463,6 +498,8 @@ class Options:
     vehicles_out: Path | None = None
     material_table: Path = Path("assets/materials/materials.json")
     balance_table: Path = Path("assets/balance/classes.json")
+    style_table: Path = Path("assets/materials/style.json")
+    normalise_style: bool = True
     write_import: bool = True
 
 
@@ -480,6 +517,17 @@ def run(options: Options) -> dict:
 
     # --- Stage 1: load, pose, correct ----------------------------------------------------
     stages["load"] = load_and_correct(options.model_dir)
+
+    # --- Stage 1b: normalise the materials into the house style (D15-S9) -----------------
+    #
+    # Before the geometry is corrected, and that ordering is the point rather than an accident.
+    # Restyling reads and writes materials only, so it is unaffected by scale or axes -- but
+    # every stage after stage 2 progressively destroys the thing it needs. Separation shatters a
+    # material group into thousands of shells (DISC-018), grouping joins shells that came from
+    # different materials into one part, and the export writes one mesh per part. By the time a
+    # part exists there is no material left to normalise, only a mesh that already carries the
+    # wrong colours.
+    stages["style"] = normalise_materials(options)
 
     # --- Stage 2: repair geometry (D15-S5.5) ---------------------------------------------
     plan = cleanup.plan(measure_objects())
@@ -559,17 +607,23 @@ def assemble(options: Options, shells, parts, corners, body, objects, stages) ->
     """
     densities = manifest.load_densities(options.material_table)
     class_targets = manifest.load_class_targets(options.balance_table)
+    researched = profile.Profile.load(options.model_dir)
+    stages["profile"] = researched.as_report()
 
     # A part too light to be a part goes into the chassis, exactly as a shell too small to be
-    # a shell goes into its neighbour (D15-R17). Both keep every triangle accounted for.
-    kept, absorbed = manifest.absorb_small_parts(
-        [group for group in parts if group.label not in (CHASSIS, UNCLASSIFIED)], densities
+    # a shell goes into its neighbour (D15-R17). A wheel that is not at a corner goes the same
+    # way, for a different reason: it was never a wheel. Both keep every triangle accounted for.
+    candidates, cornerless = manifest.absorb_cornerless_wheels(
+        [group for group in parts if group.label not in (CHASSIS, UNCLASSIFIED)], corners
     )
+    kept, absorbed = manifest.absorb_small_parts(candidates, densities)
+    absorbed = absorbed + cornerless
     absorbed_shells = [shell for group in absorbed for shell in group.shells]
     stages.setdefault("group", {})["absorbedIntoChassis"] = {
         "parts": len(absorbed),
         "triangles": sum(group.triangles for group in absorbed),
         "floorKg": manifest.MIN_PART_MASS_KG,
+        "cornerlessWheels": len(cornerless),
     }
 
     chassis_group = grouping.Part(label=CHASSIS, side="c", index=0)
@@ -602,14 +656,21 @@ def assemble(options: Options, shells, parts, corners, body, objects, stages) ->
     stages["rig"] = {"hinged": len(rigged), "hinges": rigged}
 
     # --- Mass, class and power -----------------------------------------------------------
-    target, target_note = manifest.target_mass_kg(body, options.mass_kg, corners)
+    # A researched kerb mass outranks the footprint estimate and is outranked by --mass, which
+    # is an operator saying "not this time" about a file they can see (D15-S11).
+    target, target_note = manifest.target_mass_kg(
+        body, options.mass_kg if options.mass_kg is not None else researched.kerb_mass_kg, corners
+    )
+    if options.mass_kg is None and researched.kerb_mass_kg is not None:
+        target_note = f"the researched kerb mass of the {researched.reference or 'reference car'}"
     mass_report = manifest.assign_masses(prepared, chassis, densities, target)
     mass_report["source"] = target_note
     total = manifest.total_mass_kg(prepared)
-    vehicle_class = manifest.vehicle_class_for(total)
+    vehicle_class = researched.vehicle_class or manifest.vehicle_class_for(total)
     budget = class_targets.get(vehicle_class, 0.0)
 
     stats = manifest.chassis_stats(chassis.mass_kg)
+    stats.update(researched.chassis_stats)
     references = {
         part.part_type_id: manifest.reference_power_cost(
             part,
@@ -635,48 +696,105 @@ def assemble(options: Options, shells, parts, corners, body, objects, stages) ->
     if options.out is not None:
         exported = _export_all(options, prepared, chassis, objects)
         produced = {entry["partTypeId"]: entry for entry in exported}
+        overridden = 0
         for part in prepared:
             override = produced.get(part.part_type_id, {}).get("massOverrideKg")
             if override:
                 part.mass_kg = round(float(override), 3)
+                overridden += 1
+        if overridden:
+            # The fracture manifest is authoritative for a glass part's mass the moment one
+            # exists (A202), and it is produced *after* the balance was struck — so the chassis
+            # takes the difference again. Without this the assembly weighed 1501.18 kg against a
+            # researched 1500, which A310 allows and the profile calibration does not: the whole
+            # point of a kerb mass is that it is the number the car is sold on.
+            mass_report.update(
+                manifest.assign_masses(prepared, chassis, densities, target, fixed=produced)
+            )
+            mass_report["source"] = target_note
     else:
         produced = {}
 
     # --- Stage 8: the documents ------------------------------------------------------------
+    # The wheel slots need two facts about the whole vehicle: how stiff its springs are and how
+    # many wheels it stands on, because together they fix how far it sags (`wheel_slot_lift`).
+    stiffness = manifest.DEFAULT_SUSPENSION_STIFFNESS * (
+        researched.wheel_stats.get("suspensionStiffness", {}).get("mul", 1.0)
+    ) + researched.wheel_stats.get("suspensionStiffness", {}).get("add", 0.0)
+    wheel_count = sum(
+        max(1, len(part.instances)) for part in prepared if part.label == manifest.WHEEL
+    )
+    placements = {
+        part.part_type_id: manifest.slot_positions(part, stiffness, wheel_count)
+        for part in prepared
+        if not part.is_chassis
+    }
     slots = [
         manifest.build_slot(part, slot, position)
         for part in prepared
         if not part.is_chassis
-        for slot, position in manifest.slot_positions(part)
+        for slot, position in placements[part.part_type_id]
     ]
+    # The mounting points for content this model does not contain (D15-R42). They are added to
+    # the chassis's slot list and filled by nobody: a weapon or a module is shared content in
+    # `assets/parts/`, and this is where one goes when a player fits it.
+    hardpoints = manifest.hardpoint_slots(body, total)
+    slots.extend(hardpoints)
+    stages["hardpoints"] = {
+        "slots": [slot["slotId"] for slot in hardpoints],
+        "maxMassKg": hardpoints[0]["maxMassKg"] if hardpoints else 0.0,
+    }
+
     for part in prepared:
         document = manifest.build_part_document(
             part,
             chassis_slots=sorted(slots, key=lambda slot: slot["slotId"]) if part.is_chassis else [],
-            stats=stats if part.is_chassis else {},
-            handling=(
-                manifest.DEFAULT_CHASSIS_HANDLING
-                if part.is_chassis
-                else manifest.DEFAULT_WHEEL_HANDLING
-                if part.label == WHEEL
-                else None
-            ),
+            stats=manifest.stats_for(part, stats, researched),
+            handling=manifest.handling_for(part, researched),
             produced=produced.get(part.part_type_id),
+            weapon=manifest.weapon_block(part, body) if part.label == WEAPON else None,
+            light=manifest.light_block(part, body) if part.label == LIGHT else None,
         )
         if options.out is not None:
             documents[Path(options.out) / part.part_type_id / "part.json"] = document
 
     assembly = manifest.build_assembly_document(
         options.vehicle,
-        options.display_name or options.vehicle.replace("_", " ").title(),
+        options.display_name
+        or researched.display_name
+        or options.vehicle.replace("_", " ").title(),
         prepared,
         chassis,
         vehicle_class,
+        placements,
     )
     if options.vehicles_out is not None:
         documents[
             Path(options.vehicles_out) / assembly["vehicleTypeId"] / "assembly.json"
         ] = assembly
+
+    # `manifest.json` beside the parts it describes (D08-R14b). Written whenever the parts are:
+    # a description of a part set that is not on disk would be a file about nothing.
+    parts_manifest = manifest.build_parts_manifest(
+        vehicle_type_id=assembly["vehicleTypeId"],
+        display=assembly["displayName"],
+        vehicle_class=vehicle_class,
+        prepared=prepared,
+        chassis=chassis,
+        assembly=assembly,
+        source={
+            "modelDir": str(options.model_dir),
+            "seed": options.seed,
+            "styleId": (stages.get("style") or {}).get("styleId"),
+            "sourceKind": (stages.get("style") or {}).get("sourceKind"),
+            "massSource": mass_report.get("source"),
+            "referenceVehicle": researched.reference,
+        },
+        hardpoints=hardpoints,
+        produced=produced,
+    )
+    if options.out is not None:
+        documents[Path(options.out) / manifest.PARTS_MANIFEST_FILE] = parts_manifest
 
     written = exporter.write_documents(documents) if documents else []
     return {

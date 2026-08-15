@@ -1,6 +1,10 @@
 {
-  "_comment": "Correction from the source art's units and axes to the game's (D00-R16). Verified by `syndicate-verify --model` — see art-source/README.md.",
+  "_comment": "Correction from the source art's units and axes to the game's (D00-R16), derived by syndicate-prepare (D15-S5.5) and verified by `syndicate-verify --model`.",
   "scaleToMetres": 100.0,
   "yawDeg": 0.0,
-  "translationM": { "x": 0.0, "y": 0.0041, "z": 0.0 }
+  "translationM": {
+    "x": -0.029716,
+    "y": 0.004137,
+    "z": 0.0
+  }
 }

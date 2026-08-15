@@ -76,6 +76,7 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 | `grille` | Mesh inserts, vents, ducts | `DECORATIVE` | `ACCESSORY` | yes | `rigid` |
 | `interior` | Seats, dash, trim — visible through glass, never hit | `DECORATIVE` | `ACCESSORY` | never | `none` |
 | `drivetrain` | Engine, exhaust, radiator | `UTILITY` | `HARDPOINT` | yes | `structural` |
+| `weapon` | A gun the model came with: a tank's barrel, a mounted cannon | `WEAPON` | `TURRET_MOUNT` | yes | `rigid` |
 | `unclassified` | Everything the ensemble could not decide | `CHASSIS` | `ROOT` | never | `sheet_metal` |
 
 **R1a.** The two middle columns are the **actual** members of `PartCategory` (D05-S4.2) and `SlotType` (D05-S4.3), and a part.json carrying anything else does not load. An earlier version of this table named `HUB`, `PANEL`, `GLASS`, `DECAL` and `INTERNAL` as slot roles; none of those is a `SlotType`, and the pipeline that emits assets had to invent the mapping or emit files the loader rejects. The pairing is constrained: `SlotType.acceptsCategory` must accept each row's category in each row's slot type, which is why a door is a `PANEL` part in a `PANEL` slot. The category was called `ARMOR` when this table was written; it is called `PANEL` now precisely because a door, a bonnet and a bumper are bodywork rather than fitted plating, and the two should not share a word (DEC-073).
@@ -83,6 +84,8 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 **R2.** `unclassified` is a **first-class outcome, not a failure**. It merges into the chassis, which is always a correct-if-coarse answer, and it is reported by count and by triangle share so the operator can see how much of the car the pipeline could not name.
 
 **R3.** A label is not a part. Parts are formed by grouping shells that share `(label, role, side, index)` — see D15-S5.3.
+
+**R3b.** The `weapon` label is for a **built-in** weapon: geometry the source model came with, which is the only kind this pipeline can produce. A *modular* weapon — one a player fits to any vehicle — is authored content in the shared library (`D08-R14b`) and never comes out of a car's art. The two differ in exactly one further way: a built-in weapon's `weapon` block is **derived** from its own geometry (R48), where a modular one's is authored.
 
 <!-- D15-S4.1.1 -->#### 4.1.1 Roles
 
@@ -154,6 +157,36 @@ This is the geometric cue doing what R7 requires of it: the numbers are fraction
 
 **R11.** Precedence, highest first: `regionLabels`, `materialLabels`, C2, C1, C4, C3. An override is never outvoted.
 
+<!-- D15-S4.5 -->### 4.5 The House Style Table: `style.json`
+
+**R47.** Every vehicle arrives as art somebody else made, and no two artists agree about what a car looks like. `assets/materials/style.json` is the single table that makes the roster read as one artist's work: for each **surface role** — body paint, trim, chrome, glazing, rubber, lamps, grilles, interior, underbody — it fixes a colour band (a hue shift, a saturation ceiling, a value floor and ceiling), a metallic and roughness target, and how far the result is then dragged toward grime.
+
+**R47a.** The pass is applied **per material** and it **must not touch labelling evidence**. A material's name, its alpha mode, its base alpha, its transmission, its backface culling and its emission *strength* are all read by the cue ensemble (D15-S4.2 C2 and C3), they outrank every geometric measurement, and they are the only reason glass is found at all on a model whose materials are called `bw00.001` (DISC-019). The style pass writes base colour, metallic, roughness and emission *colour*, and nothing else.
+
+**R47b.** Colour is **clamped, not assigned**. A red car stays a red car: the hue is gameplay — a faction colour, a livery — and the saturation is what makes it a toy. Only a surface whose real-world hue is not a free choice, such as rust or a sodium lamp, carries a `hueShiftDeg`.
+
+**R47c.** How hard the pass pushes is **measured**, not declared. Two numbers over the scene's materials, each weighted by the triangles it covers: mean colour saturation, and the fraction of geometry whose material carries a base-colour texture. A source that is saturated *and* textureless is **stylised** and is reskinned — its base-colour textures are disconnected and the house colour replaces them outright, because those textures are flat colour and are what makes the model read as a cartoon. Anything else is **realistic** and is only pulled part of the way toward the palette, keeping every texture it came with. Weighting by triangles is what stops one bright badge on a photoreal car from costing it its textures.
+
+**R47d.** Behind a texture, a base-colour socket is a **factor** and not a colour, and the two must not be confused. A surface band's value ceiling applied as a multiplier renders the whole vehicle at a fraction of its brightness — trim's ceiling is 0.20, and a fifth of a diffuse map is a silhouette. A textured material therefore receives a *tint*: what the style does to a mid-grey, rescaled so it never darkens past a floor.
+
+**R47e.** Everything the pass decides is a function of the table, the source material and the run's seed (G3). The per-material grime jitter is **hashed from the material's name** rather than drawn from a stream, so adding a badge to a model cannot change the colour of its doors.
+
+**R47i.** Every hue is **snapped onto a palette** of a few allowed ones. A limited hue wheel is most of what a coherent art style *is*: it is the difference between a roster that looks like one artist and one that looks like nine well-behaved artists. The pull is partial rather than absolute, so two reds that started apart do not finish literally identical, and it takes the short way round the wheel — a hue at 350° and a target at 6° are 16° apart, not 344°. A lamp is exempt: a tail light is red and a machine glow is cyan whatever the vehicles are allowed.
+
+**R47j.** Every finished colour is clamped into one **global luminance band**, and that clamp is not scaled by the stylised/realistic strength. This is the rule that stops an imported asset clashing with everything already in the scene: each surface row is a statement about *that* surface, and the band is the one statement that holds across all of them. Its floor keeps a black part a shape in shadow rather than a hole in the frame; its ceiling keeps blown-out photoscan albedo and white plastic from punching through a scene whose brightest natural surface is weathered steel. A lamp is exempt from the **ceiling only** — one that is not the brightest thing in frame does not read as a lamp — and from nothing else.
+
+**R47k.** The band is measured on what a surface will **actually render as**, which for a textured material is its image's mean luminance times the factor written to it — not the factor alone, which is a multiplier and says nothing about brightness (DISC-048). Where that product falls outside the band, the *factor* is scaled to bring it in, so the texture ships as the artist made it and the correction is one number in the material.
+
+**R47l.** A texture darker than the floor **cannot be lifted by any factor**, because a factor multiplies. Such a material is reported as `unliftable` rather than treated as a failure: the honest answer is that the texture is nearly black, and the fix is to replace the texture, which is a decision about the art rather than about the palette. Every prepared vehicle's report carries the count and its own luminance range, which is what makes "a new asset conforms to the current style" an assertion rather than a hope.
+
+<!-- D15-S4.6 -->### 4.6 The Researched Profile: `profile.json`
+
+**R50.** A model may carry a `profile.json` beside it holding the figures nobody can measure off a mesh: the published kerb mass, the chassis's engine force, power and brake force, its aerodynamics, and its wheels' grip, springs and steering. When present, those figures replace the ones the pipeline derives; when absent, the derivation stands and "drop in a model" remains true for the next car nobody has looked up.
+
+**R50a.** The profile is a **copy**, and `dev.syndicate.core.vehicle.VehicleProfiles` is the authority. The Java record carries the derivations and the sources; the JSON exists because the Blender tool cannot read it. `VehicleProfileContentTest` asserts the shipped content against that record field by field, so a figure that drifts fails the build naming the figure and both values.
+
+**R50b.** Steering is authored on the **front** wheel type only, because D05-S5.6 phase 3 filters on `isSteering` and a lock on all four would be counted twice on a vehicle whose rear wheels ever steered. Grip and springs go on every wheel, because every wheel has them.
+
 <!-- D15-S4.4 -->### 4.4 Segmentation Report
 
 **R12.** The tool emits one JSON document on stdout (D09-R2), including per-label shell counts and triangle shares, the unclassified share, every cue disagreement, and every repair applied. The report is the deliverable an operator reads to decide whether a model needs a `parts.json`.
@@ -168,6 +201,7 @@ This is the geometric cue doing what R7 requires of it: the numbers are fraction
 
 ```
 1. Load, pose, and correct        (D09-S5.1 conventions; DISC-016 for why posing is first)
+1b. Normalise the materials        (D15-S5.9)
 2. Repair geometry                 (D15-S5.5)
 3. Separate into connected shells  (D15-S5.2)
 4. Label shells                    (D15-S4.2 ensemble, D15-S4.3 overrides)
@@ -179,6 +213,8 @@ This is the geometric cue doing what R7 requires of it: the numbers are fraction
 ```
 
 **R14.** Repair precedes separation. A model whose scale or orientation is wrong produces measurements in the wrong units, and every geometric cue is a measurement.
+
+**R14a.** Style normalisation precedes **everything**, and the ordering is the point rather than an accident. Restyling reads and writes materials only, so it is indifferent to scale and axes — but every later stage destroys what it needs. Separation shatters a material group into thousands of shells (DISC-018), grouping joins shells from different materials into one part, and the export writes one mesh per part. By the time a part exists there is no material left to normalise, only a mesh already carrying the wrong colours.
 
 <!-- D15-S5.2 -->### 5.2 Shell Separation
 
@@ -299,11 +335,49 @@ The cap exists because a part cannot contain more material than fits inside it. 
 
 **R44.** Wheels and hubs on one axle **share** a part type across the two sides, as D15-R20 describes and the shipped assemblies already express. Nothing else shares: a left door is not a right door reflected, and a pipeline that pretended otherwise would put the handle on the inside. A shared type is exported once and placed at each corner's **own** measured axle rather than at the reflection of the other side's, and the shells of every instance stay attributable to it, so AC-D15-4's accounting is exact.
 
-<!-- D15-R45a -->**R45a.** A **wheel's slot is not its axle.** The runtime hands the slot position to Bullet's `addWheel` as the suspension's connection point, and Bullet hangs the wheel `suspensionRestLengthM` below it. A wheel slot is therefore the axle raised by one rest length; emitting the axle buries every wheel 30 cm into the ground and leaves the vehicle sitting on its floor pan. The *mesh* origin stays at the axle, because that is what the wheel spins about — the two are different points and they are supposed to be.
+<!-- D15-R45a -->**R45a.** A **wheel's slot is not its axle.** The runtime hands the slot position to Bullet's `addWheel` as the suspension's connection point, and Bullet hangs the wheel `suspensionRestLengthM` below it. Emitting the axle buries every wheel 30 cm into the ground and leaves the vehicle sitting on its floor pan. The *mesh* origin stays at the axle, because that is what the wheel spins about — the two are different points and they are supposed to be.
+
+**R45b.** The slot is the axle raised by one rest length **less the car's static sag**, not by a whole rest length. No vehicle stands on fully extended suspension; it stands at its ride height, one sag below, and the artist modelled it there. Raising by the full rest length settles the body that far into the road and makes the model's own ground plane meaningless. The sag is derivable and does not depend on the vehicle's mass: Bullet's suspension force is `stiffness · compression · chassisMass`, so equilibrium at `stiffness · sag · m = m · g / n` gives **`sag = g / (stiffness · n)`** — 8.2 cm on four wheels at the reference stiffness of 30.
+
+**R45c.** A wheel's placement is the centre of the **wheel part**, not of the shells that voted for it. A wheel group is a disc and is symmetric about its axle in every direction, so its bounding box centre *is* the axle; the corner's own measurement spans brake furniture as well and sat 3.6 cm high and 3 cm wide of it on one shipped car. The corner model still decides *which* shells are a wheel; it no longer decides where the wheel is.
+
+**R45d.** Two wheels on one axle are placed **symmetrically** about the centreline beyond a small tolerance. Each corner is measured independently (DEC-066) and on real art the two answers differ by millimetres, which is worth keeping; a disagreement of centimetres is a corner whose shells were cut differently, and a car whose left wheel is further out than its right sits crooked and drives on two of them.
 
 **R45.** A part's mesh origin is the point its slot is measured from, and the choice is per label: a wheel's is its **axle**, because Bullet spins a wheel about its part origin and a wheel offset from it orbits the vehicle; an articulated part's is its **hinge pivot**, because R30 makes an opening door a slot whose local rotation animates and a rotation animates about the origin; everything else takes its own bounds centre, which is where its mass acts (DEC-043).
 
 **R46.** **What is produced is what is written.** Each authoring step reports whether it actually succeeded and the manifest is built from that report rather than from the plan. A part whose morph generation tripped a D09 guard ships with no `morphTargets` array rather than a `part.json` promising four shape keys the mesh does not carry — which would pass this tool and fail in the asset gate, one layer further from its cause. The same applies to a `glass` part that could not be fractured: it ships unfractured and detaches whole, which D07-E5 already handles.
+
+---
+
+<!-- D15-S5.9 -->### 5.9 Style Normalisation
+
+**R47f.** Stage 1b classifies every material in the loaded scene into one of R47's surface roles, then moves it into that role's band. Classification follows the same precedence the labelling ensemble does (D15-R6): **physical evidence first, name second**. Transmission or a blended low alpha is glazing; emission is a lamp; a near-black rough surface is rubber; a metallic smooth one is plating. Only then are name tokens consulted, matched as whole words — `wheelarch` must not match `wheel`, which is the mistake DISC-037 records one stage later.
+
+**R47g.** A material with no evidence at all takes the neutral answer, **trim**, with one exception: the material covering the most triangles on the vehicle is its **paint**. That is true of every published car model, and without it an unnamed, untextured supercar body renders as matte grey.
+
+**R47h.** A failure here is content, not a crash. A missing or malformed style table is reported and the run continues unstyled: the vehicle that comes out is still a correct vehicle, it merely does not match the roster, and refusing to prepare a car because a palette file moved is the wrong trade.
+
+<!-- D15-S5.10 -->### 5.10 Hardpoints
+
+**R49.** Every prepared vehicle offers **five mounting points that its own art did not supply**: one `TURRET_MOUNT` on the roof and four `HARDPOINT`s — bonnet, tail, and each flank. Four is exactly what D05-S4.3 allows a vehicle; a turret ring is a slot of a different type and a vehicle has at most one roof.
+
+**R49a.** Their positions are derived from the body's own box as fractions of its half width, its height above the ground plane, and its length **measured from the rear** — so that a hardpoint transfers from a hatchback to a tank without a number moving. Their capacity is a fraction of the vehicle's kerb mass, with a floor, so a light buggy still mounts something real.
+
+**R49b.** They are declared on the chassis and **filled by nobody**. That is not an omission: a weapon or a module is shared content in `assets/parts/` (D08-R14b), a vehicle drives perfectly well with all five empty, and every check that reports an unfilled slot must exempt these by **id** rather than by slot type — a brake hub also occupies a `HARDPOINT`-typed slot (DEC-063), and a missing one is a real finding.
+
+**R48.** A `weapon` part's block is **derived from its own geometry**. Two things, and only two, because they are the two the geometry actually determines: the **family**, from the aspect ratio — a part at least `BARREL_ASPECT_MIN` times as long as it is wide is a barrel and therefore a cannon, anything shorter is a mount or a pod and is an autocannon — and the **muzzle**, at the part's forward extent on its own centreline. Choosing between the remaining six families would be inventing content rather than deriving it.
+
+---
+
+<!-- D15-S5.11 -->### 5.11 Lamps
+
+**R51.** A part labelled `light` is authored with a `light` block (D08-R6). Only a **head** lamp casts: a tail light, an indicator and a reflector glow and illuminate nothing, which is true of the real ones and is what keeps eight vehicles to sixteen casting lights rather than fifty.
+
+**R51a.** Two of its fields are derived from the part rather than from the per-role table. The **direction** is the vehicle's front tilted down by the role's cut-off — and mirrored for a lamp at the rear, so a tail light glows backwards. The **origin** is the lamp's own outward face along that direction, because a beam starting at the middle of the lens starts inside the bodywork.
+
+**R51b.** Lighting is **cosmetic** in the sense of G6. A lamp is extinguished by *reading* authoritative state — its part being destroyed or detached — and never by writing any. Shooting a headlight out is therefore already implemented by the damage model, and the renderer contributes nothing to it but the observation.
+
+**R51c.** A visible beam and a lit surface are two different things and both are needed. A spot light makes a headlight *light something*; a translucent cone drawn from the lens makes it *visible as a beam*, which no amount of surface lighting achieves — a real beam is seen because the air between the lamp and the ground scatters it, and a renderer with no participating medium has to draw that shaft or the light appears from nowhere. The visible shaft is drawn at the **inner** cone angle and well short of the lamp's range: the illumination reaches further than the scattering does, which is what a real beam looks like.
 
 ---
 

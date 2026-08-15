@@ -86,7 +86,7 @@ wheel lands 0.61 m high on the *front* axle — 2.65 m from where it belongs.
 two capture angles both hide the displaced corner. The one figure that recorded the discrepancy is
 the height below. Full account: `DISC-016`.
 
-The split assets in `assets/parts/` are unaffected: `syndicate_dissect` bakes the armature before it
+The prepared assets under `assets/vehicles/vehicle_eclipse_01/parts/` are unaffected: the pipeline bakes the armature before it
 measures anything, which is how it finds four wheels where the reader finds three.
 
 ## Split into parts
@@ -114,4 +114,4 @@ deliberate change with a calibration re-run attached, not a typo fix.
 ## Not yet done
 
 The `dmg_25`…`dmg_100` morph targets of D07-S5.5 and the fracture manifests of D09. Both are
-that has to happen before `assets/parts/*/mesh.glb` can be filled in.
+that has to happen before the vehicle's own `parts/*/mesh.glb` can be filled in.

@@ -273,11 +273,32 @@ def test_the_front_wheels_steer_and_the_rear_wheels_drive(prepared_pickup):
     assert overrides["wheel_rr"] == {"isSteering": False, "isDriven": True}
 
 
+def placements_of(prepared_pickup) -> dict:
+    return {
+        part.part_type_id: manifest.slot_positions(part)
+        for part in prepared_pickup["prepared"]
+        if not part.is_chassis
+    }
+
+
 def test_the_centre_of_mass_sits_on_the_centreline(prepared_pickup):
     """A shared wheel type used at +x and -x must not drag the COM out to one flank."""
-    com = manifest.centre_of_mass(prepared_pickup["prepared"])
+    com = manifest.centre_of_mass(prepared_pickup["prepared"], placements_of(prepared_pickup))
     assert abs(com[0]) < 0.05
     assert 0.0 < com[1] < 1.5
+
+
+def test_the_centre_of_mass_weighs_a_wheel_at_its_slot(prepared_pickup):
+    """A311: the declared COM must be the one the runtime computes, not the geometry's.
+
+    The runtime weighs a part at its slot plus its own centre, and a wheel's slot is a
+    suspension above its axle (`wheel_slot_lift`). Weighing the geometry instead put the
+    declared centre of mass 22 mm low on both shipped cars and the loader refused the assembly.
+    """
+    prepared = prepared_pickup["prepared"]
+    at_slots = manifest.centre_of_mass(prepared, placements_of(prepared_pickup))
+    at_geometry = manifest.centre_of_mass(prepared, {})
+    assert at_slots[1] > at_geometry[1]
 
 
 # ---- AC-D15-10: the destruction classes ------------------------------------------------------
@@ -339,20 +360,46 @@ def test_a_hinge_is_written_as_data_on_the_part(prepared_pickup):
     assert document["articulation"]["axisLocal"] == {"x": 0.0, "y": 1.0, "z": 0.0}
 
 
-def test_a_wheel_slot_sits_a_suspension_above_its_axle(prepared_pickup):
-    """Bullet hangs a wheel `suspensionRestLengthM` below the point `addWheel` is given.
+def test_a_wheel_slot_sits_at_the_cars_static_ride_height(prepared_pickup):
+    """The slot is the suspension's connection point, one rest length *less its sag* above.
 
-    The mesh origin is the axle, because that is what the wheel spins about; the *slot* is the
-    suspension's connection point, which is one rest length higher. Emitting the axle for both
-    buries every wheel 30 cm into the ground.
+    The mesh origin is the axle, because that is what the wheel spins about. Bullet hangs the
+    wheel `suspensionRestLengthM` below the point `addWheel` is given, so emitting the axle for
+    both buries every wheel 30 cm into the ground — and emitting `axle + restLength` stands the
+    car on fully extended springs, which no car does. It settles by its sag instead, and the
+    body ends up below the ground plane the artist modelled it sitting on.
     """
     wheel = next(
         part for part in prepared_pickup["prepared"]
         if part.part_type_id == "wheel_pickup_front_01"
     )
     rest = manifest.DEFAULT_WHEEL_HANDLING["suspensionRestLengthM"]
+    sag = manifest.GRAVITY_M_PER_S2 / (manifest.DEFAULT_SUSPENSION_STIFFNESS * 4)
     for _slot, position in manifest.slot_positions(wheel):
-        assert math.isclose(position[1], wheel.origin[1] + rest, abs_tol=1e-9)
+        assert math.isclose(position[1], wheel.origin[1] + rest - sag, abs_tol=1e-9)
+    # A stiffer car sags less and therefore sits its slots higher, which is the whole point.
+    stiff = manifest.slot_positions(wheel, manifest.DEFAULT_SUSPENSION_STIFFNESS * 1.5, 4)
+    assert stiff[0][1][1] > manifest.slot_positions(wheel)[0][1][1]
+
+
+def test_two_wheels_on_one_axle_are_placed_symmetrically(prepared_pickup):
+    """A track is symmetric by construction; a 6 cm disagreement is a measurement fault.
+
+    Each corner is measured from its own shells (DEC-066), which on real art differ by
+    millimetres. On the Stampede the two front corners differed by 6 cm, and a car whose left
+    wheel is 6 cm further out than its right sits crooked and drives on two of them.
+    """
+    wheel = next(
+        part for part in prepared_pickup["prepared"]
+        if part.part_type_id == "wheel_pickup_front_01"
+    )
+    if len(wheel.instances) < 2:
+        pytest.skip("this fixture's front axle is not a shared part type")
+    wheel.mirrored_origins = [
+        (abs(wheel.origin[0]) - 0.06, wheel.origin[1], wheel.origin[2])
+    ]
+    placed = [position[0] for _slot, position in manifest.slot_positions(wheel)]
+    assert math.isclose(abs(placed[0]), abs(placed[1]), abs_tol=1e-9)
 
 
 def test_only_wheels_get_the_suspension_offset(prepared_pickup):

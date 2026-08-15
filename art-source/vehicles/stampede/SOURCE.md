@@ -89,4 +89,4 @@ As with the Eclipse, the chassis part's authored wheel slots have not been moved
 
 The wheels are part of the body mesh. Splitting this into `chassis_stampede_01` and four wheel
 parts, with a `_col` hull node and the `dmg_25`…`dmg_100` morph targets of D07-S5.5, is the Blender
-work that has to happen before `assets/parts/*/mesh.glb` can be filled in.
+work that has to happen before the vehicle's own `parts/*/mesh.glb` can be filled in.

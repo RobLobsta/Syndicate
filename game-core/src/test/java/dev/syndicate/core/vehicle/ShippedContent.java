@@ -8,6 +8,7 @@ import dev.syndicate.core.asset.AssetLoader;
 import dev.syndicate.core.asset.GltfCollisionMeshSource;
 import dev.syndicate.core.asset.InMemoryAssetIndex;
 import dev.syndicate.core.asset.ValidationIssue;
+import dev.syndicate.model.AssetPaths;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -40,7 +41,7 @@ public final class ShippedContent {
 
     /** True when the shipped asset tree is present, so a test can skip rather than fail without it. */
     public static boolean isPresent() {
-        return Files.isDirectory(ASSET_ROOT.resolve("parts"));
+        return !AssetPaths.partDirectories(ASSET_ROOT).isEmpty();
     }
 
     /** Loads every shipped material, part and assembly, with the real collision meshes. */

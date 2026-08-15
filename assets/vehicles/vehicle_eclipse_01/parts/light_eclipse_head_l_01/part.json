@@ -1,0 +1,48 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=light_eclipse_head_l_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 368.1,
+  "category": "DECORATIVE",
+  "destructionClass": "RIGID",
+  "displayName": "Head Light (Left)",
+  "hangsBeforeFalling": false,
+  "light": {
+    "castsBeam": true,
+    "colorRgb": {
+      "b": 0.88,
+      "g": 0.96,
+      "r": 1.0
+    },
+    "coneInnerDeg": 13.0,
+    "coneOuterDeg": 34.0,
+    "directionLocal": {
+      "x": 0.0,
+      "y": -0.061,
+      "z": 0.9981
+    },
+    "intensity": 34.0,
+    "originLocal": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.2396
+    },
+    "rangeM": 55.0
+  },
+  "massKg": 4.33,
+  "materialId": "plastic",
+  "maxHp": 43.3,
+  "partTypeId": "light_eclipse_head_l_01",
+  "powerCost": 0.56,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "head",
+    "light",
+    "prepared"
+  ]
+}

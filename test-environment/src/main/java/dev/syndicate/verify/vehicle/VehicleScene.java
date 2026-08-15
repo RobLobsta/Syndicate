@@ -14,6 +14,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import dev.syndicate.core.asset.GltfOptions;
 import dev.syndicate.core.asset.GltfReader;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.AssetPaths;
 import dev.syndicate.verify.render.ModelRenderer;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -140,8 +141,10 @@ public final class VehicleScene extends ApplicationAdapter {
     /**
      * Uploads one part type's visual mesh, once.
      *
-     * <p>{@code assets/parts/<partTypeId>/mesh.glb} — the file the dissection wrote, not the source
-     * art, so what is drawn is the content the game ships rather than the model it was cut from.
+     * <p>The part's own {@code mesh.glb} — the file the preparation pipeline wrote, not the source
+     * art, so what is drawn is the content the game ships rather than the model it was cut from. The
+     * directory is resolved rather than assumed, because a part lives either in the shared library
+     * or under the vehicle that owns it (D08-R14b).
      *
      * @return the model handle, or -1 if the file could not be read
      */
@@ -150,7 +153,13 @@ public final class VehicleScene extends ApplicationAdapter {
         if (existing != null) {
             return existing;
         }
-        Path file = run.assetRoot().resolve("parts").resolve(partTypeId.value()).resolve("mesh.glb");
+        Path partDirectory = AssetPaths.partDirectory(run.assetRoot(), partTypeId.value());
+        Path file = partDirectory == null
+                ? run.assetRoot()
+                        .resolve(AssetPaths.SHARED_PARTS_DIR)
+                        .resolve(partTypeId.value())
+                        .resolve("mesh.glb")
+                : partDirectory.resolve("mesh.glb");
         int modelId;
         try {
             // Everything but the collision node: the hull is in the same file (D08-R3), carries no

@@ -5,6 +5,7 @@
 package dev.syndicate.pipeline;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.syndicate.model.ExitCode;
@@ -31,8 +32,25 @@ class AssetIndexBuilderTest {
         ObjectNode index = builder.build(Path.of("..", "assets"));
 
         assertThat(index.path("materials")).isNotEmpty();
-        assertThat(index.path("parts")).hasSize(6);
+        // Two vehicles of twenty-odd real parts each, not two chassis and four wheels. The count
+        // is asserted as a floor rather than a figure: re-cutting the art moves it, and a test
+        // that pinned it would fail on every art change without saying anything about the index.
+        assertThat(index.path("parts")).hasSizeGreaterThan(40);
         assertThat(index.path("vehicles")).hasSize(2);
+
+        // Every shipped part is owned by the vehicle it was cut from and lives under it
+        // (D08-R14b). Nothing is in the shared library yet: weapons and modules are the content
+        // that goes there, and it is authored separately.
+        index.path("parts").forEach(part -> {
+            String owner = part.path("ownedBy").asText(null);
+            assertThat(owner)
+                    .as("%s is owned by a vehicle", part.path("partTypeId").asText())
+                    .isNotNull();
+            assertThat(part.path("path").asText())
+                    .as("%s lives under its owner", part.path("partTypeId").asText())
+                    .isEqualTo("vehicles/" + owner + "/parts/"
+                            + part.path("partTypeId").asText());
+        });
         // Two arenas: the flat scrapyard and the generated desert. The pipeline validates a terrain
         // block without generating the field — a 601-square grid at index-build time would make a
         // content check as slow as a load (D16-S5.1).
@@ -44,13 +62,14 @@ class AssetIndexBuilderTest {
         ObjectNode eclipse = (ObjectNode) index.path("vehicles").get(0);
         assertThat(eclipse.path("vehicleTypeId").asText()).isEqualTo("vehicle_eclipse_01");
         assertThat(eclipse.path("wheelCount").asInt()).isEqualTo(4);
-        assertThat(eclipse.path("totalMassKg").asDouble()).isEqualTo(1500.0);
-        assertThat(eclipse.path("powerBudget").asDouble()).isEqualTo(74.0);
+        // Close to, not equal: this is the sum of twenty-seven authored masses, and the last
+        // binary digit of that sum is not a fact about the vehicle.
+        assertThat(eclipse.path("totalMassKg").asDouble()).isCloseTo(1500.0, within(0.01));
+        assertThat(eclipse.path("powerBudget").asDouble()).isCloseTo(74.0, within(0.01));
 
-        // The only blocking findings on the shipped content are the missing meshes PROG-013 records:
-        // the art is one model per car, not one per part, so no part directory has its own mesh yet.
-        assertThat(builder.blockingFindings())
-                .allSatisfy(finding -> assertThat(finding.code()).isEqualTo("A107"));
+        // The shipped tree is clean. It was not before the preparation pipeline's output shipped:
+        // every part directory named a mesh that did not exist, and the whole of A107 was expected.
+        assertThat(builder.blockingFindings()).isEmpty();
 
         builder.write(index, temp.resolve("asset-index.json"));
         assertThat(temp.resolve("asset-index.json")).exists();

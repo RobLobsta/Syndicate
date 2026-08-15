@@ -1,62 +1,212 @@
 {
-  "schemaVersion": "1.0.0",
-  "vehicleTypeId": "vehicle_stampede_01",
-  "displayName": "Stampede",
-  "vehicleClass": "heavy",
-  "unlockLevel": 0,
   "chassis": "chassis_stampede_01",
-  "parts": [
-    {
-      "slotPath": "root/wheel_fl",
-      "parentSlotPath": "root",
-      "parentSlotId": "wheel_fl",
-      "partTypeId": "wheel_stampede_front_01",
-      "overrides": {
-        "isSteering": true,
-        "isDriven": false
-      }
-    },
-    {
-      "slotPath": "root/wheel_fr",
-      "parentSlotPath": "root",
-      "parentSlotId": "wheel_fr",
-      "partTypeId": "wheel_stampede_front_01",
-      "overrides": {
-        "isSteering": true,
-        "isDriven": false
-      }
-    },
-    {
-      "slotPath": "root/wheel_rl",
-      "parentSlotPath": "root",
-      "parentSlotId": "wheel_rl",
-      "partTypeId": "wheel_stampede_rear_01",
-      "overrides": {
-        "isSteering": false,
-        "isDriven": true
-      }
-    },
-    {
-      "slotPath": "root/wheel_rr",
-      "parentSlotPath": "root",
-      "parentSlotId": "wheel_rr",
-      "partTypeId": "wheel_stampede_rear_01",
-      "overrides": {
-        "isSteering": false,
-        "isDriven": true
-      }
-    }
-  ],
   "cosmetics": {
     "paintSchemeId": "scheme_default_01"
   },
+  "displayName": "Stampede",
   "expected": {
-    "totalMassKg": 1969.0,
-    "powerBudget": 84.0,
     "comLocal": {
-      "x": 0.0,
-      "y": 0.714,
-      "z": 0.004
+      "x": -0.0338,
+      "y": 0.712,
+      "z": 0.0061
+    },
+    "powerBudget": 84.0,
+    "totalMassKg": 1969.0
+  },
+  "parts": [
+    {
+      "parentSlotId": "glass_rear_window",
+      "parentSlotPath": "root",
+      "partTypeId": "glass_stampede_rear_window_01",
+      "slotPath": "root/glass_rear_window"
+    },
+    {
+      "parentSlotId": "glass_side_window_l",
+      "parentSlotPath": "root",
+      "partTypeId": "glass_stampede_side_window_l_01",
+      "slotPath": "root/glass_side_window_l"
+    },
+    {
+      "parentSlotId": "glass_side_window_r",
+      "parentSlotPath": "root",
+      "partTypeId": "glass_stampede_side_window_r_01",
+      "slotPath": "root/glass_side_window_r"
+    },
+    {
+      "parentSlotId": "glass_windscreen",
+      "parentSlotPath": "root",
+      "partTypeId": "glass_stampede_windscreen_01",
+      "slotPath": "root/glass_windscreen"
+    },
+    {
+      "parentSlotId": "glass_windscreen_1",
+      "parentSlotPath": "root",
+      "partTypeId": "glass_stampede_windscreen_1_01",
+      "slotPath": "root/glass_windscreen_1"
+    },
+    {
+      "parentSlotId": "grille_head",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_stampede_head_01",
+      "slotPath": "root/grille_head"
+    },
+    {
+      "parentSlotId": "grille_head_1",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_stampede_head_1_01",
+      "slotPath": "root/grille_head_1"
+    },
+    {
+      "parentSlotId": "grille_head_l",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_stampede_head_l_01",
+      "slotPath": "root/grille_head_l"
+    },
+    {
+      "parentSlotId": "grille_head_r",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_stampede_head_r_01",
+      "slotPath": "root/grille_head_r"
+    },
+    {
+      "parentSlotId": "grille_head_r_1",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_stampede_head_r_1_01",
+      "slotPath": "root/grille_head_r_1"
+    },
+    {
+      "parentSlotId": "grille_tail_l",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_stampede_tail_l_01",
+      "slotPath": "root/grille_tail_l"
+    },
+    {
+      "parentSlotId": "grille_tail_l_1",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_stampede_tail_l_1_01",
+      "slotPath": "root/grille_tail_l_1"
+    },
+    {
+      "parentSlotId": "grille_tail_r",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_stampede_tail_r_01",
+      "slotPath": "root/grille_tail_r"
+    },
+    {
+      "parentSlotId": "grille_tail_r_1",
+      "parentSlotPath": "root",
+      "partTypeId": "grille_stampede_tail_r_1_01",
+      "slotPath": "root/grille_tail_r_1"
+    },
+    {
+      "parentSlotId": "hub_fl",
+      "parentSlotPath": "root",
+      "partTypeId": "hub_stampede_front_01",
+      "slotPath": "root/hub_fl"
+    },
+    {
+      "parentSlotId": "hub_fr",
+      "parentSlotPath": "root",
+      "partTypeId": "hub_stampede_front_01",
+      "slotPath": "root/hub_fr"
+    },
+    {
+      "parentSlotId": "hub_rl",
+      "parentSlotPath": "root",
+      "partTypeId": "hub_stampede_rear_01",
+      "slotPath": "root/hub_rl"
+    },
+    {
+      "parentSlotId": "hub_rr",
+      "parentSlotPath": "root",
+      "partTypeId": "hub_stampede_rear_01",
+      "slotPath": "root/hub_rr"
+    },
+    {
+      "parentSlotId": "interior",
+      "parentSlotPath": "root",
+      "partTypeId": "interior_stampede_01",
+      "slotPath": "root/interior"
+    },
+    {
+      "parentSlotId": "interior_l",
+      "parentSlotPath": "root",
+      "partTypeId": "interior_stampede_l_01",
+      "slotPath": "root/interior_l"
+    },
+    {
+      "parentSlotId": "interior_r",
+      "parentSlotPath": "root",
+      "partTypeId": "interior_stampede_r_01",
+      "slotPath": "root/interior_r"
+    },
+    {
+      "parentSlotId": "light_fl",
+      "parentSlotPath": "root",
+      "partTypeId": "light_stampede_head_l_01",
+      "slotPath": "root/light_fl"
+    },
+    {
+      "parentSlotId": "light_fr",
+      "parentSlotPath": "root",
+      "partTypeId": "light_stampede_head_r_01",
+      "slotPath": "root/light_fr"
+    },
+    {
+      "parentSlotId": "panel_door_l",
+      "parentSlotPath": "root",
+      "partTypeId": "panel_stampede_door_l_01",
+      "slotPath": "root/panel_door_l"
+    },
+    {
+      "parentSlotId": "panel_door_r",
+      "parentSlotPath": "root",
+      "partTypeId": "panel_stampede_door_r_01",
+      "slotPath": "root/panel_door_r"
+    },
+    {
+      "overrides": {
+        "isDriven": false,
+        "isSteering": true
+      },
+      "parentSlotId": "wheel_fl",
+      "parentSlotPath": "root",
+      "partTypeId": "wheel_stampede_front_01",
+      "slotPath": "root/wheel_fl"
+    },
+    {
+      "overrides": {
+        "isDriven": false,
+        "isSteering": true
+      },
+      "parentSlotId": "wheel_fr",
+      "parentSlotPath": "root",
+      "partTypeId": "wheel_stampede_front_01",
+      "slotPath": "root/wheel_fr"
+    },
+    {
+      "overrides": {
+        "isDriven": true,
+        "isSteering": false
+      },
+      "parentSlotId": "wheel_rl",
+      "parentSlotPath": "root",
+      "partTypeId": "wheel_stampede_rear_01",
+      "slotPath": "root/wheel_rl"
+    },
+    {
+      "overrides": {
+        "isDriven": true,
+        "isSteering": false
+      },
+      "parentSlotId": "wheel_rr",
+      "parentSlotPath": "root",
+      "partTypeId": "wheel_stampede_rear_01",
+      "slotPath": "root/wheel_rr"
     }
-  }
+  ],
+  "schemaVersion": "1.0.0",
+  "unlockLevel": 0,
+  "vehicleClass": "heavy",
+  "vehicleTypeId": "vehicle_stampede_01"
 }

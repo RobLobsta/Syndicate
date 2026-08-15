@@ -1,0 +1,25 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=interior_stampede_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 418.5,
+  "category": "DECORATIVE",
+  "destructionClass": "NONE",
+  "displayName": "Interior",
+  "hangsBeforeFalling": false,
+  "massKg": 13.95,
+  "materialId": "trim",
+  "maxHp": 69.8,
+  "partTypeId": "interior_stampede_01",
+  "powerCost": 0.847,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "interior",
+    "prepared"
+  ]
+}

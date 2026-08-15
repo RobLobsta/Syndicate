@@ -62,6 +62,10 @@ public final class ClientMain {
                 case "--capture" -> capturePath = Path.of(args[++i]);
                 case "--capture-frame" -> captureFrame = Math.max(1, Integer.parseInt(args[++i]));
                 case "--start-screen" -> startScreen = ScreenId.parse(args[++i]);
+                    // 0 is noon and 1 is midnight. `N` cycles it in a match; this is how a capture
+                    // asks for a dark frame, since a capture cannot press a key.
+                case "--night" -> dev.syndicate.client.render.RenderEnvironment.setLaunchNightFraction(
+                        Float.parseFloat(args[++i]));
                 default -> remaining.add(args[i]);
             }
         }

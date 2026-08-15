@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0.0",
+  "_notes": [
+    "The researched figures for this model (docs/15_vehicle_preparation_pipeline.md#D15-S11).",
+    "",
+    "dev.syndicate.core.vehicle.VehicleProfiles.STAMPEDE is the authority and carries the",
+    "derivations; VehicleProfileContentTest asserts the shipped content against it field by field.",
+    "See the Eclipse's profile.json for the full note — this file is the same idea about the other",
+    "half of the pair.",
+    "",
+    "Against the Eclipse this car is 469 kg heavier, carries 130 kW more, six times the downforce",
+    "and a quarter more grip, and stops in 30 m rather than 33. That contrast is the roster."
+  ],
+
+  "displayName": "Stampede",
+  "vehicleClass": "heavy",
+  "referenceVehicle": "Ford Mustang GTD (2025)",
+  "kerbMassKg": 1969.0,
+
+  "chassisStats": {
+    "engineForceN": { "add": 16539.9 },
+    "enginePowerW": { "add": 547200.0 },
+    "brakeForceN": { "add": 25321.5 }
+  },
+  "chassisHandling": {
+    "dragCoefficient": 0.711113,
+    "rollingResistance": 0.014,
+    "downforceCoefficient": 1.3
+  },
+
+  "wheelStats": {
+    "frictionSlip": { "mul": 1.25 },
+    "suspensionStiffness": { "mul": 1.5 }
+  },
+  "wheelHandling": {
+    "suspensionCompression": 2.94,
+    "suspensionDamping": 2.82,
+    "rollInfluence": 0.1,
+    "suspensionRestLengthM": 0.3
+  },
+  "steeringStats": {
+    "maxSteerRad": { "mul": 1.05042 },
+    "steerRateRadPerSec": { "mul": 1.428571 }
+  }
+}

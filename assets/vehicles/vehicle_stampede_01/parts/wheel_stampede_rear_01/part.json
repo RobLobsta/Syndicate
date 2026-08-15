@@ -1,0 +1,38 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=wheel_stampede_rear_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 3039.2,
+  "category": "WHEEL",
+  "destructionClass": "RIGID",
+  "displayName": "Wheel (Left)",
+  "handling": {
+    "rollInfluence": 0.1,
+    "suspensionCompression": 2.94,
+    "suspensionDamping": 2.82,
+    "suspensionRestLengthM": 0.3
+  },
+  "hangsBeforeFalling": false,
+  "massKg": 35.755,
+  "materialId": "rubber",
+  "maxHp": 357.6,
+  "partTypeId": "wheel_stampede_rear_01",
+  "powerCost": 4.528,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "WHEEL",
+  "slots": [],
+  "stats": {
+    "frictionSlip": {
+      "mul": 1.25
+    },
+    "suspensionStiffness": {
+      "mul": 1.5
+    }
+  },
+  "tags": [
+    "prepared",
+    "wheel"
+  ]
+}
