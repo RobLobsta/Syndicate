@@ -207,6 +207,11 @@ Real work, no fixed place in the sequence.
   Mustang's low-order energy is panels and cabin, which nothing here reproduces.
 - **Capture the client's screens in CI.** Now possible (DISC-046) and not yet wired. It would make a
   visual regression a failing build rather than something noticed three sessions later.
+- **A `verifyBeforePush` task.** CLAUDE.md §8.1 now spells out the four CI stages to reproduce
+  locally before pushing, and the whole procedure is mechanical — stage everything, run the
+  generators, copy the tracked files out, run four commands. It is written as prose because a person
+  had to read it once; it should end up as a single Gradle task, so the one step that gets skipped
+  is not skippable.
 
 ---
 

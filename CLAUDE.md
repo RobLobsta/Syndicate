@@ -249,9 +249,76 @@ runner-hour the same way you would treat a paid API call.
 4. **Don't push to test.** Reproduce CI locally first, in a tracked-files-only tree
    (`git ls-files -z | xargs -0 tar …`), not just in your working directory. A working tree
    that is green proves nothing about what was committed — that is exactly how DISC-005
-   happened.
+   happened. §8.1 below is the procedure; follow it literally.
 
 5. **Always monitor CI after a push.** A push is not finished when it lands; it is finished
    when the run it triggers is green, or when you have reported the failure. Poll the run
    with the GitHub MCP tools (`mcp__github__actions_*`); direct GitHub API access is blocked
    in this environment. Do not end a turn with a run left unwatched.
+
+<!-- not a blueprint section; this file has no stable ids -->
+### 8.1 Verifying CI before you push
+
+**Run this before every push. Not before every pull request — before every push**, because
+`pull_request` fires on each one and a broken commit costs a full pipeline either way.
+
+The trap this exists for is not "I forgot to run the tests". It is subtler and has now caught
+this project twice: **the last thing you change is the thing you do not re-check.** A memory
+entry written after the last `regenerateIndex`, a doc edited after the last `validateDocs`, a
+file created after the last `git add` — each leaves a tree that was green five minutes ago and
+is not green now. Reproducing from a fresh copy of the *staged* tree is what catches it, because
+that copy is built after the last edit by construction.
+
+```bash
+# 1. Stage everything first. What is not staged is not what CI will see.
+git add -A
+
+# 2. Regenerate anything generated, then re-stage. INDEX.md is the one that bites (D13-R8).
+./gradlew :memory-system:regenerateIndex && ./gradlew spotlessApply && git add -A
+
+# 3. Copy the TRACKED tree somewhere clean. Not a `cp -r` of the working directory:
+#    build outputs, .gradle caches and untracked scratch files all mask real failures.
+rm -rf /tmp/ci && mkdir -p /tmp/ci
+git ls-files -z | xargs -0 tar -cf - | tar -xf - -C /tmp/ci
+
+# 4. Run the four stages .github/workflows/ci.yml runs, in its order, with its environment.
+cd /tmp/ci
+export SYNDICATE_REQUIRE_BLENDER=0 SYNDICATE_STRICT_ASSETS=1
+./gradlew fastChecks                      # stage 0 — format, layering, docs, memory, ruff
+./gradlew assemble                        # stage 1 — every module on the Java 17 toolchain
+./gradlew test -Ptags=unit,integration    # stage 2 — the tagged suites
+python3 -m pytest blender-tool/tests/unit -q
+```
+
+Only when all four are green, push. Then poll the run (§8 rule 5).
+
+**Read the workflow rather than trusting this list.** `.github/workflows/ci.yml` is the
+authority on what runs and in what order; if it has changed, this block is stale and the
+workflow is not.
+
+**In a sandbox that blocks JitPack**, stage 1 needs the gdx-gltf workaround in
+`RUNNING_THE_CLIENT.md` and its `--init-script` on every Gradle line above. CI has no such
+problem, so a stage-1 failure that is only about resolving `com.github.mgsx-dev.gdx-gltf` is
+about your machine and not about the commit.
+
+### 8.2 Being cheap with the rest of it
+
+Runner minutes are the metered resource; your own time is the other one. Four habits, in
+descending order of how much they save:
+
+- **Read `.agent-memory/` before writing anything.** `INDEX.md` and the active `progress/`
+  entries unconditionally, then the `decisions/` and `discoveries/` that cite the documents you
+  are about to work against. The whole point of the system is that re-deriving a settled
+  decision is the most expensive thing you can do, and it does not look expensive while you are
+  doing it.
+- **Run the targeted task, not `check`.** `:game-core:test -Ptags=physics` when you touched
+  simulation, `:test-environment:verifyFixtures` when you touched the tool or the asset
+  pipeline, `:blender-tool:unitTest` when you touched Python, `--tests '*SomeTest*'` when you
+  are iterating on one. Save the full `check` for the pre-push run above, where it belongs.
+- **Cite stable blueprint IDs in code comments and memory entries.** `D06-S4.2`, not "the
+  physics doc". Jules reviews against those IDs (§7), and a comment that names the requirement
+  it implements turns a review question into a review confirmation — and stops a correct
+  deviation being reported as a violation.
+- **Batch the checks you know will fail together.** `spotlessApply` before `check`, not after
+  the failure; `regenerateIndex` in the same breath as any memory write. Both of this
+  session's CI failures were a second run that a first ordering would have avoided.
