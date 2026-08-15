@@ -361,6 +361,18 @@ The cap exists because a part cannot contain more material than fits inside it. 
 
 ---
 
+<!-- D15-S5.11 -->### 5.11 Lamps
+
+**R51.** A part labelled `light` is authored with a `light` block (D08-R6). Only a **head** lamp casts: a tail light, an indicator and a reflector glow and illuminate nothing, which is true of the real ones and is what keeps eight vehicles to sixteen casting lights rather than fifty.
+
+**R51a.** Two of its fields are derived from the part rather than from the per-role table. The **direction** is the vehicle's front tilted down by the role's cut-off — and mirrored for a lamp at the rear, so a tail light glows backwards. The **origin** is the lamp's own outward face along that direction, because a beam starting at the middle of the lens starts inside the bodywork.
+
+**R51b.** Lighting is **cosmetic** in the sense of G6. A lamp is extinguished by *reading* authoritative state — its part being destroyed or detached — and never by writing any. Shooting a headlight out is therefore already implemented by the damage model, and the renderer contributes nothing to it but the observation.
+
+**R51c.** A visible beam and a lit surface are two different things and both are needed. A spot light makes a headlight *light something*; a translucent cone drawn from the lens makes it *visible as a beam*, which no amount of surface lighting achieves — a real beam is seen because the air between the lamp and the ground scatters it, and a renderer with no participating medium has to draw that shaft or the light appears from nowhere. The visible shaft is drawn at the **inner** cone angle and well short of the lamp's range: the illumination reaches further than the scattering does, which is what a real beam looks like.
+
+---
+
 <!-- D15-S6 -->## 6. Acceptance Criteria
 
 - [ ] **AC-D15-1.** Running the pipeline on a model with no `parts.json` produces a report, a labelled part set, and a non-zero unclassified share if the model warrants one — never a silent guess.

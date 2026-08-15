@@ -42,7 +42,7 @@ from . import (
     roles,
     style,
 )
-from .labels import CHASSIS, MAX_SHELLS, UNCLASSIFIED, WEAPON
+from .labels import CHASSIS, LIGHT, MAX_SHELLS, UNCLASSIFIED, WEAPON
 from .overrides import Overrides
 from .shell import Shell
 
@@ -753,6 +753,7 @@ def assemble(options: Options, shells, parts, corners, body, objects, stages) ->
             handling=manifest.handling_for(part, researched),
             produced=produced.get(part.part_type_id),
             weapon=manifest.weapon_block(part, body) if part.label == WEAPON else None,
+            light=manifest.light_block(part, body) if part.label == LIGHT else None,
         )
         if options.out is not None:
             documents[Path(options.out) / part.part_type_id / "part.json"] = document

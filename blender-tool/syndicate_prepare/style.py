@@ -49,6 +49,7 @@ except ImportError:  # pragma: no cover - the pure-Python unit test path
 # ---- The surface roles ------------------------------------------------------------------
 
 BODY_PAINT = "body_paint"
+NEUTRAL = "neutral"
 TRIM = "trim"
 CHROME = "chrome"
 GLASS = "glass"
@@ -59,7 +60,7 @@ INTERIOR = "interior"
 UNDERBODY = "underbody"
 
 #: Every surface role, in the order the style table lists them.
-SURFACES = (BODY_PAINT, TRIM, CHROME, GLASS, TYRE, LIGHT, GRILLE, INTERIOR, UNDERBODY)
+SURFACES = (BODY_PAINT, NEUTRAL, TRIM, CHROME, GLASS, TYRE, LIGHT, GRILLE, INTERIOR, UNDERBODY)
 
 #: Name tokens that identify a surface, tried whole-token so that ``wheelarch`` does not match
 #: ``wheel``. Ordered most specific first: ``headlight_glass`` is a light, not glazing.
@@ -106,6 +107,11 @@ GRIME_JITTER = 0.06
 TINT_VALUE_MIN = 0.55
 
 
+def _optional(value) -> float | None:
+    """A style target, or ``None`` for "leave the source's own value alone"."""
+    return None if value is None else float(value)
+
+
 class StyleError(Exception):
     """A style table that cannot be applied, reported rather than guessed around."""
 
@@ -119,8 +125,10 @@ class SurfaceStyle:
     saturation_max: float = 1.0
     value_min: float = 0.0
     value_max: float = 1.0
-    metallic: float = 0.0
-    roughness: float = 0.5
+    #: ``None`` means **preserve** — leave the source's own value alone. Only the neutral row
+    #: uses it, and it is the difference between normalising a car and flattening one.
+    metallic: float | None = 0.0
+    roughness: float | None = 0.5
     grime: float = 0.0
 
 
@@ -185,8 +193,8 @@ class StyleTable:
                 saturation_max=float(row.get("saturationMax", 1.0)),
                 value_min=float(row.get("valueMin", 0.0)),
                 value_max=float(row.get("valueMax", 1.0)),
-                metallic=float(row.get("metallic", 0.0)),
-                roughness=float(row.get("roughness", 0.5)),
+                metallic=_optional(row.get("metallic", 0.0)),
+                roughness=_optional(row.get("roughness", 0.5)),
                 grime=float(row.get("grime", 0.0)),
             )
         missing = [name for name in SURFACES if name not in surfaces]
@@ -224,8 +232,13 @@ def classify(material: SourceMaterial, is_dominant: bool = False) -> tuple[str, 
 
     ``is_dominant`` is the tie-break for a material with no evidence at all: the one covering the
     most triangles on a vehicle is its paint. That is true of every car model anyone has ever
-    published, and it is what stops an unnamed, untextured supercar body from being classified as
-    generic trim and rendered matte grey.
+    published, and it is what stops an unnamed, untextured supercar body from being rendered as
+    generic matte grey.
+
+    Everything else with no evidence is :data:`NEUTRAL`, **not** :data:`TRIM`, and the distinction
+    is the difference between a normalised car and a flattened one. On the shipped Eclipse 41 of 60
+    materials reach this line — including both alloy wheels — and the trim row would have painted
+    every one of them near-black, non-metallic and rough.
     """
     if material.transmission > GLASS_TRANSMISSION:
         return GLASS, f"transmission {material.transmission:.2f}"
@@ -245,7 +258,7 @@ def classify(material: SourceMaterial, is_dominant: bool = False) -> tuple[str, 
         return CHROME, f"metallic {material.metallic:.2f}, roughness {material.roughness:.2f}"
     if is_dominant:
         return BODY_PAINT, f"covers the most geometry ({material.triangles} triangles)"
-    return TRIM, "no physical or nominal evidence; trim is the neutral answer"
+    return NEUTRAL, "no physical or nominal evidence; left nearly as the artist made it"
 
 
 def classify_by_name(name: str | None) -> str | None:
@@ -633,10 +646,15 @@ def apply_to_scene(table: StyleTable, seed: int) -> dict:
             with contextlib.suppress(TypeError, ValueError):
                 base.default_value = (colour[0], colour[1], colour[2], 1.0)
 
-        _set_socket(principled, "Metallic", restyle_scalar(
-            record.metallic, style.metallic, scene.strength))
-        _set_socket(principled, "Roughness", restyle_scalar(
-            record.roughness, style.roughness, scene.strength))
+        # A null target preserves the source's own value. An alloy wheel forced to the trim row's
+        # metallic 0 and roughness 0.78 loses every highlight that makes its spokes readable, and
+        # comes out as a black disc — which is exactly what shipped before this existed.
+        if style.metallic is not None:
+            _set_socket(principled, "Metallic", restyle_scalar(
+                record.metallic, style.metallic, scene.strength))
+        if style.roughness is not None:
+            _set_socket(principled, "Roughness", restyle_scalar(
+                record.roughness, style.roughness, scene.strength))
 
         # The emission COLOUR is restyled and its STRENGTH is not: strength is what the light
         # cue reads (D15-S4.2 C2), and a lamp normalised to zero would stop being findable.

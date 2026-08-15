@@ -26,6 +26,8 @@ public final class RenderContext implements Disposable {
 
     private final RenderEnvironment environment;
     private final PartModels partModels;
+    private final PartLamps partLamps;
+    private final VehicleLights vehicleLights;
     private final ArenaModel arenaModel;
     private TerrainModel terrainModel;
     private final ModelBatch batch;
@@ -41,18 +43,46 @@ public final class RenderContext implements Disposable {
     public RenderContext(Path assetRoot, ArenaDef arena) {
         environment = new RenderEnvironment();
         partModels = new PartModels(assetRoot);
+        partLamps = new PartLamps(assetRoot);
+        vehicleLights = new VehicleLights();
         arenaModel = arena == null ? null : new ArenaModel(arena);
-        // Zero bones: nothing shipped is skinned, and asking the shader provider for skinning
-        // support it will not use costs a uniform array on every draw (DISC-016 is the related trap
-        // on the reader side).
-        batch = new ModelBatch(PBRShaderProvider.createDefault(0));
+        batch = new ModelBatch(PBRShaderProvider.createDefault(shaderConfig()));
         particles = new ParticleRenderer();
         camera = new ChaseCamera(Gdx.graphics.getBackBufferWidth(), Gdx.graphics.getBackBufferHeight());
         hud = new Hud();
     }
 
+    /**
+     * The shader the whole scene is drawn with.
+     *
+     * <p>Zero bones: nothing shipped is skinned, and asking for skinning support the shader will not
+     * use costs a uniform array on every draw (DISC-016 is the related trap on the reader side).
+     *
+     * <p><b>Spot lights have to be asked for.</b> libGDX's shader config defaults
+     * {@code numSpotLights} to zero, and gdx-gltf inherits that — so a {@code SpotLightEx} added to
+     * the environment is compiled out of the shader and a headlight lights nothing at all, silently.
+     * That is the whole of why {@link VehicleLights#MAX_CASTING_LAMPS} is a number here rather than
+     * a matter of taste.
+     */
+    private static net.mgsx.gltf.scene3d.shaders.PBRShaderConfig shaderConfig() {
+        net.mgsx.gltf.scene3d.shaders.PBRShaderConfig config = PBRShaderProvider.createDefaultConfig();
+        config.numBones = 0;
+        config.numSpotLights = VehicleLights.MAX_CASTING_LAMPS;
+        return config;
+    }
+
     public RenderEnvironment environment() {
         return environment;
+    }
+
+    /** The {@code light} block of every part that carries one (D08-R6). */
+    public PartLamps partLamps() {
+        return partLamps;
+    }
+
+    /** The lamps placed in the world this frame, and the beams drawn from them. */
+    public VehicleLights vehicleLights() {
+        return vehicleLights;
     }
 
     public PartModels partModels() {
@@ -109,6 +139,7 @@ public final class RenderContext implements Disposable {
     @Override
     public void dispose() {
         batch.dispose();
+        vehicleLights.dispose();
         particles.dispose();
         hud.dispose();
         if (terrainModel != null) {

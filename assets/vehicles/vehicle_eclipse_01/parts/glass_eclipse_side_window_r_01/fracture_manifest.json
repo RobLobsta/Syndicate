@@ -21,7 +21,7 @@
     "z": -0.032313
   },
   "densityKgPerM3": 2500.0,
-  "generatedAt": "2026-08-15T13:33:30Z",
+  "generatedAt": "2026-08-15T17:56:44Z",
   "inertiaDiagonal": {
     "x": 0.605144,
     "y": 0.587884,
@@ -1151,7 +1151,7 @@
     }
   ],
   "sourceFile": "../assets/vehicles/vehicle_eclipse_01/parts/glass_eclipse_side_window_r_01/mesh.glb",
-  "sourceHash": "sha256:c5c2d78fbcadb08bf4df8ff3c72cd8cdda2fb6056a73a4a93531be130df09c83",
+  "sourceHash": "sha256:6d35c8e5409be5c5b8d4e5e644edaab913e64cfdc20b42a9a63033b30ff6f420",
   "toolVersion": "0.1.0",
   "topologyHash": "sha256:e93bbfc6a7309b1ff6da4086454d80f874efbfa2bfc36ae0d16c7ef2f7d36ff8",
   "verification": {

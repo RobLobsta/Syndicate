@@ -1,6 +1,6 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-15 (end of SESS-032)
+**Last updated:** 2026-08-15 (end of SESS-033)
 
 This is the plan, in order. Each step below is meant to be picked up from the top: everything above
 "you are here" is done, everything below it is not, and the order is the order they should be done
@@ -36,7 +36,8 @@ Four things that sentence leaves out, in the order they hurt:
    cover behind that was not extruded from a noise function.
 3. **The cars are real now, and unproven.** Each ships as twenty-odd parts — doors that hinge and
    dent, glass that shatters, lamps and grilles that come off — cut from its own art, colour-matched
-   to a house palette, and calibrated to a published spec sheet. Nobody has driven them in anger.
+   to a house palette, and calibrated to a published spec sheet. Their headlights cast at night.
+   Nobody has driven them in anger.
 4. **Nothing has been tuned by a person.** Handling is a real supercar's published figures. Damage
    numbers are blueprint defaults. Bot difficulty is a scale nobody has lost to. The audio mix is a
    set of first guesses.
@@ -61,7 +62,8 @@ numbers, one renderer and one socket.
    ├── Replication over loopback                                PROG-032
    ├── Terrain: generation, themes, and the ground drawn        PROG-030
    ├── Main menu, garage, and a build you can double-click      PROG-027
-   └── The real cars, and hardpoints to hang weapons on         PROG-034
+   ├── The real cars, and hardpoints to hang weapons on         PROG-034
+   └── Headlights, beams, and a night to see them in            PROG-034
   ─────────────────────────────────────────────────────── you are here
   NEXT
    1. Guns                                    ← the game is not a game without these
@@ -223,11 +225,16 @@ Not decided, and not for the assistant to decide alone.
   including wheels and the chassis. That separation is deliberate and now leaves the word "armour"
   free for fitted plating if the garage ever offers a choice of it. If you would rather the word
   disappeared entirely, the rename is mechanical but touches the JSON schema and the Blender tool.
-- **What the house style should actually look like.** `assets/materials/style.json` is nine surface
+- **What the house style should actually look like.** `assets/materials/style.json` is ten surface
   roles with a colour band and a reflectance each, set to a grimy industrial reading of the brief:
   desaturated paint, dull chrome, black rough rubber, everything dusted. It is one file and every
-  number in it is a taste decision made without you. Look at the cars and move the numbers — the
-  pipeline re-runs in about ninety seconds a vehicle.
+  number in it is a taste decision made without you. The current result is a charcoal car with a
+  warm cast, which you have now seen — move the numbers if it is not what you meant. The pipeline
+  re-runs in about ninety seconds a vehicle.
+- **When it should be dark.** Night is a launch option (`--night`) and the `N` key today, because
+  headlights needed something to be visible against. Time of day is properly an arena's property —
+  D16-S4 already reserves a `sky` block — and whether a match picks its hour, cycles through one, or
+  always plays at the same time is a design question nobody has answered.
 - **Whether a `weapon` label should be inferred or declared.** A tank's barrel is labelled by a
   geometric vote today, and on a model whose materials are named it can also be declared in
   `parts.json`. Neither has been tried against a real tank with a real turret, because there is no

@@ -33,6 +33,18 @@ public final class MatchScreen implements Screen {
 
     private ScreenId next = ScreenId.MATCH;
     private boolean escapeWasDown = true;
+    private boolean nightWasDown;
+
+    /**
+     * How dark it is, cycled with {@code N}: noon, dusk, midnight, and back (D15-R51).
+     *
+     * <p>A key rather than a clock, and deliberately temporary. Time of day is properly an arena's
+     * property — D16-S4 reserves a {@code sky} block for it — and until that block does anything,
+     * being able to see the headlights is worth more than being unable to.
+     */
+    private static final float[] NIGHT_STEPS = {0f, 0.55f, 1f};
+
+    private int nightStep;
 
     /**
      * @param exitTo where leaving the match goes. {@link ScreenId#MAIN_MENU} when a menu launched
@@ -63,6 +75,14 @@ public final class MatchScreen implements Screen {
             next = exitTo;
         }
         escapeWasDown = escapeDown;
+
+        boolean nightDown = Gdx.input.isKeyPressed(Input.Keys.N);
+        if (nightDown && !nightWasDown) {
+            nightStep = (nightStep + 1) % NIGHT_STEPS.length;
+            runtime.render().environment().setNightFraction(NIGHT_STEPS[nightStep]);
+            LOG.info("night fraction is now {}", NIGHT_STEPS[nightStep]);
+        }
+        nightWasDown = nightDown;
 
         loop.advance(runtime.world(), frameDeltaSeconds);
     }

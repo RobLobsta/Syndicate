@@ -9,6 +9,28 @@
   "destructionClass": "RIGID",
   "displayName": "Tail Light (Right)",
   "hangsBeforeFalling": false,
+  "light": {
+    "castsBeam": false,
+    "colorRgb": {
+      "b": 0.07,
+      "g": 0.12,
+      "r": 1.0
+    },
+    "coneInnerDeg": 40.0,
+    "coneOuterDeg": 70.0,
+    "directionLocal": {
+      "x": 0.0,
+      "y": -0.0,
+      "z": -1.0
+    },
+    "intensity": 2.2,
+    "originLocal": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": -0.216
+    },
+    "rangeM": 6.0
+  },
   "massKg": 4.562,
   "materialId": "plastic",
   "maxHp": 45.6,

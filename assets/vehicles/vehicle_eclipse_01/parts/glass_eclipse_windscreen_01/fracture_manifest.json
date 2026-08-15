@@ -21,7 +21,7 @@
     "z": 0.403717
   },
   "densityKgPerM3": 2500.0,
-  "generatedAt": "2026-08-15T13:33:39Z",
+  "generatedAt": "2026-08-15T17:56:51Z",
   "inertiaDiagonal": {
     "x": 2.199754,
     "y": 10.658404,
@@ -1125,7 +1125,7 @@
     }
   ],
   "sourceFile": "../assets/vehicles/vehicle_eclipse_01/parts/glass_eclipse_windscreen_01/mesh.glb",
-  "sourceHash": "sha256:efc0b06e9e689f54fd3632a3b960c5f8ac45a086f21b5c8bb101cbb49861049e",
+  "sourceHash": "sha256:4c190a6a871cd9fba4b158096cdf2ddfd0fc5cea542619d0482be9505b59ee7b",
   "toolVersion": "0.1.0",
   "topologyHash": "sha256:9a7d14dcedaed1769136cbd9cace4742cbbfada66f76533a3f24e09ac2eb730c",
   "verification": {

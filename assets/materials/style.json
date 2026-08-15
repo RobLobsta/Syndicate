@@ -44,16 +44,28 @@
       "notes": "Hue is preserved -- a faction colour is gameplay. Saturation and value are not: a 1.0/1.0 cartoon red becomes an oxidised 0.45/0.42 one."
     },
     {
+      "surface": "neutral",
+      "displayName": "Everything the pass could not identify",
+      "hueShiftDeg": 4.0,
+      "saturationMax": 0.60,
+      "valueMin": 0.02,
+      "valueMax": 0.78,
+      "metallic": null,
+      "roughness": null,
+      "grime": 0.18,
+      "notes": "The fallback, and the most important row in the table. On a real car most materials are body-coloured panels and details that no cue names, and forcing them into the trim band -- near-black, non-metallic, rough -- turns the whole vehicle into grey mush and erases an alloy wheel's spokes outright. So this row barely moves anything: it clamps a cartoon's saturation, adds a little dirt, and leaves metallic and roughness exactly as the artist set them. A null means preserve."
+    },
+    {
       "surface": "trim",
       "displayName": "Plastic trim, bumpers, cladding",
       "hueShiftDeg": 0.0,
       "saturationMax": 0.14,
       "valueMin": 0.03,
-      "valueMax": 0.20,
+      "valueMax": 0.30,
       "metallic": 0.0,
       "roughness": 0.78,
       "grime": 0.45,
-      "notes": "Almost achromatic. Unpainted plastic on a real vehicle is grey-black and goes chalky, and it is the surface that most gives a cartoon model away."
+      "notes": "Almost achromatic. Unpainted plastic on a real vehicle is grey-black and goes chalky, and it is the surface that most gives a cartoon model away. Only a material a cue actually IDENTIFIED as trim lands here -- anything unrecognised takes the neutral row above, which is a different and much gentler thing."
     },
     {
       "surface": "chrome",

@@ -89,11 +89,34 @@ def test_a_camel_case_name_is_split_into_words():
 
 
 def test_the_material_covering_most_of_the_car_is_its_paint():
-    """R47g. Without it an untextured, unnamed supercar body renders as matte grey trim."""
+    """R47g. Without it an untextured, unnamed supercar body renders as matte grey."""
     biggest = material("bw00.001", triangles=35941)
-    smaller = material("bw00.002", triangles=3486)
     assert style.classify(biggest, is_dominant=True)[0] == style.BODY_PAINT
-    assert style.classify(smaller, is_dominant=False)[0] == style.TRIM
+
+
+def test_a_material_with_no_evidence_is_neutral_rather_than_trim():
+    """R47g. The single most consequential row in the table.
+
+    41 of the shipped Eclipse's 60 materials reach this line, both alloy wheels among them. Trim
+    is near-black, non-metallic and rough; sending everything unrecognised there turned the whole
+    car into grey mush and rendered its wheels as black discs with no spokes.
+    """
+    unnamed = material("bw00.002", triangles=3486)
+    assert style.classify(unnamed, is_dominant=False)[0] == style.NEUTRAL
+    # A material a cue actually identifies as trim still gets the trim treatment.
+    assert style.classify_by_name("front_bumper_plastic") != style.NEUTRAL
+
+
+def test_the_neutral_row_preserves_metallic_and_roughness(table):
+    """A null target means "leave the artist's value alone", and only neutral uses one."""
+    neutral = table.surfaces[style.NEUTRAL]
+    assert neutral.metallic is None
+    assert neutral.roughness is None
+    for surface in style.SURFACES:
+        if surface == style.NEUTRAL:
+            continue
+        assert table.surfaces[surface].metallic is not None, surface
+        assert table.surfaces[surface].roughness is not None, surface
 
 
 # ---- Stylised or realistic (R47c) --------------------------------------------------------------

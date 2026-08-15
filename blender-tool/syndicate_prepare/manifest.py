@@ -32,6 +32,7 @@ comparison to say how far the formula and the budget disagree.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -161,6 +162,43 @@ DEFAULT_WHEEL_HANDLING = {
     "rollInfluence": 0.15,
     "suspensionRestLengthM": 0.3,
 }
+
+# ---- Lamps (D15-S5.11) ----------------------------------------------------------------------
+
+#: What a lamp of each role emits, as the ``light`` block of D08-R6.
+#:
+#: Only a **head** lamp casts. A tail lamp, an indicator and a reflector are things that *glow*:
+#: they read as lit from outside and they light nothing, which is also true of the real ones and
+#: is what keeps a car park of eight vehicles down to sixteen casting lights rather than fifty.
+#:
+#: The numbers are a car's, not a room's. 55 metres and a 34-degree cone is a dipped headlamp;
+#: 5000 K is a modern projector, warm enough not to read as a torch. The 3.5-degree downward tilt
+#: is what a beam cut-off does, and it is the reason the pool of light lands in front of the car
+#: rather than on the horizon.
+LAMPS = {
+    "head": {
+        "colorRgb": {"r": 1.0, "g": 0.96, "b": 0.88},
+        "intensity": 34.0,
+        "coneOuterDeg": 34.0,
+        "coneInnerDeg": 13.0,
+        "rangeM": 55.0,
+        "tiltDownDeg": 3.5,
+        "castsBeam": True,
+    },
+    "tail": {
+        "colorRgb": {"r": 1.0, "g": 0.12, "b": 0.07},
+        "intensity": 2.2,
+        "coneOuterDeg": 70.0,
+        "coneInnerDeg": 40.0,
+        "rangeM": 6.0,
+        "tiltDownDeg": 0.0,
+        "castsBeam": False,
+    },
+}
+
+#: A lamp with no role at all — a repeater, a reflector nobody named. Glows, casts nothing.
+DEFAULT_LAMP = "tail"
+
 
 #: Gravity, as D00-S6.4 fixes it. Needed here for exactly one thing: the static sag of a wheel
 #: (see :func:`wheel_slot_lift`).
@@ -729,6 +767,7 @@ def build_part_document(
     handling: dict | None,
     produced: dict | None = None,
     weapon: dict | None = None,
+    light: dict | None = None,
 ) -> dict:
     """One ``part.json``, exactly as D08-S4.2 specifies it.
 
@@ -788,6 +827,8 @@ def build_part_document(
         document["handling"] = handling
     if treatment.yield_impulse_ns:
         document["yieldImpulseN"] = treatment.yield_impulse_ns
+    if light is not None:
+        document["light"] = light
     if part.label == WEAPON and weapon is not None:
         # A built-in weapon: geometry the model came with, made able to fire (D15-R41). A
         # modular weapon needs none of this -- it is authored content in the shared library
@@ -864,6 +905,47 @@ def hardpoint_slots(body, total_mass_kg: float) -> list[dict]:
             "isDetachable": True,
         })
     return slots
+
+
+def light_block(part: PreparedPart, body) -> dict | None:
+    """The ``light`` block for a part the taxonomy labelled ``light`` (D15-R51, D08-R6).
+
+    Cosmetic in the strict sense of G6 — nothing in the simulation reads it — but it is *content*,
+    so it is authored here beside everything else the part declares rather than guessed at by the
+    renderer from a part's name.
+
+    Two things are derived from the part rather than taken from :data:`LAMPS`. The **direction** is
+    the vehicle's front (``+z``, the sense ``VehicleFactory`` builds wheels in) tilted down by the
+    role's cut-off, and it is mirrored for a lamp on the rear of the car so a tail light glows
+    backwards. The **origin** is the lamp's own outward face — its forward-most point along that
+    direction — because a beam starting at the middle of the lens starts inside the bodywork.
+    """
+    role = part.role if part.role in LAMPS else DEFAULT_LAMP
+    lamp = LAMPS[role]
+    lo = tuple(min(shell.lo[i] for shell in part.group.shells) for i in range(3))
+    hi = tuple(max(shell.hi[i] for shell in part.group.shells) for i in range(3))
+
+    forward = 1.0 if role == "head" else -1.0
+    tilt = math.radians(lamp["tiltDownDeg"])
+    face = hi[2] if forward > 0 else lo[2]
+    return {
+        "colorRgb": dict(lamp["colorRgb"]),
+        "intensity": lamp["intensity"],
+        "coneOuterDeg": lamp["coneOuterDeg"],
+        "coneInnerDeg": lamp["coneInnerDeg"],
+        "rangeM": lamp["rangeM"],
+        "castsBeam": lamp["castsBeam"],
+        "directionLocal": {
+            "x": 0.0,
+            "y": round(-math.sin(tilt), 4),
+            "z": round(forward * math.cos(tilt), 4),
+        },
+        "originLocal": {
+            "x": round((lo[0] + hi[0]) * 0.5 - part.origin[0], 4),
+            "y": round((lo[1] + hi[1]) * 0.5 - part.origin[1], 4),
+            "z": round(face - part.origin[2], 4),
+        },
+    }
 
 
 def weapon_block(part: PreparedPart, body) -> dict:
