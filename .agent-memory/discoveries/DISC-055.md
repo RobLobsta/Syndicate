@@ -32,6 +32,7 @@ Two things follow, and they are now written into CLAUDE.md §8.1:
    an untracked file the working directory was quietly relying on — the DISC-005 failure mode.
 
 Reproducing all four stages that way locally takes about six minutes and costs no runner time.
+DISC-056 covers the trap on the other side of the push — reading the run's status afterwards.
 
 ## Rationale / Context
 Worth an entry because the instinct after a green local run is that the commit is verified, and for

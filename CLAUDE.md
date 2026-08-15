@@ -292,6 +292,15 @@ python3 -m pytest blender-tool/tests/unit -q
 
 Only when all four are green, push. Then poll the run (§8 rule 5).
 
+**The run status you read may be badly stale.** The `mcp__github__actions_*` responses are
+cached, and the cache has been observed fifty minutes behind: a job that finished in two
+minutes still reported `in_progress` on its last step, on both the jobs and the check-runs
+endpoints, long after it was green. So do not read a long-looking step as a hang. Compare
+against what this pipeline actually costs — the whole run is **two to three minutes**, and
+`git log` will tell you what a normal one took — and if a step looks stuck, re-check by
+running the same stage locally rather than by cancelling the run. Cancelling a green run
+spends the minutes twice.
+
 **Read the workflow rather than trusting this list.** `.github/workflows/ci.yml` is the
 authority on what runs and in what order; if it has changed, this block is stale and the
 workflow is not.

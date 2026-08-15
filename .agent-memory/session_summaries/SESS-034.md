@@ -30,13 +30,11 @@ place that arithmetic lives, and a content test asserts the whole chain lands th
 xvfb invocation, the capture options and the `--assets` trick for comparing two builds of the
 content. CLAUDE.md now points at it and says that looking at the game counts as a check.
 
-**CI verification.** The first push of this work failed stage 1 on a stale `INDEX.md` — regenerated
-before the session summary was written, which is itself an index entry (DISC-055). CLAUDE.md gains
-§8.1, the literal pre-push procedure in the order that defect requires: stage everything, run the
-generators last, reproduce all four CI stages in a tracked-files-only tree. §8.2 records the cheap
-habits alongside it — read memory before writing in a domain, run targeted tasks
-(`:game-core:test -Ptags=physics`, `:test-environment:verifyFixtures`) rather than the suite, and
-cite stable blueprint IDs in comments so a review is anchored to the contract.
+**CI verification.** The first push failed stage 1 on a stale `INDEX.md`, regenerated before the
+session summary that is itself an index entry (DISC-055). CLAUDE.md gains §8.1 — stage everything,
+run the generators last, reproduce all four stages in a tracked-files-only tree — and §8.2, the
+cheap habits: memory first, targeted tasks, blueprint IDs in comments. DISC-056 records that the
+run proving the fix was read as hung for an hour by a stale API cache and had been green in 2m14s.
 
 ## Rationale / Context
 Both defects this session were found by a person looking at a picture, one of them by the user. The
