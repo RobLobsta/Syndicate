@@ -11,6 +11,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.syndicate.model.ExitCode;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,19 +40,33 @@ class AssetIndexBuilderTest {
         assertThat(index.path("parts")).hasSizeGreaterThan(40);
         assertThat(index.path("vehicles")).hasSize(2);
 
-        // Every shipped part is owned by the vehicle it was cut from and lives under it
-        // (D08-R14b). Nothing is in the shared library yet: weapons and modules are the content
-        // that goes there, and it is authored separately.
+        // Every part lives in exactly one of the two places D08-R14b allows, and *which* place says
+        // what it is for (DEC-075). A part cut from a vehicle's own art is owned by that vehicle and
+        // lives under it; a modular weapon is authored separately and lives in the shared library,
+        // where anything with a compatible mount can fit it (D17-S1).
+        List<String> shared = new ArrayList<>();
         index.path("parts").forEach(part -> {
+            String partTypeId = part.path("partTypeId").asText();
             String owner = part.path("ownedBy").asText(null);
-            assertThat(owner)
-                    .as("%s is owned by a vehicle", part.path("partTypeId").asText())
-                    .isNotNull();
+            if (owner == null) {
+                assertThat(part.path("path").asText())
+                        .as("%s is in the shared library", partTypeId)
+                        .isEqualTo("parts/" + partTypeId);
+                shared.add(partTypeId);
+                return;
+            }
             assertThat(part.path("path").asText())
-                    .as("%s lives under its owner", part.path("partTypeId").asText())
-                    .isEqualTo("vehicles/" + owner + "/parts/"
-                            + part.path("partTypeId").asText());
+                    .as("%s lives under its owner", partTypeId)
+                    .isEqualTo("vehicles/" + owner + "/parts/" + partTypeId);
         });
+
+        // The shared library is no longer empty: two modular weapons ship, each as a sub-part tree
+        // rooted at its mount (D17-S5.8).
+        assertThat(shared)
+                .as("the shared library holds the modular weapons and nothing else")
+                .isNotEmpty()
+                .allMatch(id -> id.startsWith("weapon_"));
+        assertThat(shared).contains("weapon_machinegun_01_mount", "weapon_cannon_01_mount");
         // Two arenas: the flat scrapyard and the generated desert. The pipeline validates a terrain
         // block without generating the field — a 601-square grid at index-build time would make a
         // content check as slow as a load (D16-S5.1).
@@ -62,10 +78,15 @@ class AssetIndexBuilderTest {
         ObjectNode eclipse = (ObjectNode) index.path("vehicles").get(0);
         assertThat(eclipse.path("vehicleTypeId").asText()).isEqualTo("vehicle_eclipse_01");
         assertThat(eclipse.path("wheelCount").asInt()).isEqualTo(4);
-        // Close to, not equal: this is the sum of twenty-seven authored masses, and the last
-        // binary digit of that sum is not a fact about the vehicle.
-        assertThat(eclipse.path("totalMassKg").asDouble()).isCloseTo(1500.0, within(0.01));
-        assertThat(eclipse.path("powerBudget").asDouble()).isCloseTo(74.0, within(0.01));
+        // Close to, not equal: this is the sum of thirty-odd authored masses, and the last binary
+        // digit of that sum is not a fact about the vehicle.
+        //
+        // 1545.6 rather than the Eclipse's 1500 kg kerb mass, because it ships **armed**: the
+        // machine gun fitted to its bonnet weighs 45.6 kg and the index sums what is actually on the
+        // vehicle (D17-S1). The kerb figure is asserted separately, against the vehicle's own parts,
+        // by VehicleProfileContentTest.
+        assertThat(eclipse.path("totalMassKg").asDouble()).isCloseTo(1545.609, within(0.01));
+        assertThat(eclipse.path("powerBudget").asDouble()).isCloseTo(102.734, within(0.01));
 
         // The shipped tree is clean. It was not before the preparation pipeline's output shipped:
         // every part directory named a mesh that did not exist, and the whole of A107 was expected.

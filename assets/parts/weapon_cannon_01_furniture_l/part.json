@@ -1,0 +1,31 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=weapon_cannon_01_furniture_l_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 443.9,
+  "category": "DECORATIVE",
+  "destructionClass": "SHEET_METAL",
+  "displayName": "Furniture L",
+  "hangsBeforeFalling": false,
+  "massKg": 4.933,
+  "materialId": "steel",
+  "maxHp": 39.46,
+  "partTypeId": "weapon_cannon_01_furniture_l",
+  "powerCost": 16.24,
+  "schemaVersion": "1.0.0",
+  "sizeClass": "HEAVY",
+  "slotTypeRequired": "SUBSLOT",
+  "tags": [
+    "weapon",
+    "furniture",
+    "prepared"
+  ]
+}

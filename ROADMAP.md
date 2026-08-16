@@ -17,27 +17,30 @@ A single-player vehicular combat game you can start, play and quit.
 
 Launch the client and you get a title screen. PLAY takes you to a garage: two cars, drawn from their
 real art, turning on a floor line, with the figures they were derived from beside them — an Eclipse
-at 1500 kg doing 0–100 in 2.9 s, a Stampede that is heavier and holds speed where the Eclipse
-cannot. DEPLOY drops you into an arena with seven bots. They drive, hunt you, and ram. Panels dent,
-glass shatters, parts come off and change how the car handles, sparks fly, the engine sounds like the
-engine it was modelled on, a chase camera follows and a scoreboard keeps score. Escape returns you to
-the menu, and the whole physics world is torn down and rebuilt when you go back in.
+at 1500 kg doing 0–100 in 2.9 s with a machine gun on its bonnet, a Stampede that is heavier, holds
+speed where the Eclipse cannot, and carries a cannon on its roof. DEPLOY drops you into an arena with
+seven bots. They drive, hunt you, and ram. Panels dent, glass shatters, parts come off and change how
+the car handles, sparks fly, the engine sounds like the engine it was modelled on, a chase camera
+follows and a scoreboard keeps score. Escape returns you to the menu, and the whole physics world is
+torn down and rebuilt when you go back in.
 
-Four things that sentence leaves out, in the order they hurt:
+Five things that sentence leaves out, in the order they hurt:
 
-1. **There are no weapons.** Not "the weapons are unbalanced" — there is no weapon part in
-   `assets/parts/`. The firing, tracking, impact and scoring systems are all implemented and tested
-   against nothing. Combat today is ramming. Everything *around* a weapon is now ready for one: the
-   loader reads a weapon's definition, both cars offer a turret mount and four hardpoints, and
-   `assets/parts/` is a shared library any vehicle can draw from. What is missing is the content.
+1. **The guns are mounted but nobody has pulled the trigger in anger.** This is new, and it is the
+   line that changed most this session. Two weapons ship — an autocannon and a cannon, each an
+   *assembly* of five or six sub-parts with its own mass, health and damage state, so a barrel can be
+   shot off and the gun keeps firing worse. Firing kicks the car that fired and a shell shoves what it
+   hits. What has **not** happened is a person playing it: the damage numbers are D01's defaults, the
+   sub-part degradation table is written down and not yet implemented, and no weapon fractures when
+   it dies — it detaches whole. Six of the eight families still have no content at all.
 2. **The arenas are real places now, but bare ones.** Both generate from a theme and a seed — a
    Desert Highway of dunes and scoured rock, a Scrapyard of flat compacted yard with spoil heaps
    across it — and both are drawn. What they have not got is roads, structures, or anything to take
    cover behind that was not extruded from a noise function.
-3. **The cars are real now, and unproven.** Each ships as twenty-odd parts — doors that hinge and
-   dent, glass that shatters, lamps and grilles that come off — cut from its own art, colour-matched
-   to a house palette, and calibrated to a published spec sheet. Their headlights cast at night.
-   Nobody has driven them in anger.
+3. **The cars are real now, and unproven.** Each ships as thirty-odd parts — doors that hinge and
+   dent, glass that shatters, lamps and grilles that come off, and now a weapon — cut from its own
+   art, colour-matched to a house palette, and calibrated to a published spec sheet. Their headlights
+   cast at night. Nobody has driven them in anger.
 4. **Nothing has been tuned by a person.** Handling is a real supercar's published figures. Damage
    numbers are blueprint defaults. Bot difficulty is a scale nobody has lost to. The audio mix is a
    set of first guesses.
@@ -63,10 +66,11 @@ numbers, one renderer and one socket.
    ├── Terrain: generation, themes, and the ground drawn        PROG-030
    ├── Main menu, garage, and a build you can double-click      PROG-027
    ├── The real cars, and hardpoints to hang weapons on         PROG-034
-   └── Headlights, beams, and a night to see them in            PROG-034
+   ├── Headlights, beams, and a night to see them in            PROG-034
+   └── Guns: two weapons, taken apart, mounted and firing       PROG-035
   ─────────────────────────────────────────────────────── you are here
   NEXT
-   1. Guns                                    ← the game is not a game without these
+   1. Guns, finished                          ← degradation, fracture, more families
    2. Roads and structures                    ← terrain stages 3 and 4
    3. Tuning, with a console to do it from    ← the alpha gate
    4. Options, and the rest of the shell
@@ -79,28 +83,38 @@ numbers, one renderer and one socket.
 
 ## 3. The plan, in order
 
-### Step 1 — Guns
+### Step 1 — Guns, finished
 
-**Why first:** everything else on this list makes a better version of a game whose central verb is
-missing. D01 specifies eight weapon families; `assets/parts/` is empty. The systems are written,
-tested and idle.
+**Where this got to.** The hard half is done and is bigger than this step originally described. A
+weapon is no longer "a `part.json` with a `weapon` block": it is an **assembly**, built from a
+downloaded model by a third Blender tool (`syndicate_weapon`, against `docs/17_weapon_system.md`),
+with a mount that bolts to the vehicle and a receiver, barrel, breech and muzzle hanging off it —
+each its own part with its own mass, health and damage state. Two ship:
 
-Everything except the gun itself is now in place. A weapon's definition is read by the loader rather
-than silently discarded; `assets/parts/` is the shared library a weapon lives in, so one autocannon
-fits every car; and both vehicles offer `turret_main` plus four hardpoints, each rated for about 120
-kg and listed with its position in the vehicle's `parts/manifest.json`.
+| | `weapon_machinegun_01` | `weapon_cannon_01` |
+|---|---|---|
+| Family, size | AUTOCANNON, LIGHT | CANNON, HEAVY |
+| Mass, length | 45.6 kg, 0.9 m | 273.9 kg, 1.8 m |
+| Sub-parts | 5 | 6 |
+| Fitted to | Eclipse, bonnet | Stampede, roof turret |
 
-1. **One weapon part, authored by hand.** A machine gun: a `part.json` with a `weapon` block and a
-   `mesh.glb`, dropped into `assets/parts/`. It needs no change to either car — the mounts exist.
-   This is the smallest change that turns `WeaponSystem` and `ProjectileSystem` from tested code
-   into gameplay.
-2. **Wire it to input and to the bots.** Both already produce a `fireMask`; nothing consumes it
-   because nothing is mounted.
-3. **Then a second weapon that is not a third machine gun** — a shotgun or a mortar — so damage
-   types, falloff and the armour table have more than one caller.
-4. **A fracture manifest per weapon**, so a destroyed gun breaks up rather than vanishing.
+Alongside them: **size classes** decide which weapons fit which mounts, firing **kicks** the vehicle
+and a hit **shoves** the target, and barrels **recoil** when they fire.
 
-**Done when:** you can shoot a bot, its bonnet dents, and it shoots back.
+**What is left, in the order it matters:**
+
+1. **Sub-part degradation.** D17-S5.13 is a table — barrel gone means spread ×4 and range halved,
+   breech gone means half fire rate, feed gone means no ammunition — and **nothing reads it yet**.
+   This is the difference between sub-parts that are separately destroyable and sub-parts that
+   *matter*, and it is the single highest-value thing left on this list.
+2. **Fracture manifests per weapon**, so a destroyed gun breaks up rather than detaching whole.
+3. **A third weapon that is not a gun** — a rocket pod or a flamer — so damage types other than
+   `KINETIC` have a caller. `ROCKET`, `MORTAR` and `FLAMER` are reachable only through `--family`
+   by design: nothing in a static mesh distinguishes a rocket pod from a box.
+4. **Play it.** Fire at a bot and watch what happens; the numbers are all defaults.
+
+**Done when:** you shoot a bot's gun off, it keeps firing and misses, and you can feel your own car
+rock when the cannon goes off.
 
 ### Step 2 — Roads and structures
 
@@ -247,6 +261,21 @@ Not decided, and not for the assistant to decide alone.
   geometric vote today, and on a model whose materials are named it can also be declared in
   `parts.json`. Neither has been tried against a real tank with a real turret, because there is no
   such model in `art-source/` yet. When one arrives, that first run is the answer.
+- **How much a weapon should cost a build.** Fitting the cannon took the Stampede's power budget
+  from 84 to 153 — the gun is 45% of the whole vehicle. That is a defensible answer (a weapon should
+  be the biggest single choice on a build) and it is a balance decision nobody has made deliberately;
+  the number came out of a formula in D17-R53. If loadouts ever exist, this number is what stops
+  every car carrying a cannon.
+- **Whether a weapon should be aimable independently of the car.** Both shipped weapons are rigidly
+  bolted: they point where the car points. The articulation model already has an `ELEVATE` motion
+  driven by commanded aim, and a turret ring that traverses is the obvious next thing — but turret
+  traverse is explicitly not in D17 (NG1), and whether the product wants it is a design question
+  about how the game plays, not a gap in the pipeline.
+- **Where the cannon's carriage went.** `syndicate_weapon` discards geometry more than 40% of the
+  weapon's length from its bore — on the shipped cannon that is four road wheels, an axle, a base
+  plate and the trail, over half its triangles. That was your call ("drop the carriage") and it is
+  the right one for a roof-mounted gun. A towed-artillery weapon type, if you ever wanted one, would
+  need that geometry kept and a different rule.
 - **Whether a match should be able to pick its theme**, rather than its arena. `--arena` names a
   file; nothing stops a mode from naming a theme and generating a fresh map with spawn points placed
   to suit. That is a small change to the arena loader and a real change to what a "map" is.

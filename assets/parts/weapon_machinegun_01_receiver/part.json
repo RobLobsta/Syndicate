@@ -1,0 +1,71 @@
+{
+  "armorValue": 0.75,
+  "assets": {
+    "collisionSource": "mesh.glb#node=weapon_machinegun_01_receiver_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 400.0,
+  "category": "WEAPON",
+  "destructionClass": "STRUCTURAL",
+  "displayName": "Receiver",
+  "hangsBeforeFalling": true,
+  "massKg": 2.148,
+  "materialId": "steel_hardened",
+  "maxHp": 20.0,
+  "partTypeId": "weapon_machinegun_01_receiver",
+  "powerCost": 2.873,
+  "schemaVersion": "1.0.0",
+  "sizeClass": "LIGHT",
+  "slotTypeRequired": "SUBSLOT",
+  "slots": [
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.02898,
+        "y": 0.03676,
+        "z": 0.00282
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 42.051,
+      "sizeClass": "LIGHT",
+      "slotId": "sub_barrel",
+      "slotType": "SUBSLOT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.01246,
+        "y": 0.04099,
+        "z": 0.00079
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 7.291,
+      "sizeClass": "LIGHT",
+      "slotId": "sub_breech",
+      "slotType": "SUBSLOT"
+    }
+  ],
+  "tags": [
+    "weapon",
+    "receiver",
+    "prepared"
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "armorValue": 0.79,
+  "assets": {
+    "collisionSource": "mesh.glb#node=weapon_machinegun_01_mount_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 400.0,
+  "category": "WEAPON",
+  "destructionClass": "STRUCTURAL",
+  "displayName": "Mount",
+  "hangsBeforeFalling": true,
+  "massKg": 2.258,
+  "materialId": "steel",
+  "maxHp": 20.0,
+  "partTypeId": "weapon_machinegun_01_mount",
+  "powerCost": 4.31,
+  "schemaVersion": "1.0.0",
+  "sizeClass": "LIGHT",
+  "slotTypeRequired": "TURRET_MOUNT",
+  "slots": [
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.02912,
+        "y": 0.04978,
+        "z": 0.0
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 2.685,
+      "sizeClass": "LIGHT",
+      "slotId": "sub_receiver",
+      "slotType": "SUBSLOT"
+    }
+  ],
+  "stats": {
+    "damagePerShot": {
+      "add": 15.4
+    },
+    "fireIntervalS": {
+      "add": 0.1667
+    },
+    "heatPerShot": {
+      "add": 0.06
+    },
+    "projectileSpeedMps": {
+      "add": 600.0
+    },
+    "spreadRad": {
+      "add": 0.01714
+    }
+  },
+  "tags": [
+    "weapon",
+    "mount",
+    "prepared"
+  ],
+  "weapon": {
+    "ammoCapacity": 400,
+    "blastRadiusM": 0.0,
+    "damageType": null,
+    "family": "AUTOCANNON",
+    "muzzleLocal": {
+      "x": -0.08265,
+      "y": 0.0514,
+      "z": 0.8797
+    },
+    "rangeM": 200.0
+  }
+}

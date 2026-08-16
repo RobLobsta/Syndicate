@@ -57,11 +57,16 @@ public final class ClientMain {
         Path capturePath = null;
         int captureFrame = DEFAULT_CAPTURE_FRAME;
         ScreenId startScreen = null;
+        String vehicle = null;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--capture" -> capturePath = Path.of(args[++i]);
                 case "--capture-frame" -> captureFrame = Math.max(1, Integer.parseInt(args[++i]));
                 case "--start-screen" -> startScreen = ScreenId.parse(args[++i]);
+                    // Which vehicle the garage opens on. A capture cannot press W/S, so without this
+                    // only the first vehicle in the roster can ever be photographed — and "look at
+                    // it" is how this project verifies every claim about how the game looks.
+                case "--vehicle" -> vehicle = args[++i];
                     // 0 is noon and 1 is midnight. `N` cycles it in a match; this is how a capture
                     // asks for a dark frame, since a capture cannot press a key.
                 case "--night" -> dev.syndicate.client.render.RenderEnvironment.setLaunchNightFraction(
@@ -97,7 +102,7 @@ public final class ClientMain {
         LOG.info("opening on {}", resolvedStart);
 
         SyndicateApplicationListener listener =
-                new SyndicateApplicationListener(config, capturePath, captureFrame, resolvedStart);
+                new SyndicateApplicationListener(config, capturePath, captureFrame, resolvedStart, vehicle);
         try {
             new Lwjgl3Application(listener, lwjgl3Config(config));
         } catch (RuntimeException e) {

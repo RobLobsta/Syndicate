@@ -43,9 +43,19 @@ public final class GameShell implements Disposable {
      *     what {@code --auto-start} asks for and what every headless capture uses.
      */
     public GameShell(LaunchConfig config, ScreenId startScreen) {
+        this(config, startScreen, null);
+    }
+
+    /**
+     * @param vehicle which vehicle to select on entry, by assembly id or a substring of one; null
+     *     leaves the roster's first. Matched loosely on purpose — this is a capture and debugging
+     *     affordance, so {@code --vehicle stampede} should work without the full asset id.
+     */
+    public GameShell(LaunchConfig config, ScreenId startScreen, String vehicle) {
         this.config = config;
         InMemoryAssetIndex assets = ClientRuntime.loadAssets(config);
         this.context = new MenuContext(config, assets);
+        selectVehicle(vehicle);
         enter(startScreen);
     }
 
@@ -134,5 +144,19 @@ public final class GameShell implements Disposable {
             current = null;
         }
         context.dispose();
+    }
+
+    /** Selects the first roster entry whose assembly id contains {@code vehicle}, if any. */
+    private void selectVehicle(String vehicle) {
+        if (vehicle == null || vehicle.isBlank()) {
+            return;
+        }
+        String wanted = vehicle.trim().toLowerCase(java.util.Locale.ROOT);
+        for (dev.syndicate.core.asset.AssemblyDef assembly : context.roster()) {
+            if (assembly.assemblyId().value().toLowerCase(java.util.Locale.ROOT).contains(wanted)) {
+                context.selectAssembly(assembly.assemblyId());
+                return;
+            }
+        }
     }
 }

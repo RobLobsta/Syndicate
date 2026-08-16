@@ -16,7 +16,7 @@ The companion **destruction tool** is a headless Blender 4.2 Python CLI applicat
 
 ## 2. Blueprint Document System
 
-`docs/` contains **17 contractual specification documents**. They are not suggestions or background reading — they are the contract your implementation must satisfy.
+`docs/` contains **18 contractual specification documents**. They are not suggestions or background reading — they are the contract your implementation must satisfy.
 
 | File | What it specifies |
 |---|---|
@@ -37,6 +37,7 @@ The companion **destruction tool** is a headless Blender 4.2 Python CLI applicat
 | `docs/14_test_environment.md` | Verification harness: asset checks, physics checks, destruction progression, vehicle integration, visual and headless modes, fixtures, report schema, tolerances |
 | `docs/15_vehicle_preparation_pipeline.md` | Turning a downloaded vehicle model into labelled parts: taxonomy, cue ensemble, `parts.json` overrides, geometry repair, hinge rigging, per-class destruction authoring, audio inventory |
 | `docs/16_procedural_arena_generation.md` | Runtime terrain and sky generation: height field, dunes and slopes, road carving, ground surfaces, structure placement, destructible structures |
+| `docs/17_weapon_system.md` | Turning a downloaded weapon model into a multi-part weapon: sub-part taxonomy, bore-axis correction, cue ensemble, seam rule, cosmetic articulation, size-class slot gating, recoil and knockback |
 
 `RUNNING_THE_CLIENT.md`, in the repository root, is **not** a blueprint: it is the runbook for
 building and running `game-client` headlessly and capturing frames from it. It lives outside `docs/`

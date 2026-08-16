@@ -27,6 +27,7 @@ import dev.syndicate.model.GameMode;
 import dev.syndicate.model.ModuleFamily;
 import dev.syndicate.model.PartCategory;
 import dev.syndicate.model.SimulationConstants;
+import dev.syndicate.model.SizeClass;
 import dev.syndicate.model.WeaponFamily;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -357,6 +358,16 @@ public final class AssetLoader {
         readWeapon(root.path("weapon"), partTypeId, category, builder);
         readModule(root.path("module"), partTypeId, category, builder);
         readDegradationOverrides(root.path("degradationOverrides"), partTypeId, builder);
+        SizeClass partSizeClass = SizeClass.parse(root.path("sizeClass").asText(null));
+        if (partSizeClass == null) {
+            issues.add(ValidationIssue.error(
+                    "A221",
+                    partTypeId.value(),
+                    "sizeClass \"" + root.path("sizeClass").asText() + "\" is not a SizeClass (D17-S4.3)"));
+        } else {
+            builder.sizeClass(partSizeClass);
+        }
+
         readSlots(root.path("slots"), partTypeId, builder);
 
         String manifestFile = root.path("assets").path("fractureManifest").asText(null);
@@ -631,6 +642,18 @@ public final class AssetLoader {
                         "A102", partTypeId.value(), "slot " + slotId + " has maxMassKg " + maxMassKg));
                 continue;
             }
+            // A221: an absent field is the D17-R8 default; a misspelled one is a defect, and the
+            // difference between those two is the whole reason `parse` returns null rather than
+            // falling back silently.
+            SizeClass sizeClass = SizeClass.parse(node.path("sizeClass").asText(null));
+            if (sizeClass == null) {
+                issues.add(ValidationIssue.error(
+                        "A221",
+                        partTypeId.value(),
+                        "slot " + slotId + " has sizeClass \""
+                                + node.path("sizeClass").asText() + "\", which is not a SizeClass (D17-S4.3)"));
+                continue;
+            }
             List<String> covers = new ArrayList<>();
             for (JsonNode covered : node.path("covers")) {
                 covers.add(covered.asText());
@@ -640,6 +663,7 @@ public final class AssetLoader {
                     slotType,
                     readTransform(node),
                     maxMassKg,
+                    sizeClass,
                     covers,
                     node.path("isDetachable").asBoolean(true)));
         }

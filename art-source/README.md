@@ -9,9 +9,12 @@ art-source/
 ├── parts/                  per-part .blend sources (D08-S4.1) — none yet
 ├── arenas/                                                    — none yet
 ├── shared/                 material library                    — none yet
-└── vehicles/               whole-vehicle source models         ← the two cars
-    ├── eclipse/
-    └── stampede/
+├── vehicles/               whole-vehicle source models         ← the two cars
+│   ├── eclipse/
+│   └── stampede/
+└── weapons/                whole-weapon source models          ← the two guns
+    ├── machinegun/
+    └── cannon/
 ```
 
 `vehicles/` is not in D08-S4.1's tree. It holds a whole car as one model — body and wheels in one
@@ -25,10 +28,17 @@ records the bucket and why.
 
 ## What is here
 
-| Directory | Vehicle | Derived from | Triangles |
-|---|---|---|---|
-| `vehicles/eclipse/` | **Eclipse** | Maserati MC20 | 283,192 |
-| `vehicles/stampede/` | **Stampede** | Ford Mustang GTD | 234,057 |
+| Directory | Becomes | Derived from | Triangles | Licence |
+|---|---|---|---|---|
+| `vehicles/eclipse/` | **Eclipse** | Maserati MC20 | 283,192 | CC-BY-NC-SA-4.0 |
+| `vehicles/stampede/` | **Stampede** | Ford Mustang GTD | 234,057 | CC-BY-NC-SA-4.0 |
+| `weapons/machinegun/` | `weapon_machinegun_01` | Car Combat Machine Gun | 350 | **CC-BY-4.0** |
+| `weapons/cannon/` | `weapon_cannon_01` | SS. Hope Cannon | 8,898 | **CC-BY-4.0** |
+
+`weapons/` is processed by `syndicate_weapon` rather than `syndicate_prepare`, against
+`docs/17_weapon_system.md`. A weapon comes out as an **assembly** — a mount with a receiver, a
+barrel, a breech and a muzzle hanging off it — rather than as one part, which is what lets a barrel
+be shot off (D17-S1).
 
 Each holds the model exactly as it was supplied — `scene.gltf`, `scene.bin`, `textures/` and the
 author's `license.txt` — plus two files this project adds:
@@ -39,11 +49,18 @@ author's `license.txt` — plus two files this project adds:
 
 ### Licensing, which is load-bearing
 
-Both models are **CC-BY-NC-SA-4.0**: attribution required, **no commercial use**, derivatives under
-the same licence. They are prototype and reference art. They can be measured, driven, fractured and
+**The two licences here are not the same, and the difference matters.**
+
+The two **vehicles** are **CC-BY-NC-SA-4.0**: attribution required, **no commercial use**,
+derivatives under the same licence. They are prototype and reference art. They can be measured, driven, fractured and
 screenshotted here; they cannot ship in anything commercial, and a derivative of one — including a
 part split out of it — carries the same licence. Each `SOURCE.md` carries the credit line its
 author requires.
+
+The two **weapons** are **CC-BY-4.0**: attribution required, commercial use **permitted**, and no
+share-alike. They are therefore the only art in this repository that could ship commercially as it
+stands — which is worth knowing, and is why the licence is carried out of each model's
+`asset.extras` into its `weapon.json` by the tool rather than only written down here (D17-E15).
 
 This is separate from the trademark question `DEC-033` already answers: the in-game names are
 Eclipse and Stampede, and no manufacturer's name appears in an asset id or a display name.

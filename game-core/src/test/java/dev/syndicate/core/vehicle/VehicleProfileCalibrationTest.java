@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.badlogic.gdx.math.Vector3;
+import dev.syndicate.core.asset.AssemblyDef;
 import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.component.VehicleStatsComponent;
 import dev.syndicate.core.physics.ShippedContentScene;
@@ -83,9 +84,12 @@ class VehicleProfileCalibrationTest {
             scene.step(150);
 
             VehicleChassisComponent chassis = scene.world().getComponent(vehicle, VehicleChassisComponent.class);
+            // Kerb mass *plus what it is carrying*. A spawned vehicle ships armed (D17-S1), and a
+            // 46 kg machine gun on a 1500 kg car is 46 kg the physics has to see — asserting the
+            // bare kerb mass here would only be satisfiable by a weightless weapon.
             assertThat(chassis.totalMassKg)
-                    .as("%s kerb mass", profile.displayName())
-                    .isCloseTo(profile.kerbMassKg(), within(1f));
+                    .as("%s kerb mass plus armament", profile.displayName())
+                    .isCloseTo(profile.kerbMassKg() + armamentMassKg(profile), within(1f));
             assertThat(chassis.wheelCount).isEqualTo(4);
             assertThat(scene.wheelsInContact(vehicle))
                     .as("%s wheels on the ground after settling", profile.displayName())
@@ -106,7 +110,13 @@ class VehicleProfileCalibrationTest {
                     .as("%s engine force", profile.displayName())
                     .isCloseTo(profile.engineForceN(), within(1f));
             assertThat(stats.enginePowerW).isCloseTo(profile.enginePowerW(), within(1f));
-            assertThat(stats.accelerationMps2).isCloseTo(profile.accelerationMps2(), within(0.05f));
+            // Scaled by the armed mass for the same reason: slot 6 divides engine force by the mass
+            // it can see, and that mass now includes the gun. An armed car accelerates slightly less
+            // hard than the car it was derived from, which is correct and is the point of fitting a
+            // weapon costing something.
+            float armedMass = profile.kerbMassKg() + armamentMassKg(profile);
+            float expectedAcceleration = profile.accelerationMps2() * (profile.kerbMassKg() / armedMass);
+            assertThat(stats.accelerationMps2).isCloseTo(expectedAcceleration, within(0.05f));
             assertThat(stats.maxSteerRad).isCloseTo(profile.maxSteerRad(), within(1e-3f));
             assertThat(stats.steerRateRadPerSec).isCloseTo(profile.steerRateRadPerSec(), within(1e-3f));
             assertThat(stats.downforceCoefficient).isCloseTo(profile.downforceCoefficientNPerMps2(), within(1e-3f));
@@ -226,5 +236,22 @@ class VehicleProfileCalibrationTest {
     @Test
     void measurementsAreInWholeTicks() {
         assertThat(SimulationConstants.TICK_DT).isCloseTo(1f / 60f, within(1e-6f));
+    }
+
+    /**
+     * What the fitted armament adds to a vehicle, in kg.
+     *
+     * <p>A part from the shared library rather than from the vehicle's own art (DEC-075), which is
+     * exactly the distinction between "the car" and "what the car is carrying".
+     */
+    private float armamentMassKg(VehicleProfile profile) {
+        float total = 0f;
+        for (AssemblyDef.PartPlacement placement :
+                scene.assets().assembly(profile.profileId()).parts()) {
+            if (placement.partTypeId().value().startsWith("weapon_")) {
+                total += scene.assets().partType(placement.partTypeId()).massKg();
+            }
+        }
+        return total;
     }
 }

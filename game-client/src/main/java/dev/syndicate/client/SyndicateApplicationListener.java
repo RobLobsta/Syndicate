@@ -42,25 +42,30 @@ public final class SyndicateApplicationListener implements ApplicationListener {
     private final Path capturePath;
     private final int captureFrame;
     private final ScreenId startScreen;
+    private final String vehicle;
 
     private GameShell shell;
     private ExitCode exitCode = ExitCode.OK;
     private int frame;
 
     public SyndicateApplicationListener(LaunchConfig config) {
-        this(config, null, -1, ScreenId.MAIN_MENU);
+        this(config, null, -1, ScreenId.MAIN_MENU, null);
     }
 
     /**
      * @param capturePath where to write a PNG, or null to run interactively
      * @param captureFrame which frame to capture on; frames before it are simulated and drawn
      * @param startScreen which screen the window opens on
+     * @param vehicle which vehicle the garage opens on, by assembly id or a substring of it; null for
+     *     the first in the roster
      */
-    public SyndicateApplicationListener(LaunchConfig config, Path capturePath, int captureFrame, ScreenId startScreen) {
+    public SyndicateApplicationListener(
+            LaunchConfig config, Path capturePath, int captureFrame, ScreenId startScreen, String vehicle) {
         this.config = config;
         this.capturePath = capturePath;
         this.captureFrame = captureFrame;
         this.startScreen = startScreen;
+        this.vehicle = vehicle;
     }
 
     /** The code the process should exit with once the application has closed. */
@@ -71,7 +76,7 @@ public final class SyndicateApplicationListener implements ApplicationListener {
     @Override
     public void create() {
         try {
-            shell = new GameShell(config, startScreen);
+            shell = new GameShell(config, startScreen, vehicle);
         } catch (ClientRuntime.StartupException e) {
             LOG.error("{}", e.getMessage(), e.getCause());
             exitCode = e.exitCode();

@@ -93,9 +93,17 @@ fun prepareCommand(vararg toolArgs: String): List<String> =
 /** `ruff check` — CI stage 0 (D12-S5.4). */
 val lint = tasks.register<Exec>("lint") {
     group = "verification"
-    description = "ruff check syndicate_fracture tests (D02-S4.6)."
+    description = "ruff check every Python package and its tests (D02-S4.6)."
     workingDir = layout.projectDirectory.asFile
-    commandLine("ruff", "check", "syndicate_fracture", "syndicate_dissect", "syndicate_prepare", "tests")
+    commandLine(
+        "ruff",
+        "check",
+        "syndicate_fracture",
+        "syndicate_dissect",
+        "syndicate_prepare",
+        "syndicate_weapon",
+        "tests",
+    )
     // Hoisted into a local, and the spec uses the TASK's logger. An `onlyIf` lambda that
     // reads a script-level property or an unqualified `logger` captures the script object
     // itself, which the configuration cache cannot serialise.

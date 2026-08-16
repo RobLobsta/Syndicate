@@ -1,0 +1,243 @@
+{
+  "boreAxisLocal": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": 1.0
+  },
+  "boreOriginLocal": {
+    "x": -0.08265,
+    "y": 0.0514,
+    "z": 0.04766
+  },
+  "checks": [
+    {
+      "check": "WEAP-001",
+      "detail": "5 sub-parts, all with finite geometry",
+      "passed": true
+    },
+    {
+      "check": "WEAP-002",
+      "detail": "45.609 kg against a declared 45.609 kg (0.001%)",
+      "passed": true
+    },
+    {
+      "check": "WEAP-003",
+      "detail": "one root and 4 descendants",
+      "passed": true
+    },
+    {
+      "check": "WEAP-004",
+      "detail": "all 4 joins sit on real contact; 3 needed a widened reach",
+      "passed": true
+    },
+    {
+      "check": "WEAP-005",
+      "detail": "muzzle at z=0.880 m, 0.000 m off the bore line",
+      "passed": true
+    },
+    {
+      "check": "WEAP-006",
+      "detail": "5 parts, each exported with a `_col` hull node",
+      "passed": true
+    },
+    {
+      "check": "WEAP-007",
+      "detail": "1 articulated parts, all with unit axes",
+      "passed": true
+    },
+    {
+      "check": "WEAP-008",
+      "detail": "a LIGHT weapon fits turret_main on every prepared vehicle",
+      "passed": true
+    },
+    {
+      "check": "WEAP-009",
+      "detail": "412 triangles across 5 parts",
+      "passed": true
+    },
+    {
+      "check": "WEAP-010",
+      "detail": "seeded with 7; T-D17-16 asserts byte identity",
+      "passed": true
+    }
+  ],
+  "family": "AUTOCANNON",
+  "familyConfidence": 0.85,
+  "muzzleLocal": {
+    "x": -0.08265,
+    "y": 0.0514,
+    "z": 0.8797
+  },
+  "parts": [
+    {
+      "label": "barrel",
+      "massKg": 33.6406,
+      "name": "barrel",
+      "notes": [],
+      "origin": {
+        "x": -0.03274,
+        "y": 0.08654,
+        "z": -0.1015
+      },
+      "partTypeId": "weapon_machinegun_01_barrel",
+      "shells": 4,
+      "synthesised": false,
+      "triangles": 210
+    },
+    {
+      "label": "breech",
+      "massKg": 5.8331,
+      "name": "breech",
+      "notes": [],
+      "origin": {
+        "x": 0.00871,
+        "y": 0.09077,
+        "z": -0.10354
+      },
+      "partTypeId": "weapon_machinegun_01_breech",
+      "shells": 2,
+      "synthesised": false,
+      "triangles": 52
+    },
+    {
+      "label": "mount",
+      "massKg": 2.258,
+      "name": "mount",
+      "notes": [
+        "synthesised: the source model carries no mount (D17-R41)"
+      ],
+      "origin": {
+        "x": 0.02537,
+        "y": 0.0,
+        "z": -0.10432
+      },
+      "partTypeId": "weapon_machinegun_01_mount",
+      "shells": 1,
+      "synthesised": true,
+      "triangles": 12
+    },
+    {
+      "label": "muzzle",
+      "massKg": 1.7289,
+      "name": "muzzle",
+      "notes": [],
+      "origin": {
+        "x": -0.04908,
+        "y": 0.04899,
+        "z": 0.3494
+      },
+      "partTypeId": "weapon_machinegun_01_muzzle",
+      "shells": 2,
+      "synthesised": false,
+      "triangles": 110
+    },
+    {
+      "label": "receiver",
+      "massKg": 2.148,
+      "name": "receiver",
+      "notes": [],
+      "origin": {
+        "x": -0.00375,
+        "y": 0.04978,
+        "z": -0.10432
+      },
+      "partTypeId": "weapon_machinegun_01_receiver",
+      "shells": 1,
+      "synthesised": false,
+      "triangles": 28
+    }
+  ],
+  "schemaVersion": "1.0.0",
+  "seams": [
+    {
+      "child": "receiver",
+      "contactPoints": 6,
+      "gapM": 0.024316,
+      "note": "contact found only at 81 mm reach",
+      "onContact": true,
+      "parent": "mount",
+      "position": {
+        "x": -0.00375,
+        "y": 0.04978,
+        "z": -0.10432
+      },
+      "reachUsed": 0.081
+    },
+    {
+      "child": "barrel",
+      "contactPoints": 12,
+      "gapM": 0.023368,
+      "note": "contact found only at 81 mm reach",
+      "onContact": true,
+      "parent": "receiver",
+      "position": {
+        "x": -0.03274,
+        "y": 0.08654,
+        "z": -0.1015
+      },
+      "reachUsed": 0.081
+    },
+    {
+      "child": "breech",
+      "contactPoints": 16,
+      "gapM": 0.140144,
+      "note": "contact found only at 216 mm reach",
+      "onContact": true,
+      "parent": "receiver",
+      "position": {
+        "x": 0.00871,
+        "y": 0.09077,
+        "z": -0.10354
+      },
+      "reachUsed": 0.216
+    },
+    {
+      "child": "muzzle",
+      "contactPoints": 30,
+      "gapM": 0.007582,
+      "note": "",
+      "onContact": true,
+      "parent": "barrel",
+      "position": {
+        "x": -0.04908,
+        "y": 0.04899,
+        "z": 0.3494
+      },
+      "reachUsed": 0.027
+    }
+  ],
+  "sizeClass": "LIGHT",
+  "sourceLicence": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+  "sourceModel": "../art-source/weapons/machinegun/model.glb",
+  "stats": {
+    "damagePerShot": {
+      "add": 15.4
+    },
+    "fireIntervalS": {
+      "add": 0.1667
+    },
+    "heatPerShot": {
+      "add": 0.06
+    },
+    "projectileSpeedMps": {
+      "add": 600.0
+    },
+    "spreadRad": {
+      "add": 0.01714
+    }
+  },
+  "totalMassKg": 45.609,
+  "weapon": {
+    "ammoCapacity": 400,
+    "blastRadiusM": 0.0,
+    "damageType": null,
+    "family": "AUTOCANNON",
+    "muzzleLocal": {
+      "x": -0.08265,
+      "y": 0.0514,
+      "z": 0.8797
+    },
+    "rangeM": 200.0
+  },
+  "weaponId": "weapon_machinegun_01"
+}

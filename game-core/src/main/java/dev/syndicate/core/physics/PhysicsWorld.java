@@ -438,8 +438,13 @@ public final class PhysicsWorld implements AutoCloseable {
     }
 
     /**
-     * Queues an impulse in N·s applied at {@code relativePositionM}, a body-space offset from the
-     * body's centre of mass. An off-centre impulse imparts spin; that is the point of it.
+     * Queues an impulse in N·s applied at {@code relativePositionM}, a <b>world-space</b> offset from
+     * the body's centre of mass. An off-centre impulse imparts spin; that is the point of it.
+     *
+     * <p>World-space, not body-space: {@code btRigidBody::applyImpulse} turns the offset into
+     * {@code rel_pos × impulse} and feeds it to the world-frame inverse inertia tensor, so an offset
+     * expressed in the body's own frame would be rotated wrong on every body that is not axis-aligned
+     * — which is every vehicle that has turned.
      */
     public void queueImpulseAt(int entityId, Vector3 impulseNs, Vector3 relativePositionM) {
         enqueue(new PendingImpulse(

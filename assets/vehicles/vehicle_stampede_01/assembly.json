@@ -6,12 +6,12 @@
   "displayName": "Stampede",
   "expected": {
     "comLocal": {
-      "x": -0.0338,
-      "y": 0.712,
-      "z": 0.0061
+      "x": -0.0295,
+      "y": 0.848,
+      "z": 0.0045
     },
-    "powerBudget": 84.0,
-    "totalMassKg": 1969.0
+    "powerBudget": 153.02,
+    "totalMassKg": 2242.868
   },
   "parts": [
     {
@@ -163,6 +163,42 @@
       "parentSlotPath": "root",
       "partTypeId": "panel_stampede_door_r_01",
       "slotPath": "root/panel_door_r"
+    },
+    {
+      "parentSlotId": "turret_main",
+      "parentSlotPath": "root",
+      "partTypeId": "weapon_cannon_01_mount",
+      "slotPath": "root/turret_main"
+    },
+    {
+      "parentSlotId": "sub_receiver",
+      "parentSlotPath": "root/turret_main",
+      "partTypeId": "weapon_cannon_01_receiver",
+      "slotPath": "root/turret_main/sub_receiver"
+    },
+    {
+      "parentSlotId": "sub_barrel",
+      "parentSlotPath": "root/turret_main/sub_receiver",
+      "partTypeId": "weapon_cannon_01_barrel",
+      "slotPath": "root/turret_main/sub_receiver/sub_barrel"
+    },
+    {
+      "parentSlotId": "sub_muzzle",
+      "parentSlotPath": "root/turret_main/sub_receiver/sub_barrel",
+      "partTypeId": "weapon_cannon_01_muzzle",
+      "slotPath": "root/turret_main/sub_receiver/sub_barrel/sub_muzzle"
+    },
+    {
+      "parentSlotId": "sub_furniture_l",
+      "parentSlotPath": "root/turret_main/sub_receiver",
+      "partTypeId": "weapon_cannon_01_furniture_l",
+      "slotPath": "root/turret_main/sub_receiver/sub_furniture_l"
+    },
+    {
+      "parentSlotId": "sub_furniture_r",
+      "parentSlotPath": "root/turret_main/sub_receiver",
+      "partTypeId": "weapon_cannon_01_furniture_r",
+      "slotPath": "root/turret_main/sub_receiver/sub_furniture_r"
     },
     {
       "overrides": {

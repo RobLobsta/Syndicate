@@ -15,6 +15,7 @@
   "partTypeId": "hub_stampede_front_01",
   "powerCost": 1.891,
   "schemaVersion": "1.0.0",
+  "sizeClass": "LIGHT",
   "slotTypeRequired": "HARDPOINT",
   "slots": [],
   "stats": {},

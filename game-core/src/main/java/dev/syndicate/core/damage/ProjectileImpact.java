@@ -24,6 +24,7 @@ import dev.syndicate.core.vehicle.SlotChain;
 import dev.syndicate.model.CollisionLayer;
 import dev.syndicate.model.DamageState;
 import dev.syndicate.model.DamageType;
+import dev.syndicate.model.WeaponFamily;
 import java.util.Objects;
 
 /**
@@ -78,6 +79,33 @@ public final class ProjectileImpact {
     /** Binds the vehicle family a blast searches. Call once, from the owning system's initialize. */
     public void initialize(World world) {
         vehicles = world.family(ComponentQuery.all(VehicleChassisComponent.class));
+    }
+
+    /**
+     * Queues the shove a landing shot gives what it hit (docs/17_weapon_system.md#D17-R58).
+     *
+     * <p>Separate from {@link #deliver} and called explicitly by the two systems that land shots,
+     * rather than folded into it, because the two carry different things: {@code deliver} needs the
+     * contact <em>normal</em> to decide a rear or top hit (D01-R11), and knockback needs the shot's
+     * <em>direction of travel</em>, which is not the same vector and is not recoverable from it. A
+     * round that skims a sloped roof has a normal pointing up and a velocity pointing forward, and
+     * shoving the target upward would be wrong.
+     *
+     * <p>A no-op for anything that is not a vehicle: arena geometry and debris are not pushed by
+     * gunfire, which is the same rule {@code deliver} applies to damage.
+     */
+    public void queueKnockback(
+            World world,
+            int hitEntity,
+            WeaponFamily family,
+            float speedMps,
+            Vector3 shotDirectionWorld,
+            Vector3 contactWorld) {
+
+        if (hitEntity == EntityId.NULL || !isVehicle(world, hitEntity)) {
+            return;
+        }
+        FiringImpulse.queueKnockback(physics, world, hitEntity, family, speedMps, shotDirectionWorld, contactWorld);
     }
 
     /**
@@ -139,8 +167,9 @@ public final class ProjectileImpact {
      *
      * @param direction unit aim direction
      * @param maxRangeM metres the beam or pellet reaches
+     * @return what the cast found, so the caller can place knockback on it (D17-R58)
      */
-    public void resolveHitscan(
+    public Sweep resolveHitscan(
             World world,
             Vector3 origin,
             Vector3 direction,
@@ -156,7 +185,7 @@ public final class ProjectileImpact {
         scratchTo.set(direction).nor().scl(maxRangeM).add(origin);
         Sweep sweep = sweep(world, origin, scratchTo, shooterVehicleEntity);
         if (!sweep.hasHit()) {
-            return;
+            return sweep;
         }
         deliver(
                 world,
@@ -170,6 +199,10 @@ public final class ProjectileImpact {
                 attackerPlayerEntity,
                 weaponGroup,
                 tick);
+        // Returned so the caller can apply knockback at the point that was actually struck (D17-R58).
+        // The alternative — casting the same ray twice — would let the two answers disagree whenever a
+        // vehicle moved between them, which for a continuous beam is every tick.
+        return sweep;
     }
 
     /**

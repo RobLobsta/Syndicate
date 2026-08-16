@@ -229,7 +229,8 @@ HEAVIEST_CLASS = "heavy"
 #: *where they go*, and it derives it from the body's own box: a turret ring on the roof, a
 #: mount on the bonnet, one at the tail, and one on each flank.
 #:
-#: Each row is ``(slotId, slotType, x, y, z)`` where the three coordinates are fractions of the
+#: Each row is ``(slotId, slotType, x, y, z, sizeClass)`` where the three coordinates are
+#: fractions of the
 #: body box — ``x`` of the half width, ``y`` of the height above the ground plane, ``z`` of the
 #: length measured from the **rear**. The vehicle's front is ``z = 1``: that is the sense
 #: ``roles._front_fraction`` uses and the sense ``VehicleFactory`` builds its wheels in, and a
@@ -238,12 +239,19 @@ HEAVIEST_CLASS = "heavy"
 #: Four HARDPOINTs is exactly what D05-S4.3 allows a vehicle (2-4). The turret ring is a fifth
 #: slot of a different type, and TURRET_MOUNT has no such limit because a vehicle has at most
 #: one roof.
+#:
+#: The **size class** (D17-R10) is derived from *where the slot is*, which is the only thing about
+#: these five that the geometry decides. The roof centreline is the one place a big gun can sit
+#: without fouling the wheels, so it is ``HEAVY``; the bonnet and tail are central but
+#: height-limited, so ``MEDIUM``; the flanks sit outboard of the body, where anything bulky is
+#: wider than the car, so ``LIGHT``. This is what stops a siege cannon being bolted to a wing
+#: mirror.
 HARDPOINTS = (
-    ("turret_main", "TURRET_MOUNT", 0.0, 1.02, 0.48),
-    ("hardpoint_bonnet", "HARDPOINT", 0.0, 0.62, 0.86),
-    ("hardpoint_rear", "HARDPOINT", 0.0, 0.66, 0.12),
-    ("hardpoint_flank_l", "HARDPOINT", -0.92, 0.55, 0.50),
-    ("hardpoint_flank_r", "HARDPOINT", 0.92, 0.55, 0.50),
+    ("turret_main", "TURRET_MOUNT", 0.0, 1.02, 0.48, "HEAVY"),
+    ("hardpoint_bonnet", "HARDPOINT", 0.0, 0.62, 0.86, "MEDIUM"),
+    ("hardpoint_rear", "HARDPOINT", 0.0, 0.66, 0.12, "MEDIUM"),
+    ("hardpoint_flank_l", "HARDPOINT", -0.92, 0.55, 0.50, "LIGHT"),
+    ("hardpoint_flank_r", "HARDPOINT", 0.92, 0.55, 0.50, "LIGHT"),
 )
 
 #: The slot ids :data:`HARDPOINTS` produces. Named once so the pipeline, the manifest and every
@@ -258,6 +266,14 @@ HARDPOINT_SLOT_IDS = tuple(slot_id for slot_id, *_ in HARDPOINTS)
 #: 120 kg autocannon on any one mount and would not take four of them, which is what the power
 #: budget is for rather than this number.
 HARDPOINT_MASS_FRACTION = 0.08
+
+#: The size class each D15-S4.1 label's part is exported at (D17-S4.3).
+#:
+#: Only the hub is not the default. Its slot is rated ``LIGHT`` because a brake hub is the only
+#: thing that ever goes there (D17-R10), and a part left at the ``MEDIUM`` default then fails A316
+#: against
+#: its own slot — which is exactly what happened, on all eight hubs of both shipped cars.
+PART_SIZE_CLASS = {"hub": "LIGHT"}
 
 #: The lightest a hardpoint may be rated at, so a 400 kg buggy still mounts something.
 HARDPOINT_MIN_MASS_KG = 40.0
@@ -814,6 +830,7 @@ def build_part_document(
         "armorValue": armor,
         "materialId": part.material_id,
         "slotTypeRequired": SLOT_TYPE_REQUIRED[part.label],
+        "sizeClass": PART_SIZE_CLASS.get(part.label, "MEDIUM"),
         "powerCost": part.power_cost,
         "breakImpulseN": break_impulse,
         "hangsBeforeFalling": part.label == GLASS,
@@ -890,10 +907,11 @@ def hardpoint_slots(body, total_mass_kg: float) -> list[dict]:
     """
     capacity = round(max(HARDPOINT_MIN_MASS_KG, total_mass_kg * HARDPOINT_MASS_FRACTION), 1)
     slots = []
-    for slot_id, slot_type, fx, fy, fz in HARDPOINTS:
+    for slot_id, slot_type, fx, fy, fz, size_class in HARDPOINTS:
         slots.append({
             "slotId": slot_id,
             "slotType": slot_type,
+            "sizeClass": size_class,
             "localPosition": {
                 "x": round(fx * body.half_width, 4),
                 "y": round(body.ground_y + fy * body.height, 4),

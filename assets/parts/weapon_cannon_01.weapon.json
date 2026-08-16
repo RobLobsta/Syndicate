@@ -1,0 +1,272 @@
+{
+  "boreAxisLocal": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": 1.0
+  },
+  "boreOriginLocal": {
+    "x": 0.00316,
+    "y": 0.66401,
+    "z": 0.03157
+  },
+  "checks": [
+    {
+      "check": "WEAP-001",
+      "detail": "6 sub-parts, all with finite geometry",
+      "passed": true
+    },
+    {
+      "check": "WEAP-002",
+      "detail": "273.868 kg against a declared 273.868 kg (0.000%)",
+      "passed": true
+    },
+    {
+      "check": "WEAP-003",
+      "detail": "one root and 5 descendants",
+      "passed": true
+    },
+    {
+      "check": "WEAP-004",
+      "detail": "all 5 joins sit on real contact; 3 needed a widened reach",
+      "passed": true
+    },
+    {
+      "check": "WEAP-005",
+      "detail": "muzzle at z=1.389 m, 0.000 m off the bore line",
+      "passed": true
+    },
+    {
+      "check": "WEAP-006",
+      "detail": "6 parts, each exported with a `_col` hull node",
+      "passed": true
+    },
+    {
+      "check": "WEAP-007",
+      "detail": "1 articulated parts, all with unit axes",
+      "passed": true
+    },
+    {
+      "check": "WEAP-008",
+      "detail": "a HEAVY weapon fits turret_main on every prepared vehicle",
+      "passed": true
+    },
+    {
+      "check": "WEAP-009",
+      "detail": "3858 triangles across 6 parts",
+      "passed": true
+    },
+    {
+      "check": "WEAP-010",
+      "detail": "seeded with 7; T-D17-16 asserts byte identity",
+      "passed": true
+    }
+  ],
+  "family": "CANNON",
+  "familyConfidence": 0.85,
+  "muzzleLocal": {
+    "x": 0.00316,
+    "y": 0.66401,
+    "z": 1.38917
+  },
+  "parts": [
+    {
+      "label": "barrel",
+      "massKg": 36.0977,
+      "name": "barrel",
+      "notes": [],
+      "origin": {
+        "x": 0.01631,
+        "y": 1.11307,
+        "z": -0.31755
+      },
+      "partTypeId": "weapon_cannon_01_barrel",
+      "shells": 1,
+      "synthesised": false,
+      "triangles": 600
+    },
+    {
+      "label": "furniture",
+      "massKg": 4.9328,
+      "name": "furniture_l",
+      "notes": [],
+      "origin": {
+        "x": -0.11555,
+        "y": 0.81974,
+        "z": -0.56923
+      },
+      "partTypeId": "weapon_cannon_01_furniture_l",
+      "shells": 1,
+      "synthesised": false,
+      "triangles": 268
+    },
+    {
+      "label": "furniture",
+      "massKg": 4.9328,
+      "name": "furniture_r",
+      "notes": [],
+      "origin": {
+        "x": 0.13706,
+        "y": 0.86645,
+        "z": -0.59077
+      },
+      "partTypeId": "weapon_cannon_01_furniture_r",
+      "shells": 1,
+      "synthesised": false,
+      "triangles": 268
+    },
+    {
+      "label": "mount",
+      "massKg": 47.7953,
+      "name": "mount",
+      "notes": [
+        "synthesised: the source model carries no mount (D17-R41)"
+      ],
+      "origin": {
+        "x": 0.01362,
+        "y": 0.56973,
+        "z": -0.16169
+      },
+      "partTypeId": "weapon_cannon_01_mount",
+      "shells": 1,
+      "synthesised": true,
+      "triangles": 12
+    },
+    {
+      "label": "muzzle",
+      "massKg": 26.3756,
+      "name": "muzzle",
+      "notes": [],
+      "origin": {
+        "x": 0.01597,
+        "y": 1.23372,
+        "z": 0.17834
+      },
+      "partTypeId": "weapon_cannon_01_muzzle",
+      "shells": 1,
+      "synthesised": false,
+      "triangles": 222
+    },
+    {
+      "label": "receiver",
+      "massKg": 153.7336,
+      "name": "receiver",
+      "notes": [],
+      "origin": {
+        "x": 0.01362,
+        "y": 0.67384,
+        "z": -0.41996
+      },
+      "partTypeId": "weapon_cannon_01_receiver",
+      "shells": 7,
+      "synthesised": false,
+      "triangles": 2488
+    }
+  ],
+  "schemaVersion": "1.0.0",
+  "seams": [
+    {
+      "child": "receiver",
+      "contactPoints": 4,
+      "gapM": 0.066509,
+      "note": "contact found only at 162 mm reach",
+      "onContact": true,
+      "parent": "mount",
+      "position": {
+        "x": 0.01362,
+        "y": 0.67384,
+        "z": -0.41996
+      },
+      "reachUsed": 0.162
+    },
+    {
+      "child": "barrel",
+      "contactPoints": 130,
+      "gapM": 0.053528,
+      "note": "contact found only at 162 mm reach",
+      "onContact": true,
+      "parent": "receiver",
+      "position": {
+        "x": 0.01631,
+        "y": 1.11307,
+        "z": -0.31755
+      },
+      "reachUsed": 0.162
+    },
+    {
+      "child": "furniture_l",
+      "contactPoints": 6,
+      "gapM": 0.015101,
+      "note": "",
+      "onContact": true,
+      "parent": "receiver",
+      "position": {
+        "x": -0.11555,
+        "y": 0.81974,
+        "z": -0.56923
+      },
+      "reachUsed": 0.054
+    },
+    {
+      "child": "furniture_r",
+      "contactPoints": 4,
+      "gapM": 0.014399,
+      "note": "",
+      "onContact": true,
+      "parent": "receiver",
+      "position": {
+        "x": 0.13706,
+        "y": 0.86645,
+        "z": -0.59077
+      },
+      "reachUsed": 0.054
+    },
+    {
+      "child": "muzzle",
+      "contactPoints": 40,
+      "gapM": 0.261895,
+      "note": "contact found only at 432 mm reach",
+      "onContact": true,
+      "parent": "barrel",
+      "position": {
+        "x": 0.01597,
+        "y": 1.23372,
+        "z": 0.17834
+      },
+      "reachUsed": 0.432
+    }
+  ],
+  "sizeClass": "HEAVY",
+  "sourceLicence": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+  "sourceModel": "../art-source/weapons/cannon/model.glb",
+  "stats": {
+    "damagePerShot": {
+      "add": 512.0
+    },
+    "fireIntervalS": {
+      "add": 2.5
+    },
+    "heatPerShot": {
+      "add": 0.3
+    },
+    "projectileSpeedMps": {
+      "add": 250.0
+    },
+    "spreadRad": {
+      "add": 0.0025
+    }
+  },
+  "totalMassKg": 273.868,
+  "weapon": {
+    "ammoCapacity": 24,
+    "blastRadiusM": 0.0,
+    "damageType": null,
+    "family": "CANNON",
+    "muzzleLocal": {
+      "x": 0.00316,
+      "y": 0.66401,
+      "z": 1.38917
+    },
+    "rangeM": 300.0
+  },
+  "weaponId": "weapon_cannon_01"
+}

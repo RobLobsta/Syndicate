@@ -108,7 +108,7 @@ public final class AssemblyValidator {
         return issues;
     }
 
-    /** A303, A304, A305, A306, A307, A308 and the A107 that precedes them. */
+    /** A303, A304, A305, A306, A307, A308, A316 and the A107 that precedes them. */
     private static void checkPlacements(AssemblyDef assembly, AssetIndex assets, List<ValidationIssue> issues) {
         // Slot path -> the part type that occupies it, built as we descend. Sorted so the traversal
         // and therefore the findings are in the same order on every run (G3).
@@ -167,6 +167,16 @@ public final class AssemblyValidator {
                         "A306",
                         path,
                         "part mass " + type.massKg() + " kg exceeds the slot's limit of " + slot.maxMassKg() + " kg"));
+            }
+            // A316 (D17-R7.2): bulk, which is a separate question from load. Reported separately
+            // from A306 on purpose — "too heavy for this mount" and "too big for this mount" send a
+            // content author to two different fixes.
+            if (!slot.sizeClass().accepts(type.sizeClass())) {
+                issues.add(ValidationIssue.error(
+                        "A316",
+                        path,
+                        "part size class " + type.sizeClass() + " exceeds the slot's " + slot.sizeClass()
+                                + "; a slot accepts its own class and below (D17-R7)"));
             }
             occupantByPath.put(path, type);
         }

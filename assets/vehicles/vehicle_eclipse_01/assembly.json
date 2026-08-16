@@ -6,12 +6,12 @@
   "displayName": "Eclipse",
   "expected": {
     "comLocal": {
-      "x": -0.0009,
-      "y": 0.6611,
-      "z": 0.1791
+      "x": -0.0027,
+      "y": 0.666,
+      "z": 0.2288
     },
-    "powerBudget": 74.0,
-    "totalMassKg": 1500.0
+    "powerBudget": 102.734,
+    "totalMassKg": 1546.215
   },
   "parts": [
     {
@@ -109,6 +109,36 @@
       "parentSlotPath": "root",
       "partTypeId": "grille_eclipse_tail_r_1_01",
       "slotPath": "root/grille_tail_r_1"
+    },
+    {
+      "parentSlotId": "hardpoint_bonnet",
+      "parentSlotPath": "root",
+      "partTypeId": "weapon_machinegun_01_mount",
+      "slotPath": "root/hardpoint_bonnet"
+    },
+    {
+      "parentSlotId": "sub_receiver",
+      "parentSlotPath": "root/hardpoint_bonnet",
+      "partTypeId": "weapon_machinegun_01_receiver",
+      "slotPath": "root/hardpoint_bonnet/sub_receiver"
+    },
+    {
+      "parentSlotId": "sub_barrel",
+      "parentSlotPath": "root/hardpoint_bonnet/sub_receiver",
+      "partTypeId": "weapon_machinegun_01_barrel",
+      "slotPath": "root/hardpoint_bonnet/sub_receiver/sub_barrel"
+    },
+    {
+      "parentSlotId": "sub_muzzle",
+      "parentSlotPath": "root/hardpoint_bonnet/sub_receiver/sub_barrel",
+      "partTypeId": "weapon_machinegun_01_muzzle",
+      "slotPath": "root/hardpoint_bonnet/sub_receiver/sub_barrel/sub_muzzle"
+    },
+    {
+      "parentSlotId": "sub_breech",
+      "parentSlotPath": "root/hardpoint_bonnet/sub_receiver",
+      "partTypeId": "weapon_machinegun_01_breech",
+      "slotPath": "root/hardpoint_bonnet/sub_receiver/sub_breech"
     },
     {
       "parentSlotId": "hub_fl",
