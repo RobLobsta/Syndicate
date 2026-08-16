@@ -1,6 +1,6 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-15 (end of SESS-034)
+**Last updated:** 2026-08-16 (end of SESS-035)
 
 This is the plan, in order. Each step below is meant to be picked up from the top: everything above
 "you are here" is done, everything below it is not, and the order is the order they should be done
@@ -17,8 +17,9 @@ A single-player vehicular combat game you can start, play and quit.
 
 Launch the client and you get a title screen. PLAY takes you to a garage: two cars, drawn from their
 real art, turning on a floor line, with the figures they were derived from beside them — an Eclipse
-at 1500 kg doing 0–100 in 2.9 s with a machine gun on its bonnet, a Stampede that is heavier, holds
-speed where the Eclipse cannot, and carries a cannon on its roof. DEPLOY drops you into an arena with
+at 1500 kg doing 0–100 in 2.9 s with a machine gun on each flank, a Stampede that is heavier, holds
+speed where the Eclipse cannot, and carries a pedestal cannon on its roof with the cogs that elevate
+it. DEPLOY drops you into an arena with
 seven bots. They drive, hunt you, and ram. Panels dent, glass shatters, parts come off and change how
 the car handles, sparks fly, the engine sounds like the engine it was modelled on, a chase camera
 follows and a scoreboard keeps score. Escape returns you to the menu, and the whole physics world is
@@ -28,11 +29,11 @@ Five things that sentence leaves out, in the order they hurt:
 
 1. **The guns are mounted but nobody has pulled the trigger in anger.** This is new, and it is the
    line that changed most this session. Two weapons ship — an autocannon and a cannon, each an
-   *assembly* of five or six sub-parts with its own mass, health and damage state, so a barrel can be
-   shot off and the gun keeps firing worse. Firing kicks the car that fired and a shell shoves what it
-   hits. What has **not** happened is a person playing it: the damage numbers are D01's defaults, the
-   sub-part degradation table is written down and not yet implemented, and no weapon fractures when
-   it dies — it detaches whole. Six of the eight families still have no content at all.
+   *assembly* of five or seven sub-parts with its own mass, health and damage state, so a barrel can
+   be shot off and the gun keeps firing worse. Firing kicks the car that fired and a shell shoves what
+   it hits. What has **not** happened is a person playing it: the damage numbers are D01's defaults,
+   the sub-part degradation table is written down and not yet implemented, and no weapon fractures
+   when it dies — it detaches whole. Six of the eight families still have no content at all.
 2. **The arenas are real places now, but bare ones.** Both generate from a theme and a seed — a
    Desert Highway of dunes and scoured rock, a Scrapyard of flat compacted yard with spoil heaps
    across it — and both are drawn. What they have not got is roads, structures, or anything to take
@@ -67,7 +68,8 @@ numbers, one renderer and one socket.
    ├── Main menu, garage, and a build you can double-click      PROG-027
    ├── The real cars, and hardpoints to hang weapons on         PROG-034
    ├── Headlights, beams, and a night to see them in            PROG-034
-   └── Guns: two weapons, taken apart, mounted and firing       PROG-035
+   ├── Guns: two weapons, taken apart, mounted and firing       PROG-035
+   └── Bots that orbit their target instead of shuffling        DISC-059
   ─────────────────────────────────────────────────────── you are here
   NEXT
    1. Guns, finished                          ← degradation, fracture, more families
@@ -94,12 +96,23 @@ each its own part with its own mass, health and damage state. Two ship:
 | | `weapon_machinegun_01` | `weapon_cannon_01` |
 |---|---|---|
 | Family, size | AUTOCANNON, LIGHT | CANNON, HEAVY |
-| Mass, length | 45.6 kg, 0.9 m | 273.9 kg, 1.8 m |
-| Sub-parts | 5 | 6 |
-| Fitted to | Eclipse, bonnet | Stampede, roof turret |
+| Mass, length | 17.7 kg, 0.9 m | 178.1 kg, 1.8 m |
+| Sub-parts | 5 | 7 |
+| Fitted to | Eclipse, both flanks | Stampede, roof turret |
+
+The machine gun is fitted twice, the left one produced by running the tool again with `--mirror`:
+the model has a side bracket, so it is a flank weapon, and a bracket designed for one side does not
+fit the other. The cannon keeps its pedestal and both elevation cogs, which an earlier reading of the
+model had it throwing away as a gun carriage.
 
 Alongside them: **size classes** decide which weapons fit which mounts, firing **kicks** the vehicle
-and a hit **shoves** the target, and barrels **recoil** when they fire.
+and a hit **shoves** the target, barrels **recoil** when they fire, and the cannon's cogs **elevate**
+as it aims.
+
+Arming the grid also exposed a driving bug that had been latent since the behaviour tree was written:
+a bot already at engagement range was given a destination inside its own turning circle and shuffled
+in place for the whole match. Bots now orbit their target, and every one of them covers two to four
+times the ground it did before.
 
 **What is left, in the order it matters:**
 
@@ -262,14 +275,19 @@ Not decided, and not for the assistant to decide alone.
   `parts.json`. Neither has been tried against a real tank with a real turret, because there is no
   such model in `art-source/` yet. When one arrives, that first run is the answer.
 - **How much a weapon should cost a build.** Fitting the cannon took the Stampede's power budget
-  from 84 to 153 — the gun is 45% of the whole vehicle. That is a defensible answer (a weapon should
-  be the biggest single choice on a build) and it is a balance decision nobody has made deliberately;
-  the number came out of a formula in D17-R53. If loadouts ever exist, this number is what stops
-  every car carrying a cannon.
+  from 84 to 167 — the gun is 40% of the whole vehicle, and the Eclipse's pair of machine guns is
+  22% of its 131. That is a defensible answer (a weapon should be the biggest single choice on a
+  build) and it is a balance decision nobody has made deliberately; the number came out of a formula
+  in D17-R53. If loadouts ever exist, this number is what stops every car carrying a cannon.
+- **How hard bots should try to keep their distance.** They now orbit a target at 15 m rather than
+  shuffling on the spot, which is both better tactics and the reason every bot in a match covers two
+  to four times the ground it used to. Whether 15 m is the right range, whether it should vary by
+  weapon (a cannon wants more, a flamer far less), and whether difficulty should scale it are all
+  open — the number predates any weapon existing to justify it.
 - **Whether a weapon should be aimable independently of the car.** Both shipped weapons are rigidly
-  bolted: they point where the car points. The articulation model already has an `ELEVATE` motion
-  driven by commanded aim, and a turret ring that traverses is the obvious next thing — but turret
-  traverse is explicitly not in D17 (NG1), and whether the product wants it is a design question
+  bolted in yaw: they point where the car points, though the cannon's cogs elevate as it aims. A
+  turret ring that traverses is the obvious next thing — but turret traverse is explicitly not in
+  D17 (NG1), and whether the product wants it is a design question
   about how the game plays, not a gap in the pipeline.
 - **Where the cannon's carriage went.** `syndicate_weapon` discards geometry more than 40% of the
   weapon's length from its bore — on the shipped cannon that is four road wheels, an axle, a base

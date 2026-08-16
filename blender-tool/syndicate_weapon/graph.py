@@ -73,7 +73,9 @@ class Node:
     slot_path: str
 
 
-def build(parts, vertices_by_shell, bore_length_m: float = 1.0) -> tuple[list[Node], list[Seam]]:
+def build(
+    parts, vertices_by_shell, bore_length_m: float = 1.0, mount_direction=None
+) -> tuple[list[Node], list[Seam]]:
     """Parents every sub-part, positions its slot on the contact region, and re-origins it.
 
     ``vertices_by_shell`` maps a shell index to its sampled vertices in the model's current frame.
@@ -130,7 +132,7 @@ def build(parts, vertices_by_shell, bore_length_m: float = 1.0) -> tuple[list[No
         orphan.origin = seam.position
         placed.add(id(orphan))
 
-    root.origin = _mount_face(root, vertices_by_shell)
+    root.origin = _mount_face(root, vertices_by_shell, mount_direction)
     return nodes, seams
 
 
@@ -265,22 +267,34 @@ def _nearest_pair(a_points, b_points):
     return best
 
 
-def _mount_face(root, vertices_by_shell) -> tuple:
+def _mount_face(root, vertices_by_shell, mount_direction=None) -> tuple:
     """The mount's own origin: the centre of the face it bolts to the vehicle with (D17-R25).
 
-    The underside, because a weapon sits on its mounting rather than hanging from it. Putting the
-    origin anywhere else is what makes a fitted weapon float or sink into the bodywork, and it is
-    the single largest source of the seams this document exists to prevent.
+    The **far face along the mounting direction**, not simply the underside. A pedestal gun bolts
+    down and a side-bracket gun bolts sideways, and assuming the first put the shipped machine gun's
+    origin on its belly instead of on its bracket — so fitting it to a flank hardpoint buried the
+    gun
+    inside the bodywork with its bracket waving in the air.
+
+    Falls back to the underside when no mounting direction was found, which is the case for a weapon
+    symmetric about its own bore.
     """
     points = _points_of(root, vertices_by_shell)
     if not points:
         return ((root.lo[0] + root.hi[0]) / 2.0, root.lo[1], (root.lo[2] + root.hi[2]) / 2.0)
-    floor = min(p[1] for p in points)
-    band = [p for p in points if p[1] <= floor + 0.006]
+
+    if mount_direction is None:
+        mount_direction = (0.0, -1.0, 0.0)
+
+    # The extreme along the mounting direction, and the band of points within a whisker of it: that
+    # band is the contact face, and its centroid is where the weapon meets the vehicle.
+    reach = [sum(p[i] * mount_direction[i] for i in range(3)) for p in points]
+    furthest = max(reach)
+    span = max(1e-6, furthest - min(reach))
+    band = [p for p, r in zip(points, reach, strict=False) if r >= furthest - 0.06 * span]
     if len(band) < 3:
         band = points
-    centre = _mean(band)
-    return (centre[0], floor, centre[2])
+    return _mean(band)
 
 
 def _mean(points) -> tuple:

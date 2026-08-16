@@ -116,7 +116,9 @@ a proportion of the gun, which is what each of them always meant.
 | `BORE_ASPECT_MIN` | 3.0 | Length-to-width above which a shell is barrel-like. Dimensionless |
 | `BORE_FIT_MIN_EXTENT_FRAC` | 0.35 | Fraction of the longest barrel-like shell below which a shell is too small to help fit the bore axis. A detailed model has hundreds of technically-slender rivets and pins, and each would otherwise outvote the barrel |
 | `BORE_COAXIAL_TOL` | 0.045 | How far off the bore a shell's centroid may sit and still join the barrel group, as a fraction of bore length |
-| `CARRIAGE_RADIUS` | 0.40 | Radius about the bore outside which geometry is **not the weapon** (D17-R27) — a display base, a diorama, a siege carriage's road wheels |
+| `STRAY_RADIUS` | 1.60 | Radius about the bore, as a fraction of bore length, outside which geometry is **not the weapon** (D17-R27) — a display base or a diorama. Deliberately generous: the first value, 0.40, discarded the shipped cannon's own pedestal and both its elevation cogs (DISC-060) |
+| `MOUNT_SHARE_MIN` | 0.60 | Fraction of the model's mounting offset a shell must reach to be mounting hardware (D17-R36a). Relative, not absolute: a side bracket sits 4% of the gun's length off the bore and a pedestal 50%, and no metre threshold classes both |
+| `DISC_ROUNDNESS_MIN` / `DISC_THINNESS_MAX` | 0.80 / 0.45 | A cog is round and thin **about its own axle**, which on the shipped cannon is at right angles to the bore (D17-R36b) |
 | `SEAM_CONTACT_REACH` | 0.03 | Fraction of bore length within which two sub-parts count as touching (D17-R44) |
 | `SEAM_REACH_PASSES` | 1×, 3×, 8× | Widening passes applied to that reach; the pass that succeeded is reported |
 | `RECOIL_IMPULSE_SCALE` | 1.0 | Multiplier on the derived recoil impulse (D17-S5.12) |
@@ -282,7 +284,7 @@ otherwise corrupt the document.
 ```
 syndicate-weapon --model <path.glb> --out <dir> [--id <assetId>] [--family <FAMILY>]
                  [--size <LIGHT|MEDIUM|HEAVY>] [--target-length <m>] [--seed <int>]
-                 [--style-table <path>] [--no-style] [--strict] [--verbose]
+                 [--style-table <path>] [--no-style] [--mirror] [--strict] [--verbose]
 ```
 
 **R18.** `--family` and `--size` **override** derivation; absent, both are derived (D17-S5.10). An
@@ -300,7 +302,7 @@ rather than indistinguishable from a derived one.
 | 81 | Shell count exceeded `WEAPON_MAX_SHELLS` |
 | 82 | No bore axis could be established (D17-E1) |
 | 83 | Sub-part count exceeded `MAX_SUBPARTS_PER_WEAPON` |
-| 84 | A seam exceeded `MOUNT_SEAM_TOL_M` and could not be closed |
+| 84 | A join could not be found on real contact at any `SEAM_REACH_PASSES` reach (R44) |
 | 85 | Derived mass implausible for the family and size class |
 | 86 | Self-verification failed |
 | 87 | Export failed |
@@ -396,16 +398,29 @@ Scaling is **uniform** and is recorded in the manifest as `scaleApplied`. When `
 given it overrides the table. A model already within 10% of its target is left alone rather than
 scaled by 1.02, because a scale that close is noise and re-scaling costs precision for nothing.
 
-**R27.** Geometry the correction leaves outside the weapon — a display base, a gun carriage's road
-wheels, a diorama's ground plane — is **discarded**, and every discarded shell is named in the report
-with its triangle count. Discarding silently is what turns "the pipeline produced a weapon" into "the
-pipeline produced a weapon and threw away a third of the model".
+**R26a. Mirroring.** `--mirror` reflects the model across the plane containing the bore axis and
+world up, reversing triangle winding so that normals stay outward, and runs the rest of the pipeline
+unchanged. It exists because a weapon designed to bolt to one side of a vehicle does not fit the
+other: the shipped machine gun has a side bracket, and mounting the same asset on both flanks would
+put one bracket in fresh air. A mirrored run is a **separate asset with its own id** rather than a
+render-time flip — the sub-part masses, hulls and seam positions all differ, and a negative scale in
+a transform is a well-known way to invert a collision hull.
 
-The rule is a **cylinder about the bore**: a gun's working parts are arranged around its bore and are
-therefore near it, and what sits more than `CARRIAGE_RADIUS` further out is what the gun is carried
-on. On the shipped cannon this discards exactly the carriage — all four road wheels at 0.40 and 0.51,
-the axle at 0.62, the base plate at 0.57 and the trail at 0.42 — and keeps the barrel, the muzzle,
-the breech and the trunnion cheeks.
+Hardpoints that face outward carry their own roll so the weapon sits square on the bodywork; on the
+prepared vehicles the flank pair is rolled ±90° about Z (D15-S5.10).
+
+**R27.** Geometry the correction leaves outside the weapon — a display base, a diorama's ground
+plane — is **discarded**, and every discarded shell is named in the report with its triangle count.
+Discarding silently is what turns "the pipeline produced a weapon" into "the pipeline produced a
+weapon and threw away a third of the model".
+
+The rule is a **cylinder about the bore** of radius `STRAY_RADIUS`, and its radius is deliberately
+generous, because the cost of the two errors is not symmetric. Keeping a display base gives a weapon
+one sub-part too many, visible in the report and fixable by hand. Discarding real hardware gives a
+weapon that is silently wrong: the first draft of this rule used a radius of 0.40 and threw away the
+shipped cannon's pedestal *and both its elevation cogs*, on the theory that they were a carriage's
+road wheels (DISC-060). They are the mount and the gearing — the parts a pedestal gun is most defined
+by. A rule that deletes geometry has to be the loosest rule in the pipeline, not the tightest.
 
 <!-- D17-S5.3 -->### 5.3 Style Normalisation
 
@@ -473,17 +488,37 @@ coordinate in `[0,1]` therefore predicts most of the taxonomy before any other c
 The bands **overlap deliberately**. A cue that partitions the line cannot be outvoted, and the whole
 point of an ensemble is that it can be.
 
-**R36.** The geometric cue's discriminators, all measured about the bore axis rather than about the
-world axes:
+**R36.** The geometric cue's discriminators, most of them measured about the bore axis rather than
+about the world axes:
 
-- **Bore roundness** — the ratio of the two extents perpendicular to the bore. Near 1 for a barrel, a
-  gear or a drum; low for a shield, a plate or a sight rail.
+- **Bore roundness** — the ratio of the two extents perpendicular to the bore. Near 1 for a barrel or
+  a drum; low for a shield, a plate or a sight rail.
 - **Bore aspect** — extent along the bore over the larger perpendicular extent. Above
   `BORE_ASPECT_MIN` is barrel-like.
 - **Radial offset** — distance of the centroid from the bore axis. A `gear`, a `feed` and a `sight`
-  are all *off* the axis; a `barrel` and a `muzzle` are *on* it, and `BORE_COAXIAL_TOL_M` is the line.
+  are all *off* the axis; a `barrel` and a `muzzle` are *on* it, and `BORE_COAXIAL_TOL` is the line.
 - **Flatness** — as D15's, and it is what separates `furniture` (a shield, a grip plate) from
   `receiver` (a lump).
+
+**R36a. The mounting direction is measured, not assumed.** Which way a weapon bolts to its carrier
+varies more than anything else about it: the shipped machine gun has a side bracket 4% of its length
+off the bore, and the shipped cannon a pedestal at 50%. No threshold in metres, and no threshold as a
+fraction of length, classes both. So the pipeline first finds the model's own **mounting direction** —
+the perpendicular direction in which its geometry extends furthest from the bore — and the mount cue
+then votes for shells reaching at least `MOUNT_SHARE_MIN` of that offset. The measurement is relative
+to the model, so a bracket and a pedestal are both mounts on their own terms.
+
+**R36b. Roundness for a cog is measured about the cog.** A gear that drives elevation turns *across*
+the bore, not around it, so the bore-plane roundness of the shipped cannon's cogs is 0.24 — the same
+figure a flat plate gives. The disc test therefore runs on the shell's **own** two largest extents:
+round (`DISC_ROUNDNESS_MIN`) and thin (`DISC_THINNESS_MAX`) about whatever axis it is actually round
+about. This is the correction DISC-060 records, and it is the difference between a cannon that keeps
+its gearing and one that has it deleted as scenery.
+
+**R35a. Mounting hardware vetoes the axial cue.** A pedestal runs the whole length of a gun, so the
+axial bands (R35) confidently call its lower half a `receiver` and its front a `barrel`. Where the
+mount cue fires, it suppresses the `receiver`, `breech` and `barrel` votes for that shell: a shell
+cannot be both the thing the gun is made of and the thing it stands on.
 
 **R37.** The structural cue votes on relations rather than on shapes:
 
@@ -492,7 +527,9 @@ world axes:
 - A set of shells **repeated at a common radius about an axis** is a `gear`. Three or more instances,
   which is the same rotational-repetition test DEC-066 uses for wheels, applied about the bore.
 - A shell **mirrored about the bore axis** with a twin is one instance of a two-instance part, and
-  both take the same label — the trunnion cheeks of a gun carriage are the case.
+  the pair **harmonises**: both take the stronger of the two labels rather than voting separately.
+  Without this the shipped cannon's two elevation cogs came out as one `gear` and one `furniture`,
+  which is a visible asymmetry on a symmetric gun.
 
 **R38.** The winning label's summed weight must exceed `0.55` or the shell is `unclassified` (R3).
 Every vote is carried into the report.
@@ -540,7 +577,7 @@ for having geometry the taxonomy did not predict, which is exactly what an open-
 do.
 
 **R44. The seam rule.** A slot's `localPosition` is the **centroid of the contact region** between
-parent and child: the set of parent vertices within `MOUNT_SEAM_TOL_M` of the child's surface. Not the
+parent and child: the set of parent vertices within `SEAM_CONTACT_REACH` of the child's surface. Not the
 child's centroid, and not the midpoint between the two bounding boxes.
 
 This is the whole of the answer to "no sloppy seams", and it has three parts:
@@ -735,7 +772,7 @@ failures are found by a player. Every check is named in the report with its resu
 | `WEAP-001` | Every sub-part has geometry, and every coordinate is finite (D00-R13) |
 | `WEAP-002` | The sub-parts' masses sum to the weapon's declared mass within `MASS_TOLERANCE_FRAC` |
 | `WEAP-003` | Every slot path resolves and the graph is a tree (D05-R10) |
-| `WEAP-004` | Every seam is within `MOUNT_SEAM_TOL_M` (R44) |
+| `WEAP-004` | Every join sits on contact the source model actually has (R44) |
 | `WEAP-005` | The muzzle lies on the bore axis, at the forward extent |
 | `WEAP-006` | Every part's collision hull encloses its render mesh |
 | `WEAP-007` | Every articulation axis is a unit vector and every pivot lies within its part's bounds |
@@ -756,7 +793,7 @@ discipline). `WEAP-010` is what enforces it, and it is a real check rather than 
 - [ ] **AC-D17-2.** The sub-part labels come from D17-S4.2's closed taxonomy and nothing else.
 - [ ] **AC-D17-3.** The slot graph is a tree rooted at exactly one `mount`, and every child's
       `slotTypeRequired` matches the slot it occupies.
-- [ ] **AC-D17-4.** Every seam measures within `MOUNT_SEAM_TOL_M`, verified after export, not asserted.
+- [ ] **AC-D17-4.** Every join sits on real parent/child contact, verified after export, not asserted.
 - [ ] **AC-D17-5.** A weapon whose `sizeClass` exceeds a slot's is rejected by `AssemblyValidator` with
       A316; one within it is accepted.
 - [ ] **AC-D17-6.** Firing a `CANNON` produces a measurable velocity change in the firing vehicle;
@@ -783,7 +820,7 @@ discipline). `WEAP-010` is what enforces it, and it is a real check rather than 
 | **E1** | No barrel-like shell: a laser emitter, a mine layer | Bore axis falls back to the model's dominant principal axis; family derives `LASER`; reported as weakly held. Exit 82 only if the model has no dominant axis at all |
 | **E2** | A model of 30,000 shells — a chainmail drape, a rivet-per-shell export | Exit 81 at `WEAPON_MAX_SHELLS` |
 | **E3** | The model includes a display base, a stand, or a diorama | Discarded by R27 and named in the report |
-| **E4** | The model is a gun carriage with road wheels | The wheels are `unclassified`, fail to merge into any weapon label, and are discarded by R27. This is the shipped cannon's actual case |
+| **E4** | The model has round parts that are not wheels | Roundness is measured about the shell's **own** extents, not in the bore plane (R36b): the shipped cannon's elevation cogs turn across the bore and score 0.24 on the bore-plane test and 0.86 on their own. Reading them as road wheels is what DISC-060 corrects |
 | **E5** | Duplicated coincident geometry | Dropped by R31 and reported |
 | **E6** | The bore axis comes out backwards | The taper and mass tests of R24 disagree; the report says so and the capture shows it. `--target-length` does not fix this; a 180° yaw in `import.json` does |
 | **E7** | Two mounts | The larger is promoted, the other becomes `furniture` (R4) |

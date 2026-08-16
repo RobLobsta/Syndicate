@@ -196,7 +196,7 @@ Selector "root"
 │     └── Action:    DriveTo(payloadEscortPoint) + EngageOpportunistically
 ├── Sequence "engage"
 │     ├── Condition: hasTarget()
-│     ├── Action:    MaintainEngagementRange(target)  (approach or back off)
+│     ├── Action:    MaintainEngagementRange(target)  (approach, back off, or orbit)
 │     ├── Action:    AimAt(target)
 │     └── Action:    FireWhenSolutionValid()
 ├── Sequence "hunt"
@@ -210,6 +210,31 @@ Selector "root"
 #     and aim solvers convert the blackboard into an InputCommand. The tree never
 #     writes throttle/steer directly — that separation is what keeps the driving model
 #     consistent regardless of which behaviour is active.
+
+function maintainEngagementRange(bot, target):
+    away     = (bot.position - target.position) with y = 0
+    distance = length(away)
+
+    # Outside the band: close, or back off, along the radius.
+    if abs(distance - ENGAGE_STANDOFF_M (15.0)) > ENGAGE_BAND_M (8.0):
+        return target.position + normalise(away) * ENGAGE_STANDOFF_M
+
+    # R7a. Inside the band the bot ORBITS. A radial destination here is metres from
+    #      where the bot already stands — inside its own turning circle, so no steering
+    #      angle reaches it — and the bot shuffles back and forth at walking pace until
+    #      the match ends. Aiming a fixed arc around the standoff circle instead gives a
+    #      destination that is always reachable (a 60 deg step at 15 m is a 15 m chord,
+    #      outside ARRIVE_RADIUS_M) and holds the range the guns want. Circling is also
+    #      the better tactic: a vehicle stationary at 15 m is a free kill.
+    #      Which way round is decided by the bot's own nose — whichever tangent needs
+    #      the smaller turn, left when the two are equal — so it is deterministic (G3)
+    #      and still varies between bots without consulting a random stream.
+    radial  = normalise(away)
+    tangent = rotateQuarterTurnAboutUp(radial)
+    sense   = +1 if dot(bot.forward, tangent) >= 0 else -1
+    step    = ENGAGE_ORBIT_STEP_RAD (pi/3)
+    return target.position + ENGAGE_STANDOFF_M * (cos(step) * radial
+                                                  + sense * sin(step) * tangent)
 ```
 
 <!-- D11-S5.2 -->### 5.2 Target Selection
@@ -610,6 +635,7 @@ function runBalanceSweep(matrix, repeats):
 | E16 | Behaviour tree throws | Log the bot entity, tick, and node path; reset that bot's tree state to root and continue. One bad bot must not abort the match. |
 | E17 | Sensor snapshot is older than the history buffer | Clamp `capturedTick` to the oldest available tick; log once. |
 | E18 | Bot aim error random walk drifts unboundedly | The walk is clamped to ±3σ; it is a bounded Ornstein-Uhlenbeck-style process, not a free walk. |
+| E19 | Bot is already at its engagement standoff distance | It orbits the target at that radius (D11-S5.1 R7a). A radial destination would fall inside its own turning circle, and the bot would shuffle in place for the rest of the match. |
 
 ---
 
@@ -639,6 +665,7 @@ function runBalanceSweep(matrix, repeats):
 | T-D11-20 | Remove the navmesh from an arena | A404 at validation; runtime falls back with a single ERROR log and bots still move |
 | T-D11-21 | Human joins a match with `botCount` bots at capacity | Oldest bot removed; no human displaced |
 | T-D11-22 | Grep bot code for direct world reads | None; all perception via `SensorSnapshot` |
+| T-D11-23 | Bot at, and a little inside, `ENGAGE_STANDOFF_M` of a visible target | Destination holds the standoff radius and is further than `ARRIVE_RADIUS_M` from the bot; orbit direction follows the nose and repeats exactly (G3) |
 
 ---
 

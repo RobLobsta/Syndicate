@@ -38,7 +38,7 @@ from typing import ClassVar
 
 from . import articulate, cues, graph, grouping, selfverify, stats
 from . import bore as bore_mod
-from .labels import CARRIAGE_RADIUS, MOUNT, WEAPON_MAX_SHELLS, WEAPON_MIN_SHELL_TRIANGLES
+from .labels import MOUNT, STRAY_RADIUS, WEAPON_MAX_SHELLS, WEAPON_MIN_SHELL_TRIANGLES
 
 try:  # pragma: no cover - exercised only inside a Blender host
     import bpy  # isort: skip
@@ -79,6 +79,9 @@ class Options:
     normalise_style: bool = True
     strict: bool = False
     material_table: Path = Path("assets/materials/materials.json")
+    #: Mirror the weapon across the plane through its bore, for mounting on the opposite side
+    #: (D17-R26a). A side-bracket gun is handed; a pedestal gun is not and does not need this.
+    mirror: bool = False
 
 
 @dataclass
@@ -207,7 +210,9 @@ def run(options: Options) -> dict:
     # ---- Stage 6: the slot graph and the seams ------------------------------------------
     with StageTimer("graph", stages) as detail:
         vertices = {s.index: (s.vertex_sample or (s.centroid,)) for s in shells}
-        nodes, seams = graph.build(parts, vertices, target)
+        mount_direction = cues.mounting_direction(shells, corrected_bore)
+        nodes, seams = graph.build(parts, vertices, target, mount_direction)
+        detail["mountDirection"] = _round3(mount_direction) if mount_direction else None
         bad = [s for s in seams if not s.is_closed]
         detail.update({"seams": [s.as_dict() for s in seams], "openSeams": len(bad)})
 
@@ -573,6 +578,36 @@ def scale_to_target(target_length_m: float) -> dict:
     return {"targetLengthM": round(target_length_m, 4), "scaleApplied": round(target_length_m, 6)}
 
 
+def mirror_across_bore() -> dict:
+    """Reflects the weapon across the vertical plane through its bore (D17-R26a).
+
+    A gun with a **side** bracket is handed: the shipped machine gun's mount arms extend to one side
+    only, so bolting it to the other flank of a vehicle needs the mirror image, not a yaw — a yaw
+    would point it backwards.
+
+    Winding is reversed after the reflection. A negative scale turns every triangle inside out, and
+    a
+    mesh whose normals point into itself renders as a silhouette with its far faces lit: black in
+    the
+    garage, and invisible against a dark arena.
+    """
+    mesh_objects = [o for o in bpy.data.objects if o.type == "MESH"]
+    reflect = Matrix.Scale(-1.0, 4, Vector((1.0, 0.0, 0.0)))
+    for obj in mesh_objects:
+        obj.matrix_world = reflect @ obj.matrix_world
+    bpy.context.view_layer.update()
+    _apply_transforms(mesh_objects)
+    for obj in mesh_objects:
+        mesh = bmesh.new()
+        mesh.from_mesh(obj.data)
+        bmesh.ops.reverse_faces(mesh, faces=list(mesh.faces))
+        mesh.normal_update()
+        mesh.to_mesh(obj.data)
+        mesh.free()
+        obj.data.update()
+    return {"mirrored": True, "about": "the vertical plane through the bore"}
+
+
 def _scene_bore_extent(bore) -> float:
     """The model's extent along the bore, read from the live scene rather than from measurements."""
     along = []
@@ -617,22 +652,21 @@ def _mount_offset():
 
 
 def discard_non_weapon(shells, objects, bore):
-    """Drops geometry that is not part of the gun (D17-R27, D17-E3, D17-E4).
+    """Drops geometry that is not part of the gun at all (D17-R27, D17-E3).
 
-    A display base, a diorama's ground plane, and a siege carriage's road wheels and axle are all
-    things a weapon model comes *with* and none of them is the weapon. The rule is a cylinder about
-    the bore: a gun's working parts are arranged around its bore and are therefore near it, and what
-    sits :data:`CARRIAGE_RADIUS` further out is what the gun is carried on.
+    A display base, a diorama's ground plane, a stand. The rule is a **generous** cylinder about the
+    bore, and the generosity is the correction: an earlier version cut at 0.40 of bore length and
+    discarded the shipped cannon's whole pedestal mount and both of its gears, on the theory that it
+    was a gun carriage and they were road wheels (DISC-059). A mount is *supposed* to sit well off
+    the bore — that is what mounting means — so a radius rule tight enough to remove a carriage is
+    tight enough to remove every mount there is.
 
-    **Every discarded shell is named in the report**, with its triangle count. Discarding silently
-    is
-    what turns "the pipeline produced a weapon" into "the pipeline produced a weapon and threw away
-    a
-    third of the model", and on the shipped cannon that third is four road wheels and an axle.
+    Every discarded shell is named in the report, because discarding silently is what turns "the
+    pipeline produced a weapon" into "the pipeline produced a weapon and threw away a third of it".
     """
     kept, dropped = [], []
     for shell in sorted(shells, key=lambda s: s.index):
-        if bore.radius_of(shell.centroid) > CARRIAGE_RADIUS:
+        if bore.radius_of(shell.centroid) > STRAY_RADIUS:
             dropped.append(shell)
             obj = objects.pop(shell.index, None)
             if obj is not None:
@@ -640,16 +674,13 @@ def discard_non_weapon(shells, objects, bore):
         else:
             kept.append(shell)
     if not kept:
-        # Everything is outside the cylinder, which means the bore fit is wrong rather than that the
-        # model is all carriage. Keeping the model is the safer failure: the report will show a
-        # nonsensical classification, which is easier to read than an empty one.
-        return shells, {"discarded": 0, "reason": "every shell fell outside the carriage radius; "
-                                                  "kept them all rather than trust the bore fit"}
+        return shells, {"discarded": 0, "reason": "every shell fell outside the stray radius; kept "
+                                                  "them all rather than trust the bore fit"}
     return kept, {
         "discarded": len(dropped),
         "discardedTriangles": sum(s.triangles for s in dropped),
         "keptTriangles": sum(s.triangles for s in kept),
-        "carriageRadius": CARRIAGE_RADIUS,
+        "strayRadius": STRAY_RADIUS,
         "examples": [
             {"shell": s.index, "triangles": s.triangles,
              "radius": round(bore.radius_of(s.centroid), 4)}

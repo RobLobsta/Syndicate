@@ -1,5 +1,5 @@
 {
-  "armorValue": 11.77,
+  "armorValue": 3.86,
   "articulation": {
     "axisLocal": {
       "x": 0.0,
@@ -14,20 +14,20 @@
       "z": 0.0
     },
     "returnSeconds": 0.18,
-    "travelM": 0.03187
+    "travelM": 0.01586
   },
   "assets": {
     "collisionSource": "mesh.glb#node=weapon_machinegun_01_barrel_col",
     "visualMesh": "mesh.glb"
   },
-  "breakImpulseN": 3027.7,
+  "breakImpulseN": 991.7,
   "category": "WEAPON",
   "destructionClass": "RIGID",
   "displayName": "Barrel",
   "hangsBeforeFalling": false,
-  "massKg": 33.641,
+  "massKg": 11.019,
   "materialId": "steel_hardened",
-  "maxHp": 269.13,
+  "maxHp": 88.15,
   "partTypeId": "weapon_machinegun_01_barrel",
   "powerCost": 4.31,
   "schemaVersion": "1.0.0",
@@ -38,9 +38,9 @@
       "covers": [],
       "isDetachable": true,
       "localPosition": {
-        "x": -0.01634,
-        "y": -0.03756,
-        "z": 0.4509
+        "x": 0.04966,
+        "y": -0.00615,
+        "z": 0.39372
       },
       "localRotationDeg": {
         "order": "XYZ",
@@ -48,7 +48,7 @@
         "y": 0.0,
         "z": 0.0
       },
-      "maxMassKg": 2.161,
+      "maxMassKg": 1.395,
       "sizeClass": "LIGHT",
       "slotId": "sub_muzzle",
       "slotType": "SUBSLOT"

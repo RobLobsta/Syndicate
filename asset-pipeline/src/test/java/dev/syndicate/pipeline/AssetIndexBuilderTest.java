@@ -81,12 +81,12 @@ class AssetIndexBuilderTest {
         // Close to, not equal: this is the sum of thirty-odd authored masses, and the last binary
         // digit of that sum is not a fact about the vehicle.
         //
-        // 1545.6 rather than the Eclipse's 1500 kg kerb mass, because it ships **armed**: the
-        // machine gun fitted to its bonnet weighs 45.6 kg and the index sums what is actually on the
-        // vehicle (D17-S1). The kerb figure is asserted separately, against the vehicle's own parts,
-        // by VehicleProfileContentTest.
-        assertThat(eclipse.path("totalMassKg").asDouble()).isCloseTo(1545.609, within(0.01));
-        assertThat(eclipse.path("powerBudget").asDouble()).isCloseTo(102.734, within(0.01));
+        // 1535.4 rather than the Eclipse's 1500 kg kerb mass, because it ships **armed**: a machine
+        // gun on each flank — the left one the mirror of the right (D17-R26a) — weighs 35 kg between
+        // them, and the index sums what is actually on the vehicle (D17-S1). The kerb figure is
+        // asserted separately, against the vehicle's own parts, by VehicleProfileContentTest.
+        assertThat(eclipse.path("totalMassKg").asDouble()).isCloseTo(1535.424, within(0.01));
+        assertThat(eclipse.path("powerBudget").asDouble()).isCloseTo(131.467, within(0.01));
 
         // The shipped tree is clean. It was not before the preparation pipeline's output shipped:
         // every part directory named a mesh that did not exist, and the whole of A107 was expected.

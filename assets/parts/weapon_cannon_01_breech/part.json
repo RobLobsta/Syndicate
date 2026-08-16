@@ -1,0 +1,31 @@
+{
+  "armorValue": 9.78,
+  "assets": {
+    "collisionSource": "mesh.glb#node=weapon_cannon_01_breech_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 2514.9,
+  "category": "WEAPON",
+  "destructionClass": "STRUCTURAL",
+  "displayName": "Breech",
+  "hangsBeforeFalling": true,
+  "massKg": 27.943,
+  "materialId": "steel",
+  "maxHp": 223.55,
+  "partTypeId": "weapon_cannon_01_breech",
+  "powerCost": 16.24,
+  "schemaVersion": "1.0.0",
+  "sizeClass": "HEAVY",
+  "slotTypeRequired": "SUBSLOT",
+  "tags": [
+    "weapon",
+    "breech",
+    "prepared"
+  ]
+}

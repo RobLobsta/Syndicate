@@ -80,16 +80,15 @@ class VehicleProfileCalibrationTest {
     @Test
     void everyShippedVehicleSpawnsAtItsKerbMass() {
         for (VehicleProfile profile : VehicleProfiles.all()) {
-            int vehicle = scene.spawn(profile, SPAWN_POSITION);
+            int vehicle = scene.spawnUnarmed(profile, SPAWN_POSITION);
             scene.step(150);
 
             VehicleChassisComponent chassis = scene.world().getComponent(vehicle, VehicleChassisComponent.class);
-            // Kerb mass *plus what it is carrying*. A spawned vehicle ships armed (D17-S1), and a
-            // 46 kg machine gun on a 1500 kg car is 46 kg the physics has to see — asserting the
-            // bare kerb mass here would only be satisfiable by a weightless weapon.
+            // Unarmed, so this is the car's own kerb mass. What the armament adds is asserted
+            // separately by armamentAddsMassAndCostsAcceleration below.
             assertThat(chassis.totalMassKg)
-                    .as("%s kerb mass plus armament", profile.displayName())
-                    .isCloseTo(profile.kerbMassKg() + armamentMassKg(profile), within(1f));
+                    .as("%s kerb mass", profile.displayName())
+                    .isCloseTo(profile.kerbMassKg(), within(1f));
             assertThat(chassis.wheelCount).isEqualTo(4);
             assertThat(scene.wheelsInContact(vehicle))
                     .as("%s wheels on the ground after settling", profile.displayName())
@@ -102,7 +101,7 @@ class VehicleProfileCalibrationTest {
     @Test
     void aggregatedStatsMatchTheProfile() {
         for (VehicleProfile profile : VehicleProfiles.all()) {
-            int vehicle = scene.spawn(profile, SPAWN_POSITION);
+            int vehicle = scene.spawnUnarmed(profile, SPAWN_POSITION);
             scene.step(2);
 
             VehicleStatsComponent stats = scene.world().getComponent(vehicle, VehicleStatsComponent.class);
@@ -110,13 +109,7 @@ class VehicleProfileCalibrationTest {
                     .as("%s engine force", profile.displayName())
                     .isCloseTo(profile.engineForceN(), within(1f));
             assertThat(stats.enginePowerW).isCloseTo(profile.enginePowerW(), within(1f));
-            // Scaled by the armed mass for the same reason: slot 6 divides engine force by the mass
-            // it can see, and that mass now includes the gun. An armed car accelerates slightly less
-            // hard than the car it was derived from, which is correct and is the point of fitting a
-            // weapon costing something.
-            float armedMass = profile.kerbMassKg() + armamentMassKg(profile);
-            float expectedAcceleration = profile.accelerationMps2() * (profile.kerbMassKg() / armedMass);
-            assertThat(stats.accelerationMps2).isCloseTo(expectedAcceleration, within(0.05f));
+            assertThat(stats.accelerationMps2).isCloseTo(profile.accelerationMps2(), within(0.05f));
             assertThat(stats.maxSteerRad).isCloseTo(profile.maxSteerRad(), within(1e-3f));
             assertThat(stats.steerRateRadPerSec).isCloseTo(profile.steerRateRadPerSec(), within(1e-3f));
             assertThat(stats.downforceCoefficient).isCloseTo(profile.downforceCoefficientNPerMps2(), within(1e-3f));
@@ -135,7 +128,7 @@ class VehicleProfileCalibrationTest {
     @Test
     void eachVehicleReachesHundredKphOnItsPublishedTime() {
         for (VehicleProfile profile : VehicleProfiles.all()) {
-            int vehicle = scene.spawn(profile, SPAWN_POSITION);
+            int vehicle = scene.spawnUnarmed(profile, SPAWN_POSITION);
             scene.step(150);
 
             float measured = scene.timeToSpeed(vehicle, HUNDRED_KPH_MPS, 8f);
@@ -150,7 +143,7 @@ class VehicleProfileCalibrationTest {
     @Test
     void thePowerLimitBitesAboveTheCrossover() {
         VehicleProfile profile = VehicleProfiles.ECLIPSE;
-        int vehicle = scene.spawn(profile, SPAWN_POSITION);
+        int vehicle = scene.spawnUnarmed(profile, SPAWN_POSITION);
         scene.step(150);
 
         VehicleStatsComponent stats = scene.world().getComponent(vehicle, VehicleStatsComponent.class);
@@ -224,7 +217,7 @@ class VehicleProfileCalibrationTest {
     }
 
     private float brakingDistanceOf(VehicleProfile profile) {
-        int vehicle = scene.spawn(profile, SPAWN_POSITION);
+        int vehicle = scene.spawnUnarmed(profile, SPAWN_POSITION);
         scene.step(150);
         scene.accelerateTo(vehicle, HUNDRED_KPH_MPS, 8f);
         float distance = scene.brakeToStop(vehicle, 12f);
@@ -253,5 +246,36 @@ class VehicleProfileCalibrationTest {
             }
         }
         return total;
+    }
+
+    /**
+     * Fitting a weapon costs mass and costs acceleration, and both are measured rather than assumed.
+     *
+     * <p>The counterpart to every assertion above: those measure the car, this measures what
+     * carrying a gun does to it. Without this the switch to {@code spawnUnarmed} would have quietly
+     * removed the armament from the physics tests altogether.
+     */
+    @Test
+    void armamentAddsMassAndCostsAcceleration() {
+        for (VehicleProfile profile : VehicleProfiles.all()) {
+            int bare = scene.spawnUnarmed(profile, SPAWN_POSITION);
+            scene.step(2);
+            float bareMass = scene.world().getComponent(bare, VehicleChassisComponent.class).totalMassKg;
+            float bareAcceleration = scene.world().getComponent(bare, VehicleStatsComponent.class).accelerationMps2;
+            scene.despawn(bare);
+
+            int armed = scene.spawn(profile, SPAWN_POSITION);
+            scene.step(2);
+            float armedMass = scene.world().getComponent(armed, VehicleChassisComponent.class).totalMassKg;
+            float armedAcceleration = scene.world().getComponent(armed, VehicleStatsComponent.class).accelerationMps2;
+            scene.despawn(armed);
+
+            assertThat(armedMass)
+                    .as("%s carries its armament", profile.displayName())
+                    .isGreaterThan(bareMass + 10f);
+            assertThat(armedAcceleration)
+                    .as("%s accelerates less hard armed than bare", profile.displayName())
+                    .isLessThan(bareAcceleration);
+        }
     }
 }

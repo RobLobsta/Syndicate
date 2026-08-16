@@ -131,8 +131,10 @@ def test_structural_cue_collects_coaxial_tubes_into_one_barrel():
 
 def test_rotational_repetition_finds_a_gear_ring_and_not_a_scatter():
     """T-D17-4. Six congruent shells at a common radius are a gear; five random ones are not."""
+    # Well outside BORE_COAXIAL_TOL: a ring that close to the bore is *on* it, and the rotational
+    # test deliberately only looks at geometry that orbits the axis rather than sitting on it.
     ring = [
-        make_shell(i, (0.09 * math.cos(i * math.pi / 3), 0.09 * math.sin(i * math.pi / 3), 0.3),
+        make_shell(i, (0.22 * math.cos(i * math.pi / 3), 0.22 * math.sin(i * math.pi / 3), 0.3),
                    (0.02, 0.02, 0.02), 40)
         for i in range(6)
     ]
@@ -140,7 +142,7 @@ def test_rotational_repetition_finds_a_gear_ring_and_not_a_scatter():
     assert any(v.label == labels.GEAR for _, v in votes)
 
     scatter = [
-        make_shell(i, (0.05 + 0.03 * i, 0.02 * i, 0.2 + 0.05 * i),
+        make_shell(i, (0.20 + 0.03 * i, 0.02 * i, 0.2 + 0.05 * i),
                    (0.02 + 0.005 * i, 0.03, 0.02), 40 + 7 * i)
         for i in range(5)
     ]

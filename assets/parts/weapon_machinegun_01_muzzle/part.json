@@ -9,7 +9,7 @@
   "destructionClass": "RIGID",
   "displayName": "Muzzle",
   "hangsBeforeFalling": false,
-  "massKg": 1.729,
+  "massKg": 1.116,
   "materialId": "steel_hardened",
   "maxHp": 20.0,
   "partTypeId": "weapon_machinegun_01_muzzle",

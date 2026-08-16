@@ -1,5 +1,5 @@
 {
-  "armorValue": 16.73,
+  "armorValue": 13.51,
   "assets": {
     "collisionSource": "mesh.glb#node=weapon_cannon_01_mount_col",
     "morphTargets": [
@@ -10,16 +10,16 @@
     ],
     "visualMesh": "mesh.glb"
   },
-  "breakImpulseN": 4301.6,
+  "breakImpulseN": 3473.1,
   "category": "WEAPON",
   "destructionClass": "STRUCTURAL",
   "displayName": "Mount",
   "hangsBeforeFalling": true,
-  "massKg": 47.795,
+  "massKg": 38.59,
   "materialId": "steel",
-  "maxHp": 382.36,
+  "maxHp": 308.72,
   "partTypeId": "weapon_cannon_01_mount",
-  "powerCost": 8.12,
+  "powerCost": 4.06,
   "schemaVersion": "1.0.0",
   "sizeClass": "HEAVY",
   "slotTypeRequired": "TURRET_MOUNT",
@@ -28,9 +28,9 @@
       "covers": [],
       "isDetachable": true,
       "localPosition": {
-        "x": 0.0,
-        "y": 0.10411,
-        "z": -0.25827
+        "x": -0.22375,
+        "y": 0.37067,
+        "z": -0.05294
       },
       "localRotationDeg": {
         "order": "XYZ",
@@ -38,7 +38,45 @@
         "y": 0.0,
         "z": 0.0
       },
-      "maxMassKg": 192.167,
+      "maxMassKg": 22.952,
+      "sizeClass": "HEAVY",
+      "slotId": "sub_gear_l",
+      "slotType": "SUBSLOT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.24168,
+        "y": 0.41674,
+        "z": -0.02144
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 4.017,
+      "sizeClass": "HEAVY",
+      "slotId": "sub_gear_r",
+      "slotType": "SUBSLOT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.03447,
+        "y": 0.60868,
+        "z": 0.01518
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 56.778,
       "sizeClass": "HEAVY",
       "slotId": "sub_receiver",
       "slotType": "SUBSLOT"
@@ -72,9 +110,9 @@
     "damageType": null,
     "family": "CANNON",
     "muzzleLocal": {
-      "x": 0.00316,
-      "y": 0.66401,
-      "z": 1.38917
+      "x": 0.00038,
+      "y": 1.02604,
+      "z": 1.51967
     },
     "rangeM": 300.0
   }

@@ -267,6 +267,14 @@ HARDPOINT_SLOT_IDS = tuple(slot_id for slot_id, *_ in HARDPOINTS)
 #: budget is for rather than this number.
 HARDPOINT_MASS_FRACTION = 0.08
 
+#: The same, for the roof turret ring, which is rated to carry far more.
+#:
+#: A `TURRET_MOUNT` is the vehicle's primary weapon station and is `HEAVY` by D17-R10 precisely
+#: because the roof centreline is the one place a big gun can sit. Rating it at the flank fraction
+#: made that size class unusable: the shipped pedestal cannon's mount alone is 265 kg and the ring
+#: would take 157 kg, so the one weapon built for the one HEAVY mount could not be fitted to it.
+TURRET_MASS_FRACTION = 0.20
+
 #: The size class each D15-S4.1 label's part is exported at (D17-S4.3).
 #:
 #: Only the hub is not the default. Its slot is rated ``LIGHT`` because a brake hub is the only
@@ -277,6 +285,9 @@ PART_SIZE_CLASS = {"hub": "LIGHT"}
 
 #: The lightest a hardpoint may be rated at, so a 400 kg buggy still mounts something.
 HARDPOINT_MIN_MASS_KG = 40.0
+
+#: Roll, in degrees about Z, applied to a hardpoint that mounts a weapon on its side (D17-R25).
+FLANK_ROLL_DEG = {"hardpoint_flank_l": 90.0, "hardpoint_flank_r": -90.0}
 
 
 class ManifestError(Exception):
@@ -906,8 +917,10 @@ def hardpoint_slots(body, total_mass_kg: float) -> list[dict]:
     and are validated against ``SlotType.acceptsCategory`` like any other placement (D05-S5.1).
     """
     capacity = round(max(HARDPOINT_MIN_MASS_KG, total_mass_kg * HARDPOINT_MASS_FRACTION), 1)
+    turret_capacity = round(max(HARDPOINT_MIN_MASS_KG, total_mass_kg * TURRET_MASS_FRACTION), 1)
     slots = []
     for slot_id, slot_type, fx, fy, fz, size_class in HARDPOINTS:
+        rated = turret_capacity if slot_type == "TURRET_MOUNT" else capacity
         slots.append({
             "slotId": slot_id,
             "slotType": slot_type,
@@ -917,8 +930,14 @@ def hardpoint_slots(body, total_mass_kg: float) -> list[dict]:
                 "y": round(body.ground_y + fy * body.height, 4),
                 "z": round(body.lo[2] + fz * body.length, 4),
             },
-            "localRotationDeg": {"x": 0.0, "y": 0.0, "z": 0.0, "order": "XYZ"},
-            "maxMassKg": capacity,
+            # A flank hardpoint faces outboard, so a weapon fitted there is rolled to lay its own
+            # mount face against the bodywork (D17-R25). A weapon's body extends along +Y from its
+            # mount face, and Rz(theta) sends +Y to (-sin theta, cos theta, 0) — so the right flank,
+            # at +X, needs -90 and the left +90. The opposite pair reads perfectly plausibly and
+            # buries the gun inside the door; the capture is what showed it.
+            "localRotationDeg": {"x": 0.0, "y": 0.0, "z": FLANK_ROLL_DEG.get(slot_id, 0.0),
+                                 "order": "XYZ"},
+            "maxMassKg": rated,
             "covers": [],
             "isDetachable": True,
         })

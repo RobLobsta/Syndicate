@@ -1,0 +1,40 @@
+{
+  "armorValue": 0.0,
+  "articulation": {
+    "axisLocal": {
+      "x": -1.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "driver": "AIM",
+    "motion": "ELEVATE",
+    "pivotLocal": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "travelDeg": 42.68
+  },
+  "assets": {
+    "collisionSource": "mesh.glb#node=weapon_cannon_01_gear_r_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 400.0,
+  "category": "DECORATIVE",
+  "destructionClass": "RIGID",
+  "displayName": "Gear R",
+  "hangsBeforeFalling": false,
+  "massKg": 3.213,
+  "materialId": "steel",
+  "maxHp": 25.71,
+  "partTypeId": "weapon_cannon_01_gear_r",
+  "powerCost": 16.24,
+  "schemaVersion": "1.0.0",
+  "sizeClass": "HEAVY",
+  "slotTypeRequired": "SUBSLOT",
+  "tags": [
+    "weapon",
+    "gear",
+    "prepared"
+  ]
+}

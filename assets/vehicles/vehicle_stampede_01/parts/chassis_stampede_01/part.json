@@ -311,7 +311,7 @@
         "order": "XYZ",
         "x": 0.0,
         "y": 0.0,
-        "z": 0.0
+        "z": 90.0
       },
       "maxMassKg": 157.5,
       "sizeClass": "LIGHT",
@@ -330,7 +330,7 @@
         "order": "XYZ",
         "x": 0.0,
         "y": 0.0,
-        "z": 0.0
+        "z": -90.0
       },
       "maxMassKg": 157.5,
       "sizeClass": "LIGHT",
@@ -572,7 +572,7 @@
         "y": 0.0,
         "z": 0.0
       },
-      "maxMassKg": 157.5,
+      "maxMassKg": 393.8,
       "sizeClass": "HEAVY",
       "slotId": "turret_main",
       "slotType": "TURRET_MOUNT"

@@ -112,19 +112,29 @@ PARENT_LABEL = {
 #: and a gun barrel is a solid tube of steel. Using the vehicle figures here produced a 4 kg cannon,
 #: which is what D17-R52 exists to prevent.
 #:
-#: Calibrated against real ordnance rather than chosen: these put the shipped machine gun at about
-#: 45 kg, which is where a real vehicle-mounted heavy machine gun sits with its mount.
+#: **They are not all the same kind of steel structure**, and that is what the spread encodes. A
+#: barrel, a breech and a muzzle are solid: they get the high figures. A mount, a gear housing and a
+#: shield are castings and pressings enclosing air, and giving them a barrel's density made the
+#: shipped pedestal cannon weigh **611 kg** — a third of the car carrying it, enough to take the
+#: Stampede's 0-100 from 3.4 s to 4.4 s and to compress its suspension by 19 mm.
+#:
+#: Calibrated so the shipped machine gun lands near 20 kg and the pedestal cannon near 200 kg — and
+#: the cannon is what set the ceiling. At 389 kg on the Stampede's **roof** turret it raised the
+#: car's
+#: centre of mass by 24 cm, and a bot driving it managed 19 m in a match against the 160 m its
+#: stablemate covered. A weapon heavy enough to make its carrier undriveable is not a heavy weapon,
+#: it is a broken one, and that is a tighter constraint than plausibility (DISC-060).
 AREAL_DENSITY_KG_PER_M2 = {
-    MOUNT: 55.0,
-    RECEIVER: 60.0,
-    BARREL: 90.0,
-    MUZZLE: 70.0,
-    BREECH: 80.0,
-    FEED: 30.0,
-    GEAR: 45.0,
-    SIGHT: 8.0,
-    FURNITURE: 18.0,
-    UNCLASSIFIED: 50.0,
+    MOUNT: 8.0,
+    RECEIVER: 19.0,
+    BARREL: 55.0,
+    MUZZLE: 45.0,
+    BREECH: 45.0,
+    FEED: 18.0,
+    GEAR: 12.0,
+    SIGHT: 6.0,
+    FURNITURE: 7.0,
+    UNCLASSIFIED: 19.0,
 }
 
 
@@ -165,6 +175,16 @@ BORE_ASPECT_MIN = 3.0
 #: barrel does, so on the shipped cannon 203 shells outvoted the one that mattered.
 BORE_FIT_MIN_EXTENT_FRAC = 0.35
 
+#: How many times the largest barrel-like shell's sample is repeated in the bore fit; a smaller
+#: shell
+#: is repeated in proportion to its triangle count (D17-R24).
+#:
+#: Every shell carries the same 96-vertex sample whatever its size, so an unweighted fit treats a
+#: conduit strapped along a barrel as the barrel's equal. Eight steps is enough to make a
+#: 600-triangle
+#: barrel outvote a 174-triangle pipe and small enough that the fit stays a few thousand points.
+BORE_FIT_WEIGHT_STEPS = 8
+
 #: How far off the bore axis a centroid may sit and still join the barrel group (D17-R1).
 #:
 #: **A fraction of the weapon's own bore length, not metres.** Every threshold below that measures a
@@ -172,7 +192,27 @@ BORE_FIT_MIN_EXTENT_FRAC = 0.35
 #: import at 100x, and a metre-based tolerance applied to them classifies nothing. The pipeline
 #: normalises the model to unit bore length before it labels anything (D17-R23a), which makes every
 #: one of these a proportion of the gun — which is what they always meant.
-BORE_COAXIAL_TOL = 0.045
+BORE_COAXIAL_TOL = 0.12
+
+#: How far off the bore a breech or a receiver may sit and still count as built around it.
+#:
+#: Wider than :data:`BORE_COAXIAL_TOL` because those parts *enclose* the bore rather than being it.
+NEAR_AXIS_TOL = 0.22
+
+#: How round in section a shell must be before elongation alone makes it a barrel (D17-R36).
+#: A barrel is a tube; a receiver is a box that happens to be long.
+BARREL_ROUNDNESS_MIN = 0.70
+
+#: How round about the bore axis a shell must be to be a candidate for defining the bore *line*.
+#: A muzzle is a circular opening; a bracket is not (D17-R24).
+MUZZLE_ROUNDNESS_MIN = 0.80
+
+#: A shell whose two larger extents are at least this close to equal is round in its own plane.
+DISC_ROUNDNESS_MIN = 0.80
+
+#: ...and whose smallest extent is at most this fraction of its largest is thin through that plane.
+#: Together these two make the disc test that finds a cog whatever axis it turns about (D17-R36b).
+DISC_THINNESS_MAX = 0.45
 
 #: The reach, as a fraction of bore length, at which two sub-parts count as **touching** (D17-R44).
 #:
@@ -199,17 +239,38 @@ TARGET_LENGTH_M = {"LIGHT": 0.9, "MEDIUM": 1.4, "HEAVY": 1.8}
 #: A model already this close to its target is left alone rather than scaled by 1.02 (D17-R26).
 SCALE_DEADBAND = 0.10
 
-#: Radius about the bore, as a fraction of bore length, outside which geometry is **not the weapon**
-#: (D17-R27).
+#: Radius about the bore, as a fraction of bore length, beyond which geometry is a **stray** — a
+#: diorama's ground plane or a display board, not part of the weapon (D17-R27, D17-E3).
 #:
-#: A gun's working parts — breech, receiver, barrel, muzzle, feed, sights, and the cradle that holds
-#: them — all live close to the bore, because they are all arranged around it. What lives further
-#: out
-#: is what the gun is *carried on*: a display base, a diorama, or a siege carriage's road wheels and
-#: axle. The shipped cannon is exactly that case (D17-E4): its cradle sits at 0.37 of its length
-#: from
-#: the bore and its wheels at 0.48, so this separates the gun from the thing it rolls on.
-CARRIAGE_RADIUS = 0.40
+#: **Deliberately generous, and it used to be four times tighter.** At 0.40 it discarded the shipped
+#: cannon's entire pedestal mount and both of its gears on the theory that they were a gun
+#: carriage's
+#: road wheels. They are not: the model is a deck gun on a pedestal, the "carriage" is the mounting
+#: platform and the "wheels" are cogs (DISC-059). A mount is *supposed* to sit well off the bore —
+#: that is what mounting means — so a rule that cuts at the mount's radius cannot distinguish the
+#: two.
+#: Only something further out than the weapon is wide has no plausible claim to be part of it.
+STRAY_RADIUS = 1.60
+
+#: Fraction of the model's **own** furthest offset from its bore beyond which a shell is part of
+#: what
+#: the weapon bolts to rather than part of the weapon (D17-R36a).
+#:
+#: Relative, not absolute, and that is the whole of why it needs no per-model tuning. How far a
+#: gun's
+#: mounting hangs off its bore is a property of the gun: the shipped cannon's pedestal reaches half
+#: the gun's length and the shipped machine gun's side bracket reaches four per cent of it, and both
+#: are equally the mount. An absolute threshold that finds one cannot find the other.
+MOUNT_SHARE_MIN = 0.60
+
+#: Bore position beyond which the mount cue stops voting. Nothing bolts a gun on by its muzzle.
+MOUNT_FORWARD_LIMIT = 0.85
+
+#: How lopsided a model must be, as a fraction of bore length, before the mount cue votes at all.
+#:
+#: A weapon that is genuinely symmetric about its bore has no mounting direction, and without this
+#: floor the cue would find one in floating-point noise and label whichever shell won it.
+MOUNT_REACH_FLOOR = 0.02
 
 #: Instances of a shape about an axis before it counts as a rotational set (D17-R37). Three, the
 #: same threshold DEC-066 uses for a wheel's repetition test.

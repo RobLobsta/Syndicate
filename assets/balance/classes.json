@@ -10,14 +10,14 @@
     {
       "classId": "medium",
       "displayName": "Medium",
-      "powerBudgetTarget": 102.734,
-      "notes": "The Eclipse is the only medium, and it now ships with a machine gun fitted, so the target is its fitted budget by definition \u2014 the weapon is about 28% of it, which is the share a weapon should be. It becomes a real constraint the moment a second medium is authored (D01-R27)."
+      "powerBudgetTarget": 131.467,
+      "notes": "The Eclipse is the only medium, and it ships with a machine gun on each flank \u2014 the left one the mirror of the right (D17-R26a) \u2014 so the target is its fitted budget by definition. The pair is about 22% of it. It becomes a real constraint the moment a second medium is authored (D01-R27)."
     },
     {
       "classId": "heavy",
       "displayName": "Heavy",
-      "powerBudgetTarget": 153.02,
-      "notes": "The Stampede is the only heavy, and it now ships with a cannon fitted. Same caveat as medium: one vehicle per class means the check confirms arithmetic rather than balance until the roster grows. The cannon is about 45% of the budget, which is what a HEAVY weapon on the one HEAVY mount should cost."
+      "powerBudgetTarget": 166.553,
+      "notes": "The Stampede is the only heavy, and it ships with the pedestal cannon on its roof turret. Same caveat as medium: one vehicle per class means the check confirms arithmetic rather than balance until the roster grows. The cannon is about 40% of the budget, which is what the one HEAVY mount on the vehicle should cost to fill."
     }
   ]
 }

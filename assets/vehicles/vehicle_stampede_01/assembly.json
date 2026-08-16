@@ -6,12 +6,12 @@
   "displayName": "Stampede",
   "expected": {
     "comLocal": {
-      "x": -0.0295,
-      "y": 0.848,
-      "z": 0.0045
+      "x": -0.0308,
+      "y": 0.8359,
+      "z": 0.0103
     },
-    "powerBudget": 153.02,
-    "totalMassKg": 2242.868
+    "powerBudget": 166.553,
+    "totalMassKg": 2147.09
   },
   "parts": [
     {
@@ -171,6 +171,18 @@
       "slotPath": "root/turret_main"
     },
     {
+      "parentSlotId": "sub_gear_l",
+      "parentSlotPath": "root/turret_main",
+      "partTypeId": "weapon_cannon_01_gear_l",
+      "slotPath": "root/turret_main/sub_gear_l"
+    },
+    {
+      "parentSlotId": "sub_gear_r",
+      "parentSlotPath": "root/turret_main",
+      "partTypeId": "weapon_cannon_01_gear_r",
+      "slotPath": "root/turret_main/sub_gear_r"
+    },
+    {
       "parentSlotId": "sub_receiver",
       "parentSlotPath": "root/turret_main",
       "partTypeId": "weapon_cannon_01_receiver",
@@ -189,16 +201,10 @@
       "slotPath": "root/turret_main/sub_receiver/sub_barrel/sub_muzzle"
     },
     {
-      "parentSlotId": "sub_furniture_l",
+      "parentSlotId": "sub_breech",
       "parentSlotPath": "root/turret_main/sub_receiver",
-      "partTypeId": "weapon_cannon_01_furniture_l",
-      "slotPath": "root/turret_main/sub_receiver/sub_furniture_l"
-    },
-    {
-      "parentSlotId": "sub_furniture_r",
-      "parentSlotPath": "root/turret_main/sub_receiver",
-      "partTypeId": "weapon_cannon_01_furniture_r",
-      "slotPath": "root/turret_main/sub_receiver/sub_furniture_r"
+      "partTypeId": "weapon_cannon_01_breech",
+      "slotPath": "root/turret_main/sub_receiver/sub_breech"
     },
     {
       "overrides": {

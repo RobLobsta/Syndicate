@@ -5,44 +5,44 @@
     "z": 1.0
   },
   "boreOriginLocal": {
-    "x": 0.00316,
-    "y": 0.66401,
-    "z": 0.03157
+    "x": 0.00038,
+    "y": 1.02604,
+    "z": 1.08939
   },
   "checks": [
     {
       "check": "WEAP-001",
-      "detail": "6 sub-parts, all with finite geometry",
+      "detail": "7 sub-parts, all with finite geometry",
       "passed": true
     },
     {
       "check": "WEAP-002",
-      "detail": "273.868 kg against a declared 273.868 kg (0.000%)",
+      "detail": "178.091 kg against a declared 178.091 kg (0.000%)",
       "passed": true
     },
     {
       "check": "WEAP-003",
-      "detail": "one root and 5 descendants",
+      "detail": "one root and 6 descendants",
       "passed": true
     },
     {
       "check": "WEAP-004",
-      "detail": "all 5 joins sit on real contact; 3 needed a widened reach",
+      "detail": "all 6 joins sit on real contact",
       "passed": true
     },
     {
       "check": "WEAP-005",
-      "detail": "muzzle at z=1.389 m, 0.000 m off the bore line",
+      "detail": "muzzle at z=1.520 m, 0.000 m off the bore line",
       "passed": true
     },
     {
       "check": "WEAP-006",
-      "detail": "6 parts, each exported with a `_col` hull node",
+      "detail": "7 parts, each exported with a `_col` hull node",
       "passed": true
     },
     {
       "check": "WEAP-007",
-      "detail": "1 articulated parts, all with unit axes",
+      "detail": "3 articulated parts, all with unit axes",
       "passed": true
     },
     {
@@ -52,7 +52,7 @@
     },
     {
       "check": "WEAP-009",
-      "detail": "3858 triangles across 6 parts",
+      "detail": "9050 triangles across 7 parts",
       "passed": true
     },
     {
@@ -62,84 +62,97 @@
     }
   ],
   "family": "CANNON",
-  "familyConfidence": 0.85,
+  "familyConfidence": 0.6,
   "muzzleLocal": {
-    "x": 0.00316,
-    "y": 0.66401,
-    "z": 1.38917
+    "x": 0.00038,
+    "y": 1.02604,
+    "z": 1.51967
   },
   "parts": [
     {
       "label": "barrel",
-      "massKg": 36.0977,
+      "massKg": 27.6045,
       "name": "barrel",
       "notes": [],
       "origin": {
-        "x": 0.01631,
-        "y": 1.11307,
-        "z": -0.31755
+        "x": 0.01343,
+        "y": 1.04285,
+        "z": 0.06599
       },
       "partTypeId": "weapon_cannon_01_barrel",
       "shells": 1,
       "synthesised": false,
-      "triangles": 600
+      "triangles": 476
     },
     {
-      "label": "furniture",
-      "massKg": 4.9328,
-      "name": "furniture_l",
+      "label": "breech",
+      "massKg": 27.9435,
+      "name": "breech",
       "notes": [],
       "origin": {
-        "x": -0.11555,
-        "y": 0.81974,
-        "z": -0.56923
+        "x": 0.01517,
+        "y": 0.96357,
+        "z": -0.6162
       },
-      "partTypeId": "weapon_cannon_01_furniture_l",
+      "partTypeId": "weapon_cannon_01_breech",
       "shells": 1,
       "synthesised": false,
-      "triangles": 268
+      "triangles": 376
     },
     {
-      "label": "furniture",
-      "massKg": 4.9328,
-      "name": "furniture_r",
+      "label": "gear",
+      "massKg": 18.362,
+      "name": "gear_l",
       "notes": [],
       "origin": {
-        "x": 0.13706,
-        "y": 0.86645,
-        "z": -0.59077
+        "x": -0.21154,
+        "y": 0.38536,
+        "z": -0.34512
       },
-      "partTypeId": "weapon_cannon_01_furniture_r",
-      "shells": 1,
+      "partTypeId": "weapon_cannon_01_gear_l",
+      "shells": 3,
       "synthesised": false,
-      "triangles": 268
+      "triangles": 1948
+    },
+    {
+      "label": "gear",
+      "massKg": 3.2134,
+      "name": "gear_r",
+      "notes": [],
+      "origin": {
+        "x": 0.2539,
+        "y": 0.43144,
+        "z": -0.31363
+      },
+      "partTypeId": "weapon_cannon_01_gear_r",
+      "shells": 2,
+      "synthesised": false,
+      "triangles": 1832
     },
     {
       "label": "mount",
-      "massKg": 47.7953,
+      "massKg": 38.5896,
       "name": "mount",
-      "notes": [
-        "synthesised: the source model carries no mount (D17-R41)"
-      ],
+      "notes": [],
       "origin": {
-        "x": 0.01362,
-        "y": 0.56973,
-        "z": -0.16169
+        "x": 0.01222,
+        "y": 0.01469,
+        "z": -0.29219
       },
       "partTypeId": "weapon_cannon_01_mount",
-      "shells": 1,
-      "synthesised": true,
-      "triangles": 12
+      "shells": 4,
+      "synthesised": false,
+      "triangles": 1368
     },
     {
       "label": "muzzle",
-      "massKg": 26.3756,
+      "massKg": 16.9557,
       "name": "muzzle",
       "notes": [],
       "origin": {
-        "x": 0.01597,
-        "y": 1.23372,
-        "z": 0.17834
+        "x": 0.01551,
+        "y": 1.03448,
+        "z": 0.48756
       },
       "partTypeId": "weapon_cannon_01_muzzle",
       "shells": 1,
@@ -148,91 +161,105 @@
     },
     {
       "label": "receiver",
-      "massKg": 153.7336,
+      "massKg": 45.4221,
       "name": "receiver",
       "notes": [],
       "origin": {
-        "x": 0.01362,
-        "y": 0.67384,
-        "z": -0.41996
+        "x": -0.02226,
+        "y": 0.62338,
+        "z": -0.27701
       },
       "partTypeId": "weapon_cannon_01_receiver",
-      "shells": 7,
+      "shells": 10,
       "synthesised": false,
-      "triangles": 2488
+      "triangles": 2828
     }
   ],
   "schemaVersion": "1.0.0",
   "seams": [
     {
-      "child": "receiver",
-      "contactPoints": 4,
-      "gapM": 0.066509,
-      "note": "contact found only at 162 mm reach",
+      "child": "gear_l",
+      "contactPoints": 26,
+      "gapM": 0.006793,
+      "note": "",
       "onContact": true,
       "parent": "mount",
       "position": {
-        "x": 0.01362,
-        "y": 0.67384,
-        "z": -0.41996
-      },
-      "reachUsed": 0.162
-    },
-    {
-      "child": "barrel",
-      "contactPoints": 130,
-      "gapM": 0.053528,
-      "note": "contact found only at 162 mm reach",
-      "onContact": true,
-      "parent": "receiver",
-      "position": {
-        "x": 0.01631,
-        "y": 1.11307,
-        "z": -0.31755
-      },
-      "reachUsed": 0.162
-    },
-    {
-      "child": "furniture_l",
-      "contactPoints": 6,
-      "gapM": 0.015101,
-      "note": "",
-      "onContact": true,
-      "parent": "receiver",
-      "position": {
-        "x": -0.11555,
-        "y": 0.81974,
-        "z": -0.56923
+        "x": -0.21154,
+        "y": 0.38536,
+        "z": -0.34512
       },
       "reachUsed": 0.054
     },
     {
-      "child": "furniture_r",
-      "contactPoints": 4,
-      "gapM": 0.014399,
+      "child": "gear_r",
+      "contactPoints": 26,
+      "gapM": 0.010291,
+      "note": "",
+      "onContact": true,
+      "parent": "mount",
+      "position": {
+        "x": 0.2539,
+        "y": 0.43144,
+        "z": -0.31363
+      },
+      "reachUsed": 0.054
+    },
+    {
+      "child": "receiver",
+      "contactPoints": 24,
+      "gapM": 0.010243,
+      "note": "",
+      "onContact": true,
+      "parent": "mount",
+      "position": {
+        "x": -0.02226,
+        "y": 0.62338,
+        "z": -0.27701
+      },
+      "reachUsed": 0.054
+    },
+    {
+      "child": "barrel",
+      "contactPoints": 5,
+      "gapM": 0.019859,
       "note": "",
       "onContact": true,
       "parent": "receiver",
       "position": {
-        "x": 0.13706,
-        "y": 0.86645,
-        "z": -0.59077
+        "x": 0.01343,
+        "y": 1.04285,
+        "z": 0.06599
+      },
+      "reachUsed": 0.054
+    },
+    {
+      "child": "breech",
+      "contactPoints": 30,
+      "gapM": 0.017295,
+      "note": "",
+      "onContact": true,
+      "parent": "receiver",
+      "position": {
+        "x": 0.01517,
+        "y": 0.96357,
+        "z": -0.6162
       },
       "reachUsed": 0.054
     },
     {
       "child": "muzzle",
-      "contactPoints": 40,
-      "gapM": 0.261895,
-      "note": "contact found only at 432 mm reach",
+      "contactPoints": 34,
+      "gapM": 0.005733,
+      "note": "",
       "onContact": true,
       "parent": "barrel",
       "position": {
-        "x": 0.01597,
-        "y": 1.23372,
-        "z": 0.17834
+        "x": 0.01551,
+        "y": 1.03448,
+        "z": 0.48756
       },
-      "reachUsed": 0.432
+      "reachUsed": 0.054
     }
   ],
   "sizeClass": "HEAVY",
@@ -255,16 +282,16 @@
       "add": 0.0025
     }
   },
-  "totalMassKg": 273.868,
+  "totalMassKg": 178.091,
   "weapon": {
     "ammoCapacity": 24,
     "blastRadiusM": 0.0,
     "damageType": null,
     "family": "CANNON",
     "muzzleLocal": {
-      "x": 0.00316,
-      "y": 0.66401,
-      "z": 1.38917
+      "x": 0.00038,
+      "y": 1.02604,
+      "z": 1.51967
     },
     "rangeM": 300.0
   },

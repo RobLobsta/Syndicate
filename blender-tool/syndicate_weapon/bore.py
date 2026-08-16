@@ -15,7 +15,12 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from .labels import BORE_ASPECT_MIN, BORE_FIT_MIN_EXTENT_FRAC
+from .labels import (
+    BORE_ASPECT_MIN,
+    BORE_FIT_MIN_EXTENT_FRAC,
+    BORE_FIT_WEIGHT_STEPS,
+    MUZZLE_ROUNDNESS_MIN,
+)
 
 
 @dataclass(frozen=True)
@@ -81,21 +86,77 @@ def find(shells) -> Bore:
     if not candidates:
         raise ValueError("no geometry to fit a bore axis to")
 
+    # Weighted by how much geometry each shell actually is. Every shell carries the same 96-vertex
+    # sample whatever its size, so an unweighted fit lets a thin pipe lying along the gun outvote
+    # the
+    # barrel it is strapped to — which is exactly what the shipped cannon did: the bore line was
+    # fitted to a 174-triangle conduit and the real 600-triangle barrel then measured as *off* the
+    # axis and was labelled furniture.
     points = []
+    heaviest = max(s.triangles for s in candidates) or 1
     for shell in candidates:
-        points.extend(shell.vertex_sample or [shell.centroid])
+        sample = shell.vertex_sample or [shell.centroid]
+        repeats = max(1, round(BORE_FIT_WEIGHT_STEPS * shell.triangles / heaviest))
+        for _ in range(repeats):
+            points.extend(sample)
     if len(points) < 3:
         points = [s.centroid for s in candidates] or [(0.0, 0.0, 0.0)]
 
     origin = _mean(points)
     axis = _dominant_axis(points, origin)
     axis, confidence, because = _orient(axis, origin, candidates, points)
+    # The axis is a *direction*; the bore is a *line*, and the line has to pass through the hole the
+    # shot leaves by. Fitting the origin to the mean of every barrel-like shell put the shipped
+    # cannon's bore through a conduit strapped along the top of its barrel — 10% of the gun's length
+    # above the muzzle — so the real barrel measured as off-axis and the muzzle bell measured as a
+    # disc bolted to the side.
+    origin, muzzle_note = _fit_line_through_muzzle(shells, axis, origin)
+    because = f"{because}; {muzzle_note}"
     return Bore(
         axis=axis,
         origin=origin,
         confidence=confidence,
         because=f"fitted to {because_set}; {because}",
     )
+
+
+
+def _fit_line_through_muzzle(shells, axis, fallback):
+    """Puts the bore line through the forward-most shell that is round about the axis.
+
+    A muzzle is the one part of a gun whose position the bore is *defined* by: it is the opening the
+    shot leaves through. Anything else — a barrel's mean, a receiver's centroid — is a proxy, and on
+    a model with more than one tube running along it the proxies disagree.
+
+    Roundness here is measured in the plane perpendicular to ``axis``, which needs only the
+    direction
+    and not the line, so this is not circular.
+    """
+    seed = (0.0, 0.0, 1.0) if abs(axis[2]) < 0.9 else (1.0, 0.0, 0.0)
+    u = _normalise(_cross(axis, seed))
+    v = _cross(axis, u)
+
+    best = None
+    for shell in shells:
+        sample = shell.vertex_sample or (shell.centroid,)
+        us = [sum(p[i] * u[i] for i in range(3)) for p in sample]
+        vs = [sum(p[i] * v[i] for i in range(3)) for p in sample]
+        if len(us) < 4:
+            continue
+        span_u, span_v = max(us) - min(us), max(vs) - min(vs)
+        larger = max(span_u, span_v)
+        if larger <= 1e-9:
+            continue
+        roundness = min(span_u, span_v) / larger
+        if roundness < MUZZLE_ROUNDNESS_MIN:
+            continue
+        forward = sum(shell.centroid[i] * axis[i] for i in range(3))
+        if best is None or forward > best[0]:
+            best = (forward, shell)
+
+    if best is None:
+        return fallback, "line through the barrel-like mean (nothing round enough to be a muzzle)"
+    return best[1].centroid, f"line through shell {best[1].index}, the forward-most round section"
 
 
 def _mean(points) -> tuple[float, float, float]:
@@ -212,3 +273,7 @@ def _normalise(v) -> tuple[float, float, float]:
 
 def _negate(v) -> tuple[float, float, float]:
     return (-v[0], -v[1], -v[2])
+
+
+def _cross(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])

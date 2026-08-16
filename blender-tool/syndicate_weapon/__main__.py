@@ -51,6 +51,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                         help="also write the report here, so a run read by a human keeps a copy")
     parser.add_argument("--strict", action="store_true",
                         help="fail on a weakly held family classification as well as on a check")
+    parser.add_argument(
+        "--mirror",
+        action="store_true",
+        help="reflect the weapon across the plane through its bore, for mounting on the opposite "
+             "side. A side-bracket gun is handed and needs a mirrored variant; a pedestal gun is "
+             "not and does not",
+    )
     parser.add_argument("--verbose", action="store_true", help="diagnostics on stderr")
     return parser.parse_args(argv)
 
@@ -87,6 +94,7 @@ def main(argv: list[str] | None = None) -> int:
                 normalise_style=not args.no_style,
                 strict=args.strict,
                 material_table=args.material_table,
+                mirror=args.mirror,
             ))
         except WeaponError as error:
             # A WeaponError carries its own code because the code *is* the contract (D17-R19): an
