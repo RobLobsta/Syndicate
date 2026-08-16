@@ -164,6 +164,40 @@ public final class ShippedContentScene implements AutoCloseable {
                 TeamComponent.FREE_FOR_ALL);
     }
 
+    /**
+     * Spawns a shipped vehicle with its **armament stripped**, for the calibration tests.
+     *
+     * <p>A {@code VehicleProfile} describes a car: its kerb mass, its published 0-100, its ride
+     * height. The shipped assembly is that car <em>plus what it is carrying</em> (D17-S1), and a
+     * 389 kg pedestal cannon on a 1,969 kg Mustang takes its 0-100 from 3.4 s to 4.4 s and
+     * compresses its suspension by 19 mm. Both of those are correct physics and neither is a fact
+     * about the Mustang, so a test that asserts the published figures has to measure the car.
+     *
+     * <p>The armament is identified the same way it is everywhere else: a part from the shared
+     * library rather than from the vehicle's own art (DEC-075).
+     */
+    public int spawnUnarmed(VehicleProfile profile, Vector3 position) {
+        AssemblyDef assembly = assets.assembly(profile.profileId());
+        if (assembly == null) {
+            throw new IllegalStateException(
+                    "no shipped assembly for profile " + profile.profileId().value());
+        }
+        java.util.List<AssemblyDef.PartPlacement> unarmed = assembly.parts().stream()
+                .filter(placement -> !placement.partTypeId().value().startsWith("weapon_"))
+                .toList();
+        AssemblyDef stripped = new AssemblyDef(
+                assembly.assemblyId(), assembly.vehicleClass(), assembly.chassisPartTypeId(), unarmed, null);
+        return VehicleFactory.spawnVehicle(
+                world,
+                physics,
+                shapes,
+                assets,
+                stripped,
+                new Matrix4().setToTranslation(position),
+                dev.syndicate.core.ecs.EntityId.NULL,
+                TeamComponent.FREE_FOR_ALL);
+    }
+
     /** Destroys a vehicle and runs the cleanup that releases its natives, so a test can spawn again. */
     public void despawn(int vehicleEntity) {
         world.destroyEntity(vehicleEntity);

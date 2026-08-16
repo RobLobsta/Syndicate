@@ -19,13 +19,16 @@ import dev.syndicate.core.asset.AssemblyDef;
 import dev.syndicate.core.asset.AssetIndex;
 import dev.syndicate.core.asset.PartType;
 import dev.syndicate.core.asset.SlotDefinition;
-import dev.syndicate.core.util.Transform;
+import dev.syndicate.core.vehicle.SlotChain;
 import dev.syndicate.core.vehicle.StatBlock;
 import dev.syndicate.core.vehicle.VehicleFactory;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.PartCategory;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.mgsx.gltf.scene3d.shaders.PBRShaderProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,6 +95,17 @@ public final class GaragePreview implements Disposable {
      * garage and the panels are drawn over the rest, and without clipping the car's wheels appear
      * behind the vehicle list.
      */
+    /**
+     * Forces the next {@link #render} to rebuild, whatever id it is given.
+     *
+     * <p>The rebuild is keyed on the assembly id, which is exactly right when the player picks a
+     * different vehicle and exactly wrong when they re-arm the one they are looking at: a
+     * configured vehicle keeps its id while its part list changes underneath it.
+     */
+    public void invalidate() {
+        builtFor = null;
+    }
+
     public void render(AssetId assemblyId, float frameDeltaSeconds, int x, int y, int width, int height) {
         if (assemblyId == null || width <= 0 || height <= 0) {
             return;
@@ -180,24 +194,48 @@ public final class GaragePreview implements Disposable {
         }
 
         int wheelCount = countWheels(assembly, assets);
-        for (AssemblyDef.PartPlacement placement : assembly.parts()) {
-            // Only parts bolted straight to the chassis. Sub-slots would need the chain walked, and
-            // nothing shipped has one — when something does, this becomes the same recursion
-            // SlotChain already performs and should borrow it rather than repeat it.
-            if (!placement.isOnChassis() || chassis == null) {
+        if (chassis == null) {
+            measure();
+            return;
+        }
+
+        // The slot chain, walked. This used to place only the parts bolted straight to the chassis,
+        // on the grounds that nothing shipped had a sub-slot; a modular weapon is an assembly of its
+        // own (D17-S5.8), so a machine gun's barrel hangs three deep and simply did not appear.
+        //
+        // Ascending slot-path order is topological (D08-R11), so one forward pass suffices: a
+        // parent's transform is always resolved before any child asks for it.
+        Map<String, Matrix4> transformByPath = new HashMap<>();
+        Map<String, PartType> typeByPath = new HashMap<>();
+        transformByPath.put(SlotChain.ROOT_SLOT_PATH, new Matrix4());
+        typeByPath.put(SlotChain.ROOT_SLOT_PATH, chassis);
+
+        List<AssemblyDef.PartPlacement> ordered = new ArrayList<>(assembly.parts());
+        ordered.sort(Comparator.comparing(AssemblyDef.PartPlacement::slotPath));
+
+        for (AssemblyDef.PartPlacement placement : ordered) {
+            Matrix4 parentTransform = transformByPath.get(placement.parentSlotPath());
+            PartType parentType = typeByPath.get(placement.parentSlotPath());
+            if (parentTransform == null || parentType == null) {
                 continue;
             }
-            SlotDefinition slot = chassis.slots().get(placement.parentSlotId());
-            ModelInstance instance = partModels.instanceOf(placement.partTypeId());
+            SlotDefinition slot = parentType.slots().get(placement.parentSlotId());
             PartType part = assets.partType(placement.partTypeId());
-            if (slot == null || instance == null) {
+            if (slot == null || part == null) {
                 continue;
             }
             Matrix4 local = new Matrix4();
-            Transform transform = slot.localTransform();
-            transform.toMatrix(local);
+            slot.localTransform().toMatrix(local);
             local.translate(0f, -suspensionDrop(part, wheelCount), 0f);
-            placed.add(new Placed(instance, local));
+
+            Matrix4 world = new Matrix4(parentTransform).mul(local);
+            transformByPath.put(placement.slotPath(), world);
+            typeByPath.put(placement.slotPath(), part);
+
+            ModelInstance instance = partModels.instanceOf(placement.partTypeId());
+            if (instance != null) {
+                placed.add(new Placed(instance, world));
+            }
         }
 
         measure();

@@ -94,7 +94,7 @@ class RideHeightTest {
     void bothShippedVehiclesSettleOnTheirWheels() {
         for (VehicleProfile profile : VehicleProfiles.all()) {
             try (ShippedContentScene scene = new ShippedContentScene(11L)) {
-                int vehicle = scene.spawn(profile, new Vector3(0f, 0.05f, 0f));
+                int vehicle = scene.spawnUnarmed(profile, new Vector3(0f, 0.05f, 0f));
                 scene.step(240);
 
                 VehicleChassisComponent chassis = scene.world().getComponent(vehicle, VehicleChassisComponent.class);
@@ -155,7 +155,7 @@ class RideHeightTest {
     @Test
     void wheelRadiiComeFromTheRealTyres() {
         try (ShippedContentScene scene = new ShippedContentScene(3L)) {
-            int vehicle = scene.spawn(VehicleProfiles.ECLIPSE, new Vector3(0f, 0.05f, 0f));
+            int vehicle = scene.spawnUnarmed(VehicleProfiles.ECLIPSE, new Vector3(0f, 0.05f, 0f));
             scene.step(2);
             VehicleChassisComponent chassis = scene.world().getComponent(vehicle, VehicleChassisComponent.class);
             for (int i = 0; i < chassis.wheelCount; i++) {

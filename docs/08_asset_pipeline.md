@@ -129,6 +129,8 @@ art-source/
     "muzzleLocal": { "x": 0.0, "y": 0.2, "z": 0.9 }
   },
   "articulation": {
+    "motion": "HINGE",
+    "driver": "OPEN",
     "axisLocal": { "x": 0.0, "y": 1.0, "z": 0.0 },
     "pivotLocal": { "x": 0.0, "y": 0.0, "z": 0.0 },
     "openDeg": 62.0
@@ -177,7 +179,7 @@ art-source/
 | `slots[].slotId` | string | unique within the part; `^[a-z][a-z0-9_]{1,31}$` |
 | `slots[].localRotationDeg` | object | degrees with explicit `order` (D00-R17) |
 | `slots[].covers` | string[] | each must be a `slotId` on the **same** part |
-| `articulation` | object | optional; present on a part that opens rather than merely detaching (D15-S5.6). `axisLocal` is a unit axis and `pivotLocal` a point on it, both in the part's own space; `openDeg` is the signed angle it opens to, and its sign is the direction — a left door and a right door hinge about the same axis in opposite directions. It is **data on the part and not an armature** (D15-R30): the game already composes parts down a slot chain, so an opening door is a slot whose local rotation animates, and a second transform hierarchy would be one the runtime never reads. Articulation and detachment are independent (D15-R31): the hinge angle is cosmetic state and the attachment is authoritative (G6). |
+| `articulation` | object | optional; present on a part that **moves** rather than merely detaching — a door that opens (D15-S5.6), a barrel that recoils, a feed drum that turns (D17-S4.4). `motion` is one of `HINGE`, `RECOIL`, `SPIN`, `INDEX`, `ELEVATE` and defaults to `HINGE`; `driver` is one of `OPEN`, `FIRE`, `CONTINUOUS`, `AIM` and defaults to `OPEN`; `axisLocal` is a unit axis and `pivotLocal` a point on it, both in the part's own space. The remaining fields belong to the motion: `openDeg` is the signed angle a `HINGE` opens to, and its sign is the direction — a left door and a right door hinge about the same axis in opposite directions; `travelM` and `returnSeconds` are how far a `RECOIL` slides and how long it takes to return; `rateDegPerSec` is how fast a `SPIN` turns; `indexSteps` how many positions an `INDEX` steps through; `travelDeg` the limit an `ELEVATE` tracks within. It is **data on the part and not an armature** (D15-R30): the game already composes parts down a slot chain, so a moving part is a slot whose local transform animates, and a second transform hierarchy would be one the runtime never reads. Articulation and detachment are independent (D15-R31): the pose is cosmetic state and the attachment is authoritative (G6), and a `DESTROYED` or `DETACHED` part is not articulated at all (D17-R15). |
 | `yieldImpulseN` | number | optional; present on a `structural` part. The impulse in N·s at which the part starts to buckle, deliberately in the same unit as `breakImpulseN` so that "the frame buckles before the mounts shear" is a statement about two numbers rather than two scales (D15-R34). |
 | `assets.*` | path | relative to the part directory; each must exist |
 | `assets.morphTargets` | string[] | 0 or 4 entries; if 4, must be exactly the canonical names |
@@ -515,6 +517,9 @@ function AssetRegistry.load(assetRoot, headless):
 | A217 | ERROR | `weapon.family` is not a `WeaponFamily`, or is `RAM` — which is a chassis property, not a part |
 | A218 | ERROR | A `module` block on a part that is not a `UTILITY` |
 | A219 | ERROR | `module.family` is not a `ModuleFamily`, or its charges or radius are out of range |
+| A220 | WARN | An `articulation` block is malformed — unknown `motion` or `driver`, a non-unit axis, or a field the motion needs and does not have. The part loads static (D17-R14) |
+| A221 | ERROR | `sizeClass` is not a `SizeClass` on a part or on a slot definition (D17-S4.3) |
+| A222 | ERROR | A `<weaponId>.weapon.json` cannot be read, or names no sub-part labelled `mount`. The weapon's parts still load and a vehicle already carrying it still works; what is lost is the ability to fit it to anything else (D17-R16) |
 | **A3xx — assembly semantics** | | |
 | A301 | ERROR | Not exactly one root, or root is not a `chassis` |
 | A302 | ERROR | Part count exceeds `MAX_PARTS_PER_VEHICLE` |
@@ -531,6 +536,7 @@ function AssetRegistry.load(assetRoot, headless):
 | A313 | WARN | Two armour parts cover the same slot (D05-E4) |
 | A314 | ERROR | `unlockLevel < 0` or references an unknown class |
 | A315 | ERROR | An assembly references a part owned by a **different** vehicle (D08-R14b) |
+| A316 | ERROR | Part `sizeClass` exceeds the slot's `sizeClass` — a slot accepts its own class and below (D17-R7) |
 | **A4xx — arena** | | |
 | A401 | ERROR | Spawn point outside `bounds` |
 | A402 | ERROR | `clearanceRadiusM < MIN_SPAWN_SEPARATION_M` |

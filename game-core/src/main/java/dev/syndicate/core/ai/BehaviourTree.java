@@ -45,7 +45,25 @@ public final class BehaviourTree {
     /** How far past a target a bot drives when closing, so it does not stop short and idle. */
     public static final float ENGAGE_STANDOFF_M = 15.0f;
 
+    /**
+     * How far either side of {@link #ENGAGE_STANDOFF_M} counts as "already at range".
+     *
+     * <p>Inside this band the bot orbits rather than closing or backing off; see
+     * {@link #maintainEngagementRange}.
+     */
+    public static final float ENGAGE_BAND_M = 8.0f;
+
+    /**
+     * How far around the standoff circle an orbiting bot aims, in radians.
+     *
+     * <p>60° puts the destination a chord of {@code 2 · 15 · sin 30° = 15 m} away — outside
+     * {@code ARRIVE_RADIUS_M}, so the bot does not slow for it, and far outside any turning circle
+     * it has.
+     */
+    public static final float ENGAGE_ORBIT_STEP_RAD = (float) (Math.PI / 3.0);
+
     private final Vector3 scratch = new Vector3();
+    private final Vector3 tangent = new Vector3();
 
     /**
      * Runs the tree and leaves its decision on the blackboard.
@@ -101,7 +119,7 @@ public final class BehaviourTree {
             board.aimPoint.set(aimPoint);
             board.wantsToFire = true;
             if (hasDrivableWheels) {
-                board.driveTo(maintainEngagementRange(snapshot, target));
+                board.driveTo(maintainEngagementRange(snapshot, target, forward));
             }
             return BtState.ENGAGE;
         }
@@ -149,21 +167,47 @@ public final class BehaviourTree {
     public static final float RETREAT_DISTANCE_M = 60.0f;
 
     /**
-     * Closes to, or backs off to, a standoff distance.
+     * Closes to, backs off to, or orbits at a standoff distance (D11-S5.1 {@code
+     * MaintainEngagementRange}).
      *
      * <p>Driving <em>at</em> a target means arriving on top of it and then having no room to shoot;
      * driving to a point short of it keeps the bot at a distance where its guns bear. The standoff is
      * expressed as a point rather than as a range check so that the one steering solver handles both
      * "too far" and "too close" without a second branch.
+     *
+     * <p><b>The third case is why this is not two lines.</b> A bot already near standoff gets a
+     * radial destination a couple of metres from where it stands — which is <em>inside its own
+     * turning circle</em>, so no steering angle reaches it. The solver answers with full lock and,
+     * because the bot never gets above {@code CREEP_SPEED_MPS}, the creep floor keeps feeding it
+     * just enough throttle to scrub round at walking pace. The bot shuffles back and forth for the
+     * rest of the match: 18 m travelled in 12 seconds while its opponents covered 118 m
+     * (DISC-059). Every metre of that band is reachable only tangentially, so inside it the bot
+     * orbits instead — which is also the better tactic, a stationary vehicle at 15 m being a free
+     * kill.
+     *
+     * <p>Which way round is decided by the bot's own nose rather than by a draw: whichever tangent
+     * needs the smaller turn, and the left-hand one when the two are exactly equal. That is
+     * deterministic (G3) and it varies between bots without needing a random stream.
      */
-    private Vector3 maintainEngagementRange(SensorSnapshot snapshot, PerceivedTarget target) {
+    private Vector3 maintainEngagementRange(SensorSnapshot snapshot, PerceivedTarget target, Vector3 forward) {
         scratch.set(snapshot.selfPosition).sub(target.position);
         scratch.y = 0f;
         float distance = scratch.len();
         if (distance < 0.001f) {
             return target.position;
         }
-        return scratch.scl(ENGAGE_STANDOFF_M / distance).add(target.position);
+        if (Math.abs(distance - ENGAGE_STANDOFF_M) > ENGAGE_BAND_M) {
+            return scratch.scl(ENGAGE_STANDOFF_M / distance).add(target.position);
+        }
+        scratch.scl(1f / distance);
+        // The radial direction rotated a quarter turn about world up.
+        tangent.set(-scratch.z, 0f, scratch.x);
+        float sense = forward.x * tangent.x + forward.z * tangent.z >= 0f ? 1f : -1f;
+        float cos = (float) Math.cos(ENGAGE_ORBIT_STEP_RAD);
+        float sin = (float) Math.sin(ENGAGE_ORBIT_STEP_RAD) * sense;
+        return scratch.scl(ENGAGE_STANDOFF_M * cos)
+                .mulAdd(tangent, ENGAGE_STANDOFF_M * sin)
+                .add(target.position);
     }
 
     private void engageOpportunistically(

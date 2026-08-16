@@ -57,6 +57,7 @@ import dev.syndicate.model.CollisionLayer;
 import dev.syndicate.model.DamageState;
 import dev.syndicate.model.PartCategory;
 import dev.syndicate.model.SimulationConstants;
+import dev.syndicate.model.SizeClass;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -239,7 +240,7 @@ public final class DestructionTestScene implements AutoCloseable {
         hitResolution = new HitResolution(shapes);
         damageApplication = new DamageApplication(assets, hitResolution);
         projectileImpact = new ProjectileImpact(physics, assets, hitResolution);
-        weaponSystem = new WeaponSystem(assets, projectileImpact, true);
+        weaponSystem = new WeaponSystem(assets, projectileImpact, physics, true);
         projectileSystem = new ProjectileSystem(projectileImpact, true);
         collisionEventSystem = new CollisionEventSystem(physics, assets, hitResolution);
         damageSystem = new DamageSystem(assets, damageApplication);
@@ -485,7 +486,13 @@ public final class DestructionTestScene implements AutoCloseable {
             Transform offset = new Transform();
             offset.position.set(spec.localPosition());
             parent.slot(new SlotDefinition(
-                    spec.slotId(), slotTypeFor(spec.category()), offset, TEST_SLOT_MAX_MASS_KG, List.of(), true));
+                    spec.slotId(),
+                    slotTypeFor(spec.category()),
+                    offset,
+                    TEST_SLOT_MAX_MASS_KG,
+                    SizeClass.HEAVY,
+                    List.of(),
+                    true));
             placements.add(new AssemblyDef.PartPlacement(
                     spec.slotPath(),
                     parentPath,

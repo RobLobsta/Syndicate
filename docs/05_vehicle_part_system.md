@@ -112,10 +112,14 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 | `localPosition` | Vector3 | metres, part-local | Attachment origin |
 | `localRotation` | Quaternion | unit | Attachment orientation |
 | `maxMassKg` | float | > 0 | Refuses parts heavier than this |
+| `sizeClass` | `SizeClass` | enum, default `MEDIUM` | The largest class of part this slot will hold (D17-S4.3) |
 | `covers` | string[] | slot ids on the same part | Armour semantics (D05-R13) |
 | `isDetachable` | bool | — | False only for the chassis root |
 
-**R9.** `SlotType` values and compatibility:
+**R9.** `SlotType` values and compatibility. A slot type says *what kind of thing* may attach; it
+deliberately does not say *how big a thing*, which is `sizeClass` (D17-S4.3) and which is a separate
+gate applied on top of this table. Both must pass, along with `maxMassKg`.
+
 
 | `SlotType` | Accepts categories | Typical count on a chassis |
 |---|---|---|
@@ -158,6 +162,7 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 | `armorValue` | float | — | ≥ 0 | Flat mitigation (D07-S5.2) |
 | `materialId` | AssetId | — | must resolve | Density + damage-type modifiers |
 | `slotTypeRequired` | `SlotType` | — | enum | What slot it can occupy |
+| `sizeClass` | `SizeClass` | — | enum, default `MEDIUM` | How bulky it is; a slot accepts its own class and below (D17-S4.3) |
 | `slots` | Slot[] | — | ≤ 8 per part | Slots it offers |
 | `stats` | `StatBlock` | — | — | Its contribution (D05-S4.5) |
 | `degradationProfile` | `DegradationProfile` | — | enum, default by category | D05-S5.4 |

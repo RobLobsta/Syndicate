@@ -1,0 +1,25 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=weapon_machinegun_l_01_muzzle_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 400.0,
+  "category": "DECORATIVE",
+  "destructionClass": "RIGID",
+  "displayName": "Muzzle",
+  "hangsBeforeFalling": false,
+  "massKg": 1.116,
+  "materialId": "steel_hardened",
+  "maxHp": 20.0,
+  "partTypeId": "weapon_machinegun_l_01_muzzle",
+  "powerCost": 8.62,
+  "schemaVersion": "1.0.0",
+  "sizeClass": "LIGHT",
+  "slotTypeRequired": "SUBSLOT",
+  "tags": [
+    "weapon",
+    "muzzle",
+    "prepared"
+  ]
+}

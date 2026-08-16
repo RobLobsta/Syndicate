@@ -11,6 +11,7 @@ import dev.syndicate.core.vehicle.StatBlock;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.DestructionClass;
 import dev.syndicate.model.PartCategory;
+import dev.syndicate.model.SizeClass;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
@@ -43,6 +44,7 @@ public final class PartType {
     private final AssetId materialId;
     private final DestructionClass destructionClass;
     private final SlotType slotTypeRequired;
+    private final SizeClass sizeClass;
     private final float massKg;
     private final float maxHp;
     private final float armorValue;
@@ -66,6 +68,7 @@ public final class PartType {
                 ? DestructionClass.forCategory(builder.category)
                 : builder.destructionClass;
         this.slotTypeRequired = Objects.requireNonNull(builder.slotTypeRequired, "slotTypeRequired");
+        this.sizeClass = builder.sizeClass == null ? SizeClass.DEFAULT : builder.sizeClass;
         this.massKg = builder.massKg;
         this.maxHp = builder.maxHp;
         this.armorValue = builder.armorValue;
@@ -92,6 +95,17 @@ public final class PartType {
     /** Drives slot compatibility, the degradation curve, and whether the part is compound geometry. */
     public PartCategory category() {
         return category;
+    }
+
+    /**
+     * How bulky this part is, and therefore which slots will hold it (docs/17_weapon_system.md#D17-S4.3).
+     *
+     * <p>A slot accepts its own class and every class below it, so this is compared against the
+     * slot's ceiling rather than for equality. Defaults to {@link SizeClass#DEFAULT} for every part
+     * authored before D17, which is what let the gate be added without rewriting shipped content.
+     */
+    public SizeClass sizeClass() {
+        return sizeClass;
     }
 
     /** Resolves in the material table; drives density and the damage-type modifiers of D07-S4.3. */
@@ -289,6 +303,7 @@ public final class PartType {
         private AssetId materialId;
         private DestructionClass destructionClass;
         private SlotType slotTypeRequired;
+        private SizeClass sizeClass = SizeClass.DEFAULT;
         private float massKg = 1f;
         private float maxHp = 100f;
         private float armorValue;
@@ -323,6 +338,12 @@ public final class PartType {
 
         public Builder slotTypeRequired(SlotType value) {
             this.slotTypeRequired = value;
+            return this;
+        }
+
+        /** D17-S4.3. Null restores the default rather than clearing it, because there is no "no class". */
+        public Builder sizeClass(SizeClass value) {
+            this.sizeClass = value == null ? SizeClass.DEFAULT : value;
             return this;
         }
 

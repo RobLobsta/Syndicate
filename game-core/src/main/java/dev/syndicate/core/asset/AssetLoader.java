@@ -27,6 +27,7 @@ import dev.syndicate.model.GameMode;
 import dev.syndicate.model.ModuleFamily;
 import dev.syndicate.model.PartCategory;
 import dev.syndicate.model.SimulationConstants;
+import dev.syndicate.model.SizeClass;
 import dev.syndicate.model.WeaponFamily;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -41,6 +42,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -145,6 +147,9 @@ public final class AssetLoader {
         for (Path directory : AssetPaths.partDirectories(assetRoot)) {
             loadPart(directory, index);
         }
+        // After the parts they name and before the assemblies that fit them: a weapon manifest is a
+        // tree of part ids, and an assembly may carry a weapon the garage will later swap out.
+        loadWeapons(AssetPaths.sharedPartsRoot(assetRoot), index);
         for (Path directory : AssetPaths.vehicleDirectories(assetRoot)) {
             loadAssembly(directory, index);
         }
@@ -153,9 +158,10 @@ public final class AssetLoader {
         }
         loadBotDifficulties(assetRoot.resolve("balance").resolve("bot_difficulty.json"), index);
         LOG.info(
-                "loaded {} materials, {} part types, {} assemblies, {} arenas from {} ({} findings)",
+                "loaded {} materials, {} part types, {} weapons, {} assemblies, {} arenas from {} ({} findings)",
                 index.materials().size(),
                 index.partTypes().size(),
+                index.weapons().size(),
                 index.assemblies().size(),
                 index.arenas().size(),
                 assetRoot,
@@ -274,6 +280,95 @@ public final class AssetLoader {
 
     // ---- Parts (D08-S4.2) ------------------------------------------------------------
 
+    // ---- Modular weapons (D17-R16) ---------------------------------------------------
+
+    /**
+     * Reads every {@code parts/<weaponId>.weapon.json} into the index (D17-R16).
+     *
+     * <p>D17-R16 originally called the manifest a build artefact and not a runtime input, on the
+     * reasoning that the game loads {@code part.json} files and an assembly already says which
+     * sub-part sits where. That held until the garage let a player <em>choose</em> a weapon: fitting
+     * one that is currently on no vehicle means constructing its subtree, and the manifest is the
+     * only place that tree is written down. It is read for the tree and for the three facts the
+     * garage gates on — family, size class and mass — and for nothing else; every part still comes
+     * from its own {@code part.json}.
+     *
+     * <p>A malformed manifest is skipped with A222 rather than failing the load. The weapon's parts
+     * are still there and any vehicle that already carries it still works; what is lost is the
+     * ability to fit it to something else, which is a smaller failure than no content at all (G18).
+     */
+    private void loadWeapons(Path sharedPartsRoot, InMemoryAssetIndex index) {
+        if (!Files.isDirectory(sharedPartsRoot)) {
+            return;
+        }
+        List<Path> manifests = new ArrayList<>();
+        try (java.util.stream.Stream<Path> entries = Files.list(sharedPartsRoot)) {
+            entries.filter(path -> path.getFileName().toString().endsWith(".weapon.json"))
+                    .forEach(manifests::add);
+        } catch (IOException e) {
+            issues.add(ValidationIssue.warn("A222", sharedPartsRoot.toString(), "cannot list weapon manifests"));
+            return;
+        }
+        // Sorted, so two runs register weapons in the same order and any id collision resolves the
+        // same way on every machine (G3).
+        manifests.sort(Comparator.comparing(Path::toString));
+        for (Path file : manifests) {
+            WeaponDef weapon = readWeapon(file);
+            if (weapon != null) {
+                index.put(weapon);
+            }
+        }
+    }
+
+    private WeaponDef readWeapon(Path file) {
+        String name = file.getFileName().toString();
+        String id = name.substring(0, name.length() - ".weapon.json".length());
+        JsonNode root = readJson(file, id);
+        if (root == null) {
+            return null;
+        }
+        AssetId weaponId = assetId(root.path("weaponId").asText(null), id);
+        if (weaponId == null) {
+            return null;
+        }
+        WeaponFamily family = enumValue(WeaponFamily.class, root.path("family").asText(null));
+        SizeClass sizeClass = SizeClass.parse(root.path("sizeClass").asText(null));
+        if (sizeClass == null) {
+            issues.add(ValidationIssue.error(
+                    "A221",
+                    weaponId.value(),
+                    "sizeClass " + root.path("sizeClass").asText() + " is not a size class"));
+            return null;
+        }
+
+        // label -> partTypeId, and label -> parent label, read from the two arrays the tool writes.
+        Map<String, AssetId> byLabel = new TreeMap<>();
+        for (JsonNode part : root.path("parts")) {
+            AssetId partTypeId = assetId(part.path("partTypeId").asText(null), weaponId.value());
+            String label = part.path("name").asText(null);
+            if (partTypeId != null && label != null) {
+                byLabel.put(label, partTypeId);
+            }
+        }
+        AssetId rootPartTypeId = byLabel.get(WeaponDef.ROOT_LABEL);
+        if (rootPartTypeId == null) {
+            issues.add(ValidationIssue.error(
+                    "A222", weaponId.value(), "no sub-part labelled " + WeaponDef.ROOT_LABEL + " (D17-R4)"));
+            return null;
+        }
+        List<WeaponDef.SubPart> subParts = new ArrayList<>();
+        for (JsonNode seam : root.path("seams")) {
+            String parent = seam.path("parent").asText(null);
+            String child = seam.path("child").asText(null);
+            AssetId childId = child == null ? null : byLabel.get(child);
+            if (parent != null && childId != null) {
+                subParts.add(new WeaponDef.SubPart(parent, child, childId));
+            }
+        }
+        float totalMassKg = (float) root.path("totalMassKg").asDouble(0.0);
+        return new WeaponDef(weaponId, family, sizeClass, totalMassKg, rootPartTypeId, subParts);
+    }
+
     /** Reads one part directory's {@code part.json}, from either bucket (D08-R14b). */
     public void loadPart(Path partDirectory, InMemoryAssetIndex index) {
         Path file = partDirectory.resolve("part.json");
@@ -357,6 +452,16 @@ public final class AssetLoader {
         readWeapon(root.path("weapon"), partTypeId, category, builder);
         readModule(root.path("module"), partTypeId, category, builder);
         readDegradationOverrides(root.path("degradationOverrides"), partTypeId, builder);
+        SizeClass partSizeClass = SizeClass.parse(root.path("sizeClass").asText(null));
+        if (partSizeClass == null) {
+            issues.add(ValidationIssue.error(
+                    "A221",
+                    partTypeId.value(),
+                    "sizeClass \"" + root.path("sizeClass").asText() + "\" is not a SizeClass (D17-S4.3)"));
+        } else {
+            builder.sizeClass(partSizeClass);
+        }
+
         readSlots(root.path("slots"), partTypeId, builder);
 
         String manifestFile = root.path("assets").path("fractureManifest").asText(null);
@@ -631,6 +736,18 @@ public final class AssetLoader {
                         "A102", partTypeId.value(), "slot " + slotId + " has maxMassKg " + maxMassKg));
                 continue;
             }
+            // A221: an absent field is the D17-R8 default; a misspelled one is a defect, and the
+            // difference between those two is the whole reason `parse` returns null rather than
+            // falling back silently.
+            SizeClass sizeClass = SizeClass.parse(node.path("sizeClass").asText(null));
+            if (sizeClass == null) {
+                issues.add(ValidationIssue.error(
+                        "A221",
+                        partTypeId.value(),
+                        "slot " + slotId + " has sizeClass \""
+                                + node.path("sizeClass").asText() + "\", which is not a SizeClass (D17-S4.3)"));
+                continue;
+            }
             List<String> covers = new ArrayList<>();
             for (JsonNode covered : node.path("covers")) {
                 covers.add(covered.asText());
@@ -640,6 +757,7 @@ public final class AssetLoader {
                     slotType,
                     readTransform(node),
                     maxMassKg,
+                    sizeClass,
                     covers,
                     node.path("isDetachable").asBoolean(true)));
         }

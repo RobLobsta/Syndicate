@@ -22,6 +22,7 @@ import dev.syndicate.core.component.SlotGraphComponent;
 import dev.syndicate.core.component.TransformComponent;
 import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.component.WeaponControllerComponent;
+import dev.syndicate.core.damage.FiringImpulse;
 import dev.syndicate.core.damage.ProjectileImpact;
 import dev.syndicate.core.damage.WeaponFiredEvent;
 import dev.syndicate.core.ecs.ComponentQuery;
@@ -31,6 +32,7 @@ import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.Family;
 import dev.syndicate.core.ecs.Phase;
 import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.physics.PhysicsWorld;
 import dev.syndicate.core.util.Pcg32;
 import dev.syndicate.core.util.StreamId;
 import dev.syndicate.core.vehicle.PartPlacement;
@@ -82,6 +84,7 @@ public final class WeaponSystem implements EntitySystem {
 
     private final AssetIndex assets;
     private final ProjectileImpact impacts;
+    private final PhysicsWorld physics;
     private final boolean authority;
 
     private Family weapons;
@@ -93,12 +96,15 @@ public final class WeaponSystem implements EntitySystem {
     private final Vector3 scratchAim = new Vector3();
 
     /**
+     * @param physics the world recoil is queued on (D17-S5.12). Queued rather than applied, so the
+     *     kick lands in {@code PhysicsSystem}'s sorted drain and not in the middle of slot 8
      * @param authority true on a process that owns the world's damage; false for the client-side
      *     predicted variant, which spawns projectiles for the look of them and resolves no hits
      */
-    public WeaponSystem(AssetIndex assets, ProjectileImpact impacts, boolean authority) {
+    public WeaponSystem(AssetIndex assets, ProjectileImpact impacts, PhysicsWorld physics, boolean authority) {
         this.assets = Objects.requireNonNull(assets, "assets");
         this.impacts = Objects.requireNonNull(impacts, "impacts");
+        this.physics = Objects.requireNonNull(physics, "physics");
         this.authority = authority;
     }
 
@@ -213,7 +219,7 @@ public final class WeaponSystem implements EntitySystem {
             // second rather than per shot, so the beam's damage scales with the tick it burned for
             // — otherwise a laser's damage would depend on the tick rate (G2).
             float amount = block.family().isContinuous() ? damagePerShot * dtSeconds : damagePerShot;
-            impacts.resolveHitscan(
+            ProjectileImpact.Sweep sweep = impacts.resolveHitscan(
                     world,
                     scratchMuzzle,
                     scratchAim,
@@ -225,7 +231,19 @@ public final class WeaponSystem implements EntitySystem {
                     ownerPlayer,
                     weapon.groupIndex,
                     tick);
+            // A hitscan shot still carries momentum (D17-R58). Its speed is the family's nominal one,
+            // because a shot that arrives in the tick it was fired has no travelling entity to read a
+            // speed from — a shotgun kicks, a laser does not, and the family table is what says which.
+            if (sweep.hasHit()) {
+                impacts.queueKnockback(world, sweep.hitEntity(), block.family(), 0f, scratchAim, sweep.point());
+            }
         }
+
+        // Recoil (D17-R57). Queued on every peer that runs slot 8, predicted and authoritative alike:
+        // the kick is part of the vehicle's motion, so a client that predicted the shot and not the
+        // shove would reconcile a correction on every trigger pull.
+        FiringImpulse.queueRecoil(
+                physics, world, vehicleEntity, block.family(), projectileSpeed, scratchAim, scratchMuzzle);
 
         // Deferred, not same-tick: PRESENT systems run after the tick, so an emitSameTick event is
         // drained before slot 25 or slot 24 could ever see it (DISC-022). This is the shot's only

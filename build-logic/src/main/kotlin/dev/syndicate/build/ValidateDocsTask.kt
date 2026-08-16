@@ -96,14 +96,14 @@ abstract class ValidateDocsTask : DefaultTask() {
         }
 
         // ---- Pass 3: one file per doc number, required sections ---------------------
-        for (docNumber in 0..16) {
+        for (docNumber in 0..17) {
             val prefix = "%02d".format(docNumber)
             val matching = files.filter { it.name.startsWith("${prefix}_") }
             if (matching.size != 1) {
                 errors += "expected exactly one docs/${prefix}_*.md, found ${matching.size} (D00-S5.3)"
                 continue
             }
-            // D00 is the master index and is exempt: R23 scopes the required nine to D01-D16.
+            // D00 is the master index and is exempt: R23 scopes the required nine to D01-D17.
             if (docNumber > 0) {
                 errors += checkRequiredSections(matching.single())
             }

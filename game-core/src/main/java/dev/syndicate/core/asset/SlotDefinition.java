@@ -6,6 +6,7 @@ package dev.syndicate.core.asset;
 
 import dev.syndicate.core.util.Transform;
 import dev.syndicate.core.vehicle.SlotType;
+import dev.syndicate.model.SizeClass;
 import java.util.List;
 import java.util.Objects;
 
@@ -24,6 +25,10 @@ import java.util.Objects;
  * @param localTransform where the child attaches, in the parent part's local space
  * @param maxMassKg the heaviest part the slot will hold; assembly validation rejects a heavier one
  *     (A306), which is what stops a light chassis from carrying a siege cannon
+ * @param sizeClass the bulkiest part the slot will hold (D17-S4.3). A slot accepts its own class and
+ *     every class below it, so this is a ceiling rather than an equality. Separate from
+ *     {@code maxMassKg} because bulk and load are different questions: a dense small object passes
+ *     this gate and fails that one.
  * @param covers slot ids on the <em>same</em> part that a part in this slot shields (D05-S5.8). An
  *     armour plate's coverage is authored here rather than derived from geometry, because "does this
  *     plate protect that hardpoint" is a design decision, not a raycast.
@@ -34,6 +39,7 @@ public record SlotDefinition(
         SlotType slotType,
         Transform localTransform,
         float maxMassKg,
+        SizeClass sizeClass,
         List<String> covers,
         boolean isDetachable) {
 
@@ -48,14 +54,28 @@ public record SlotDefinition(
             throw new IllegalArgumentException("slot " + slotId + " has maxMassKg " + maxMassKg
                     + "; a slot that can hold nothing is a content error, not an empty slot (A306)");
         }
+        // D17-R8: a slot authored before D17 has no size class and behaves as it always did.
+        sizeClass = sizeClass == null ? SizeClass.DEFAULT : sizeClass;
         // Copied, because a part type is shared by every instance of that part in the match and a
         // caller that could mutate the offset afterwards would move parts on live vehicles.
         localTransform = new Transform().set(localTransform);
         covers = covers == null ? List.of() : List.copyOf(covers);
     }
 
-    /** A slot with no coverage and no rotation, which is the common case. */
+    /** A slot with no coverage, no rotation and the default size class, which is the common case. */
     public static SlotDefinition of(String slotId, SlotType slotType, Transform localTransform, float maxMassKg) {
-        return new SlotDefinition(slotId, slotType, localTransform, maxMassKg, List.of(), true);
+        return new SlotDefinition(slotId, slotType, localTransform, maxMassKg, SizeClass.DEFAULT, List.of(), true);
+    }
+
+    /**
+     * True when this slot will hold a part of {@code category}, {@code massKg} and {@code partSize}
+     * (D17-R7): the slot type, the size class and the mass cap, all three.
+     *
+     * <p>Here rather than in {@code AssemblyValidator} so that the rule has exactly one statement.
+     * The validator reports <em>which</em> of the three failed, which is why it still tests them
+     * separately; anything else asking "does this fit" asks here.
+     */
+    public boolean accepts(dev.syndicate.model.PartCategory category, float massKg, SizeClass partSize) {
+        return slotType.acceptsCategory(category) && massKg <= maxMassKg && sizeClass.accepts(partSize);
     }
 }

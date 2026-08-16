@@ -15,6 +15,7 @@
   "partTypeId": "hub_eclipse_rear_01",
   "powerCost": 3.181,
   "schemaVersion": "1.0.0",
+  "sizeClass": "LIGHT",
   "slotTypeRequired": "HARDPOINT",
   "slots": [],
   "stats": {},

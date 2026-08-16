@@ -152,16 +152,54 @@ class VehicleProfileContentTest {
         }
     }
 
-    /** The assembly's parts sum to the profile's kerb mass — the figure the real car is sold on. */
+    /**
+     * The assembly's <em>vehicle</em> parts sum to the profile's kerb mass — the figure the real car
+     * is sold on.
+     *
+     * <p>Vehicle parts, not every part. A kerb mass is the mass of the car, and a car with a 46 kg
+     * machine gun bolted to its bonnet weighs 46 kg more than its kerb mass — correctly, and that is
+     * what the physics should see. Summing the armament into this assertion would either break the
+     * calibration or, worse, force the shipped weapons to weigh nothing.
+     */
     @Test
     void eachAssemblyWeighsItsProfilesKerbMass() {
         for (VehicleProfile profile : VehicleProfiles.all()) {
             AssemblyDef assembly = assets.assembly(profile.profileId());
             float total = chassisOf(profile).massKg();
             for (AssemblyDef.PartPlacement placement : assembly.parts()) {
+                if (isArmament(placement)) {
+                    continue;
+                }
                 total += assets.partType(placement.partTypeId()).massKg();
             }
             assertThat(total).as("%s kerb mass", profile.displayName()).isCloseTo(profile.kerbMassKg(), within(1f));
+        }
+    }
+
+    /** True for a part from the shared library rather than from this vehicle's own art (DEC-075). */
+    private static boolean isArmament(AssemblyDef.PartPlacement placement) {
+        return placement.partTypeId().value().startsWith("weapon_");
+    }
+
+    /** What the fitted armament adds to a vehicle, in kg. */
+    private float armamentMassKg(VehicleProfile profile) {
+        float total = 0f;
+        for (AssemblyDef.PartPlacement placement :
+                assets.assembly(profile.profileId()).parts()) {
+            if (isArmament(placement)) {
+                total += assets.partType(placement.partTypeId()).massKg();
+            }
+        }
+        return total;
+    }
+
+    /** Every shipped vehicle carries a weapon, and it is not weightless (D17-S1). */
+    @Test
+    void everyShippedVehicleCarriesArmament() {
+        for (VehicleProfile profile : VehicleProfiles.all()) {
+            assertThat(armamentMassKg(profile))
+                    .as("%s armament", profile.displayName())
+                    .isGreaterThan(10f);
         }
     }
 

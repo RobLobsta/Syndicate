@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.badlogic.gdx.math.Vector3;
+import dev.syndicate.core.asset.AssemblyDef;
 import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.component.VehicleStatsComponent;
 import dev.syndicate.core.physics.ShippedContentScene;
@@ -79,10 +80,12 @@ class VehicleProfileCalibrationTest {
     @Test
     void everyShippedVehicleSpawnsAtItsKerbMass() {
         for (VehicleProfile profile : VehicleProfiles.all()) {
-            int vehicle = scene.spawn(profile, SPAWN_POSITION);
+            int vehicle = scene.spawnUnarmed(profile, SPAWN_POSITION);
             scene.step(150);
 
             VehicleChassisComponent chassis = scene.world().getComponent(vehicle, VehicleChassisComponent.class);
+            // Unarmed, so this is the car's own kerb mass. What the armament adds is asserted
+            // separately by armamentAddsMassAndCostsAcceleration below.
             assertThat(chassis.totalMassKg)
                     .as("%s kerb mass", profile.displayName())
                     .isCloseTo(profile.kerbMassKg(), within(1f));
@@ -98,7 +101,7 @@ class VehicleProfileCalibrationTest {
     @Test
     void aggregatedStatsMatchTheProfile() {
         for (VehicleProfile profile : VehicleProfiles.all()) {
-            int vehicle = scene.spawn(profile, SPAWN_POSITION);
+            int vehicle = scene.spawnUnarmed(profile, SPAWN_POSITION);
             scene.step(2);
 
             VehicleStatsComponent stats = scene.world().getComponent(vehicle, VehicleStatsComponent.class);
@@ -125,7 +128,7 @@ class VehicleProfileCalibrationTest {
     @Test
     void eachVehicleReachesHundredKphOnItsPublishedTime() {
         for (VehicleProfile profile : VehicleProfiles.all()) {
-            int vehicle = scene.spawn(profile, SPAWN_POSITION);
+            int vehicle = scene.spawnUnarmed(profile, SPAWN_POSITION);
             scene.step(150);
 
             float measured = scene.timeToSpeed(vehicle, HUNDRED_KPH_MPS, 8f);
@@ -140,7 +143,7 @@ class VehicleProfileCalibrationTest {
     @Test
     void thePowerLimitBitesAboveTheCrossover() {
         VehicleProfile profile = VehicleProfiles.ECLIPSE;
-        int vehicle = scene.spawn(profile, SPAWN_POSITION);
+        int vehicle = scene.spawnUnarmed(profile, SPAWN_POSITION);
         scene.step(150);
 
         VehicleStatsComponent stats = scene.world().getComponent(vehicle, VehicleStatsComponent.class);
@@ -214,7 +217,7 @@ class VehicleProfileCalibrationTest {
     }
 
     private float brakingDistanceOf(VehicleProfile profile) {
-        int vehicle = scene.spawn(profile, SPAWN_POSITION);
+        int vehicle = scene.spawnUnarmed(profile, SPAWN_POSITION);
         scene.step(150);
         scene.accelerateTo(vehicle, HUNDRED_KPH_MPS, 8f);
         float distance = scene.brakeToStop(vehicle, 12f);
@@ -226,5 +229,53 @@ class VehicleProfileCalibrationTest {
     @Test
     void measurementsAreInWholeTicks() {
         assertThat(SimulationConstants.TICK_DT).isCloseTo(1f / 60f, within(1e-6f));
+    }
+
+    /**
+     * What the fitted armament adds to a vehicle, in kg.
+     *
+     * <p>A part from the shared library rather than from the vehicle's own art (DEC-075), which is
+     * exactly the distinction between "the car" and "what the car is carrying".
+     */
+    private float armamentMassKg(VehicleProfile profile) {
+        float total = 0f;
+        for (AssemblyDef.PartPlacement placement :
+                scene.assets().assembly(profile.profileId()).parts()) {
+            if (placement.partTypeId().value().startsWith("weapon_")) {
+                total += scene.assets().partType(placement.partTypeId()).massKg();
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Fitting a weapon costs mass and costs acceleration, and both are measured rather than assumed.
+     *
+     * <p>The counterpart to every assertion above: those measure the car, this measures what
+     * carrying a gun does to it. Without this the switch to {@code spawnUnarmed} would have quietly
+     * removed the armament from the physics tests altogether.
+     */
+    @Test
+    void armamentAddsMassAndCostsAcceleration() {
+        for (VehicleProfile profile : VehicleProfiles.all()) {
+            int bare = scene.spawnUnarmed(profile, SPAWN_POSITION);
+            scene.step(2);
+            float bareMass = scene.world().getComponent(bare, VehicleChassisComponent.class).totalMassKg;
+            float bareAcceleration = scene.world().getComponent(bare, VehicleStatsComponent.class).accelerationMps2;
+            scene.despawn(bare);
+
+            int armed = scene.spawn(profile, SPAWN_POSITION);
+            scene.step(2);
+            float armedMass = scene.world().getComponent(armed, VehicleChassisComponent.class).totalMassKg;
+            float armedAcceleration = scene.world().getComponent(armed, VehicleStatsComponent.class).accelerationMps2;
+            scene.despawn(armed);
+
+            assertThat(armedMass)
+                    .as("%s carries its armament", profile.displayName())
+                    .isGreaterThan(bareMass + 10f);
+            assertThat(armedAcceleration)
+                    .as("%s accelerates less hard armed than bare", profile.displayName())
+                    .isLessThan(bareAcceleration);
+        }
     }
 }

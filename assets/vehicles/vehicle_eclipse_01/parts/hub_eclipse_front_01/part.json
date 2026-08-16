@@ -15,6 +15,7 @@
   "partTypeId": "hub_eclipse_front_01",
   "powerCost": 2.768,
   "schemaVersion": "1.0.0",
+  "sizeClass": "LIGHT",
   "slotTypeRequired": "HARDPOINT",
   "slots": [],
   "stats": {},

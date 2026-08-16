@@ -113,6 +113,16 @@ public final class ProjectileSystem implements EntitySystem {
                     : ProjectileImpact.Sweep.MISS;
 
             if (sweep.hasHit()) {
+                // Knockback before the damage events, so a shot that destroys the part it hits still
+                // shoves the vehicle: `deliver` may find no live part to damage, and the shell's
+                // momentum arrived either way (D17-R58).
+                impacts.queueKnockback(
+                        world,
+                        sweep.hitEntity(),
+                        projectile.family,
+                        motion.velocity.len(),
+                        motion.velocity,
+                        sweep.point());
                 impacts.deliver(
                         world,
                         sweep.hitEntity(),

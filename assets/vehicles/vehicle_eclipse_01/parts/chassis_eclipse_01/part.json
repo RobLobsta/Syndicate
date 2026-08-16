@@ -331,6 +331,7 @@
         "z": 0.0
       },
       "maxMassKg": 120.0,
+      "sizeClass": "MEDIUM",
       "slotId": "hardpoint_bonnet",
       "slotType": "HARDPOINT"
     },
@@ -346,9 +347,10 @@
         "order": "XYZ",
         "x": 0.0,
         "y": 0.0,
-        "z": 0.0
+        "z": 180.0
       },
       "maxMassKg": 120.0,
+      "sizeClass": "LIGHT",
       "slotId": "hardpoint_flank_l",
       "slotType": "HARDPOINT"
     },
@@ -364,9 +366,10 @@
         "order": "XYZ",
         "x": 0.0,
         "y": 0.0,
-        "z": 0.0
+        "z": 180.0
       },
       "maxMassKg": 120.0,
+      "sizeClass": "LIGHT",
       "slotId": "hardpoint_flank_r",
       "slotType": "HARDPOINT"
     },
@@ -385,6 +388,7 @@
         "z": 0.0
       },
       "maxMassKg": 120.0,
+      "sizeClass": "MEDIUM",
       "slotId": "hardpoint_rear",
       "slotType": "HARDPOINT"
     },
@@ -403,6 +407,7 @@
         "z": 0.0
       },
       "maxMassKg": 32.1,
+      "sizeClass": "LIGHT",
       "slotId": "hub_fl",
       "slotType": "HARDPOINT"
     },
@@ -421,6 +426,7 @@
         "z": 0.0
       },
       "maxMassKg": 32.1,
+      "sizeClass": "LIGHT",
       "slotId": "hub_fr",
       "slotType": "HARDPOINT"
     },
@@ -439,6 +445,7 @@
         "z": 0.0
       },
       "maxMassKg": 36.9,
+      "sizeClass": "LIGHT",
       "slotId": "hub_rl",
       "slotType": "HARDPOINT"
     },
@@ -457,6 +464,7 @@
         "z": 0.0
       },
       "maxMassKg": 36.9,
+      "sizeClass": "LIGHT",
       "slotId": "hub_rr",
       "slotType": "HARDPOINT"
     },
@@ -582,7 +590,8 @@
         "y": 0.0,
         "z": 0.0
       },
-      "maxMassKg": 120.0,
+      "maxMassKg": 300.0,
+      "sizeClass": "HEAVY",
       "slotId": "turret_main",
       "slotType": "TURRET_MOUNT"
     },

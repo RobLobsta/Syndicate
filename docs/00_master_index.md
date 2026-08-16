@@ -44,7 +44,7 @@ This document does not specify game systems directly. It constrains the document
 
 | Dependency | Kind | Notes |
 |---|---|---|
-| D01–D16 | Internal | This index summarises and constrains them. |
+| D01–D17 | Internal | This index summarises and constrains them. |
 | Markdown (CommonMark + GFM tables) | Format | All docs are GFM Markdown. |
 | Git | Tooling | Docs and `.agent-memory/` are version controlled. |
 
@@ -101,6 +101,7 @@ The section path `99.9` is **reserved and never allocated in any document**. It 
 | D14 | `14_test_environment.md` | Verification harness, checks, tolerances, fixtures, report schema |
 | D15 | `15_vehicle_preparation_pipeline.md` | Vehicle segmentation, labelling, geometry repair, rigging, destruction authoring, audio inventory |
 | D16 | `16_procedural_arena_generation.md` | Terrain, sky, road corridors, ground surfaces, structure placement and destructible structures |
+| D17 | `17_weapon_system.md` | Weapon preparation, sub-part taxonomy, articulation, size-class slot gating, firing impulses |
 
 <!-- D00-S4.3 -->### 4.3 Units and Numeric Conventions
 
@@ -475,23 +476,35 @@ replicated, chunked rendering with generated tiling textures, an analytic sky th
 image-based lighting, sun and fog from one set of numbers, and destructible structures specified as
 assemblies so that the existing damage, fracture and detach systems break them with no new system.
 
+<!-- D00-S7.17 -->### 7.17 `17_weapon_system.md` (D17)
+
+Specifies how a downloaded weapon model becomes a playable modular weapon, and the four runtime
+behaviours such a weapon needs: the closed weapon sub-part taxonomy and the slot graph that makes a
+weapon an assembly rather than a part, the bore-axis frame correction and the size-class target
+lengths, the four-family weapon cue ensemble built around position along the bore, the seam rule that
+puts a slot at the contact-region centroid so a fitted weapon shows no join, cosmetic articulation as
+a per-label table of motion, axis and driver, size class as the gate that decides which weapons fit
+which mounts, family and stat derivation from bore geometry against D01's balance table, recoil on the
+firing vehicle and knockback on the struck one as momentum-derived impulses applied off the centre of
+mass, and the sub-part damage table that degrades a weapon without ever silencing it.
+
 ---
 
 <!-- D00-S8 -->## 8. Acceptance Criteria
 
 A conforming documentation set satisfies all of the following. Each is mechanically checkable.
 
-- [ ] **AC-D00-1.** Exactly 17 files exist in `docs/`, named per D00-S4.2.
+- [ ] **AC-D00-1.** Exactly 18 files exist in `docs/`, named per D00-S4.2.
 - [ ] **AC-D00-2.** Every `##`/`###`/`####` header in `docs/` is preceded by a stable ID comment matching the grammar in D00-S4.1.
 - [ ] **AC-D00-3.** Every ID's document number matches its containing file's numeric prefix.
 - [ ] **AC-D00-4.** All IDs are globally unique.
 - [ ] **AC-D00-5.** Every citation of the form `docs/*.md#Dxx-Sy` resolves to a declared ID in the named file.
-- [ ] **AC-D00-6.** Every document D01–D16 contains the nine required top-level sections in order (D00-S5.4).
+- [ ] **AC-D00-6.** Every document D01–D17 contains the nine required top-level sections in order (D00-S5.4).
 - [ ] **AC-D00-7.** Every glossary term used in another document carries the D00-S6 meaning; no document defines a conflicting meaning for a glossary term.
 - [ ] **AC-D00-8.** No document restates a constant from D00-S6.4 with a different value.
 - [ ] **AC-D00-9.** No document specifies a unit contradicting D00-S4.3.
 - [ ] **AC-D00-10.** Each of G1–G20 is honoured by at least one concrete mechanism specified in a downstream document, and contradicted by none.
-- [ ] **AC-D00-11.** `CLAUDE.md` and `JULES.md` exist in the repository root and list all 17 documents.
+- [ ] **AC-D00-11.** `CLAUDE.md` and `JULES.md` exist in the repository root and list all 18 documents.
 - [ ] **AC-D00-12.** `.agent-memory/INDEX.md` exists and conforms to D13-S4.3.
 - [ ] **AC-D00-13.** Running `validateCrossReferences(docs/)` (D00-S5.3) returns OK.
 
@@ -503,7 +516,7 @@ A conforming documentation set satisfies all of the following. Each is mechanica
 |---|---|---|
 | E1 | Two documents define the same term differently | Blocking documentation defect. Resolve by D00-S5.1; the glossary in D00-S6 wins. |
 | E2 | A citation points to a retired ID | CI cross-reference check fails; the citing document must be updated. Retired IDs are never silently reused. |
-| E3 | A new document is proposed (D17+) | Not permitted without updating D00-S4.2 and both root operational files in the same change. |
+| E3 | A new document is proposed (D18+) | Not permitted without updating D00-S4.2 and both root operational files in the same change. |
 | E4 | An implementer needs a constant not in D00-S6.4 | Define it in the owning document, not here. Only *cross-cutting* constants live in D00-S6.4. |
 | E5 | A downstream doc needs a different tick rate for a mode | Not permitted. `TICK_RATE_HZ` is global (G2). A mode may change *snapshot* rate only. |
 | E6 | Blender authoring convention changes (e.g. Z-up removed) | Only D08/D09 change; R14–R16 remain, because the runtime convention is independent of the authoring tool. |
@@ -527,7 +540,7 @@ A conforming documentation set satisfies all of the following. Each is mechanica
 | T-D00-7 | Grep all docs for "shard" used to mean "part" | No occurrence; terminology lint passes |
 | T-D00-8 | Grep for degree-valued angle fields lacking a `_deg` suffix | No occurrence in any schema table |
 | T-D00-9 | Confirm each of G1–G20 has at least one downstream citation | Every invariant is referenced by at least one of D01–D14 |
-| T-D00-10 | Confirm `docs/` contains no file outside the 15 named | Directory listing matches D00-S4.2 exactly |
+| T-D00-10 | Confirm `docs/` contains no file outside the 18 named | Directory listing matches D00-S4.2 exactly |
 
 ---
 

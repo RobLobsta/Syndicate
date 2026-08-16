@@ -27,6 +27,7 @@ public final class RenderContext implements Disposable {
     private final RenderEnvironment environment;
     private final PartModels partModels;
     private final PartLamps partLamps;
+    private final PartArticulation partArticulation;
     private final VehicleLights vehicleLights;
     private final ArenaModel arenaModel;
     private TerrainModel terrainModel;
@@ -44,6 +45,7 @@ public final class RenderContext implements Disposable {
         environment = new RenderEnvironment();
         partModels = new PartModels(assetRoot);
         partLamps = new PartLamps(assetRoot);
+        partArticulation = new PartArticulation(assetRoot);
         vehicleLights = new VehicleLights();
         arenaModel = arena == null ? null : new ArenaModel(arena);
         batch = new ModelBatch(PBRShaderProvider.createDefault(shaderConfig()));
@@ -78,6 +80,11 @@ public final class RenderContext implements Disposable {
     /** The {@code light} block of every part that carries one (D08-R6). */
     public PartLamps partLamps() {
         return partLamps;
+    }
+
+    /** The {@code articulation} block of every part that moves (D17-S4.4). */
+    public PartArticulation partArticulation() {
+        return partArticulation;
     }
 
     /** The lamps placed in the world this frame, and the beams drawn from them. */

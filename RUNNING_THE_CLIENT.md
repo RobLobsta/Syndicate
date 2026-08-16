@@ -118,6 +118,8 @@ The client's own options, all of which exist for this:
 | `--start-screen <menu\|garage\|match>` | skip straight to a screen |
 | `--assets <dir>` | point at any asset tree — how one build of the content is compared against another |
 | `--night <0..1>` | 0 is noon, 1 is midnight; a capture cannot press `N` |
+| `--garage-row <n>` | which garage row to open focused — vehicles first, then that vehicle's mountings |
+| `--fit <slotId>=<weaponId>` | fits a weapon to a mounting before the first frame; repeatable, and `=none` clears one |
 
 The capture's log line reports the screen, the tick, how many models were drawn and how many
 particle quads, which is usually enough to tell a black frame from an empty one.
@@ -135,6 +137,28 @@ xvfb-run -a ... syndicate-client --assets "$PWD/assets"  --capture /tmp/after.pn
 
 Pick the frame deliberately: the garage rotates the vehicle, so frame 90 is a rear three-quarter and
 frame 210 is close to a side profile. A side profile is the one that shows ride height.
+
+### Photographing a loadout
+
+The last three options in the table exist for the same reason: **a capture has no keyboard.** Without
+them the garage can only ever be photographed on its first row with the vehicle the artist armed, so
+the half of the screen that moves is the half nobody can check. Together they cover it:
+
+```bash
+# The Stampede with a machine gun bracketed to each flank as well as its cannon,
+# with the left-hand mounting focused so the < > affordance shows.
+xvfb-run -a ... syndicate-client --start-screen garage --vehicle stampede \
+  --fit hardpoint_flank_l=weapon_machinegun_l_01 --fit hardpoint_flank_r=weapon_machinegun_01 \
+  --garage-row 3 --capture /tmp/garage.png --capture-frame 210
+
+# The same loadout, driven. `--start-screen match` applies the fittings and deploys,
+# because CONFIRM is a key a capture cannot press either.
+xvfb-run -a ... syndicate-client --start-screen match --vehicle stampede \
+  --fit hardpoint_flank_r=weapon_machinegun_01 --capture /tmp/match.png --capture-frame 240
+```
+
+The log line names the assembly that was built — `vehicle_stampede_01_fitted` rather than
+`vehicle_stampede_01` — which is the quickest confirmation that a loadout took effect at all.
 
 ---
 

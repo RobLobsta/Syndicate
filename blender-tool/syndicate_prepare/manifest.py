@@ -229,7 +229,8 @@ HEAVIEST_CLASS = "heavy"
 #: *where they go*, and it derives it from the body's own box: a turret ring on the roof, a
 #: mount on the bonnet, one at the tail, and one on each flank.
 #:
-#: Each row is ``(slotId, slotType, x, y, z)`` where the three coordinates are fractions of the
+#: Each row is ``(slotId, slotType, x, y, z, sizeClass)`` where the three coordinates are
+#: fractions of the
 #: body box — ``x`` of the half width, ``y`` of the height above the ground plane, ``z`` of the
 #: length measured from the **rear**. The vehicle's front is ``z = 1``: that is the sense
 #: ``roles._front_fraction`` uses and the sense ``VehicleFactory`` builds its wheels in, and a
@@ -238,12 +239,19 @@ HEAVIEST_CLASS = "heavy"
 #: Four HARDPOINTs is exactly what D05-S4.3 allows a vehicle (2-4). The turret ring is a fifth
 #: slot of a different type, and TURRET_MOUNT has no such limit because a vehicle has at most
 #: one roof.
+#:
+#: The **size class** (D17-R10) is derived from *where the slot is*, which is the only thing about
+#: these five that the geometry decides. The roof centreline is the one place a big gun can sit
+#: without fouling the wheels, so it is ``HEAVY``; the bonnet and tail are central but
+#: height-limited, so ``MEDIUM``; the flanks sit outboard of the body, where anything bulky is
+#: wider than the car, so ``LIGHT``. This is what stops a siege cannon being bolted to a wing
+#: mirror.
 HARDPOINTS = (
-    ("turret_main", "TURRET_MOUNT", 0.0, 1.02, 0.48),
-    ("hardpoint_bonnet", "HARDPOINT", 0.0, 0.62, 0.86),
-    ("hardpoint_rear", "HARDPOINT", 0.0, 0.66, 0.12),
-    ("hardpoint_flank_l", "HARDPOINT", -0.92, 0.55, 0.50),
-    ("hardpoint_flank_r", "HARDPOINT", 0.92, 0.55, 0.50),
+    ("turret_main", "TURRET_MOUNT", 0.0, 1.02, 0.48, "HEAVY"),
+    ("hardpoint_bonnet", "HARDPOINT", 0.0, 0.62, 0.86, "MEDIUM"),
+    ("hardpoint_rear", "HARDPOINT", 0.0, 0.66, 0.12, "MEDIUM"),
+    ("hardpoint_flank_l", "HARDPOINT", -0.92, 0.55, 0.50, "LIGHT"),
+    ("hardpoint_flank_r", "HARDPOINT", 0.92, 0.55, 0.50, "LIGHT"),
 )
 
 #: The slot ids :data:`HARDPOINTS` produces. Named once so the pipeline, the manifest and every
@@ -259,8 +267,27 @@ HARDPOINT_SLOT_IDS = tuple(slot_id for slot_id, *_ in HARDPOINTS)
 #: budget is for rather than this number.
 HARDPOINT_MASS_FRACTION = 0.08
 
+#: The same, for the roof turret ring, which is rated to carry far more.
+#:
+#: A `TURRET_MOUNT` is the vehicle's primary weapon station and is `HEAVY` by D17-R10 precisely
+#: because the roof centreline is the one place a big gun can sit. Rating it at the flank fraction
+#: made that size class unusable: the shipped pedestal cannon's mount alone is 265 kg and the ring
+#: would take 157 kg, so the one weapon built for the one HEAVY mount could not be fitted to it.
+TURRET_MASS_FRACTION = 0.20
+
+#: The size class each D15-S4.1 label's part is exported at (D17-S4.3).
+#:
+#: Only the hub is not the default. Its slot is rated ``LIGHT`` because a brake hub is the only
+#: thing that ever goes there (D17-R10), and a part left at the ``MEDIUM`` default then fails A316
+#: against
+#: its own slot — which is exactly what happened, on all eight hubs of both shipped cars.
+PART_SIZE_CLASS = {"hub": "LIGHT"}
+
 #: The lightest a hardpoint may be rated at, so a 400 kg buggy still mounts something.
 HARDPOINT_MIN_MASS_KG = 40.0
+
+#: Roll, in degrees about Z, applied to a hardpoint that mounts a weapon on its side (D17-R25).
+FLANK_ROLL_DEG = {"hardpoint_flank_l": 180.0, "hardpoint_flank_r": 180.0}
 
 
 class ManifestError(Exception):
@@ -814,6 +841,7 @@ def build_part_document(
         "armorValue": armor,
         "materialId": part.material_id,
         "slotTypeRequired": SLOT_TYPE_REQUIRED[part.label],
+        "sizeClass": PART_SIZE_CLASS.get(part.label, "MEDIUM"),
         "powerCost": part.power_cost,
         "breakImpulseN": break_impulse,
         "hangsBeforeFalling": part.label == GLASS,
@@ -889,18 +917,33 @@ def hardpoint_slots(body, total_mass_kg: float) -> list[dict]:
     and are validated against ``SlotType.acceptsCategory`` like any other placement (D05-S5.1).
     """
     capacity = round(max(HARDPOINT_MIN_MASS_KG, total_mass_kg * HARDPOINT_MASS_FRACTION), 1)
+    turret_capacity = round(max(HARDPOINT_MIN_MASS_KG, total_mass_kg * TURRET_MASS_FRACTION), 1)
     slots = []
-    for slot_id, slot_type, fx, fy, fz in HARDPOINTS:
+    for slot_id, slot_type, fx, fy, fz, size_class in HARDPOINTS:
+        rated = turret_capacity if slot_type == "TURRET_MOUNT" else capacity
         slots.append({
             "slotId": slot_id,
             "slotType": slot_type,
+            "sizeClass": size_class,
             "localPosition": {
                 "x": round(fx * body.half_width, 4),
                 "y": round(body.ground_y + fy * body.height, 4),
                 "z": round(body.lo[2] + fz * body.length, 4),
             },
-            "localRotationDeg": {"x": 0.0, "y": 0.0, "z": 0.0, "order": "XYZ"},
-            "maxMassKg": capacity,
+            # A flank hardpoint faces outboard, so a weapon fitted there is rolled about the bore
+            # to lay its own mount face against the bodywork (D17-R25).
+            #
+            # 180, not +/-90, and the reason is a gap rather than a subtlety: `syndicate_weapon`
+            # does NOT normalise which way a weapon's mount face points (DISC-061). The shipped
+            # machine gun's mount is a side bracket, so its mount normal comes out along -X and a
+            # half turn about the bore is what puts it against the door. A pintle gun, whose mount
+            # normal is -Y, would want +/-90 here. Until the tool normalises the mount normal this
+            # constant is a property of the weapon as much as of the slot, and the only way to know
+            # it is right is to look: 0 sinks the gun into the door, +/-90 dangles the brackets in
+            # free air, 180 seats it.
+            "localRotationDeg": {"x": 0.0, "y": 0.0, "z": FLANK_ROLL_DEG.get(slot_id, 0.0),
+                                 "order": "XYZ"},
+            "maxMassKg": rated,
             "covers": [],
             "isDetachable": True,
         })

@@ -8,6 +8,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
 import dev.syndicate.client.LocalPlayer;
@@ -83,6 +84,11 @@ public final class RenderSystem implements EntitySystem {
     private final Vector3 lampPosition = new Vector3();
     private final Vector3 lampDirection = new Vector3();
 
+    /** What drives every articulated part's pose this frame (D17-S5.9). Cosmetic throughout (G6). */
+    private final ArticulationState articulation = new ArticulationState();
+
+    private final Matrix4 articulationPose = new Matrix4();
+
     /**
      * @param effects slot 24, read for the bursts it owns. This is a constructor dependency rather
      *     than a system-to-system call at update time (D04-R13): the renderer is told where the
@@ -118,10 +124,15 @@ public final class RenderSystem implements EntitySystem {
         // the part's health, which is authoritative state this system only ever reads (G6).
         lamps = world.family(ComponentQuery.all(PartRefComponent.class, RenderTransformComponent.class));
         bursts = effects.bursts();
+        articulation.initialize(world);
     }
 
     @Override
     public void update(World world, float dtSeconds, long tick) {
+        // Real frame time, not tick time: a PRESENT system is handed the frame delta (DEC-049), and
+        // a recoil that advanced on ticks would stutter on any machine not running at exactly 60 fps.
+        articulation.advance(dtSeconds);
+        articulation.resolvePending(world);
         attachModels(world);
         aimCamera(world, dtSeconds);
         placeLamps(world);
@@ -281,6 +292,19 @@ public final class RenderSystem implements EntitySystem {
             }
             ModelInstance instance = model.modelInstance;
             instance.transform.set(render.renderMatrix);
+            // Articulation composes *after* the render matrix, in the part's own local space, so a
+            // recoiling barrel slides along its own bore rather than along a world axis (D17-R48).
+            // The collision hull is untouched by this — that is the G6 line, and crossing it would
+            // make hit registration depend on frame rate.
+            PartRefComponent articulated = world.getComponent(entityId, PartRefComponent.class);
+            if (articulated != null) {
+                PartArticulation.Articulation block =
+                        context.partArticulation().forPart(articulated.partTypeId.value());
+                if (block != null) {
+                    float phase = articulation.phaseFor(world, entityId, block);
+                    instance.transform.mul(PartArticulation.pose(block, phase, articulationPose));
+                }
+            }
             context.batch().render(instance, context.environment().environment());
             drawnThisFrame++;
         }

@@ -1,0 +1,119 @@
+{
+  "armorValue": 13.51,
+  "assets": {
+    "collisionSource": "mesh.glb#node=weapon_cannon_01_mount_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 3473.1,
+  "category": "WEAPON",
+  "destructionClass": "STRUCTURAL",
+  "displayName": "Mount",
+  "hangsBeforeFalling": true,
+  "massKg": 38.59,
+  "materialId": "steel",
+  "maxHp": 308.72,
+  "partTypeId": "weapon_cannon_01_mount",
+  "powerCost": 4.06,
+  "schemaVersion": "1.0.0",
+  "sizeClass": "HEAVY",
+  "slotTypeRequired": "TURRET_MOUNT",
+  "slots": [
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.22375,
+        "y": 0.37067,
+        "z": -0.05294
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 22.952,
+      "sizeClass": "HEAVY",
+      "slotId": "sub_gear_l",
+      "slotType": "SUBSLOT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.24168,
+        "y": 0.41674,
+        "z": -0.02144
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 4.017,
+      "sizeClass": "HEAVY",
+      "slotId": "sub_gear_r",
+      "slotType": "SUBSLOT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.03447,
+        "y": 0.60868,
+        "z": 0.01518
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 56.778,
+      "sizeClass": "HEAVY",
+      "slotId": "sub_receiver",
+      "slotType": "SUBSLOT"
+    }
+  ],
+  "stats": {
+    "damagePerShot": {
+      "add": 512.0
+    },
+    "fireIntervalS": {
+      "add": 2.5
+    },
+    "heatPerShot": {
+      "add": 0.3
+    },
+    "projectileSpeedMps": {
+      "add": 250.0
+    },
+    "spreadRad": {
+      "add": 0.0025
+    }
+  },
+  "tags": [
+    "weapon",
+    "mount",
+    "prepared"
+  ],
+  "weapon": {
+    "ammoCapacity": 24,
+    "blastRadiusM": 0.0,
+    "damageType": null,
+    "family": "CANNON",
+    "muzzleLocal": {
+      "x": 0.00038,
+      "y": 1.02604,
+      "z": 1.51967
+    },
+    "rangeM": 300.0
+  }
+}

@@ -61,7 +61,7 @@ If a review would genuinely benefit from running something (a test, the harness,
 
 ## 4. Blueprint Document Reference
 
-`docs/` contains 17 contractual specification documents. Jules cites these in every review.
+`docs/` contains 18 contractual specification documents. Jules cites these in every review.
 
 | File | What it specifies |
 |---|---|
@@ -82,6 +82,7 @@ If a review would genuinely benefit from running something (a test, the harness,
 | `docs/14_test_environment.md` | Verification harness: asset checks, physics checks, destruction progression, vehicle integration, visual and headless modes, fixtures, report schema, tolerances |
 | `docs/15_vehicle_preparation_pipeline.md` | Turning a downloaded vehicle model into labelled parts: taxonomy, cue ensemble, `parts.json` overrides, geometry repair, hinge rigging, per-class destruction authoring, audio inventory |
 | `docs/16_procedural_arena_generation.md` | Runtime terrain and sky generation: height field, dunes and slopes, road carving, ground surfaces, structure placement, destructible structures |
+| `docs/17_weapon_system.md` | Turning a downloaded weapon model into a multi-part weapon: sub-part taxonomy, bore-axis correction, cue ensemble, seam rule, cosmetic articulation, size-class slot gating, recoil and knockback |
 
 ### ID convention
 

@@ -20,7 +20,7 @@ import dev.syndicate.core.ecs.EntityId;
  * @param sequence queue order, which breaks ties between two impulses on the same entity
  * @param kind how {@link #impulse} is interpreted
  * @param impulse N·s for {@link Kind#CENTRAL} and {@link Kind#AT_POINT}, N·m·s for {@link Kind#TORQUE}
- * @param relativePosition body-space offset from the centre of mass; only read for {@link Kind#AT_POINT}
+ * @param relativePosition world-space offset from the centre of mass; only read for {@link Kind#AT_POINT}
  */
 public record PendingImpulse(int entityId, long sequence, Kind kind, Vector3 impulse, Vector3 relativePosition) {
 
