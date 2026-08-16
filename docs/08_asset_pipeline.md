@@ -519,6 +519,7 @@ function AssetRegistry.load(assetRoot, headless):
 | A219 | ERROR | `module.family` is not a `ModuleFamily`, or its charges or radius are out of range |
 | A220 | WARN | An `articulation` block is malformed — unknown `motion` or `driver`, a non-unit axis, or a field the motion needs and does not have. The part loads static (D17-R14) |
 | A221 | ERROR | `sizeClass` is not a `SizeClass` on a part or on a slot definition (D17-S4.3) |
+| A222 | ERROR | A `<weaponId>.weapon.json` cannot be read, or names no sub-part labelled `mount`. The weapon's parts still load and a vehicle already carrying it still works; what is lost is the ability to fit it to anything else (D17-R16) |
 | **A3xx — assembly semantics** | | |
 | A301 | ERROR | Not exactly one root, or root is not a `chassis` |
 | A302 | ERROR | Part count exceeds `MAX_PARTS_PER_VEHICLE` |

@@ -28,6 +28,9 @@ Requirements are numbered `R1..Rn`, cited as `D01-R9`.
 <!-- D01-S2.2 -->### 2.2 Non-Goals
 
 - **NG1.** Free-form vehicle building. Vehicles are **prebuilt assemblies** selected by the player, not assembled part-by-part in a garage editor. Part-level customisation is a post-v1 consideration explicitly out of scope; the data model (D05) permits it, the product does not expose it.
+- **NG1a — the one exception, and it is deliberate.** The player **may choose which weapon occupies each of a vehicle's hardpoints**, in the garage, before a match. Everything else about the vehicle — chassis, panels, glass, wheels, lamps — remains the assembly the artist authored, and nothing in the garage adds, moves or removes a mounting.
+
+  This is a much smaller door than NG1 closes, and it is worth being precise about why it is safe to open. A hardpoint is *already* authored with a position, a size class and a mass ceiling (D05-R8, D17-R8), so a loadout is checked against rules that exist rather than needing new ones; there is no geometry to solve, no seam to place and no mass property that is not already computed on every attach (G10). What NG1 forbids — a player deciding a vehicle's shape — is untouched. What NG1a permits is the choice the genre is actually about: what you have brought to the fight.
 - **NG2.** Monetisation, storefront, or live-ops economy design.
 - **NG3.** Narrative, campaign, or characters.
 - **NG4.** UI layout and visual style guides.

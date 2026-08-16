@@ -35,6 +35,20 @@ public final class InMemoryAssetIndex implements AssetIndex {
 
     private final Map<AssetId, ArenaDef> arenas = new TreeMap<>();
 
+    private final Map<AssetId, WeaponDef> weapons = new TreeMap<>();
+
+    /**
+     * Assemblies a player configured, kept apart from the shipped catalogue on purpose.
+     *
+     * <p>A garage loadout produces a real {@link AssemblyDef} that the spawn path has to be able to
+     * resolve, and it must not become a vehicle anyone else can be given: it is one player's
+     * configuration of one shipped vehicle, not a new entry in the roster. Holding it in a second
+     * map is what keeps that structural — {@link #assemblyIds()} and {@link #assemblies()} are the
+     * catalogue and never see it, so a bot cannot draw it (D11-R12) and the garage cannot list it,
+     * while {@link #assembly(AssetId)} still finds it.
+     */
+    private final Map<AssetId, AssemblyDef> configured = new TreeMap<>();
+
     private BotDifficultyTable botDifficulties = BotDifficultyTable.defaults();
 
     /** Registers a manifest under its own {@link FractureManifest#manifestId()}. */
@@ -67,6 +81,23 @@ public final class InMemoryAssetIndex implements AssetIndex {
         return this;
     }
 
+    /** Registers a weapon under its own {@link WeaponDef#weaponId()}. */
+    public InMemoryAssetIndex put(WeaponDef weapon) {
+        weapons.put(weapon.weaponId(), weapon);
+        return this;
+    }
+
+    /**
+     * Registers an assembly a player configured, resolvable but outside the catalogue.
+     *
+     * <p>Replaces any previous configuration under the same id, so reconfiguring in the garage
+     * between matches does not accumulate assemblies for the length of the session.
+     */
+    public InMemoryAssetIndex putConfigured(AssemblyDef assembly) {
+        configured.put(assembly.assemblyId(), assembly);
+        return this;
+    }
+
     @Override
     public FractureManifest fractureManifest(AssetId manifestId) {
         return manifestId == null ? null : manifests.get(manifestId);
@@ -79,7 +110,16 @@ public final class InMemoryAssetIndex implements AssetIndex {
 
     @Override
     public AssemblyDef assembly(AssetId assemblyId) {
-        return assemblyId == null ? null : assemblies.get(assemblyId);
+        if (assemblyId == null) {
+            return null;
+        }
+        AssemblyDef shipped = assemblies.get(assemblyId);
+        return shipped != null ? shipped : configured.get(assemblyId);
+    }
+
+    /** The weapon with this id, or null. */
+    public WeaponDef weapon(AssetId weaponId) {
+        return weaponId == null ? null : weapons.get(weaponId);
     }
 
     @Override
@@ -133,5 +173,10 @@ public final class InMemoryAssetIndex implements AssetIndex {
     /** Every loaded arena, by ascending id. */
     public Map<AssetId, ArenaDef> arenas() {
         return Collections.unmodifiableMap(arenas);
+    }
+
+    /** Every loaded modular weapon, by ascending id. */
+    public Map<AssetId, WeaponDef> weapons() {
+        return Collections.unmodifiableMap(weapons);
     }
 }

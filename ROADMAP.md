@@ -1,6 +1,6 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-16 (end of SESS-035)
+**Last updated:** 2026-08-16 (end of SESS-036)
 
 This is the plan, in order. Each step below is meant to be picked up from the top: everything above
 "you are here" is done, everything below it is not, and the order is the order they should be done
@@ -19,7 +19,8 @@ Launch the client and you get a title screen. PLAY takes you to a garage: two ca
 real art, turning on a floor line, with the figures they were derived from beside them — an Eclipse
 at 1500 kg doing 0–100 in 2.9 s with a machine gun on each flank, a Stampede that is heavier, holds
 speed where the Eclipse cannot, and carries a pedestal cannon on its roof with the cogs that elevate
-it. DEPLOY drops you into an arena with
+it. Under each car's name is its armament: every mounting it has, what is on it, and left and right
+to change it — only to weapons that mounting will actually take. DEPLOY drops you into an arena with
 seven bots. They drive, hunt you, and ram. Panels dent, glass shatters, parts come off and change how
 the car handles, sparks fly, the engine sounds like the engine it was modelled on, a chase camera
 follows and a scoreboard keeps score. Escape returns you to the menu, and the whole physics world is
@@ -69,7 +70,8 @@ numbers, one renderer and one socket.
    ├── The real cars, and hardpoints to hang weapons on         PROG-034
    ├── Headlights, beams, and a night to see them in            PROG-034
    ├── Guns: two weapons, taken apart, mounted and firing       PROG-035
-   └── Bots that orbit their target instead of shuffling        DISC-059
+   ├── Bots that orbit their target instead of shuffling        DISC-059
+   └── A garage that arms the car                               DEC-084
   ─────────────────────────────────────────────────────── you are here
   NEXT
    1. Guns, finished                          ← degradation, fracture, more families
@@ -128,6 +130,12 @@ times the ground it did before.
 
 **Done when:** you shoot a bot's gun off, it keeps firing and misses, and you can feel your own car
 rock when the cannon goes off.
+
+**Since this was written**, the garage learned to arm the car (D01-NG1a): pick a vehicle, pick a
+weapon for each of its hardpoints, deploy. That makes item 3 above worth more than it was — a third
+weapon is now a third *choice* rather than a second row in the asset tree — and it makes item 1 the
+thing standing between a loadout screen and a loadout *decision*, because until sub-part degradation
+lands, every gun that fits a mounting is strictly better than leaving it empty.
 
 ### Step 2 — Roads and structures
 
@@ -246,10 +254,13 @@ Real work, no fixed place in the sequence.
 
 Not decided, and not for the assistant to decide alone.
 
-- **How far the garage goes.** D01-NG1 rules out a part-by-part editor and the data model permits
-  one. The current garage picks a prebuilt vehicle, which is what the product says. If you want
-  loadouts — pick a chassis, then bolt on weapons and plating — that is a product change, and it is
-  the change that makes the `ARMOR` question above urgent rather than tidy.
+- **How much further the garage goes.** You asked for weapon loadouts and they exist (D01-NG1a): the
+  hardpoints are yours, everything else is the vehicle the artist authored. The next rung is
+  *plating* — letting a player choose armour as well as guns — and that is a bigger step than it
+  sounds, because a panel has geometry a weapon does not and it is the change that makes the
+  `armorValue` naming question below urgent rather than tidy. Two smaller ones are also open: the
+  loadout is remembered for the session and **not** saved to disk, and nothing stops you deploying a
+  car with every mounting empty.
 - **Whether single-player should route through the loopback pair** now or at step 7. Doing it early
   costs a session and tests replication continuously; doing it late keeps the current path simple.
 - **Whether `armorValue` should follow `ARMOR` into a rename.** The category became `PANEL`; the

@@ -7,7 +7,9 @@ package dev.syndicate.client.shell;
 import com.badlogic.gdx.utils.Disposable;
 import dev.syndicate.client.ClientRuntime;
 import dev.syndicate.core.asset.InMemoryAssetIndex;
+import dev.syndicate.model.AssetId;
 import dev.syndicate.model.config.LaunchConfig;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,11 +54,43 @@ public final class GameShell implements Disposable {
      *     affordance, so {@code --vehicle stampede} should work without the full asset id.
      */
     public GameShell(LaunchConfig config, ScreenId startScreen, String vehicle) {
+        this(config, startScreen, vehicle, -1, List.of());
+    }
+
+    public GameShell(LaunchConfig config, ScreenId startScreen, String vehicle, int garageRow) {
+        this(config, startScreen, vehicle, garageRow, List.of());
+    }
+
+    /**
+     * @param garageRow which garage row to open on, or -1 for the selected vehicle. A capture
+     *     affordance, exactly as {@code vehicle} is.
+     */
+    /**
+     * @param garageRow which garage row to open on, or -1 for the selected vehicle
+     * @param fittings {@code slotId=weaponId} pairs applied to the selected vehicle before the first
+     *     frame, so a capture can photograph a chosen loadout
+     */
+    public GameShell(LaunchConfig config, ScreenId startScreen, String vehicle, int garageRow, List<String> fittings) {
         this.config = config;
         InMemoryAssetIndex assets = ClientRuntime.loadAssets(config);
         this.context = new MenuContext(config, assets);
         selectVehicle(vehicle);
+        context.setGarageRow(garageRow);
+        applyFittings(fittings);
         enter(startScreen);
+    }
+
+    /** Applies each {@code slotId=weaponId} pair, logging any that does not resolve. */
+    private void applyFittings(List<String> fittings) {
+        for (String fitting : fittings) {
+            int split = fitting.indexOf('=');
+            String slotId = split < 0 ? fitting : fitting.substring(0, split);
+            String weapon = split < 0 ? "" : fitting.substring(split + 1);
+            AssetId weaponId = weapon.isBlank() || "none".equals(weapon) ? null : AssetId.of(weapon);
+            if (!context.fit(slotId, weaponId)) {
+                LOG.warn("--fit {} names no mounting or no weapon on the selected vehicle", fitting);
+            }
+        }
     }
 
     /** The screen showing right now, so a capture can report what it photographed. */
@@ -126,7 +160,8 @@ public final class GameShell implements Disposable {
     private Screen startMatch() {
         ScreenId exitTo = context.roster().isEmpty() ? ScreenId.QUIT : ScreenId.MAIN_MENU;
         try {
-            ClientRuntime runtime = ClientRuntime.start(config, context.assets(), context.selectedAssembly());
+            // The configured vehicle, so the player drives the loadout they just chose (D01-NG1a).
+            ClientRuntime runtime = ClientRuntime.start(config, context.assets(), context.configuredAssembly());
             return new MatchScreen(runtime, exitTo);
         } catch (ClientRuntime.StartupException e) {
             LOG.error("could not start the match: {}", e.getMessage(), e.getCause());

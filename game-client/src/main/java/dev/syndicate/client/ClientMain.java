@@ -58,6 +58,8 @@ public final class ClientMain {
         int captureFrame = DEFAULT_CAPTURE_FRAME;
         ScreenId startScreen = null;
         String vehicle = null;
+        int garageRow = -1;
+        java.util.List<String> fittings = new java.util.ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--capture" -> capturePath = Path.of(args[++i]);
@@ -67,6 +69,10 @@ public final class ClientMain {
                     // only the first vehicle in the roster can ever be photographed — and "look at
                     // it" is how this project verifies every claim about how the game looks.
                 case "--vehicle" -> vehicle = args[++i];
+                    // Which garage row to focus. Same reason as --vehicle: a capture has no keyboard.
+                case "--garage-row" -> garageRow = Integer.parseInt(args[++i]);
+                    // slotId=weaponId, repeatable. A capture cannot press A/D either.
+                case "--fit" -> fittings.add(args[++i]);
                     // 0 is noon and 1 is midnight. `N` cycles it in a match; this is how a capture
                     // asks for a dark frame, since a capture cannot press a key.
                 case "--night" -> dev.syndicate.client.render.RenderEnvironment.setLaunchNightFraction(
@@ -101,8 +107,8 @@ public final class ClientMain {
                 startScreen != null ? startScreen : config.autoStart() ? ScreenId.MATCH : ScreenId.MAIN_MENU;
         LOG.info("opening on {}", resolvedStart);
 
-        SyndicateApplicationListener listener =
-                new SyndicateApplicationListener(config, capturePath, captureFrame, resolvedStart, vehicle);
+        SyndicateApplicationListener listener = new SyndicateApplicationListener(
+                config, capturePath, captureFrame, resolvedStart, vehicle, garageRow, fittings);
         try {
             new Lwjgl3Application(listener, lwjgl3Config(config));
         } catch (RuntimeException e) {

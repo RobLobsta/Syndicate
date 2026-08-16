@@ -95,6 +95,17 @@ public final class GaragePreview implements Disposable {
      * garage and the panels are drawn over the rest, and without clipping the car's wheels appear
      * behind the vehicle list.
      */
+    /**
+     * Forces the next {@link #render} to rebuild, whatever id it is given.
+     *
+     * <p>The rebuild is keyed on the assembly id, which is exactly right when the player picks a
+     * different vehicle and exactly wrong when they re-arm the one they are looking at: a
+     * configured vehicle keeps its id while its part list changes underneath it.
+     */
+    public void invalidate() {
+        builtFor = null;
+    }
+
     public void render(AssetId assemblyId, float frameDeltaSeconds, int x, int y, int width, int height) {
         if (assemblyId == null || width <= 0 || height <= 0) {
             return;

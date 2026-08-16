@@ -44,6 +44,10 @@ public final class SyndicateApplicationListener implements ApplicationListener {
     private final ScreenId startScreen;
     private final String vehicle;
 
+    private final int garageRow;
+
+    private final java.util.List<String> fittings;
+
     private GameShell shell;
     private ExitCode exitCode = ExitCode.OK;
     private int frame;
@@ -61,11 +65,36 @@ public final class SyndicateApplicationListener implements ApplicationListener {
      */
     public SyndicateApplicationListener(
             LaunchConfig config, Path capturePath, int captureFrame, ScreenId startScreen, String vehicle) {
+        this(config, capturePath, captureFrame, startScreen, vehicle, -1);
+    }
+
+    /** @param garageRow which garage row to open on, or -1. A capture affordance, as {@code vehicle} is. */
+    public SyndicateApplicationListener(
+            LaunchConfig config,
+            Path capturePath,
+            int captureFrame,
+            ScreenId startScreen,
+            String vehicle,
+            int garageRow) {
+        this(config, capturePath, captureFrame, startScreen, vehicle, garageRow, java.util.List.of());
+    }
+
+    /** @param fittings {@code slotId=weaponId} pairs applied before the first frame. */
+    public SyndicateApplicationListener(
+            LaunchConfig config,
+            Path capturePath,
+            int captureFrame,
+            ScreenId startScreen,
+            String vehicle,
+            int garageRow,
+            java.util.List<String> fittings) {
         this.config = config;
         this.capturePath = capturePath;
         this.captureFrame = captureFrame;
         this.startScreen = startScreen;
         this.vehicle = vehicle;
+        this.garageRow = garageRow;
+        this.fittings = java.util.List.copyOf(fittings);
     }
 
     /** The code the process should exit with once the application has closed. */
@@ -76,7 +105,7 @@ public final class SyndicateApplicationListener implements ApplicationListener {
     @Override
     public void create() {
         try {
-            shell = new GameShell(config, startScreen, vehicle);
+            shell = new GameShell(config, startScreen, vehicle, garageRow, fittings);
         } catch (ClientRuntime.StartupException e) {
             LOG.error("{}", e.getMessage(), e.getCause());
             exitCode = e.exitCode();

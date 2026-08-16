@@ -255,8 +255,19 @@ This is the one place a *cosmetic* system reads *authoritative* state, which is 
 **R16.** `syndicate_weapon` writes a `<weaponId>.weapon.json` beside the parts it produces,
 recording what it decided. Named for the weapon rather than fixed, because the shared library holds
 every modular weapon in one directory (D08-R14b) and a fixed name would have each weapon overwrite
-the last one's manifest. It is a **build artefact and a report**, not a runtime input: the game loads the `part.json`
-files, exactly as it does for a prepared vehicle.
+the last one's manifest. It is a **report, and — since D01-NG1a — a narrow runtime input.**
+
+The original rule was that the game loads `part.json` files and nothing else, exactly as it does for
+a prepared vehicle, and that held for as long as a weapon's subtree was only ever read out of the
+assembly that already carried it. Letting a player *choose* a weapon in the garage broke that: fitting
+one that is currently on no vehicle means **constructing** its subtree, and a slot definition names
+where a child attaches without naming which child. The manifest is the one place the tree is written
+down.
+
+So the runtime reads it for four things and no more — the tree (`parts` and `seams`), the family, the
+size class and the total mass, all of which the garage gates or labels on. Every part is still loaded
+from its own `part.json`; nothing here overrides one. A manifest that cannot be read is A222, and the
+weapon is simply not offered in the garage rather than the load failing (G18).
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -406,8 +417,17 @@ put one bracket in fresh air. A mirrored run is a **separate asset with its own 
 render-time flip — the sub-part masses, hulls and seam positions all differ, and a negative scale in
 a transform is a well-known way to invert a collision hull.
 
-Hardpoints that face outward carry their own roll so the weapon sits square on the bodywork; on the
-prepared vehicles the flank pair is rolled ±90° about Z (D15-S5.10).
+**R26b. The mount normal is not normalised, and that is a known gap.** A weapon's frame correction
+fixes the bore to +Z (R24) and its origin to the mount face (R25), but nothing fixes *which way the
+mount face points*. A pintle gun's mount normal comes out along −Y; the shipped machine gun's, a side
+bracket, comes out along −X. So the roll a flank hardpoint needs to seat a weapon against the
+bodywork is a property of the **weapon**, not of the slot, and the prepared vehicles carry a flat
+180° about Z because that is what seats the one flank weapon that exists (D15-S5.10, DISC-061).
+
+Normalising the mount normal to −Y in the frame-correction stage is the fix, and it would make the
+flank roll a plain ±90° for every weapon. It is not done: it re-exports both shipped weapons and
+every seam position with them, and there is one flank weapon to validate it against. When a second
+one arrives, do it then — and expect the constant above to be wrong for it until you have looked.
 
 **R27.** Geometry the correction leaves outside the weapon — a display base, a diorama's ground
 plane — is **discarded**, and every discarded shell is named in the report with its triangle count.
@@ -856,6 +876,9 @@ discipline). `WEAP-010` is what enforces it, and it is a real check rather than 
 | **T-D17-15** | integration | Both shipped weapons pass every `WEAP-` check via the harness |
 | **T-D17-16** | integration | Two runs at the same seed produce byte-identical `weapon.json` and meshes |
 | **T-D17-17** | unit | An articulation block present or absent produces identical headless simulation output |
+| **T-D17-24** | integration | Every shipped `*.weapon.json` resolves to a tree whose parts all loaded (R16) |
+| **T-D17-25** | integration | A `LIGHT` mounting offers the machine gun and not the cannon; a `HEAVY` one offers both (R10) |
+| **T-D17-26** | integration | A `HARDPOINT` already holding a non-weapon — a brake hub — is not offered as a mounting (D01-NG1a) |
 
 ---
 

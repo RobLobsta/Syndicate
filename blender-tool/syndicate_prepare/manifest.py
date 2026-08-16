@@ -287,7 +287,7 @@ PART_SIZE_CLASS = {"hub": "LIGHT"}
 HARDPOINT_MIN_MASS_KG = 40.0
 
 #: Roll, in degrees about Z, applied to a hardpoint that mounts a weapon on its side (D17-R25).
-FLANK_ROLL_DEG = {"hardpoint_flank_l": 90.0, "hardpoint_flank_r": -90.0}
+FLANK_ROLL_DEG = {"hardpoint_flank_l": 180.0, "hardpoint_flank_r": 180.0}
 
 
 class ManifestError(Exception):
@@ -930,11 +930,17 @@ def hardpoint_slots(body, total_mass_kg: float) -> list[dict]:
                 "y": round(body.ground_y + fy * body.height, 4),
                 "z": round(body.lo[2] + fz * body.length, 4),
             },
-            # A flank hardpoint faces outboard, so a weapon fitted there is rolled to lay its own
-            # mount face against the bodywork (D17-R25). A weapon's body extends along +Y from its
-            # mount face, and Rz(theta) sends +Y to (-sin theta, cos theta, 0) — so the right flank,
-            # at +X, needs -90 and the left +90. The opposite pair reads perfectly plausibly and
-            # buries the gun inside the door; the capture is what showed it.
+            # A flank hardpoint faces outboard, so a weapon fitted there is rolled about the bore
+            # to lay its own mount face against the bodywork (D17-R25).
+            #
+            # 180, not +/-90, and the reason is a gap rather than a subtlety: `syndicate_weapon`
+            # does NOT normalise which way a weapon's mount face points (DISC-061). The shipped
+            # machine gun's mount is a side bracket, so its mount normal comes out along -X and a
+            # half turn about the bore is what puts it against the door. A pintle gun, whose mount
+            # normal is -Y, would want +/-90 here. Until the tool normalises the mount normal this
+            # constant is a property of the weapon as much as of the slot, and the only way to know
+            # it is right is to look: 0 sinks the gun into the door, +/-90 dangles the brackets in
+            # free air, 180 seats it.
             "localRotationDeg": {"x": 0.0, "y": 0.0, "z": FLANK_ROLL_DEG.get(slot_id, 0.0),
                                  "order": "XYZ"},
             "maxMassKg": rated,
