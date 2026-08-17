@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/04_entity_component_model.md#D04-S4.4, docs/06_physics_simulation.md#D06-S5.5, docs/07_damage_destruction_model.md#D07-S5.2, docs/05_vehicle_part_system.md#D05-S5.6
 
-**Status:** active
+**Status:** superseded (by PROG-038)
 
 Supersedes: PROG-014
 Supersedes: PROG-017

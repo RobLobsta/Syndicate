@@ -111,12 +111,40 @@ public final class AssetLoader {
         MeshData meshFor(AssetId partTypeId, String collisionSourceRef, Path partDirectory);
     }
 
+    /**
+     * Supplies a part's shard geometry, one mesh per node of {@code shards.glb}.
+     *
+     * <p>The same seam as {@link CollisionMeshSource} and for the same reasons; see
+     * {@link GltfShardMeshSource}, which is the implementation that reads the real file.
+     */
+    @FunctionalInterface
+    public interface ShardMeshSource {
+
+        /**
+         * @param partTypeId the part being loaded
+         * @param shardMeshRef the {@code assets.shardMesh} string from {@code part.json}; null when
+         *     the part declares none, in which case {@code shards.glb} is assumed
+         * @param partDirectory the part's directory, so an implementation can resolve a relative
+         *     path
+         * @return node name to mesh, in the part's own space; empty when the file cannot be read,
+         *     which the loader turns into an A501 finding
+         */
+        Map<String, MeshData> shardMeshesFor(AssetId partTypeId, String shardMeshRef, Path partDirectory);
+    }
+
     private final ObjectMapper mapper = new ObjectMapper();
     private final CollisionMeshSource meshes;
+    private final ShardMeshSource shardMeshes;
     private final List<ValidationIssue> issues = new ArrayList<>();
 
+    /** A loader that reads shard geometry with {@link GltfShardMeshSource}. */
     public AssetLoader(CollisionMeshSource meshes) {
+        this(meshes, new GltfShardMeshSource());
+    }
+
+    public AssetLoader(CollisionMeshSource meshes, ShardMeshSource shardMeshes) {
         this.meshes = Objects.requireNonNull(meshes, "meshes");
+        this.shardMeshes = Objects.requireNonNull(shardMeshes, "shardMeshes");
     }
 
     /** Every finding from the loads performed so far, in the order they were found. */
@@ -468,9 +496,23 @@ public final class AssetLoader {
 
         String manifestFile = root.path("assets").path("fractureManifest").asText(null);
         if (manifestFile != null && !manifestFile.isBlank()) {
-            // The manifest's own id is its part type's, which is how a part and its shards are
-            // paired without a second identifier to keep in sync (D09-S4.4).
-            builder.fractureManifestRef(partTypeId);
+            FractureManifest manifest = loadFractureManifest(
+                    partDirectory,
+                    partTypeId,
+                    manifestFile,
+                    root.path("assets").path("shardMesh").asText(null),
+                    (float) root.path("massKg").asDouble(0d),
+                    materialId);
+            if (manifest != null) {
+                index.put(manifest);
+                // The manifest's own id is its part type's, which is how a part and its shards are
+                // paired without a second identifier to keep in sync (D09-S4.4).
+                builder.fractureManifestRef(partTypeId);
+            }
+            // A manifest that would not load leaves the reference unset deliberately: the part then
+            // takes the documented no-manifest path and detaches whole (D07-E5), rather than
+            // carrying a reference that resolves to nothing and vanishing mid-match with an error
+            // in the log. The findings above say which manifest, and why.
         } else {
             issues.add(ValidationIssue.warn(
                     "A213", partTypeId.value(), "no fracture manifest; this part will detach whole (D07-E5)"));
@@ -510,6 +552,255 @@ public final class AssetLoader {
             issues.add(ValidationIssue.error(
                     "A205", partTypeId.value(), "a decorative part may declare no stats and no armour (D05-R6)"));
         }
+    }
+
+    // ---- Fracture manifests (D08-S5.3 step 2, D09-S4.4) ------------------------------
+
+    /**
+     * How far a shard's exported geometry may sit from the AABB its manifest declares for it,
+     * in metres, before the two are treated as describing different things (A501).
+     *
+     * <p>Both numbers come from the same vertices — the tool measures the bounds it writes off the
+     * mesh it exports — so the only honest difference between them is glTF's float32 round trip.
+     * A millimetre is four orders of magnitude above that and four below a shard worth spawning,
+     * which makes this a check on <em>which space the geometry is in</em> rather than on precision.
+     * That is the failure it exists for: shard meshes are exported in part space and moved onto
+     * their own origins here, and an exporter that ever changed its mind would otherwise scatter
+     * every shard at twice its offset with nothing failing.
+     */
+    private static final float SHARD_BOUNDS_TOLERANCE_M = 1e-3f;
+
+    /**
+     * Reads {@code fracture_manifest.json} and the shard geometry it names (D08-S5.3 step 2).
+     *
+     * <p>This is the half of the runtime import that had never been written: {@code FractureSystem}
+     * has always looked a manifest up by reference, and nothing had ever put one in the index, so
+     * every glass part in every match was destroyed without shards. The reader is deliberately
+     * narrow — it produces the fields D07-S5.6 spends and nothing else, because everything the tool
+     * records for traceability is the asset gate's business and the harness's (D14 ASSET-004/006),
+     * not a match's.
+     *
+     * <p>The rule codes are D08-S5.4's, and they are the same codes {@code asset-pipeline} raises
+     * over the same files (DEC-041). The two implementations stay independent on purpose; what they
+     * share is the vocabulary, so a finding here means what a finding there means.
+     *
+     * @return the manifest, or null when it could not be produced — in which case findings in
+     *     {@link #issues()} say why and the part falls back to detaching whole (D07-E5)
+     */
+    private FractureManifest loadFractureManifest(
+            Path partDirectory,
+            AssetId partTypeId,
+            String manifestFile,
+            String shardMeshRef,
+            float partMassKg,
+            AssetId materialId) {
+
+        Path file = partDirectory.resolve(manifestFile).normalize();
+        if (!file.startsWith(partDirectory.normalize())) {
+            issues.add(ValidationIssue.error(
+                    "A107",
+                    partTypeId.value(),
+                    "fractureManifest \"" + manifestFile + "\" escapes the part " + "directory"));
+            return null;
+        }
+        JsonNode root = readJson(file, partTypeId.value());
+        if (root == null || !checkSchemaVersion(root, file.toString())) {
+            return null;
+        }
+
+        if (root.path("toolVersion").asText("").isBlank()) {
+            issues.add(
+                    ValidationIssue.error("A506", partTypeId.value(), "the fracture manifest declares no toolVersion"));
+        }
+        String manifestMaterial = root.path("materialId").asText("");
+        if (materialId != null && !manifestMaterial.isBlank() && !manifestMaterial.equals(materialId.value())) {
+            issues.add(ValidationIssue.error(
+                    "A203",
+                    partTypeId.value(),
+                    "part and manifest disagree on material: " + materialId.value() + " against " + manifestMaterial));
+        }
+
+        float manifestMassKg = (float) root.path("partMassKg").asDouble(0d);
+        if (!(manifestMassKg > 0f)) {
+            issues.add(ValidationIssue.error(
+                    "A504", partTypeId.value(), "the fracture manifest declares no usable partMassKg"));
+            return null;
+        }
+        if (partMassKg > 0f && Math.abs(manifestMassKg - partMassKg) > AssemblyValidator.MASS_DELTA_FRAC * partMassKg) {
+            issues.add(ValidationIssue.error(
+                    "A202",
+                    partTypeId.value(),
+                    "massKg " + partMassKg + " differs from the manifest's partMassKg " + manifestMassKg
+                            + " by more than " + (AssemblyValidator.MASS_DELTA_FRAC * 100f) + "%"));
+        }
+
+        JsonNode shardNodes = root.path("shards");
+        if (!shardNodes.isArray() || shardNodes.isEmpty()) {
+            issues.add(ValidationIssue.error("A505", partTypeId.value(), "the fracture manifest declares zero shards"));
+            return null;
+        }
+        if (shardNodes.size() > SimulationConstants.MAX_SHARDS_PER_PART) {
+            issues.add(ValidationIssue.error(
+                    "A505",
+                    partTypeId.value(),
+                    "the fracture manifest declares " + shardNodes.size() + " shards, above MAX_SHARDS_PER_PART ("
+                            + SimulationConstants.MAX_SHARDS_PER_PART + ")"));
+            return null;
+        }
+
+        Map<String, MeshData> geometry = shardMeshes.shardMeshesFor(partTypeId, shardMeshRef, partDirectory);
+        if (geometry.isEmpty()) {
+            issues.add(ValidationIssue.error(
+                    "A501",
+                    partTypeId.value(),
+                    "no shard geometry could be read from \""
+                            + (shardMeshRef == null || shardMeshRef.isBlank()
+                                    ? GltfShardMeshSource.DEFAULT_SHARD_FILE
+                                    : shardMeshRef)
+                            + "\""));
+            return null;
+        }
+
+        List<ShardDefinition> shards = new ArrayList<>(shardNodes.size());
+        for (JsonNode shardNode : shardNodes) {
+            ShardDefinition shard = readShard(shardNode, partTypeId, geometry);
+            if (shard == null) {
+                // One unreadable shard abandons the whole manifest rather than shipping the rest:
+                // the shards that remain would no longer sum to the part's mass, and a fracture
+                // that quietly loses a kilogram of glass is exactly what G7 exists to refuse.
+                return null;
+            }
+            shards.add(shard);
+        }
+
+        try {
+            return new FractureManifest(partTypeId, partTypeId, manifestMassKg, shards);
+        } catch (IllegalArgumentException e) {
+            // The constructor is the one funnel every manifest passes through at runtime, and it
+            // enforces G7 itself. Reaching here means the file disagrees with its own arithmetic.
+            issues.add(ValidationIssue.error("A504", partTypeId.value(), e.getMessage()));
+            return null;
+        }
+    }
+
+    /** One {@code shards[]} entry, paired with its node in {@code shards.glb}. */
+    private ShardDefinition readShard(JsonNode node, AssetId partTypeId, Map<String, MeshData> geometry) {
+        String shardId = node.path("id").asText("");
+        String nodeName = node.path("name").asText("");
+        if (shardId.isBlank()) {
+            issues.add(ValidationIssue.error("A501", partTypeId.value(), "a shard entry declares no id"));
+            return null;
+        }
+        String key = nodeName.isBlank() ? shardId : nodeName;
+        MeshData partSpace = geometry.get(key);
+        if (partSpace == null) {
+            issues.add(ValidationIssue.error(
+                    "A501", partTypeId.value(), "shards.glb has no node \"" + key + "\" for shard " + shardId));
+            return null;
+        }
+
+        float massKg = (float) node.path("massKg").asDouble(0d);
+        if (!(massKg > 0f)) {
+            issues.add(ValidationIssue.error(
+                    "A505", partTypeId.value(), "shard " + shardId + " declares a mass of " + massKg + " kg"));
+            return null;
+        }
+        if (massKg <= SimulationConstants.MIN_BODY_MASS_KG) {
+            // Kept in the manifest regardless: dropping it would break the G7 sum the constructor
+            // checks. FractureSystem refuses to spawn it and says so, once, at the moment it would.
+            issues.add(ValidationIssue.error(
+                    "A505",
+                    partTypeId.value(),
+                    "shard " + shardId + " weighs " + massKg + " kg, at or below MIN_BODY_MASS_KG"));
+        }
+
+        Transform placement = readShardTransform(node.path("localTransform"));
+        if (!boundsAgree(partSpace, node, partTypeId, shardId)) {
+            return null;
+        }
+        return new ShardDefinition(
+                shardId,
+                nodeName,
+                node.path("index").asInt(0),
+                massKg,
+                readVector(node.path("centroid")),
+                placement,
+                toShardSpace(partSpace, placement));
+    }
+
+    /**
+     * The manifest's {@code localTransform}: a position and a quaternion, both part-local.
+     *
+     * <p>Its own reader rather than {@link #readTransform}, because a part.json slot authors
+     * {@code localPosition} and Euler {@code localRotationDeg} for a human to write, and a manifest
+     * is written by a tool that has a quaternion in hand (D09-S4.4).
+     */
+    private static Transform readShardTransform(JsonNode node) {
+        Transform transform = new Transform();
+        transform.position.set(readVector(node.path("position")));
+        JsonNode rotation = node.path("rotation");
+        if (rotation.isObject()) {
+            transform.rotation.set(
+                    (float) rotation.path("x").asDouble(0d),
+                    (float) rotation.path("y").asDouble(0d),
+                    (float) rotation.path("z").asDouble(0d),
+                    (float) rotation.path("w").asDouble(1d));
+            transform.rotation.nor();
+        }
+        return transform;
+    }
+
+    /**
+     * Checks the exported shard against the AABB its manifest declares for it (A501).
+     *
+     * <p>Skipped when the manifest declares a degenerate box, which is what an older or hand-written
+     * manifest that simply omits the field looks like. Present-and-wrong is the finding; absent is
+     * not.
+     */
+    private boolean boundsAgree(MeshData partSpace, JsonNode shardNode, AssetId partTypeId, String shardId) {
+        Vector3 declaredMin = readVector(shardNode.path("aabbMin"));
+        Vector3 declaredMax = readVector(shardNode.path("aabbMax"));
+        if (declaredMax.epsilonEquals(declaredMin, SHARD_BOUNDS_TOLERANCE_M)) {
+            return true;
+        }
+        Vector3 min = new Vector3();
+        Vector3 max = new Vector3();
+        partSpace.bounds(min, max);
+        if (min.epsilonEquals(declaredMin, SHARD_BOUNDS_TOLERANCE_M)
+                && max.epsilonEquals(declaredMax, SHARD_BOUNDS_TOLERANCE_M)) {
+            return true;
+        }
+        issues.add(ValidationIssue.error(
+                "A501",
+                partTypeId.value(),
+                "shard " + shardId + " is exported at " + min + ".." + max + " but its manifest declares " + declaredMin
+                        + ".." + declaredMax + "; the two are not in the same space"));
+        return false;
+    }
+
+    /**
+     * Moves a shard's part-space geometry onto its own origin, which is where a body's shape has to
+     * be.
+     *
+     * <p>The tool exports every shard in the part's frame — that is what makes {@code shards.glb}
+     * reassemble into the intact part when you open it — and D07-S5.6 spawns a shard by composing
+     * the part's world transform with the shard's {@code localTransform}. Handing Bullet the
+     * part-space vertices as well would apply that offset twice, and a convex hull built about a
+     * point that is not its own body's origin spins about the wrong axis even when it is placed
+     * correctly.
+     */
+    private static MeshData toShardSpace(MeshData partSpace, Transform placement) {
+        Quaternion inverse = new Quaternion(placement.rotation).conjugate();
+        float[] positions = new float[partSpace.vertexCount() * 3];
+        Vector3 vertex = new Vector3();
+        for (int i = 0; i < partSpace.vertexCount(); i++) {
+            partSpace.vertex(i, vertex).sub(placement.position);
+            inverse.transform(vertex);
+            positions[i * 3] = vertex.x;
+            positions[i * 3 + 1] = vertex.y;
+            positions[i * 3 + 2] = vertex.z;
+        }
+        return new MeshData(positions);
     }
 
     /** Reads the {@code stats} block, mapping its camelCase keys onto {@link StatBlock.Stat}. */

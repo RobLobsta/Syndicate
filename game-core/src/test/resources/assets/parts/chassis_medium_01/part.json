@@ -32,8 +32,7 @@
   ],
   "assets": {
     "visualMesh": "mesh.glb",
-    "collisionSource": "mesh.glb#node=chassis_medium_01_col",
-    "fractureManifest": "fracture_manifest.json"
+    "collisionSource": "mesh.glb#node=chassis_medium_01_col"
   },
   "tags": ["starter", "medium"]
 }
