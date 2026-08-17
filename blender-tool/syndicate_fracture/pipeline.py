@@ -14,6 +14,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from syndicate_policy.classes import FRACTURE
+
 from . import blender, exporter, materials, selfverify
 from . import manifest as manifest_module
 from .cli import TOOL_VERSION, Args
@@ -21,6 +23,7 @@ from .errors import (
     EXIT_INPUT_GEOMETRY_INVALID,
     EXIT_MATERIAL_UNRESOLVED,
     EXIT_OUTPUT_WRITE_FAILED,
+    EXIT_TRANSFORM_NOT_PERMITTED,
     ToolError,
     VerificationReport,
     log,
@@ -29,16 +32,26 @@ from .fracture import Shard, voronoi_fracture
 from .geometry import Vec3, aabb_of, boundary_edge_count, is_finite, mesh_volume, surface_area
 from .hulls import Hull, build_hull
 from .mass import assign_masses
-from .morphs import generate_damage_morphs
 from .shell import part_volume_m3 as shell_part_volume
 from .shell import shell_fracture
+from .verifyonly import verify_existing
 
 
 def run(args: Args) -> dict[str, Any]:
     """Process every selected object. Raises ``ToolError`` with a specific exit code."""
+    if args.verify_only:
+        # Checked before Blender is touched, because the promise of this flag is that it
+        # produces no new data and the cheapest way to keep that promise is not to open a
+        # scene at all (D09-S4.2).
+        return verify_existing(args)
+
     blender.require_bpy()
     blender_version = blender.blender_version()
-    log("INFO", f"syndicate_fracture {TOOL_VERSION} on Blender {blender_version}, seed {args.seed}")
+    log(
+        "INFO",
+        f"syndicate_fracture {TOOL_VERSION} on Blender {blender_version}, seed {args.seed}, "
+        f"FRACTURE transform for a {args.destruction_class} part",
+    )
 
     table = materials.load(args.material_table)
     blender.load_input(args.input)
@@ -83,6 +96,8 @@ def plan(args: Args) -> dict[str, Any]:
         "out": str(args.out),
         "object": args.object,
         "seed": args.seed,
+        "transform": str(FRACTURE),
+        "destructionClass": args.destruction_class,
         "parameters": args.parameters_block(),
         "materialTable": str(args.material_table),
         "materialOverride": args.material_override,
@@ -92,11 +107,10 @@ def plan(args: Args) -> dict[str, Any]:
         "stages": [
             "1 validate source geometry",
             "2 voronoi fracture",
-            "3 damage morphs",
-            "4 mass assignment",
-            "5 collision hulls",
-            "6 glTF export" if not args.no_export else "6 glTF export (skipped)",
-            "7 self-verification",
+            "3 mass assignment",
+            "4 collision hulls",
+            "5 glTF export" if not args.no_export else "5 glTF export (skipped)",
+            "6 self-verification",
         ],
     }
 
@@ -117,6 +131,7 @@ def _process_one(
 
     # --- Stage 1: validate the source ---------------------------------------------------
     blender.apply_transforms(obj)
+    _refuse_existing_morphs(obj, args)
     source_vertices, source_triangles = blender.read_mesh(obj)
     _validate_source(name, source_vertices, source_triangles, args.shell_thickness)
     material_id = _resolve_material(obj, args, table)
@@ -132,11 +147,7 @@ def _process_one(
         shards = voronoi_fracture(obj, args)
     log("INFO", f"'{name}' fractured into {len(shards)} shards")
 
-    # --- Stage 3: damage morphs ---------------------------------------------------------
-    morphs = generate_damage_morphs(obj, args)
-    log("INFO", f"'{name}' generated {len(morphs)} damage morphs")
-
-    # --- Stage 4: mass ------------------------------------------------------------------
+    # --- Stage 3: mass ------------------------------------------------------------------
     masses = assign_masses(
         source_vertices,
         source_triangles,
@@ -156,10 +167,10 @@ def _process_one(
         f"at {masses.density_kg_per_m3} kg/m3",
     )
 
-    # --- Stage 5: hulls -----------------------------------------------------------------
+    # --- Stage 4: hulls -----------------------------------------------------------------
     hulls = _build_hulls(name, obj, shards, source_vertices, args)
 
-    # --- Stage 6: export ----------------------------------------------------------------
+    # --- Stage 5: export ----------------------------------------------------------------
     exported_shard_names: list[str] | None = None
     exported_morph_names: list[str] | None = None
     shards_glb: Path | None = None
@@ -168,8 +179,10 @@ def _process_one(
         # Re-import checks come last because they reset the scene (D09-R15).
         exported_shard_names = exporter.reimport_node_names(shards_glb)
         exported_morph_names = exporter.reimport_morph_target_names(mesh_glb)
+    if args.keep_blend:
+        blender.save_blend(staged / "processed.blend")
 
-    # --- Manifest + stage 7 -------------------------------------------------------------
+    # --- Manifest + stage 6 -------------------------------------------------------------
     bounds = aabb_of(source_vertices)
     part_hull = next(h for h in hulls if h.name == "part")
     document = manifest_module.build(
@@ -178,7 +191,6 @@ def _process_one(
         blender_version=blender_version,
         args=args,
         shards=shards,
-        morphs=morphs,
         masses=masses,
         part_aabb=(bounds.min, bounds.max),
         part_hull_vertex_count=part_hull.vertex_count,
@@ -187,7 +199,6 @@ def _process_one(
 
     report = selfverify.run(
         shards=shards,
-        morphs=morphs,
         hulls=hulls,
         manifest=document,
         source_vertices=source_vertices,
@@ -204,6 +215,39 @@ def _process_one(
     for warning in report.warnings:
         log("WARN", f"'{name}': {warning.name} — {warning.measured}")
     return document, staged
+
+
+def _refuse_existing_morphs(obj, args: Args) -> None:
+    """Refuse a mesh that already carries damage morphs its class must not have (D15-S5.7).
+
+    No destruction class receives both transforms, so a mesh arriving here with ``dmg_*`` shape
+    keys on it is evidence that something authored deformation onto a part that fractures. The
+    tool used to *delete* those keys and re-author its own, which is how the two transforms
+    stayed tangled together for as long as they did (DISC-068).
+
+    Refusing rather than stripping is the point. Stripping would silently repair the symptom on
+    the way past and leave whatever produced it in place; exit 77 sends the caller to the label
+    or to the tool they should have run instead.
+    """
+    from syndicate_policy.classes import MORPH_LEVELS, treatment
+
+    if treatment(args.destruction_class).deform:
+        return
+    mesh = getattr(obj, "data", None)
+    keys = getattr(mesh, "shape_keys", None) if mesh is not None else None
+    if keys is None:
+        return
+    found = sorted(k.name for k in keys.key_blocks if k.name in set(MORPH_LEVELS))
+    if found:
+        raise ToolError(
+            EXIT_TRANSFORM_NOT_PERMITTED,
+            f"'{obj.name}' already carries damage morphs {found}, but a "
+            f"{args.destruction_class} part does not deform (D15-S5.7). Something authored the "
+            f"DEFORM transform onto a part that fractures",
+            object=obj.name,
+            destructionClass=args.destruction_class,
+            morphTargets=found,
+        )
 
 
 def _validate_source(
@@ -302,7 +346,7 @@ def _publish(staged: Path, out_root: Path, document: dict[str, Any]) -> None:
     """Move the staged outputs into ``--out`` (D09-R2, exit 75)."""
     try:
         out_root.mkdir(parents=True, exist_ok=True)
-        (staged / "fracture_manifest.json").write_text(
+        (staged / manifest_module.MANIFEST_FILE).write_text(
             json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
         for item in sorted(staged.iterdir()):

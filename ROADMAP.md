@@ -281,14 +281,14 @@ Real work, no fixed place in the sequence.
   Mustang's low-order energy is panels and cabin, which nothing here reproduces.
 - **Capture the client's screens in CI.** Now possible (DISC-046) and not yet wired. It would make a
   visual regression a failing build rather than something noticed three sessions later.
-- **The Blender suite's own tidy-up.** `blender-tool/README.md` is now the suite's design document,
-  and it lists six real defects found by reviewing it (DISC-068). The one that matters: the fracture
-  tool authors shards *and* dent morphs in the same pass by default, nothing at runtime checks a
-  part's destruction class before doing either, and the only reason no shipped part both dents and
-  shatters is that `syndicate_prepare` holds the rule by hand. The fix is to split the tool per
-  transform and put `transform` and `destructionClass` in every manifest so the asset gate can pair
-  them. It is a content migration as well as a code change — every manifest gets renamed — so it
-  wants scheduling rather than squeezing in.
+- **The Blender suite, and what is left of its tidy-up.** The six defects `blender-tool/README.md`
+  found are fixed: one tool per transform, each refusing a destruction class D15-S5.7 does not give
+  it, every manifest declaring what it is, and an asset-gate rule that pairs the two. Three things
+  were left deliberately, all of them readability rather than correctness — `syndicate_dissect` and
+  `syndicate_prepare` keep names that describe jobs they no longer do, the low-level modules
+  `syndicate_deform` borrows still live in `syndicate_fracture`, and the runtime still does not
+  check a part's class before fracturing it. The first two belong in a commit with no behaviour in
+  it; the third is worth doing when a second class has shards to get wrong.
 - **JSON schemas at load, still.** `schemas/` is an empty directory that D08-R18 makes a hard
   requirement and that D09-R7, D09-AC-7, D14-R7 and D14-AC-6 all cite. Eight schemas and a validator;
   it cannot be deleted, because five requirements point at it.

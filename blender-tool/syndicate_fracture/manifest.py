@@ -13,14 +13,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from syndicate_policy.classes import FRACTURE
+
 from .cli import TOOL_VERSION, Args
 from .errors import VerificationReport
 from .fracture import Shard
 from .geometry import Vec3, quantise
 from .mass import MassResult
-from .morphs import MorphStats
 
 SCHEMA_VERSION = "1.0.0"
+
+#: The file a fracture manifest is written to, beside the part it describes (D08-S4.6). Named
+#: for its transform, which is the glossary's word for it (D00-S6): deformation manifests are
+#: `deform_manifest.json` and are written by a different tool.
+MANIFEST_FILE = "fracture_manifest.json"
 
 
 def to_game_space(v: Vec3) -> Vec3:
@@ -73,7 +79,6 @@ def build(
     blender_version: str,
     args: Args,
     shards: list[Shard],
-    morphs: list[MorphStats],
     masses: MassResult,
     part_aabb: tuple[Vec3, Vec3],
     part_hull_vertex_count: int,
@@ -90,6 +95,12 @@ def build(
         "sourceFile": str(source_path),
         "sourceHash": file_hash(source_path),
         "partTypeId": part_type_id,
+        # What this manifest is, and who it is for. Without these two fields a consumer cannot
+        # tell a manifest that should exist from one that should not, which is why nothing
+        # caught the tool authoring shards for a steel door (DISC-068). The asset gate pairs
+        # them against `part.json`'s own destructionClass (A510).
+        "transform": str(FRACTURE),
+        "destructionClass": args.destruction_class,
         "materialId": masses.material_id,
         "seed": args.seed,
         "parameters": args.parameters_block(),
@@ -100,8 +111,12 @@ def build(
         "inertiaDiagonal": _vec(inertia_to_game_space(masses.inertia_diagonal)),
         "aabbMin": _vec(aabb_min),
         "aabbMax": _vec(aabb_max),
-        "morphTargets": [m.name for m in morphs],
-        "morphStats": [m.to_json() for m in morphs],
+        # Always empty, and kept rather than dropped: TV-006 compares it with what the exported
+        # mesh actually carries, so it is the check that a fracturing part shipped no damage
+        # morphs rather than a field describing some this tool authored. Deformation manifests
+        # are `deform_manifest.json`, written by `syndicate_deform`.
+        "morphTargets": [],
+        "morphStats": [],
         "shardCount": len(shards),
         "shards": [_shard(s, masses.material_id, part_type_id) for s in shards],
         "collision": {

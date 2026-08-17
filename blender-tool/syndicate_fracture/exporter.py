@@ -35,19 +35,34 @@ GLTF_SETTINGS = {
 }
 
 
-def export_gltf(obj, shards, out_dir: Path) -> tuple[Path, Path]:
-    """Write ``mesh.glb`` and ``shards.glb``, then verify both by re-import."""
+def export_mesh(obj, out_dir: Path) -> Path:
+    """Write ``mesh.glb`` — the intact part, with its ``_col`` node if one exists.
+
+    Split out of :func:`export_gltf` so the deform tool can use it: that tool produces morph
+    targets and no shards, and asking for a ``shards.glb`` with nothing in it raised
+    "nothing selected to export" three stages after the real decision.
+    """
     require_bpy()
     out_dir.mkdir(parents=True, exist_ok=True)
-
     mesh_path = out_dir / "mesh.glb"
     collision = blender.find_object(f"{obj.name}_col")
     selection = [obj] if collision is None else [obj, collision]
     _export(selection, mesh_path)
+    return mesh_path
 
+
+def export_gltf(obj, shards, out_dir: Path) -> tuple[Path, Path | None]:
+    """Write ``mesh.glb`` and ``shards.glb``, then verify both by re-import.
+
+    ``shards.glb`` is written only when there are shards; the second element of the tuple is
+    ``None`` otherwise. A file is the claim that a part fractures, so writing an empty one
+    would be a claim nobody meant to make.
+    """
+    mesh_path = export_mesh(obj, out_dir)
+    if not shards:
+        return mesh_path, None
     shards_path = out_dir / "shards.glb"
     _export([s.obj for s in shards], shards_path)
-
     return mesh_path, shards_path
 
 

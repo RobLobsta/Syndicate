@@ -24,21 +24,19 @@ __all__ = [
     "EXIT_USAGE",
 ]
 
-#: Success. Follows the fracture tool's exit-code contract (D09-S4.3).
-EXIT_OK = 0
-
-#: Bad arguments.
-EXIT_USAGE = 64
+# The shared table of `syndicate_policy.exit_codes`, so 64-79 mean the same thing in every tool
+# of the suite (D09-R5 invites an agent to branch on the code by integer division, which only
+# works if they agree). Two numbers moved when the table was unified — see below.
+from syndicate_policy.exit_codes import (
+    EXIT_BLENDER_ERROR,
+    EXIT_OK,
+    EXIT_UNDER_LABELLED,
+    EXIT_USAGE,
+)
 
 #: The model directory or a file it needs is missing.
-EXIT_INPUT_MISSING = 66
-
-#: A Blender-side failure.
-EXIT_BLENDER_ERROR = 70
-
-#: Strict mode only: the ensemble could not name enough of the model (D15-R13).
 #:
-#: A distinct code because it is not an error in the tool — it is the tool reporting, loudly,
-#: that this model needs a ``parts.json``. An operator scripting the pipeline wants to tell
-#: that apart from a crash.
-EXIT_UNDER_LABELLED = 65
+#: Was 66, which D09-S4.3 spends on "mesh not watertight, zero volume, NaN coordinates" — an
+#: agent branching on the shared meaning would have gone looking for broken geometry in a model
+#: it had not managed to open. 65 is D09's "input file unreadable", which is what this is.
+EXIT_INPUT_MISSING = 65

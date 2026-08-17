@@ -86,6 +86,22 @@ def load_input(path: Path) -> None:
         ) from exc
 
 
+def save_blend(path: Path) -> None:
+    """Write the processed scene to ``path`` — the ``--keep-blend`` of D09-S4.2.
+
+    The flag was in the contract, parsed, and read by nothing (DISC-068). What it is for is
+    opening the scene the tool actually produced when a fracture looks wrong: the shard
+    objects, their materials and the collision source are all still there, and inspecting them
+    beats inferring from a manifest.
+
+    Written into the staging directory like every other output, so a run that fails
+    verification leaves no ``.blend`` behind either (D09-R2, atomicity).
+    """
+    require_bpy()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=str(path), copy=True, compress=True)
+
+
 def mesh_objects(name: str | None = None) -> list:
     """Mesh objects to process, in name order (D09-S5.1: deterministic order).
 

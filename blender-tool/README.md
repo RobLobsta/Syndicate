@@ -9,8 +9,9 @@ and `docs/17_weapon_system.md` are the contracts, and where this file and `docs/
 wins (D00-S5.1). What lives here is the shape of the suite as a whole, which no single numbered
 document owns because each of them owns one tool.
 
-**Status.** Everything in §2 ships and runs. §6 is a list of real defects found by review on
-2026-08-17, none of them yet fixed. §7 is the target shape. Read §6 before trusting §2.
+**Status.** Everything here ships and runs. §6 lists the six defects a review found on 2026-08-17
+and what was done about each; all six are fixed. §7 records what was deliberately *not* done and
+why.
 
 ---
 
@@ -29,7 +30,7 @@ thing legible is:
 > that produces shards produces only shards, labels its output as shards, and the runtime breaks that
 > part the way it breaks glass — because that is the only thing shards mean.
 
-That sentence is the design. §6 records where the code does not yet hold it.
+That sentence is the design, and §5 is why the tools are the only place it can be enforced.
 
 ---
 
@@ -41,16 +42,16 @@ melting" from being a Blender question when it is really an engine question.
 
 | Transform | Authoring output | Runtime representation | Trigger | Classes |
 |---|---|---|---|---|
-| **DEFORM** | 4 morph targets `dmg_25…dmg_100` inside `mesh.glb` | shape-key weights, two non-zero at a time | continuous, health fraction (D07-S5.5) | `SHEET_METAL`, `STRUCTURAL` |
-| **FRAGMENT** | `shards.glb` + a manifest of N shards with masses and placements | N debris rigid bodies, one per shard | discrete, on `DESTROYED` (D07-S5.6) | `GLASS` |
+| **DEFORM** | 4 morph targets `dmg_25…dmg_100` inside `mesh.glb`, plus `deform_manifest.json` | shape-key weights, two non-zero at a time | continuous, health fraction (D07-S5.5) | `SHEET_METAL`, `STRUCTURAL` |
+| **FRACTURE** | `shards.glb` + `fracture_manifest.json`, N shards with masses and placements | N debris rigid bodies, one per shard | discrete, on `DESTROYED` (D07-S5.6) | `GLASS` |
 | **DETACH** | nothing — it is the slot graph | the part's body leaves the vehicle compound | `breakImpulseN`, or destruction (D05-S5.5) | every class |
 | **ARTICULATE** | an `articulation` block on `part.json` | a node pose composed after the render matrix | `OPEN` / `FIRE` / `AIM` / `CONTINUOUS` (DEC-083) | any part with a hinge or a mechanism |
 
 Three properties fall out of the table and are worth stating because they are load-bearing:
 
-- **DEFORM is continuous and reversible; FRAGMENT is discrete and terminal.** They are not two points
+- **DEFORM is continuous and reversible; FRACTURE is discrete and terminal.** They are not two points
   on one scale. A part cannot be 40% fragmented.
-- **DEFORM is cosmetic; FRAGMENT is authoritative.** Morph weights are written by the client and read
+- **DEFORM is cosmetic; FRACTURE is authoritative.** Morph weights are written by the client and read
   by nobody (G6, D07-R18). Shards are rigid bodies with mass, and their masses must sum to the part's
   (G7). That is why a wrong morph is ugly and a wrong shard set is a physics bug.
 - **Collision geometry never deforms** (D06-NG5). A dented door collides as an undented door. This is
@@ -61,19 +62,27 @@ DETACH is in the table for completeness and needs no tool: it is a consequence o
 
 ---
 
-## 3. The packages, as they exist today
+## 3. The packages
 
 | Package | Runs as | In | Out | Contract |
 |---|---|---|---|---|
+| `syndicate_policy` | *library, no CLI* | — | the class/transform table and the exit-code table | D15-S5.7, D09-S4.3 |
+| `syndicate_fracture` | `python3 -m syndicate_fracture` | one clean part mesh + its class | `mesh.glb`, `shards.glb`, `fracture_manifest.json` | D09 |
+| `syndicate_deform` | `python3 -m syndicate_deform` | one part mesh + its class | `mesh.glb` with morph targets, `deform_manifest.json` | D09-S5.3 |
 | `syndicate_prepare` | `python3 -m syndicate_prepare` | one whole-vehicle model | ~30 parts under `assets/vehicles/<id>/parts/`, `assembly.json`, `import.json` | D15 |
 | `syndicate_weapon` | `python3 -m syndicate_weapon` | one whole-weapon model | a weapon's sub-parts + `<id>.weapon.json` | D17 |
-| `syndicate_fracture` | `python3 -m syndicate_fracture` | one clean part mesh | `mesh.glb`, `shards.glb`, `fracture_manifest.json` | D09 |
-| `syndicate_dissect` | *library only, no CLI* | — | — | — |
+| `syndicate_dissect` | *library, no CLI* | — | model loading, `import.json`, joins, origins, hulls, glTF | — |
 
-The first two are **orchestrators**: they classify a downloaded model into labelled parts and then
-decide, per part, which transforms to author. The third is a **transform tool**: it is handed one
-part and one instruction. The fourth is a **shared library** — model loading, `import.json`
-correction, joins, origins, collision hulls, glTF writing — that both orchestrators call.
+Three kinds of thing, and the kind is what tells you what to expect of it:
+
+- **Transform tools** (`fracture`, `deform`) take one part and author one transform. Each refuses
+  the other's — asking the fracture tool for damage morphs is exit 64 naming the deform tool, and
+  handing either a class D15-S5.7 does not give its transform to is exit 77.
+- **Orchestrators** (`prepare`, `weapon`) classify a downloaded model into labelled parts and then
+  decide, per part, which transform tool to call. They decide; they no longer *are* the rule.
+- **Libraries** (`policy`, `dissect`) are imported and never run. `syndicate_policy` is the one
+  every other package depends on, and it imports nothing — no `bpy`, no siblings — so the policy can
+  be consulted before Blender is started and is unit-testable without a host.
 
 Both hosts are supported everywhere: `blender --background --python -m <pkg>` and `python3 -m <pkg>`
 against the `bpy` PyPI module. `tools/install-blender.sh` fetches headless Blender 4.2 LTS in about
@@ -81,35 +90,35 @@ ninety seconds; the sandbox not shipping one is not a constraint (DISC-064).
 
 ---
 
-## 4. Naming, and what is wrong with it
+## 4. Naming
 
-The current names describe **implementation history** rather than the transform model. Four
-inconsistencies, in the order they mislead:
+**Transform tools are named for their transform, orchestrators for their subject, libraries for
+their contents.** The transform names are not new words: D00-S6 already defines *fracture* as "the
+one-time replacement of a part's single rigid body with its pre-authored shards" and *deformation*
+as "continuous visual mesh change driven by shape keys", and its note on each is "not the other
+one". The glossary is the single authority for domain terms, and inventing a synonym for one is the
+loose usage that outlives a session.
 
-1. **`syndicate_fracture` does two transforms.** It fractures *and* generates damage morphs, in one
-   pass, in every run (§6.1). Its name promises one of them. So does its output file,
-   `fracture_manifest.json`, which carries `morphTargets` and `morphStats` — a fracture manifest
-   describing deformation.
-2. **The four names are four different parts of speech.** `prepare` is a verb with no object,
-   `weapon` is a noun, `fracture` is both, `dissect` is a verb describing something the package no
-   longer does. Nothing in the set tells you which are orchestrators and which are transforms.
-3. **`syndicate_dissect` is a legacy name its own docstring apologises for.** Its original job — one
-   car in, five parts out — was retired. What survives is model loading and mesh export, used by both
-   orchestrators on every run. It is the suite's shared library wearing a tool's name, and it is the
-   only package with no CLI.
-4. **Content policy is baked into a function name.** `syndicate_prepare.exporter.fracture_glass()` is
-   the only caller of the fracture tool. It is correct today because glass is the only class that
-   fractures — and it is the line that has to be renamed the day D15-S5.7 gives shards to anything
-   else, which is a change §7 expects.
+That is a correction to this file's own earlier recommendation, which proposed renaming
+`syndicate_fracture` to `syndicate_shatter`. It was wrong: the package was always named correctly,
+and the problem was never the name but that the tool did a second thing the name did not cover.
+Fixing the tool fixed the name. `fracture_manifest.json` is right for the same reason, and
+`deform_manifest.json` is its counterpart.
 
-The convention §7 proposes: **transform tools are named for their transform, orchestrators for their
-subject, libraries for their contents.**
+One rename did happen, and it is the one that was actually misleading:
+`syndicate_prepare.exporter.fracture_glass()` is now `author_fracture()`. Glass being the only class
+with shards is a *content* decision D15-S5.7 owns and can change; a function name is the wrong place
+to record it.
+
+Two names are still legacy and are left alone deliberately. `syndicate_dissect` describes a job it
+no longer does — one car in, five parts out, retired — and is now the shared model/mesh library; and
+`syndicate_prepare` is a verb with no object where `syndicate_weapon` is a noun. Renaming either
+buys clarity and nothing else, and both are load-bearing in the Gradle wiring, the docs and every
+memory entry that cites them. §7 says why that trade came out the way it did.
 
 ---
 
-## 5. What the engine actually does with each output
-
-Worth having in one place, because the answer decides how much the tool has to enforce.
+## 5. What the engine does with each output, and why the tools must enforce
 
 | Output | Read by | Gate |
 |---|---|---|
@@ -117,145 +126,106 @@ Worth having in one place, because the answer decides how much the tool has to e
 | `fracture_manifest.json` + `shards.glb` | `AssetLoader` → `FractureSystem` (slot 13) | **the part declares a manifest** |
 | `part.json` `destructionClass` | `AudioSystem` (slot 25), to pick a break sound | — |
 
-Read the third row against the first two. **`DestructionClass` does not gate anything.** The runtime
-never asks whether a part is allowed to dent or allowed to shatter; it asks whether the data is
-there. `DestructionClass.hasDamageShapeKeys()` exists, is correct, and is called by exactly one unit
-test and nothing else.
+Read the third row against the first two. **`DestructionClass` gates nothing at runtime.** The
+engine never asks whether a part is allowed to dent or allowed to shatter; it asks whether the data
+is there. `DestructionClass.hasDamageShapeKeys()` exists, is correct, and is called by exactly one
+unit test and nothing else.
 
-That is a defensible design — the asset is the authority, the engine spends what it is given — but it
-has a consequence that is not optional: **the tools are the only enforcement point in the entire
-project.** If a tool writes shards onto a steel door, that door shatters in game, and no loader, no
-system and no asset-gate rule will say a word about it.
+That is a defensible design — the asset is the authority, the engine spends what it is given — but
+it has a consequence that is not optional: **authoring time is where the rule has to live.** There
+are now two independent places it does, in the spirit of DEC-041:
 
----
-
-## 6. Findings
-
-Six defects, most-severe first. All were confirmed by reading the code on 2026-08-17; none are fixed.
-
-### 6.1 `syndicate_fracture` performs both transforms unconditionally
-
-`pipeline._process_one` runs stage 2 (Voronoi fracture) and stage 3 (damage morphs) one after the
-other for every object, every run. The CLI defaults are `--shards 24` **and** `--damage-morphs 4`, so
-the documented invocation of the D09 tool produces a part that both dents and shatters — which no
-destruction class in D15-S5.7 permits, and which the runtime will faithfully perform (§5).
-
-It is worse than symmetric. `--damage-morphs 0` disables deformation, but there is **no way to
-disable fracture**: `--shards` is clamped to `[2, 256]`, so `--shards 0` silently becomes two shards.
-The tool cannot be asked to dent a panel without also breaking it into two pieces.
-
-### 6.2 The fixture gate ships the violation
-
-`:blender-tool:processFixtures` runs all five fixtures — every one of them steel or aluminium — with
-`--shards <n> --damage-morphs 4`. So the gate that proves the tool works proves it doing the one
-thing §1 forbids, and `:test-environment:verifyFixtures` checks the result and passes it.
-
-### 6.3 The invariant is held by one caller's discipline, not by the tool
-
-`syndicate_prepare` gets this **right**. Its `destruction.TREATMENTS` table is a faithful transcript
-of D15-S5.7 — `GLASS` is `morphs=False, shards=24`, `SHEET_METAL` is `morphs=True, shards=0` — and
-the two halves are applied in two different places: `exporter.export_part` subdivides and morphs,
-`exporter.fracture_glass` calls the fracture tool with `damage_morphs=0`.
-
-So the shipped content is correct. But the correctness lives in an orchestrator, and the tool it
-orchestrates will happily do the wrong thing for anyone who invokes it directly — which is exactly
-how D09 documents invoking it, and how the fixture gate does invoke it.
-
-### 6.4 The manifest does not say what transform produced it
-
-`fracture_manifest.json` records the tool version, the seed, the source hash, the topology hash, the
-material and 24 shards — and nowhere states that this is a **fragmentation** manifest for a **GLASS**
-part. There is no `destructionClass` and no transform discriminator in it. A consumer cannot tell a
-manifest that should exist from one that should not, which is why no gate catches 6.1.
-
-### 6.5 Two contract flags are accepted and silently ignored
-
-`--verify-only` and `--keep-blend` are in D09-S4.2's table, are parsed by `cli.parse`, are validated
-(`--no-export` and `--verify-only` are correctly rejected as contradictory) — and are then read by
-nothing. `verify_only` appears in `cli.py` three times and nowhere else in the package; `keep_blend`
-appears in `cli.py` and nowhere at all.
-
-`--verify-only` is the dangerous one. Its documented meaning is "verify existing outputs, produce no
-new data". Its actual behaviour is a full destructive run that overwrites them.
-
-This directly contradicts the module's own reasoning: `cli.py`'s docstring explains that unknown
-arguments must be fatal because "silently ignoring `--shard=24` would produce a 24-shard default that
-looks like success and ships the wrong asset". A *known* flag that is accepted and ignored fails the
-same way, with more confidence behind it.
-
-### 6.6 Three exit-code schemes that do not agree
-
-`syndicate_fracture` uses 64–76 (D09-S4.3). `syndicate_weapon` extends it into a reserved 80–89 range
-(D17-R19) — good — but re-uses 65 for `BAD_MODEL` where D09 has `INPUT_INVALID`, and 66 for
-`INPUT_MISSING` where D09 has `INPUT_GEOMETRY_INVALID`. `syndicate_prepare` uses 65 for
-`UNDER_LABELLED`. An agent branching on the code by integer division, which D09-R5 explicitly invites
-it to do, gets three different answers to "what is a 65".
+1. **The tools refuse.** Each takes `--destruction-class`, consults `syndicate_policy`, and exits 77
+   rather than authoring a transform the class does not receive. The fracture tool also refuses a
+   mesh that *arrives* carrying damage morphs, rather than deleting them as it used to.
+2. **The asset gate refuses.** `A510` pairs a manifest's declared `transform` against the part's
+   `destructionClass`, and rejects a manifest that declares neither. That is what catches a manifest
+   that arrived by hand, in a copied directory, or from a tool version predating the split — none of
+   which ever passed a tool's check.
 
 ---
 
-## 7. The target shape
+## 6. What the review found, and what was done
 
-What the suite should become. Ordered by value, and none of it is started.
+Six defects, found on 2026-08-17 (DISC-068), most-severe first. All six are fixed.
 
-### 7.1 Split the transform tools
+### 6.1 `syndicate_fracture` performed both transforms unconditionally — **fixed**
 
-| New package | Transform | Reads | Writes |
-|---|---|---|---|
-| `syndicate_shatter` | FRAGMENT | one watertight solid or a surface + `--shell-thickness` | `shards.glb`, `shatter_manifest.json` |
-| `syndicate_deform` | DEFORM | one part mesh | morph targets inside `mesh.glb`, `deform_manifest.json` |
+`pipeline._process_one` ran stage 2 (Voronoi fracture) and stage 3 (damage morphs) one after the
+other for every object, every run, with CLI defaults of `--shards 24` **and** `--damage-morphs 4`.
+The documented D09 invocation produced a part that both dented and shattered, which no destruction
+class permits and which the runtime would faithfully perform. It was not even symmetric:
+`--damage-morphs 0` disabled deformation, but `--shards` was clamped to `[2, 256]`, so the tool
+could not be asked *not* to fracture.
 
-Each does one thing, and neither has a flag that would let it do the other. Most of the split is
-moving files: `fracture.py`, `shell.py`, `sites.py`, `decompose.py`, `hulls.py` and `mass.py` go one
-way; `morphs.py` goes the other; `blender.py`, `geometry.py`, `rng.py`, `errors.py`, `exporter.py`
-and `selfverify.py` are shared and belong in the library (§7.3).
+The deform stage is now `syndicate_deform`, its own package with its own CLI, manifest and
+self-verification. `--damage-morphs` and `--morph-amplitude` are still parsed by the fracture tool
+and are exit 64 naming the other tool — dropping them silently would leave every old invocation
+looking like it still worked while quietly authoring one transform instead of two, which is the same
+failure in the other direction.
 
-The two tools are then genuinely independent — a part can be handed to both, neither, or one, and the
-decision is the caller's and is visible in the invocation. Which is the point: today that decision is
-invisible because it was never asked.
+### 6.2 The fixture gate shipped the violation — **fixed**
 
-### 7.2 Make every manifest name its transform and its class
+`processFixtures` ran all five fixtures with `--damage-morphs 4`, so the gate that proves the tool
+works proved it doing the forbidden thing. It now passes `--destruction-class GLASS` and no morph
+flags, and a new `processDeformFixtures` exercises the deform tool over two of the same meshes as
+`SHEET_METAL`, into a **separate** output directory — because a part carrying both manifests is the
+exact mixture D15-S5.7 forbids, and a gate that produced one would assert the opposite of what it
+means to.
 
-Both manifests carry, as required fields:
+The harness's `ASSET-007` asked for four morph targets on every fractured part. It now asserts there
+are none, which is a sharper check than the one it replaced: it fails on exactly the mixture.
 
-```json
-{ "transform": "FRAGMENT", "destructionClass": "GLASS", "partTypeId": "…" }
-```
+### 6.3 The invariant lived in one caller's discipline — **fixed**
 
-That single field is what turns §6.1 from a convention into something checkable. It gives:
+`syndicate_prepare` got this right, by remembering to pass `damage_morphs=0`. Correctness lived in
+an orchestrator, and the tool it orchestrated would happily do the wrong thing for anyone invoking
+it directly — which is how D09 documents invoking it, and how the fixture gate did.
 
-- **the tool** a reason to refuse: `syndicate_shatter --destruction-class SHEET_METAL` exits non-zero
-  citing D15-S5.7 rather than producing a door that shatters;
-- **the asset gate** a rule to enforce (a new `A510`: the transform a part's manifests declare must
-  match its `destructionClass`), so a hand-run tool cannot slip past `asset-pipeline`;
-- **the runtime** the option, later, of refusing to load a manifest whose class disagrees with the
-  part's — closing the last hole in §5.
+The table moved to `syndicate_policy`, where the tools can consult it themselves, and
+`syndicate_prepare.destruction` keeps only the part that is genuinely a preparation run's: mapping a
+D15-S4.1 *label* to a class. The orchestrator now passes the class down instead of passing a zero.
 
-### 7.3 Rename for the model
+### 6.4 The manifest did not say what transform produced it — **fixed**
 
-| Now | Then | Why |
-|---|---|---|
-| `syndicate_fracture` | `syndicate_shatter` + `syndicate_deform` | one transform each (§7.1) |
-| `syndicate_prepare` | `syndicate_vehicle` | it is the vehicle orchestrator, and `syndicate_weapon` is already named that way |
-| `syndicate_dissect` | `syndicate_mesh` | it is the shared model/mesh library and has been for two sessions |
-| `exporter.fracture_glass()` | `exporter.author_fragmentation()` | the class is the table's business, not the function name's |
-| `fracture_manifest.json` | `shatter_manifest.json` | matches the tool; the loader reads a path out of `part.json`, so the rename is a content migration and not a code change |
+Both manifests now carry `transform` and `destructionClass` as required fields. That single pair is
+what turns the invariant from a convention into something checkable, and it is what `A510` checks.
+The eight shipped glass manifests were regenerated to declare them.
 
-`syndicate_mesh` gains a `--version`-only CLI so all four packages answer the same way.
+### 6.5 Two contract flags were accepted and ignored — **fixed**
 
-### 7.4 Fix the flags and the codes
+`--verify-only` promised to produce no new data and performed a destructive overwrite; `--keep-blend`
+did nothing at all. Both are implemented. `--verify-only` re-reads the manifest in `--out`, checks
+its shape, its mass conservation, its shard set against `shards.glb`, the absence of damage morphs,
+and its declared transform against D15-S5.7 — and reports as *skipped* anything it would have to
+re-fracture to answer, because a check that silently does nothing is worse than one that says so. It
+never starts Blender.
 
-Implement `--verify-only` and `--keep-blend`, or delete them from both the tool and D09-S4.2 in the
-same commit. Accepting a flag and ignoring it is the one outcome that is not allowed.
+### 6.6 Three exit-code schemes that disagreed — **fixed**
 
-Move the three schemes onto one table: 64–79 shared (usage, input, geometry, material, Blender,
-export, write), 80–89 weapon, 90–99 vehicle. One number, one meaning, across the suite.
+`syndicate_policy.exit_codes` is now the one table. `64–79` shared, `80–89` weapon (D17-R19),
+`90–99` vehicle. Two numbers moved: `syndicate_weapon`'s undocumented `INPUT_MISSING` went 66 → 65,
+where D09 already has "input file unreadable" and where D17-R19 already said it was; and
+`syndicate_prepare`'s `UNDER_LABELLED` went 65 → 90, off a shared code it had no claim to. `77`
+is new: `TRANSFORM_NOT_PERMITTED`, its own code rather than `USAGE` because the invocation is well
+formed and the content decision behind it is what is wrong.
 
-### 7.5 Fix the fixture gate
+---
 
-Fixtures are steel and aluminium, so they are `SHEET_METAL` or `STRUCTURAL` and must not fracture.
-Either add a glass fixture and split the gate — deform the metal ones, shatter the glass one — or
-declare the fixtures class-free geometry probes and say so in D14-S7.1. The first is more work and is
-the one that would have caught §6.1.
+## 7. What was deliberately not done
+
+- **`syndicate_dissect` and `syndicate_prepare` keep their names.** Both are misleading (§4) and
+  neither is wrong in a way that can produce a bad asset. Renaming them touches the Gradle wiring,
+  three blueprint documents and a dozen memory entries to buy readability, and the review's own
+  ranking put them last. Worth doing in a commit that has no behaviour in it.
+- **The shared low-level modules stay in `syndicate_fracture`.** `syndicate_deform` imports
+  `blender`, `geometry`, `rng` and `errors` from its sibling, which reads as though deformation
+  depends on fracture and does not. The honest fix is a `syndicate_mesh` library and it is a pure
+  file move; it was left out of a commit that changes behaviour, so that a bisect over this change
+  lands on the behaviour and not on thirty rewritten imports.
+- **The runtime still does not check.** `A510` closes the gap at the gate, which is where content is
+  decided. Making `AssetLoader` refuse a manifest whose class disagrees with its part would close it
+  again at load, and is worth doing when there is a second class with shards to get it wrong.
 
 ---
 
@@ -296,13 +266,13 @@ the constraint. Ordered by cost.
   flamethrower exists.
 - **Piercing and holes.** A visible hole through a panel needs either geometry the tool cut in
   advance at authored locations, or a decal-with-alpha that fakes it. The second is cheap and
-  cosmetic and is the one to build first; the first is FRAGMENT with a different cell pattern and
+  cosmetic and is the one to build first; the first is FRACTURE with a different cell pattern and
   gets nothing new from a new tool.
 - **Bending as a constraint rather than a shape key.** A hanging bumper that swings is
   ARTICULATE, not DEFORM, and DEC-083's articulation block already has five motions. Adding a
   `SAG` motion driven by health is a smaller change than it sounds and does not need Blender.
 
-The pattern in that list is worth naming: **every cheap transform reuses DEFORM's or FRAGMENT's
+The pattern in that list is worth naming: **every cheap transform reuses DEFORM's or FRACTURE's
 runtime representation, and every expensive one demands a new one.** A proposal for a new transform
 should be assessed on that question first, and on how it looks second.
 
@@ -342,9 +312,10 @@ are handled in `build.gradle.kts`; anything invoking the tools outside Gradle ha
 ### Checks
 
 ```bash
-./gradlew :blender-tool:unitTest          # 300 pure-Python tests, no Blender needed
-./gradlew :blender-tool:processFixtures   # runs the tool over fixtures/meshes (needs Blender)
-./gradlew :test-environment:verifyFixtures # re-checks that output inside Bullet
+./gradlew :blender-tool:unitTest             # 343 pure-Python tests, no Blender needed
+./gradlew :blender-tool:processFixtures      # FRACTURE over fixtures/meshes (needs Blender)
+./gradlew :blender-tool:processDeformFixtures # DEFORM over two of them, separate directory
+./gradlew :test-environment:verifyFixtures   # re-checks the fracture output inside Bullet
 python3 -m pytest blender-tool/tests/unit -q
 ```
 

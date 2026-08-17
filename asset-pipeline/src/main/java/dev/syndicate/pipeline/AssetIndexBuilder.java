@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.AssetPaths;
+import dev.syndicate.model.DestructionClass;
+import dev.syndicate.model.PartCategory;
 import dev.syndicate.model.SimulationConstants;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -335,6 +337,7 @@ public final class AssetIndexBuilder {
         if (manifest.path("toolVersion").asText("").isEmpty()) {
             findings.add(Finding.error("A506", partTypeId, "the fracture manifest declares no toolVersion"));
         }
+        checkTransformMatchesClass(partTypeId, root, manifest);
         double shardMassSum = 0d;
         for (JsonNode shard : manifest.path("shards")) {
             double shardMass = shard.path("massKg").asDouble(0d);
@@ -350,6 +353,83 @@ public final class AssetIndexBuilder {
                     partTypeId,
                     "the shards sum to " + shardMassSum + " kg against a part mass of " + manifestMass + " kg (G7)"));
         }
+    }
+
+    /**
+     * A510: a manifest's transform must be one the part's destruction class receives (D15-S5.7).
+     *
+     * <p>This is the rule that makes the invariant checkable rather than merely stated. Nothing at
+     * runtime consults {@code destructionClass} — a part dents because its mesh has shape keys and
+     * shatters because it declares a manifest — so the only places the rule can live are the
+     * Blender tools, which refuse to author the wrong transform, and here, which refuses to ship
+     * one that was authored anyway (DISC-068).
+     *
+     * <p>The tools and this gate are deliberately independent implementations of one rule, in the
+     * spirit of DEC-041: a manifest that arrived by hand, by a copied directory, or from a tool
+     * version predating the split has never passed the tools' check, and this is what catches it.
+     */
+    private void checkTransformMatchesClass(String partTypeId, JsonNode root, JsonNode manifest) {
+        String declaredTransform = manifest.path("transform").asText("");
+        if (declaredTransform.isEmpty()) {
+            findings.add(Finding.error(
+                    "A510",
+                    partTypeId,
+                    "the fracture manifest declares no transform; it predates the FRACTURE/DEFORM "
+                            + "split and must be regenerated (D15-S5.7)"));
+            return;
+        }
+        if (!"FRACTURE".equals(declaredTransform)) {
+            findings.add(Finding.error(
+                    "A510",
+                    partTypeId,
+                    "assets.fractureManifest names a manifest whose transform is " + declaredTransform));
+            return;
+        }
+
+        DestructionClass partClass = destructionClassOf(root);
+        String manifestClass = manifest.path("destructionClass").asText("");
+        if (!manifestClass.isEmpty() && !manifestClass.equals(partClass.name())) {
+            findings.add(Finding.error(
+                    "A510",
+                    partTypeId,
+                    "part.json says destructionClass " + partClass + " and its manifest says " + manifestClass));
+        }
+        // The rule itself: shards on a class D15-S5.7 gives none to. Its own message rather than
+        // the mismatch above, because this one is wrong even when the two files agree.
+        if (partClass != DestructionClass.GLASS && partClass != DestructionClass.RIGID) {
+            findings.add(Finding.error(
+                    "A510",
+                    partTypeId,
+                    "a " + partClass + " part carries a FRACTURE manifest; D15-S5.7 gives it "
+                            + (partClass.hasDamageShapeKeys() ? "damage morphs" : "no transform") + " instead"));
+        }
+        // And the mixture, which is the failure the whole split exists to make impossible.
+        if (!root.path("assets").path("morphTargets").isEmpty()) {
+            findings.add(Finding.error(
+                    "A510",
+                    partTypeId,
+                    "the part declares both damage morphs and a fracture manifest; no destruction "
+                            + "class in D15-S5.7 receives both transforms"));
+        }
+    }
+
+    /** A part's destruction class, authored or defaulted from its category (D15-S5.7). */
+    private static DestructionClass destructionClassOf(JsonNode root) {
+        String declared = root.path("destructionClass").asText("");
+        if (!declared.isEmpty()) {
+            try {
+                return DestructionClass.valueOf(declared);
+            } catch (IllegalArgumentException ignored) {
+                // A misspelled class is A102's business; fall through to the category default.
+            }
+        }
+        PartCategory category;
+        try {
+            category = PartCategory.valueOf(root.path("category").asText(""));
+        } catch (IllegalArgumentException ignored) {
+            return DestructionClass.RIGID;
+        }
+        return DestructionClass.forCategory(category);
     }
 
     /** A210: an authored {@code powerCost} far from the D05-S5.7 reference formula is advisory. */

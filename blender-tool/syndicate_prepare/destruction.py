@@ -9,63 +9,23 @@ class, not that the part needs hand-tuning — so there is no way to express a p
 here, deliberately, and adding one is a change to D15 rather than a change to a file.
 
 Nothing in this module touches Blender. It decides what will be done;
-:mod:`syndicate_prepare.authoring` does it.
+:mod:`syndicate_prepare.exporter` does it, by calling the two transform tools.
+
+**The table itself now lives in :mod:`syndicate_policy`**, so the tools it drives can consult it
+and refuse rather than trusting this module to ask them correctly (DISC-068). What stays here is
+the one thing that is genuinely this pipeline's: the mapping from a D15-S4.1 *label* to a
+destruction *class*, which only a vehicle preparation run has the labels to do.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from syndicate_policy.classes import (  # noqa: F401 - re-exported; callers import from here
+    MORPH_LEVELS,
+    TREATMENTS,
+    Treatment,
+)
 
 from .labels import DESTRUCTION_CLASS
-
-#: Damage morph names, in the order D07-S5.5 and D08-R6 require them. A part carries either
-#: exactly these four or none at all (A211).
-MORPH_LEVELS = ("dmg_25", "dmg_50", "dmg_75", "dmg_100")
-
-
-@dataclass(frozen=True)
-class Treatment:
-    """What one destruction class does to a part (D15-S5.7's table).
-
-    :param subdivide_edge_m: target edge length before deformation authoring; ``0`` for no
-        subdivision. A panel crumples locally and keeps its area, so it needs vertex density
-        where the dent is or the dent is a facet. A chassis buckles and shears globally, and
-        fine subdivision makes it squish like a sponge — which is the failure mode to avoid,
-        and the reason these two numbers differ by an order of magnitude rather than by taste.
-    :param morphs: whether damage shape keys are generated. Glass does not dent: a deformed
-        windscreen looks like a bug and a shattered one reads instantly.
-    :param fracture_shards: shards to pre-author at build time; ``0`` for a part that leaves
-        whole.
-    :param yield_impulse_ns: the impulse at which a ``structural`` part starts to buckle,
-        expressed in newton-seconds so that it is comparable with ``breakImpulseN`` (D15-R34)
-        and "the frame buckles before the mounts shear" is a statement about two numbers in
-        the same unit. ``0`` where the class has no yield behaviour.
-    """
-
-    destruction_class: str
-    subdivide_edge_m: float
-    morphs: bool
-    fracture_shards: int
-    yield_impulse_ns: float
-
-    def as_dict(self) -> dict:
-        return {
-            "destructionClass": self.destruction_class,
-            "subdivideEdgeM": self.subdivide_edge_m,
-            "morphTargets": list(MORPH_LEVELS) if self.morphs else [],
-            "fractureShards": self.fracture_shards,
-            "yieldImpulseNs": self.yield_impulse_ns,
-        }
-
-
-#: D15-S5.7's table, one row per class.
-TREATMENTS = {
-    "SHEET_METAL": Treatment("SHEET_METAL", 0.08, True, 0, 0.0),
-    "GLASS": Treatment("GLASS", 0.0, False, 24, 0.0),
-    "STRUCTURAL": Treatment("STRUCTURAL", 0.60, True, 0, 9000.0),
-    "RIGID": Treatment("RIGID", 0.0, False, 0, 0.0),
-    "NONE": Treatment("NONE", 0.0, False, 0, 0.0),
-}
 
 
 def treatment_for(label: str) -> Treatment:

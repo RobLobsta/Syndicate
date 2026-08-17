@@ -96,8 +96,7 @@ blender --background --factory-startup [<input.blend>] \
 | `--shards <int>` | int | no | `24` | Target shard count; clamped to `[2, MAX_SHARDS_PER_PART=256]` |
 | `--shard-mode <mode>` | enum | no | `uniform` | `uniform` \| `surface_biased` \| `impact_biased` |
 | `--impact-point x,y,z` | vec3 | no | — | Required when `--shard-mode impact_biased` |
-| `--damage-morphs <int>` | int | no | `4` | Number of damage shape keys; `0` disables |
-| `--morph-amplitude <float>` | float | no | `0.06` | Max vertex displacement at `dmg_100`, metres |
+| `--destruction-class <class>` | enum | **yes** | — | The part's class (D15-S5.7). The tool exits 77 rather than fracturing a class that receives no shards, and it cannot refuse what it was not told. Case-insensitive; never defaulted, because a misspelled class silently becoming `RIGID` would author nothing and report success |
 | `--material-table <path>` | path | no | `assets/materials/materials.json` | Density source (D08-S4.3) |
 | `--material-override <id>` | string | no | — | Force a material for every mesh |
 | `--hull-max-verts <int>` | int | no | `32` | Per-shard hull vertex budget |
@@ -106,9 +105,9 @@ blender --background --factory-startup [<input.blend>] \
 | `--shell-thickness <float>` | float | no | `0.0` | m; above zero, the source is treated as a **surface** and fractured by S5.2.1 — cut into patches, then each patch thickened to this. Zero keeps the solid path. The caller states this; the tool never infers it from the geometry, because a thin solid and a surface look alike and guessing wrong silently changes a part's mass. |
 | `--expected-mass <float>` | float | no | — | If given, mass plausibility is checked against it |
 | `--mass-tolerance <float>` | float | no | `0.02` | Fractional tolerance for conservation checks |
-| `--keep-blend` | flag | no | off | Also write `processed.blend` |
+| `--keep-blend` | flag | no | off | Also write `processed.blend` into the staged output, so a fracture that looks wrong can be opened |
 | `--no-export` | flag | no | off | Run fracture + verify, skip glTF export (fast iteration) |
-| `--verify-only` | flag | no | off | Run verification against existing outputs in `--out`; produce no new data |
+| `--verify-only` | flag | no | off | Re-check the outputs already in `--out` and **write nothing**. Answers the checks that compare the manifest against the files beside it — schema, mass conservation (G7), the shard set against `shards.glb`, the absence of damage morphs, and the declared transform against D15-S5.7. Reports as *skipped* anything derived from geometry the tool would have to re-fracture to hold. Never starts Blender |
 | `--report <path>` | path | no | stdout only | Also write the JSON result to a file |
 | `--log-level <level>` | enum | no | `INFO` | stderr verbosity |
 | `--dry-run` | flag | no | off | Parse and validate arguments, print the plan as JSON, change nothing |
@@ -126,8 +125,9 @@ blender --background --factory-startup [<input.blend>] \
 | 66 | `INPUT_GEOMETRY_INVALID` | Mesh not watertight, has loose geometry, zero volume, or NaN coordinates | Fix the source mesh |
 | 67 | `MATERIAL_UNRESOLVED` | A mesh material has no entry in the material table | Add the material or pass `--material-override` |
 | 68 | `FRACTURE_FAILED` | Voronoi/boolean stage produced no shards or failed | Lower `--shards`, or fix source geometry |
-| 69 | `SHAPEKEY_FAILED` | Morph generation failed or produced degenerate morphs | Lower `--morph-amplitude`, check topology |
+| 69 | `SHAPEKEY_FAILED` | Morph generation failed or produced degenerate morphs. Raised by `syndicate_deform`; the fracture tool no longer generates morphs | Lower `--amplitude`, check topology |
 | 70 | `BLENDER_ERROR` | Blender API raised, or Blender not found | Check the Blender install/version |
+| 77 | `TRANSFORM_NOT_PERMITTED` | The transform was asked of a destruction class D15-S5.7 does not give it — a windscreen sent to the deform tool, a door sent to the fracture tool, or a mesh arriving at the fracture tool already carrying damage morphs. Its own code rather than `USAGE` because the invocation is well formed and the content decision behind it is what is wrong | Fix the part's class, or run the other tool |
 | 71 | `HULL_FAILED` | A shard's convex hull could not be built or exceeds budget | Reduce shard count / raise budget deliberately |
 | 72 | `MASS_IMPLAUSIBLE` | Mass conservation or expected-mass check failed | Check density, units, and watertightness |
 | 73 | `VERIFICATION_FAILED` | One or more self-verification checks failed (any other than mass) | Read `failures[]` in the report |
@@ -149,14 +149,14 @@ blender --background --factory-startup [<input.blend>] \
   "generatedAt": "2026-08-07T14:02:11Z",
   "sourceFile": "art-source/parts/panels/panel_plate_medium_01.blend",
   "sourceHash": "sha256:9f2c…",
-  "partTypeId": "panel_plate_medium_01",
-  "materialId": "steel_hardened",
+  "partTypeId": "glass_eclipse_windscreen_01",
+  "transform": "FRACTURE",
+  "destructionClass": "GLASS",
+  "materialId": "glass",
   "seed": 1337,
   "parameters": {
     "shards": 24,
     "shardMode": "uniform",
-    "damageMorphs": 4,
-    "morphAmplitude": 0.06,
     "hullMaxVerts": 32,
     "minShardVolumeM3": 1e-6
   },
@@ -222,6 +222,9 @@ blender --background --factory-startup [<input.blend>] \
 | `seed`, `parameters` | The full invocation, so a run is reproducible from the manifest alone. |
 | `partMassKg` | `partVolumeM3 × densityKgPerM3`, rounded to 6 significant decimals. |
 | `comLocal`, `inertiaDiagonal` | Computed from the intact mesh at uniform density; the harness re-derives independently (D14-S5.4). |
+| `transform` | Always `"FRACTURE"`. What this manifest *is*, so a consumer can tell a manifest that should exist from one that should not. Deformation writes `deform_manifest.json` with `"DEFORM"`. |
+| `destructionClass` | The D15-S5.7 class this was authored for, checked against `part.json`'s own by the asset gate (A510). Without these two fields nothing could catch a manifest on a part that must not have one, which is how a steel door could have ended up with shards (DISC-068). |
+| `morphTargets` | Always empty in a fracture manifest, and kept rather than dropped: `TV-006` compares it with what the exported mesh carries, so it is the check that a fracturing part shipped no damage morphs. |
 | `shards[].id` | Globally unique, `<partTypeId>_shard_<nnn>`. **Stable for a given seed** — this is what makes golden comparison by id meaningful (D14-S5.8). |
 | `shards[].name` | The node name in `shards.glb`; must match exactly (A501). |
 | `shards[].localTransform` | Position/rotation of the shard relative to the part origin — used to spawn debris bodies (D07-S5.6). |
@@ -251,14 +254,14 @@ function main(argv):
         results = []
         for obj in objects sortedBy name:                        # deterministic order
             validateSourceGeometry(obj)                          # STAGE 1, exit 66
+            refuseExistingDamageMorphs(obj, args)                # STAGE 1, exit 77
             shards   = voronoiFracture(obj, args)                # STAGE 2, exit 68
-            morphs   = generateDamageMorphs(obj, args)           # STAGE 3, exit 69
-            masses   = assignMasses(obj, shards, materials, args)# STAGE 4, exit 72
-            hulls    = generateHulls(obj, shards, args)          # STAGE 5, exit 71
-            manifest = buildManifest(obj, shards, morphs, masses, hulls, args)
+            masses   = assignMasses(obj, shards, materials, args)# STAGE 3, exit 72
+            hulls    = generateHulls(obj, shards, args)          # STAGE 4, exit 71
+            manifest = buildManifest(obj, shards, masses, hulls, args)
             if not args.noExport:
-                exportGltf(obj, shards, morphs, tmp)             # STAGE 6, exit 74
-            report   = selfVerify(obj, shards, morphs, masses, hulls, manifest, tmp)  # STAGE 7
+                exportGltf(obj, shards, tmp)                     # STAGE 5, exit 74
+            report   = selfVerify(obj, shards, masses, hulls, manifest, tmp)  # STAGE 6
             if not report.passed:
                 print(failureReport(report)); exit(worstExitCode(report))
             manifest.verification = report
@@ -420,15 +423,33 @@ function shellFracture(obj, args):
 
 **R11c.** A shell part's volume for R16's mass is the **sum of its shards'**, not `area × thickness`. The two differ by exactly the curvature excess in R11b, and defining the part as its pieces is what makes G7 exact here rather than true to a tolerance — which is the property the solid path's fallback lost and the reason this path exists.
 
-<!-- D09-S5.3 -->### 5.3 Damage Shape Key Generation
+<!-- D09-S5.3 -->### 5.3 Damage Shape Key Generation — `syndicate_deform`
+
+**This section specifies a second tool, not a stage of the first.** D00-S6 gives the project two
+separate words for two separate things — *deformation* is "continuous visual mesh change driven by
+shape keys" and its glossary note is "not fracture" — and D15-S5.7 gives no destruction class both.
+The implementation authored both in one pass regardless, by default, for any mesh handed to it
+(DISC-068), so the algorithm below is now `python3 -m syndicate_deform`:
+
+- it takes `--input`, `--out`, `--seed`, `--destruction-class` and `--levels`/`--amplitude` in
+  place of `--damage-morphs`/`--morph-amplitude`, and refuses a class D15-S5.7 does not deform
+  with exit 77;
+- it subdivides to the class's target edge length first (D15-S5.7), because the density exists to
+  serve the dent and a tool that authored morphs without it would produce a facet;
+- it writes `deform_manifest.json` beside the mesh, declaring `transform: "DEFORM"` and the class;
+- it owns `TV-002` and `TV-003`, which follow the shape keys they check. **Ids are permanent and
+  never reused** (D09-S7): they mean what they always meant, reported by the tool that authors them.
+
+The fracture tool now *refuses* a mesh that already carries `dmg_*` keys on a class that does not
+deform (exit 77, E10) rather than deleting and re-authoring them.
 
 ```pseudo
-# STAGE 3. Produce N morph targets on the INTACT mesh representing progressive damage.
+# Produce N morph targets on the INTACT mesh representing progressive damage.
 # These are cosmetic at runtime (D07-S4.2) but must be well-formed: no NaN, no zero-area
 # faces, monotonically increasing severity (D14 ASSET-008/009).
 
-function generateDamageMorphs(obj, args):
-    if args.damageMorphs == 0: return []
+function generateDamageMorphs(obj, levels, amplitude, seed):
+    if levels == 0: return []
 
     mesh = obj.data
     if mesh.shape_keys is None:
@@ -947,8 +968,8 @@ function verifyDeterminism(args):
 | E6 | Sites cannot be placed (thin geometry, high shard count) | Exit 68 with the achieved site count and a suggestion to lower `--shards`. |
 | E7 | Boolean stage produces a shard with zero volume | Merged if below `--min-shard-volume`; otherwise exit 68. |
 | E8 | One shard holds most of the mass | TV-008 warning; still exit 0. The asset is usable but poor; a human should look. |
-| E9 | `--morph-amplitude` too large, morphs self-intersect | TV-002 catches zero-area faces; exit 69 with a suggestion to lower amplitude. |
-| E10 | `--damage-morphs 0` | No morphs generated; manifest has an empty `morphTargets`; the part will never deform (D08-A212 warns downstream). |
+| E9 | `--amplitude` too large, morphs self-intersect | TV-002 catches zero-area faces; exit 69 with a suggestion to lower amplitude. **`syndicate_deform`**, not this tool. |
+| E10 | A mesh reaches the fracture tool already carrying `dmg_*` shape keys | Exit 77. It is evidence that something authored the DEFORM transform onto a part that fractures, and no class in D15-S5.7 receives both. The tool used to *delete* the keys and re-author its own, which is how the two transforms stayed tangled (DISC-068). |
 | E11 | Mesh has multiple materials | Exit 67 unless `--material-override` is given. Per-shard mixed density is not supported in v1; recording this limitation is preferable to guessing. |
 | E12 | Material not in the table | Exit 67. No default density (D09-R19). |
 | E13 | Blender executable not found | Exit 70 naming the paths tried (D02-R12). |
@@ -980,8 +1001,10 @@ function verifyDeterminism(args):
 | T-D09-10 | Assign an unknown material | Exit 67 naming the material |
 | T-D09-11 | `--shards 500` | Clamped to 64 with a warning; exit 0 |
 | T-D09-12 | `--shards 1` | Clamped to 2 with a warning |
-| T-D09-13 | `--morph-amplitude 2.0` on a 0.1 m plate | Exit 69 (zero-area faces) with the lower-amplitude suggestion |
-| T-D09-14 | `--damage-morphs 0` | Exit 0; `morphTargets: []` |
+| T-D09-13 | `syndicate_deform --amplitude 2.0` on a 0.1 m plate | Exit 69 (zero-area faces) with the lower-amplitude suggestion |
+| T-D09-14 | `syndicate_fracture --destruction-class SHEET_METAL` | Exit 77, naming the transform the class does receive |
+| T-D09-15 | `syndicate_deform --destruction-class GLASS` | Exit 77 — glass does not dent |
+| T-D09-16 | `--verify-only` over a manifest whose shard masses were edited | Exit 72, outputs untouched |
 | T-D09-15 | Corrupt the exporter so morphs are dropped | TV-006 fails; exit 74 |
 | T-D09-16 | Make `--out` read-only | Exit 75; input and out unchanged |
 | T-D09-17 | `--dry-run` | Exit 0; plan JSON printed; nothing written |
