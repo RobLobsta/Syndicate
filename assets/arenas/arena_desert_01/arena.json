@@ -20,6 +20,38 @@
     "cellSizeM": 1.0,
     "gridSize": 601
   },
+  "roads": [
+    {
+      "id": "highway_main",
+      "surface": "tarmac",
+      "widthM": 14.0,
+      "shoulderM": 3.0,
+      "verge": "gravel",
+      "maxGradePct": 6.0,
+      "spline": [
+        {
+          "x": -235.0,
+          "z": -190.0
+        },
+        {
+          "x": -95.0,
+          "z": -120.0
+        },
+        {
+          "x": 35.0,
+          "z": 25.0
+        },
+        {
+          "x": 145.0,
+          "z": 120.0
+        },
+        {
+          "x": 235.0,
+          "z": 190.0
+        }
+      ]
+    }
+  ],
   "spawnPoints": [
     {
       "id": "sp_a_01",

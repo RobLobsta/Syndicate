@@ -12,6 +12,7 @@ import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.Family;
 import dev.syndicate.core.ecs.Phase;
 import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.physics.PhysicsWorld;
 import dev.syndicate.core.vehicle.VehicleControl;
 
 /**
@@ -46,7 +47,20 @@ public final class VehicleControlSystem implements EntitySystem {
     /** @see VehicleControl#MIN_POWER_LIMIT_SPEED_MPS */
     public static final float MIN_POWER_LIMIT_SPEED_MPS = VehicleControl.MIN_POWER_LIMIT_SPEED_MPS;
 
-    private final VehicleControl control = new VehicleControl();
+    private final VehicleControl control;
+
+    /** A control system with no terrain: every wheel keeps the grip its part authored. */
+    public VehicleControlSystem() {
+        this(null);
+    }
+
+    /**
+     * @param physics the world whose terrain the wheels read their surface from (D16-R54, DEC-070).
+     *     Null is legal and means the flat box arena, which is still an arena (D16-R4).
+     */
+    public VehicleControlSystem(PhysicsWorld physics) {
+        this.control = new VehicleControl(physics);
+    }
 
     private Family vehicles;
 

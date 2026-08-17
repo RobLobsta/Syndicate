@@ -364,7 +364,13 @@ public final class VehicleFactory {
             float authoredInterval = type.stats().resolve(StatBlock.Stat.FIRE_INTERVAL_S, 0f);
             weapon.baseFireIntervalS = authoredInterval > 0f ? authoredInterval : WeaponBlock.DEFAULT_FIRE_INTERVAL_S;
             weapon.effectiveFireIntervalS = weapon.baseFireIntervalS;
-            weapon.ammoRemaining = block == null ? WeaponBlock.UNLIMITED_AMMO : block.ammoCapacity();
+            weapon.ammoCapacity = block == null ? WeaponBlock.UNLIMITED_AMMO : block.ammoCapacity();
+            weapon.ammoRemaining = weapon.ammoCapacity;
+            // Range is resolved once, here, rather than per shot: D17-S5.13 halves it when the
+            // barrel is gone, and a value slot 8 re-derived from the block each time would ignore
+            // whatever slot 6 decided about it one phase earlier.
+            weapon.baseRangeM = block == null ? 0f : block.effectiveRangeM();
+            weapon.effectiveRangeM = weapon.baseRangeM;
             if (block != null) {
                 weapon.muzzleLocal.set(block.muzzleLocal());
             }

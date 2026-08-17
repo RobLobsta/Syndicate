@@ -7,6 +7,8 @@ package dev.syndicate.core.vehicle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.dynamics.btRaycastVehicle;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
+import dev.syndicate.core.arena.Surface;
+import dev.syndicate.core.arena.TerrainField;
 import dev.syndicate.core.asset.HandlingBlock;
 import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.PlayerInputComponent;
@@ -15,6 +17,7 @@ import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.component.VehicleStatsComponent;
 import dev.syndicate.core.component.WheelControllerComponent;
 import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.physics.PhysicsWorld;
 import dev.syndicate.model.DamageState;
 
 /**
@@ -59,6 +62,27 @@ public final class VehicleControl {
 
     private final Vector3 scratchForce = new Vector3();
     private final Vector3 scratchVelocity = new Vector3();
+
+    /**
+     * Where the surface under each wheel is read from, or null on an arena with no height field.
+     *
+     * <p>The world rather than the field, because a match tears its physics world down and builds a
+     * new one when it restarts, and a control operation holding the old field would grip the last
+     * arena's sand. Nullable throughout: the flat box arena is still legal (D16-R4).
+     */
+    private final PhysicsWorld physics;
+
+    /** A control operation with no terrain: every wheel keeps the grip its part authored. */
+    public VehicleControl() {
+        this(null);
+    }
+
+    /**
+     * @param physics the world whose terrain the wheels read their surface from (D16-R54, DEC-070)
+     */
+    public VehicleControl(PhysicsWorld physics) {
+        this.physics = physics;
+    }
 
     /**
      * Advances one vehicle's steering and applies its wheel commands and body forces.
@@ -130,11 +154,49 @@ public final class VehicleControl {
                             : 0f,
                     wheel.wheelIndex);
             // Per-wheel grip reflects that wheel's own degradation, so a vehicle with one dead
-            // corner pulls to that side instead of losing grip evenly (D05-S5.4).
-            controller.getWheelInfo(wheel.wheelIndex).setFrictionSlip(alive ? wheel.effectiveFrictionSlip : 0f);
+            // corner pulls to that side instead of losing grip evenly (D05-S5.4) — and then the
+            // surface it is standing on (D16-R54), so the same car is quicker on tarmac than on sand.
+            float grip = alive ? wheel.effectiveFrictionSlip * surfaceGripUnder(controller, wheel) : 0f;
+            controller.getWheelInfo(wheel.wheelIndex).setFrictionSlip(grip);
 
             mirrorContactState(controller, wheel);
         }
+    }
+
+    /**
+     * The grip multiplier of the ground under a wheel, and the surface it is standing on.
+     *
+     * <p>Read at the suspension ray's own contact point rather than at the chassis, because a
+     * vehicle straddling a road edge has two wheels on tarmac and two on sand — which is the whole
+     * reason per-surface grip is interesting rather than a global modifier (D16-R54).
+     *
+     * <p>Deliberately not Bullet's custom material callback (D16-R55, DEC-070). That callback fires
+     * per contact point on the collision path and a ray-cast wheel generates none, so it would be
+     * correct-looking code that never runs for a tyre. It is also a native callback into Java on the
+     * physics thread, which G17 and G2 would then both have to reason about.
+     *
+     * <p>Records the surface on the wheel as it goes, so slot 25 selects its tyre loop from the same
+     * lookup the physics used — D16-R56 requires the two to agree, and deriving them independently
+     * is how the audio comes to say gravel while the car is on tarmac.
+     */
+    private float surfaceGripUnder(btRaycastVehicle controller, WheelControllerComponent wheel) {
+        TerrainField terrain = physics == null ? null : physics.terrain();
+        if (terrain == null) {
+            wheel.surface = null;
+            return 1f;
+        }
+        var info = controller.getWheelInfo(wheel.wheelIndex);
+        if (info.getWheelsSuspensionForce() <= 0f) {
+            // Airborne. Keep the last surface rather than clearing it: a wheel over a jump has not
+            // changed what it will land on, and blanking it makes the tyre audio stutter per bump.
+            return 1f;
+        }
+        // btVector3, not Vector3: gdx-bullet exposes the raycast info's native vectors directly.
+        com.badlogic.gdx.physics.bullet.linearmath.btVector3 contact =
+                info.getRaycastInfo().getContactPointWS();
+        Surface surface = terrain.surfaceAt(contact.getX(), contact.getZ());
+        wheel.surface = surface;
+        return surface == null ? 1f : surface.gripMultiplier();
     }
 
     /**

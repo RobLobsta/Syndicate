@@ -12,22 +12,26 @@ centre of mass, and handling in real time.
 ## Status
 
 **Playable end to end, and not yet balanced.** The client opens on a main menu, leads to a garage
-where you pick one of two vehicles and look at it, and deploys you into a match against seven bots
-that drive, hunt and fight. Cars take damage, shed parts, throw sparks and shatter their glass; a
-chase camera follows, a HUD reports, a scoreboard keeps score, and a runtime-synthesised engine makes
-each car sound like the car it was derived from.
+where you pick one of two vehicles, choose a weapon for each of its mountings, and look at the
+result, then deploys you into a generated arena against seven bots that drive, hunt, ram and shoot.
+Cars take damage, shed parts, throw sparks and shatter their glass; guns kick the car that fires them
+and shells shove what they hit; a chase camera follows, a HUD reports, a scoreboard keeps score, and
+a runtime-synthesised engine makes each car sound like the car it was derived from.
 
 What that sentence does not say, and should:
 
-- **There are no weapons in the shipped content.** Every system that fires, tracks and scores a
-  weapon hit is implemented and tested, and the shared part library `assets/parts/` is empty. The
-  mountings exist — every vehicle offers a turret mount and four hardpoints — and nothing hangs on
-  them. Combat in a real match is collisions.
 - **Nobody has tuned anything.** Handling is a real supercar's published figures; damage numbers are
-  blueprint defaults; the bots ship at a difficulty nobody has lost to.
-- **The arena you play in is a flat box.** A 600 m generated desert exists, collides, and has never
-  been drawn — that is the next piece of work.
-- **Multiplayer replicates over loopback only.** There is no socket transport yet.
+  blueprint defaults; the bots ship at a difficulty nobody has lost to. This is the single largest
+  gap between what the game is and what it could be.
+- **Two of eight weapon families have content.** An autocannon and a cannon ship, each an *assembly*
+  of five or seven sub-parts with its own mass, health and damage state, so a barrel can be shot off
+  and the gun keeps firing worse. `ROCKET`, `MORTAR` and `FLAMER` have no content, and no weapon has
+  a fracture manifest yet — a destroyed gun detaches whole rather than breaking up.
+- **The arenas are real places, but bare ones.** Two themes generate from a seed, collide, carry
+  roads with per-surface grip, and are drawn. What they have not got is structures — anything to take
+  cover behind that was not extruded from a noise function.
+- **Multiplayer replicates over loopback only.** There is no socket transport yet, and single-player
+  does not yet route through the in-process pair the way D03 specifies.
 
 [`ROADMAP.md`](ROADMAP.md) is the sequential plan and an honest account of what does and does not
 work; `.agent-memory/progress/` holds the per-subsystem detail.
@@ -56,16 +60,17 @@ unzips. `packageWindows` uses `jpackage`, which only ever targets the machine it
 
 | Path | Contents |
 |---|---|
-| `docs/` | 17 contractual blueprint documents (D00–D16) with stable section IDs |
+| `docs/` | 18 contractual blueprint documents (D00–D17) with stable section IDs |
 | `ROADMAP.md` | The sequential plan: where the work stands, and what is next |
 | `VEHICLES.md` | The vehicle roster and every stat, generated from the profiles |
 | `assets/` | Shipped content, and [where your models go](assets/README.md) |
 | `game-core/` | ECS engine, physics, vehicles, damage, assets, AI, networking, terrain |
 | `game-client/` | The window: shell, render, HUD, input, audio |
 | `game-server-headless/` | The dedicated server |
-| `blender-tool/` | `syndicate_fracture` and `syndicate_prepare` — headless Blender CLIs |
+| `blender-tool/` | `syndicate_fracture`, `syndicate_prepare` and `syndicate_weapon` — headless Blender CLIs |
 | `test-environment/` | The harness that re-verifies tool output inside the real engine |
 | `CLAUDE.md`, `JULES.md`, `GEMINI.md` | Operational manuals for the assistants that work here |
+| `RUNNING_THE_CLIENT.md` | Runbook: building and running the client headlessly, and capturing frames |
 | `.agent-memory/` | Persistent cross-session memory: decisions, discoveries, progress, deviations |
 
 Start with [`docs/00_master_index.md`](docs/00_master_index.md) — it holds the document map, the

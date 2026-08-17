@@ -62,14 +62,31 @@ Requirements are numbered `R1..Rn`, cited as `D08-R7`.
 
 ```
 art-source/
-├── parts/
+├── parts/                            # art that ALREADY ARRIVES PART-SHAPED
 │   ├── panels/panel_plate_medium_01.blend
 │   ├── wheels/wheel_road_01.blend
 │   ├── weapons/weapon_autocannon_01.blend
 │   └── chassis/chassis_medium_01.blend
+├── vehicles/                         # WHOLE-VEHICLE models, not yet split (R1a)
+│   └── eclipse/{model.glb, LICENCE.md, parts.json}
+├── weapons/                          # WHOLE-WEAPON models, not yet split (R1a)
+│   └── machinegun/{model.glb, LICENCE.md}
 ├── arenas/arena_scrapyard_01.blend
 └── shared/materials.blend            # material library, linked by parts
 ```
+
+**R1a.** `parts/` holds art authored to R2's conventions, one object per part. `vehicles/` and
+`weapons/` hold **unsplit downloaded models** — one file that is a whole car or a whole gun, obeying
+none of R2 — which `syndicate_prepare` (D15) and `syndicate_weapon` (D17) turn into part-shaped
+output. This is a normal stage of an art pipeline and not a deviation from R2: the conventions in R2
+are what a part must satisfy *by the time it is exported*, and a preparation tool's entire job is
+getting a model there. Recorded as DEV-013.
+
+**R1b. Third-party terms are recorded beside the model.** Every directory under `vehicles/` and
+`weapons/` carries a `LICENCE.md` naming the source, the author and the licence, and the licence
+string is carried through the glTF `asset.extras` into the weapon manifest (D17-R16) where it is
+load-bearing rather than decorative. A model with no recorded terms is not processed. `parts.json`,
+where present, holds per-model overrides for the preparation pipeline (D15-S4.3).
 
 **R2.** Scene conventions, all mandatory:
 

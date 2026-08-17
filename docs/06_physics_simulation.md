@@ -353,7 +353,16 @@ function VehicleControlSystem.update(world, dt, tick):
 | Situation | Constraint | Behaviour |
 |---|---|---|
 | **Trailing / articulated parts** (authored `isArticulated = true`: a towed trailer, a hanging chain) | `btGeneric6DofSpring2Constraint` with a break impulse | Simulated as a separate body joined to the chassis |
-| **Partially detached part** (`DESTROYED` but not yet detached, hanging by a thread for visual drama) | `btFixedConstraint` (short-lived, ≤ `HANGING_TICKS` = 60) with break impulse | Breaks under load, then becomes debris |
+| **Partially detached part** (`DESTROYED` but not yet detached, hanging by a thread for visual drama) | **None in the common case** — the part is held by the compound for up to `HANGING_TICKS` = 60, then detaches. `btFixedConstraint` with a break impulse only where the part already has its own body, which is the articulated row above | Falls when its hang expires; breaks early under load only in the articulated case |
+
+**R21a.** The second row's constraint is conditional because a constraint joins two rigid bodies and
+an attached part is not one — R20 and D05-R3 are the load-bearing halves, and a compound child has no
+body to join. Giving it one would mean removing the part from the compound while leaving it in the
+slot graph, which splits the invariant that the two describe the same parts: `MassPropertySystem`
+sums the graph, hit resolution maps compound child indices to slot paths (D07-S5.1), and
+`PartDetachment` warns on the drift. The hang is therefore the delay, not the joint. `DetachSystem`
+still calls `attachBreakable` whenever both part and vehicle have bodies, so the articulated case
+gets the constraint the first row promises and needs no second mechanism. Recorded as DEV-009.
 
 ```pseudo
 function attachBreakable(world, parentBody, childBody, localA, localB, breakImpulseN):

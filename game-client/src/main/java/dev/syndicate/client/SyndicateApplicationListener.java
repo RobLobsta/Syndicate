@@ -41,6 +41,20 @@ public final class SyndicateApplicationListener implements ApplicationListener {
     private final LaunchConfig config;
     private final Path capturePath;
     private final int captureFrame;
+
+    /**
+     * Frames a sequence capture stops at, ascending, or empty.
+     *
+     * <p>The point of a sequence is that a fight has moments — the first shot, the hit, the part
+     * coming off — and photographing one frame of it says nothing about the others. One launch and
+     * several PNGs also means every frame in the set comes from the <em>same</em> run, which a
+     * second launch could not promise once the arena seed varies per match (D16-R6b).
+     */
+    private final java.util.List<Integer> captureFrames;
+
+    /** How many of {@link #captureFrames} have been written. */
+    private int capturesTaken;
+
     private final ScreenId startScreen;
     private final String vehicle;
 
@@ -88,6 +102,24 @@ public final class SyndicateApplicationListener implements ApplicationListener {
             String vehicle,
             int garageRow,
             java.util.List<String> fittings) {
+        this(config, capturePath, captureFrame, startScreen, vehicle, garageRow, fittings, null);
+    }
+
+    /**
+     * @param captureFrames comma-separated frame numbers to capture at, or null for the single
+     *     {@code captureFrame}. Each writes {@code <name>-<frame>.png} beside {@code capturePath},
+     *     and the run exits after the last one — so one launch photographs a fight as a sequence
+     *     rather than as one arbitrary instant.
+     */
+    public SyndicateApplicationListener(
+            LaunchConfig config,
+            Path capturePath,
+            int captureFrame,
+            ScreenId startScreen,
+            String vehicle,
+            int garageRow,
+            java.util.List<String> fittings,
+            String captureFrames) {
         this.config = config;
         this.capturePath = capturePath;
         this.captureFrame = captureFrame;
@@ -95,6 +127,22 @@ public final class SyndicateApplicationListener implements ApplicationListener {
         this.vehicle = vehicle;
         this.garageRow = garageRow;
         this.fittings = java.util.List.copyOf(fittings);
+        this.captureFrames = parseFrames(captureFrames);
+    }
+
+    /** Ascending, de-duplicated, and empty when nothing asked for a sequence. */
+    private static java.util.List<Integer> parseFrames(String spec) {
+        if (spec == null || spec.isBlank()) {
+            return java.util.List.of();
+        }
+        java.util.TreeSet<Integer> frames = new java.util.TreeSet<>();
+        for (String part : spec.split(",")) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty()) {
+                frames.add(Math.max(1, Integer.parseInt(trimmed)));
+            }
+        }
+        return java.util.List.copyOf(frames);
     }
 
     /** The code the process should exit with once the application has closed. */
@@ -137,18 +185,31 @@ public final class SyndicateApplicationListener implements ApplicationListener {
             return;
         }
         frame++;
-        if (capturePath != null && frame >= captureFrame) {
-            capture();
+        if (capturePath == null) {
+            return;
+        }
+        if (!captureFrames.isEmpty()) {
+            if (capturesTaken < captureFrames.size() && frame >= captureFrames.get(capturesTaken)) {
+                capture(numberedCapturePath(captureFrames.get(capturesTaken)));
+                capturesTaken++;
+            }
+            if (capturesTaken >= captureFrames.size()) {
+                Gdx.app.exit();
+            }
+            return;
+        }
+        if (frame >= captureFrame) {
+            capture(capturePath);
             Gdx.app.exit();
         }
     }
 
-    private void capture() {
+    private void capture(Path target) {
         Pixmap pixmap = Pixmap.createFromFrameBuffer(
                 0, 0, Gdx.graphics.getBackBufferWidth(), Gdx.graphics.getBackBufferHeight());
         Pixmap upright = flipVertically(pixmap);
         pixmap.dispose();
-        PixmapIO.writePNG(Gdx.files.absolute(capturePath.toAbsolutePath().toString()), upright);
+        PixmapIO.writePNG(Gdx.files.absolute(target.toAbsolutePath().toString()), upright);
         upright.dispose();
 
         // A menu capture has no world to report on, so the scene detail is only added when there
@@ -159,7 +220,7 @@ public final class SyndicateApplicationListener implements ApplicationListener {
                     "captured frame {} to {} on {} at tick {}: {} models drawn, {} particle quads this "
                             + "frame (peak {} over the run), {} dropped ticks",
                     frame,
-                    capturePath,
+                    target,
                     shell.currentScreenId(),
                     match.loop().tick(),
                     match.runtime().provider().renderSystem().drawnThisFrame(),
@@ -167,8 +228,18 @@ public final class SyndicateApplicationListener implements ApplicationListener {
                     match.runtime().render().particles().peakQuadCount(),
                     match.loop().droppedTicks());
         } else {
-            LOG.info("captured frame {} to {} on {}", frame, capturePath, shell.currentScreenId());
+            LOG.info("captured frame {} to {} on {}", frame, target, shell.currentScreenId());
         }
+    }
+
+    /** {@code shot.png} plus frame 240 is {@code shot-240.png}, beside the path that was asked for. */
+    private Path numberedCapturePath(int atFrame) {
+        String name = capturePath.getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        String stem = dot < 0 ? name : name.substring(0, dot);
+        String extension = dot < 0 ? ".png" : name.substring(dot);
+        Path parent = capturePath.toAbsolutePath().getParent();
+        return parent.resolve(stem + "-" + atFrame + extension);
     }
 
     /**

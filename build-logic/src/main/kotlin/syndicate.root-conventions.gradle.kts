@@ -92,3 +92,86 @@ tasks.register("fastChecks") {
 tasks.named("check") {
     dependsOn(validateDocs, checkVersionCatalog, checkSourcesTracked)
 }
+
+/**
+ * The pre-push procedure of CLAUDE.md §8.1, as one task.
+ *
+ * <p>That procedure is four paragraphs of prose describing something entirely mechanical: stage
+ * everything, run the generators, copy the tracked files somewhere clean, run the four stages CI
+ * runs. It is written as prose because a person had to read it once, and it has now been skipped
+ * twice with a runner-hour's cost each time — DISC-005 (an untracked directory that built perfectly
+ * in the working tree and failed on a clean clone) and DISC-055 (a memory entry written *after* the
+ * index was regenerated, so the tree that was verified no longer existed by the time it was
+ * committed).
+ *
+ * <p>Both have the same shape, and it is the shape a task can close: **the last thing you change is
+ * the thing you do not re-check.** Reproducing from a fresh copy of the *staged* tree is what
+ * catches it, because that copy is made after the last edit by construction.
+ *
+ * <p>This task does the copying and the ordering. It deliberately does **not** `git add` for you:
+ * staging is a decision about what you intend to push, and a verification task that silently staged
+ * whatever was lying around would verify a tree you never chose.
+ */
+val verifyBeforePush by tasks.registering {
+    group = "verification"
+    description = "Reproduces the CI pipeline against the tracked tree, exactly as CLAUDE.md §8.1 does."
+
+    val projectDir = layout.projectDirectory.asFile
+    val workDir = layout.buildDirectory.dir("verify-before-push").get().asFile
+    val gradlew = File(projectDir, "gradlew").absolutePath
+
+    doLast {
+        fun run(vararg command: String): Pair<Int, String> {
+            val output = java.io.ByteArrayOutputStream()
+            val result = providers.exec {
+                workingDir = if (command.first() == "git") projectDir else workDir
+                commandLine(*command)
+                isIgnoreExitValue = true
+                standardOutput = output
+                errorOutput = output
+            }
+            return result.result.get().exitValue to output.toString()
+        }
+
+        // Step 1: refuse to verify a tree that is not the tree you would push. Unstaged changes are
+        // invisible to `git ls-files -z | tar`, so verifying with them present measures a tree that
+        // does not exist on either side of the push.
+        val (_, status) = run("git", "status", "--porcelain")
+        val unstaged = status.lines().filter { it.isNotBlank() && (it[1] != ' ' || it.startsWith("??")) }
+        if (unstaged.isNotEmpty()) {
+            throw GradleException(
+                "there are unstaged or untracked changes; `git add -A` first, because what is not " +
+                    "staged is not what CI will see (CLAUDE.md §8.1, DISC-005):\n" +
+                    unstaged.joinToString("\n")
+            )
+        }
+
+        // Step 2: a clean copy of the TRACKED tree. Not a `cp -r` of the working directory: build
+        // outputs, .gradle caches and untracked scratch files all mask real failures.
+        workDir.deleteRecursively()
+        workDir.mkdirs()
+        val (tarCode, tarOut) = run(
+            "sh", "-c", "cd '${projectDir.absolutePath}' && git ls-files -z | xargs -0 tar -cf - | tar -xf - -C '${workDir.absolutePath}'"
+        )
+        if (tarCode != 0) {
+            throw GradleException("could not copy the tracked tree: $tarOut")
+        }
+        logger.lifecycle("verifying the tracked tree in $workDir")
+
+        // Step 3: the four stages .github/workflows/ci.yml runs, in its order, with its environment.
+        val stages = listOf(
+            listOf(gradlew, "fastChecks"),
+            listOf(gradlew, "assemble"),
+            listOf(gradlew, "test", "-Ptags=unit,integration"),
+            listOf("python3", "-m", "pytest", "blender-tool/tests/unit", "-q"),
+        )
+        for (stage in stages) {
+            logger.lifecycle("→ ${stage.joinToString(" ")}")
+            val (code, out) = run(*stage.toTypedArray())
+            if (code != 0) {
+                throw GradleException("stage failed: ${stage.joinToString(" ")}\n$out")
+            }
+        }
+        logger.lifecycle("all four CI stages green against the tracked tree; safe to push")
+    }
+}

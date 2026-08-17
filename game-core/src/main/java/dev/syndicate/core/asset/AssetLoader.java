@@ -11,6 +11,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.syndicate.core.ai.BotDifficultyParams;
 import dev.syndicate.core.ai.BotDifficultyTable;
 import dev.syndicate.core.arena.ArenaTheme;
+import dev.syndicate.core.arena.RoadSpec;
+import dev.syndicate.core.arena.Surface;
 import dev.syndicate.core.arena.TerrainParams;
 import dev.syndicate.core.util.Transform;
 import dev.syndicate.core.vehicle.DegradationProfile;
@@ -865,6 +867,7 @@ public final class AssetLoader {
         }
 
         TerrainParams terrain = readTerrain(root.path("terrain"), arenaId, boundsMin, boundsMax, issues);
+        List<RoadSpec> roads = readRoads(root.path("roads"), arenaId, issues);
 
         index.put(new ArenaDef(
                 arenaId,
@@ -876,7 +879,57 @@ public final class AssetLoader {
                 spawnPoints,
                 modes,
                 root.path("assets").path("collision").asText(null),
-                terrain));
+                terrain,
+                roads));
+    }
+
+    /**
+     * Reads the optional {@code roads} array (D16-S4.3), in authored order (D16-R10).
+     *
+     * <p>A malformed road is dropped with an error and the rest of the arena loads, following G18:
+     * an arena with one bad road is still an arena, and refusing to load it would take the whole map
+     * out over a typo in a spline point.
+     */
+    private static List<RoadSpec> readRoads(JsonNode node, AssetId arenaId, List<ValidationIssue> issues) {
+        if (node == null || !node.isArray() || node.isEmpty()) {
+            return List.of();
+        }
+        List<RoadSpec> roads = new ArrayList<>();
+        for (JsonNode entry : node) {
+            String id = entry.path("id").asText(null);
+            if (id == null) {
+                issues.add(ValidationIssue.error("A104", arenaId.value(), "a road has no id (D16-R7)"));
+                continue;
+            }
+            List<RoadSpec.Point> spline = new ArrayList<>();
+            for (JsonNode point : entry.path("spline")) {
+                spline.add(new RoadSpec.Point((float) point.path("x").asDouble(), (float)
+                        point.path("z").asDouble()));
+            }
+            try {
+                roads.add(new RoadSpec(
+                        id,
+                        surfaceOrDefault(entry.path("surface").asText(null), Surface.TARMAC),
+                        (float) entry.path("widthM").asDouble(RoadSpec.MIN_WIDTH_M),
+                        (float) entry.path("shoulderM").asDouble(0.0),
+                        surfaceOrDefault(entry.path("verge").asText(null), Surface.GRAVEL),
+                        (float) entry.path("maxGradePct").asDouble(6.0),
+                        spline));
+            } catch (IllegalArgumentException malformed) {
+                issues.add(
+                        ValidationIssue.error("A104", arenaId.value(), "road " + id + ": " + malformed.getMessage()));
+            }
+        }
+        return List.copyOf(roads);
+    }
+
+    /** A {@link Surface} by its D16-R11 name, case-insensitively, or {@code fallback}. */
+    private static Surface surfaceOrDefault(String name, Surface fallback) {
+        if (name == null) {
+            return fallback;
+        }
+        Surface parsed = enumValue(Surface.class, name.toUpperCase(java.util.Locale.ROOT));
+        return parsed == null ? fallback : parsed;
     }
 
     /**

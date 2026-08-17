@@ -26,11 +26,14 @@ import dev.syndicate.core.vehicle.DegradationRule;
 import dev.syndicate.core.vehicle.SlotChain;
 import dev.syndicate.core.vehicle.StatBlock;
 import dev.syndicate.core.vehicle.StatBlock.Stat;
+import dev.syndicate.core.vehicle.WeaponSubPart;
+import dev.syndicate.core.vehicle.WeaponSubPartDegradation;
 import dev.syndicate.model.DamageState;
 import dev.syndicate.model.PartCategory;
 import dev.syndicate.model.SimulationConstants;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Schedule slot 6: sums a vehicle's parts into the numbers that describe the whole vehicle
@@ -159,6 +162,7 @@ public final class VehicleStatsSystem implements EntitySystem {
         SlotChain chain = SlotChain.of(graph, chassis);
 
         recomputePartEffectiveStats(world, chain);
+        applyWeaponSubPartLosses(world, chain);
         collectUtilityMultipliers(world, chain);
         applyUtilityMultipliers(world, chain);
         aggregate(world, chain, chassis, stats);
@@ -245,6 +249,81 @@ public final class VehicleStatsSystem implements EntitySystem {
             weapon.effectiveFireIntervalS = Degradation.degradeScalar(
                     PartCategory.WEAPON, Stat.FIRE_INTERVAL_S, weapon.baseFireIntervalS, 0f, overrides);
         }
+    }
+
+    // ---- Phase 1b: weapon sub-part losses (D17-S5.13) --------------------------------
+
+    /**
+     * Folds each weapon's missing sub-parts into the numbers slot 8 will read (D17-R61).
+     *
+     * <p>Runs after phase 1 and before the utility pass, which is the only order that works: phase 1
+     * writes the effective stats this multiplies, and the utility pass multiplies whatever it finds,
+     * so a utility module that improves accuracy still helps a gun with no barrel — it just helps it
+     * from a much worse starting point.
+     *
+     * <p>The walk is over parts that carry a {@code WeaponControllerComponent}, which by DEC-080 is
+     * the weapon's {@code mount} and nothing else: a barrel is a target, not a gun. A vehicle's
+     * built-in weapon has no sub-slots at all, so it collects an empty loss set and passes through
+     * this phase unchanged, which is what should happen to a weapon that is one part.
+     */
+    private void applyWeaponSubPartLosses(World world, SlotChain chain) {
+        for (Map.Entry<String, Integer> entry : chain.partEntities()) {
+            String mountPath = entry.getKey();
+            int partEntity = entry.getValue();
+            WeaponControllerComponent weapon = world.getComponent(partEntity, WeaponControllerComponent.class);
+            if (weapon == null) {
+                continue;
+            }
+            weapon.effectiveRangeM = weapon.baseRangeM;
+            weapon.disabledBySubPartLoss = false;
+            if (isGone(world, partEntity)) {
+                // The mount itself is gone; D07-S5.7 is taking the whole subtree and there is
+                // nothing here left to degrade. Phase 1 has already zeroed its scalars.
+                continue;
+            }
+            PartType mountType = partTypeOf(world, partEntity);
+            if (mountType == null) {
+                continue;
+            }
+            Set<WeaponSubPart> lost = WeaponSubPartDegradation.lostBeneath(
+                    mountPath,
+                    mountType,
+                    slotPath -> isLiveAt(world, chain, slotPath),
+                    slotPath -> partTypeAt(world, chain, slotPath));
+            if (lost.isEmpty()) {
+                continue;
+            }
+            WeaponSubPartDegradation.Penalties penalties = WeaponSubPartDegradation.evaluate(lost);
+
+            PartStatsComponent partStats = world.getComponent(partEntity, PartStatsComponent.class);
+            if (partStats != null && penalties.spreadMul() != 1f) {
+                partStats.effectiveStats.setMul(
+                        Stat.SPREAD_RAD, partStats.effectiveStats.mul(Stat.SPREAD_RAD) * penalties.spreadMul());
+            }
+            weapon.effectiveRangeM = weapon.baseRangeM * penalties.rangeMul();
+            weapon.effectiveFireIntervalS *= penalties.fireIntervalMul();
+            weapon.disabledBySubPartLoss = penalties.disabled();
+            if (penalties.feedLost()) {
+                // Capacity is what the row takes away; the rounds already in the gun are what
+                // D17-R61 leaves it running on, so the remaining count is clamped rather than zeroed.
+                int chambered = WeaponSubPartDegradation.chamberedRounds(weapon.ammoCapacity);
+                if (chambered >= 0 && (weapon.ammoRemaining < 0 || weapon.ammoRemaining > chambered)) {
+                    weapon.ammoRemaining = chambered;
+                }
+            }
+        }
+    }
+
+    /** True when a live, undestroyed, undetached part occupies a slot path. */
+    private boolean isLiveAt(World world, SlotChain chain, String slotPath) {
+        Integer entity = chain.entityAt(slotPath);
+        return entity != null && world.isAlive(entity) && !isGone(world, entity);
+    }
+
+    /** The part type occupying a slot path, or null. */
+    private PartType partTypeAt(World world, SlotChain chain, String slotPath) {
+        Integer entity = chain.entityAt(slotPath);
+        return entity == null ? null : partTypeOf(world, entity);
     }
 
     // ---- Phase 2: utility multipliers (D05-S5.6) -------------------------------------

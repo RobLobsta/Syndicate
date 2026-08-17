@@ -13,6 +13,7 @@ import dev.syndicate.client.input.InputCollectionSystem;
 import dev.syndicate.client.input.InputRouter;
 import dev.syndicate.client.input.KeyboardMouseSource;
 import dev.syndicate.client.input.LibGdxDevices;
+import dev.syndicate.client.input.ScriptedSource;
 import dev.syndicate.client.present.DamageVisualSystem;
 import dev.syndicate.client.present.InterpolationSystem;
 import dev.syndicate.client.render.RenderContext;
@@ -93,6 +94,13 @@ public final class ClientSystemProvider implements SystemProvider {
         // Gamepad first in the list, which decides nothing about priority — the router picks by
         // what the player last touched — but does decide the order two simultaneously-touched
         // devices are compared in, and that has to be fixed rather than incidental.
+        ScriptedSource scripted = ScriptedSource.launchSource();
+        if (scripted != null) {
+            // First and alone: a scripted run is one the script drives from the first frame to the
+            // last, and leaving the real devices in the router would have an idle keyboard take the
+            // car back during any segment that holds a steady input.
+            return new InputCollectionSystem(new InputRouter(scripted));
+        }
         return new InputCollectionSystem(new InputRouter(
                 new GamepadSource(pad, bindings), new KeyboardMouseSource(new LibGdxDevices.Desk(), bindings)));
     }

@@ -60,7 +60,7 @@ public final class ReconciliationSystem implements EntitySystem {
     private final NetworkClient client;
     private final PhysicsWorld physics;
     private final SnapshotCodec codec = new SnapshotCodec();
-    private final VehicleControl control = new VehicleControl();
+    private final VehicleControl control;
 
     private final Vector3 predictedPosition = new Vector3();
     private final Quaternion predictedRotation = new Quaternion();
@@ -76,6 +76,9 @@ public final class ReconciliationSystem implements EntitySystem {
     public ReconciliationSystem(NetworkClient client, PhysicsWorld physics) {
         this.client = Objects.requireNonNull(client, "client");
         this.physics = Objects.requireNonNull(physics, "physics");
+        // The same terrain the live control operation reads (D16-R54): a replay that gripped
+        // differently from the tick it is replaying would reconcile a correction into existence.
+        this.control = new VehicleControl(physics);
     }
 
     @Override

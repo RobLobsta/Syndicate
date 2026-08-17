@@ -111,7 +111,7 @@ public final class CoreSystemProvider implements SystemProvider {
             case MATCH_FLOW -> new MatchFlowSystem(assets, spawnQueue);
             case SPAWN -> new SpawnSystem(spawnQueue, assets, physics, shapes);
             case VEHICLE_STATS -> new VehicleStatsSystem(assets);
-            case VEHICLE_CONTROL -> new VehicleControlSystem();
+            case VEHICLE_CONTROL -> new VehicleControlSystem(physics);
             case WEAPON -> new WeaponSystem(assets, impacts, physics, mode.isAuthority());
             case PROJECTILE -> new ProjectileSystem(impacts, mode.isAuthority());
             case PHYSICS -> new PhysicsSystem(physics);
