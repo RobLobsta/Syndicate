@@ -72,23 +72,45 @@ val blenderAvailable: Boolean = blenderExeAvailable || bpyModuleAvailable
 /**
  * How to invoke the tool with whichever host is present. The executable is preferred when
  * both exist, because that is the invocation D09-R1 specifies and the one CI pins.
+ *
+ * Two things about the executable host are not obvious and both were silent (DISC-064):
+ *
+ *  - **Blender's bundled Python builds `sys.path` from `PYTHONHOME` and consults neither
+ *    `PYTHONPATH` nor the working directory.** Setting either on the process — which is
+ *    what the tasks below used to do — leaves the variable visible in `os.environ` and
+ *    absent from `sys.path`, so `import syndicate_fracture` raises `ModuleNotFoundError`.
+ *    The tool directory has to be inserted from inside the expression itself.
+ *
+ *  - **`--python-expr` exits 0 on an uncaught exception** unless `--python-exit-code` is
+ *    given. Without it the two failures compose into a task that runs every fixture, fails
+ *    every one, and reports success having written nothing.
+ *
+ * The `bpy` module host needs neither: `python3 -m` honours `PYTHONPATH` and the working
+ * directory normally, and propagates the exit code itself.
  */
-fun fractureCommand(vararg toolArgs: String): List<String> =
+private val toolDirPath: String = layout.projectDirectory.asFile.absolutePath
+
+private fun blenderCommand(module: String, toolArgs: Array<out String>): List<String> =
     if (blenderExeAvailable) {
-        listOf(blenderExe, "--background", "--factory-startup", "--python-expr",
-            "import syndicate_fracture.__main__ as m; import sys; sys.exit(m.main())", "--") + toolArgs
+        listOf(
+            blenderExe, "--background", "--factory-startup",
+            // Before --python-expr: it is what makes a raising expression a non-zero exit.
+            "--python-exit-code", "1",
+            "--python-expr",
+            "import sys; sys.path.insert(0, ${'"'}$toolDirPath${'"'}); " +
+                "import $module.__main__ as m; sys.exit(m.main())",
+            "--",
+        ) + toolArgs
     } else {
-        listOf("python3", "-m", "syndicate_fracture") + toolArgs
+        listOf("python3", "-m", module) + toolArgs
     }
+
+fun fractureCommand(vararg toolArgs: String): List<String> =
+    blenderCommand("syndicate_fracture", toolArgs)
 
 /** The preparation tool's invocation, on whichever host is present — as `fractureCommand`. */
 fun prepareCommand(vararg toolArgs: String): List<String> =
-    if (blenderExeAvailable) {
-        listOf(blenderExe, "--background", "--factory-startup", "--python-expr",
-            "import syndicate_prepare.__main__ as m; import sys; sys.exit(m.main())", "--") + toolArgs
-    } else {
-        listOf("python3", "-m", "syndicate_prepare") + toolArgs
-    }
+    blenderCommand("syndicate_prepare", toolArgs)
 
 /** `ruff check` — CI stage 0 (D12-S5.4). */
 val lint = tasks.register<Exec>("lint") {

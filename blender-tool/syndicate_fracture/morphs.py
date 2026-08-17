@@ -68,6 +68,29 @@ class _Dent:
     direction: Vec3
 
 
+def _remove_existing_damage_keys(obj, mesh) -> None:
+    """Drop any ``dmg_*`` shape keys already on the mesh, so this run replaces them.
+
+    ``shape_key_add`` does not overwrite: handed a name that is already taken it appends
+    ``.001``, and the mesh exports carrying eight morph targets where the manifest promises
+    four. Self-verification catches that (TV-006) but blames the exporter, which is three
+    stages from the cause.
+
+    A source arrives already carrying these keys whenever the part has been through
+    ``syndicate_prepare`` — every door on both shipped cars dents, so every door has
+    ``dmg_25``..``dmg_100`` before the fracture ever sees it (DISC-065). The tool owns those
+    names, so re-authoring them is the intent and removing them first is what makes the run
+    idempotent.
+
+    Only the levels this tool generates are removed. A key authored elsewhere under another
+    name is somebody else's and is left alone.
+    """
+    owned = set(LEVEL_NAMES)
+    for key_block in list(mesh.shape_keys.key_blocks):
+        if key_block.name in owned:
+            obj.shape_key_remove(key_block)
+
+
 def generate_damage_morphs(obj, args: Args) -> list[MorphStats]:
     """Add the damage shape keys to ``obj`` and return their statistics (D09-S5.3)."""
     require_bpy()
@@ -77,6 +100,8 @@ def generate_damage_morphs(obj, args: Args) -> list[MorphStats]:
     mesh = obj.data
     if mesh.shape_keys is None:
         obj.shape_key_add(name="Basis", from_mix=False)
+    else:
+        _remove_existing_damage_keys(obj, mesh)
 
     basis: list[Vec3] = [(v.co.x, v.co.y, v.co.z) for v in mesh.vertices]
     triangles = _triangles_of(mesh)

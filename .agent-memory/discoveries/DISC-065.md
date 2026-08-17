@@ -1,10 +1,14 @@
 # DISC-065: the shipped parts fail fracture at two gates, and the second is mass
 
+> **Superseded by DISC-066.** The measurements below are correct; the framing is not. Only
+> `glass` is *meant* to fracture (D15-S5.7), so the 44 parts without manifests are the spec
+> working as written, not a gap. Kept as the record of how the wrong conclusion was reached.
+
 **Date:** 2026-08-17
 **Category:** discoveries
 **Related Docs:** docs/09_blender_destruction_tool.md#D09-S5.2, docs/08_asset_pipeline.md#D08-S4.3, docs/00_master_index.md#D00-S5.2
 
-**Status:** active
+**Status:** superseded (by DISC-066)
 
 ## Summary
 44 of the 53 shipped vehicle parts have no fracture manifest, and with Blender now available
@@ -25,9 +29,9 @@ Those are the **downloaded art's** texture-material names, still on the exported
 mesh's material slot. Glass is the one category with shards today precisely because the glass path
 does assign a real `glass` material.
 
-D09-R19 is right to hard-fail rather than default to steel. `syndicate_fracture` already has
-`--material-override`, so nothing needs adding to the tool to get past this — but a mesh whose
-material slot lies is still wrong for the runtime, so the export is where it should be fixed.
+D09-R19 is right to hard-fail rather than default to steel; `--material-override` already gets past
+it. A mesh whose material slot lies is still wrong for the runtime, so the export is where it
+should be fixed.
 
 **Gate two — mass conservation, and this is the actual work.** With the material supplied, both
 parts reach the fracture and fail G7 (`MASS_TOLERANCE_FRAC` = 0.02) with exit 72:
@@ -39,22 +43,13 @@ Both **over**-count, the signature of an open or self-intersecting source. A car
 not a solid. The fixtures the fracture was built and tuned against — `test_cube_1m`,
 `test_sphere_r0.5`, `test_cylinder_r0.5_h1` — are all closed solids.
 
-`--shell-thickness` exists for exactly this and does not currently rescue it: 0.002 and 0.006 both
-move the door to a *different* self-verification failure (exit 74) rather than to a pass. So either
-the shipped part geometry needs closing or the shell path needs work, and which is not yet
-established.
+`--shell-thickness` exists for exactly this. (DISC-066: it does work; the exit 74 seen here was the
+duplicate-morph bug, not the shell path.)
 
 ## Rationale / Context
-The tempting reading of "44 parts have no manifest" is that somebody forgot to run a batch command.
-It is not: it is a two-gate content problem, and the second gate is a real question about whether
-this fracture handles sheet geometry at all. Recording it stops the next session budgeting an hour
-for what is at least a session.
-
-DISC-041's lesson applies with force — every threshold in this tool was measured against five closed
-convex-ish fixtures, and the shipped content is neither closed nor convex.
+The measurements here are sound and worth keeping. The conclusion drawn from them was not: see
+DISC-066.
 
 ## Impact
-- `syndicate_prepare` should write the resolved `materialId` onto each exported part's material slot.
-- Until gate two is answered, only glass can be fractured, so a destroyed wheel or door detaches
-  whole (the gap PROG-028 names).
+- `syndicate_prepare` should still write the resolved `materialId` onto each exported mesh's slot.
 - A sheet-geometry fixture belongs in `fixtures/meshes/`; its absence is why this was never seen.

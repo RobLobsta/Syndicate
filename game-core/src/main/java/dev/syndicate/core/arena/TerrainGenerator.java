@@ -278,6 +278,9 @@ public final class TerrainGenerator {
                     String.format("%.1f", report.maxFillM()),
                     String.format("%.1f", report.maxGradePct()));
         }
+        // After the log line, so the numbers that explain the failure are already on the record
+        // when it throws (DISC-062).
+        RoadCarver.validateCuts(roadReports);
         if (!roadReports.isEmpty()) {
             bare = new TerrainField(params, min.x, min.z, groundY, heights, surfaces, new BitSet());
         }

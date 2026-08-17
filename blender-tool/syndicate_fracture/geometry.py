@@ -124,6 +124,41 @@ def mesh_volume(vertices: list[Vec3], triangles: list[Tri]) -> float:
     return abs(v6) / 6.0
 
 
+def boundary_edge_count(vertices: list[Vec3], triangles: list[Tri]) -> int:
+    """How many edges belong to exactly one triangle — the holes in the surface.
+
+    Zero is watertight. Anything else means :func:`mesh_volume`'s divergence integral is not a
+    volume at all, because the divergence theorem needs a closed surface to be a theorem.
+
+    The distinction matters because the integral does not announce itself as meaningless: it
+    returns a plausible-looking number, and :func:`mesh_volume` then takes its absolute value,
+    which discards the one piece of evidence an open mesh leaves behind. Both shipped cars'
+    wheels integrate to a *negative* number and reach mass assignment as a positive one
+    (DISC-065).
+
+    **Edges are identified by vertex position, not by vertex index**, and that is the whole
+    subtlety. glTF stores one vertex per (position, normal) pair, so importing a perfectly
+    closed cube yields 24 index-edges that each belong to a single face — every hard edge in
+    the file looks like a hole. Counting on quantised positions welds those seams back together
+    and asks the question actually being asked: is there a gap in the surface. On the shipped
+    fixtures this is the difference between 24 and 0.
+    """
+    keys = [quantise(v) for v in vertices]
+    seen: dict[tuple[tuple[int, int, int], tuple[int, int, int]], int] = {}
+    for i, j, k in triangles:
+        for a, b in ((keys[i], keys[j]), (keys[j], keys[k]), (keys[k], keys[i])):
+            if a == b:  # a degenerate triangle contributes no boundary
+                continue
+            edge = (a, b) if a < b else (b, a)
+            seen[edge] = seen.get(edge, 0) + 1
+    return sum(1 for count in seen.values() if count == 1)
+
+
+def is_watertight(vertices: list[Vec3], triangles: list[Tri]) -> bool:
+    """Whether every edge is shared by two triangles (D09-S5.1, exit 66)."""
+    return boundary_edge_count(vertices, triangles) == 0
+
+
 def mesh_centroid(vertices: list[Vec3], triangles: list[Tri]) -> Vec3:
     """Volume centroid by the same decomposition (D09-S6.2).
 

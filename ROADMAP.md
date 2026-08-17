@@ -1,6 +1,6 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-17 (end of SESS-037)
+**Last updated:** 2026-08-17 (end of SESS-038)
 
 This is the plan, in order. Each step below is meant to be picked up from the top: everything above
 "you are here" is done, everything below it is not, and the order is the order they should be done
@@ -75,9 +75,12 @@ numbers, one renderer and one socket.
    ├── Headlights, beams, and a night to see them in            PROG-034
    ├── Guns: two weapons, taken apart, mounted and firing       PROG-035
    ├── Bots that orbit their target instead of shuffling        DISC-059
-   └── A garage that arms the car                               DEC-084
+   ├── A garage that arms the car                               DEC-084
+   ├── Blender in the sandbox, and the fixture gate green       DISC-064
+   └── The two things the first drive found, fixed              DEV-019
   ─────────────────────────────────────────────────────── you are here
   NEXT
+   0. Drive it again                          ← the fixes are tested, not looked at
    1. Guns, finished                          ← degradation, fracture, more families
    2. Roads and structures                    ← terrain stages 3 and 4
    4. Tuning, with a console to do it from    ← the alpha gate
@@ -91,28 +94,56 @@ numbers, one renderer and one socket.
 
 ## 3. The plan, in order
 
-### Step 1 — What driving it found
+### Step 1 — What driving it found ✅ done
 
-The client can now be **driven from a script** (`--script`) and photographed at several frames of one
-run (`--capture-frames`), which is what finally closed the hole every other capture flag was working
-around: a capture has no keyboard, so the half of the game that is verbs could never be looked at.
-The first two drives found two things eleven passing test suites had not.
+The client can be **driven from a script** (`--script`) and photographed at several frames of one run
+(`--capture-frames`), which closed the hole every other capture flag was working around: a capture
+has no keyboard, so the half of the game that is verbs could never be looked at. The first two drives
+found two things eleven passing test suites had not. Both are now fixed and tested.
 
-1. **The speed clamp does not know the car is airborne** (DISC-063). Full throttle in the desert
-   reaches 145 km/h, launches off a dune, and the car is still flying 130 frames later reading exactly
-   145 — which is `MAX_VEHICLE_SPEED_MPS` to the digit. The clamp exists to stop a chassis tunnelling
-   through geometry, which a car with no wheel in contact cannot do. Exempting an airborne vehicle is
-   a few lines; the interesting part is driving it again afterwards and seeing whether the dunes are
-   still a problem once landings are landings.
-2. **A road that reaches the border rise digs a canyon through it** (DISC-062). Measured: ±290 m of
-   spline cuts 31 m, ±240 m cuts 3 m. It is a threshold at the foot of the rim, not a gradient — and
-   the two guards that fire are about spawn connectivity and rim containment, neither of which
-   mentions roads. The carve now logs its cut and fill, which makes it a one-line diagnosis; the real
-   fix is a load-time guard so a too-long spline is an authoring error rather than eight silently
-   rejected seeds.
+1. **The speed clamp did not know the car was airborne** (DISC-063). The clamp rescales the whole
+   velocity vector, so a car already at the horizontal limit had whatever gravity added taken back
+   out — it flew 130 frames reading exactly 145 km/h. It now bounds the horizontal component only
+   while no wheel is in contact; grounded behaviour is unchanged, so the seed-locked physics
+   regressions do not move (DEV-019).
 
-Both are cheap. Both are the kind of thing only driving finds, which is the argument for doing this
-step before anything else on the list.
+   Worth knowing, because it nearly shipped a useless test: asserting that a launched car *falls*
+   passes under the old behaviour too. The old clamp did not freeze the car, it rotated the velocity
+   vector downward at fixed magnitude. The signature is total speed pinned at exactly the limit.
+
+2. **A road that reached the border rise dug a canyon through it** (DISC-062). The carve is now
+   checked against the cut it measured, and a road over 10 m of cutting is an authoring error at load
+   naming the road — against 2.7 m and 3.3 m for a road inside the playable area and 30.8 m for the
+   one that shipped. Deliberately a measurement rather than a rule about spline length: the two
+   arenas have different cell sizes and rim positions, so an extent verified on one says nothing
+   about the other.
+
+**Still open from this step:** nobody has driven it *again*. Both fixes are covered by tests, and
+neither has been checked the way the bugs were found — with a scripted drive and a look at the
+frames. That is the cheapest next thing on this list, and the dune field is the place to point it.
+
+### Step 1b — Blender, and the fixture gate that had never run ✅ done
+
+The sandbox has no `blender` on PATH, and three sessions read that as a fixed constraint. It was an
+untested assumption: `blender-tool/tools/install-blender.sh` fetches headless 4.2 LTS in about ninety
+seconds. Run it once per session in any session touching `blender-tool/`, `assets/` or fixtures.
+
+Installing one showed the `blender` **executable** host had never run — Blender's bundled Python
+ignores `PYTHONPATH` and the working directory, and `--python-expr` exits 0 on an uncaught exception,
+so the fixture task ran five fixtures, failed all five and reported success (DISC-064). Fixed, and
+`:test-environment:verifyFixtures` now passes 31/31 on each fixture, which is the first time that
+gate has ever executed.
+
+Three real bugs in the fracture tool fell out of pointing it at actual car parts (DISC-066): D09's
+exit 66 for "not watertight" had never been implemented, the check has to weld by position or glTF's
+per-normal vertex splitting rejects the tool's own fixtures, and re-fracturing an already-dented part
+duplicated its damage morphs.
+
+**And one correction.** "Fracture manifests for the shipped parts" was on this list as missing work.
+It is not missing: D15-S5.7 gives shards to `glass` alone — sheet metal dents, rigid parts detach
+whole, structural buckles — and the pipeline implements that faithfully. All 53 shipped parts are
+open surface meshes, which is normal for downloaded car art. Making a door shatter is a **content
+decision** that needs D15-S5.7 amended first, not a batch command somebody forgot to run.
 
 ### Step 2 — Structures
 

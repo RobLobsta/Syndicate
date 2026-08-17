@@ -16,6 +16,7 @@ from syndicate_fracture.geometry import (
     _repair_visible_cap,
     _signed_distance,
     aabb_of,
+    boundary_edge_count,
     clip_polytope,
     convex_hull,
     cross,
@@ -24,6 +25,7 @@ from syndicate_fracture.geometry import (
     inflate_hull,
     intersect_halfspaces,
     is_convex,
+    is_watertight,
     max_outside_distance,
     mesh_centroid,
     mesh_volume,
@@ -116,6 +118,41 @@ class TestMeasurement:
         v, t = cube(1.0)
         flipped = [(a, c, b) for a, b, c in t]
         assert mesh_volume(v, flipped) == pytest.approx(1.0, abs=1e-12)
+
+    def test_a_closed_cube_has_no_boundary_edges(self) -> None:
+        v, t = cube(1.0)
+        assert boundary_edge_count(v, t) == 0
+        assert is_watertight(v, t)
+
+    def test_a_cube_missing_a_face_is_not_watertight(self) -> None:
+        # Two triangles removed is one square hole, whose four edges are now unshared.
+        v, t = cube(1.0)
+        assert boundary_edge_count(v, t[:-2]) == 4
+        assert not is_watertight(v, t[:-2])
+
+    def test_split_vertices_do_not_read_as_holes(self) -> None:
+        """The case that matters on real content: glTF stores one vertex per (position, normal).
+
+        A closed cube imported from glTF therefore arrives with every corner duplicated and no
+        two faces sharing an index. Counting on indices calls that 24 boundary edges and
+        rejects the tool's own fixtures; counting on positions calls it what it is (DISC-065).
+        """
+        v, t = cube(1.0)
+        split_vertices: list[Vec3] = []
+        split_triangles = []
+        for tri in t:
+            base = len(split_vertices)
+            split_vertices.extend(v[i] for i in tri)
+            split_triangles.append((base, base + 1, base + 2))
+        # Nothing is shared by index...
+        assert len({i for tri in split_triangles for i in tri}) == 3 * len(t)
+        # ...and it is still a closed cube.
+        assert boundary_edge_count(split_vertices, split_triangles) == 0
+
+    def test_a_sheet_is_not_watertight(self) -> None:
+        # One quad: a panel, a pane, anything that has area and encloses nothing.
+        sheet: list[Vec3] = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0), (0.0, 1.0, 0.0)]
+        assert boundary_edge_count(sheet, [(0, 1, 2), (0, 2, 3)]) == 4
 
     def test_aabb_bounds_every_vertex(self) -> None:
         v, _ = cube(2.0, base_at_zero=False)
