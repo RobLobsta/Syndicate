@@ -169,6 +169,12 @@ public final class WeaponSystem implements EntitySystem {
             if (weapon.cooldownRemainingS > 0f || weapon.ammoRemaining == 0 || weapon.heat >= HEAT_LOCKOUT) {
                 continue;
             }
+            if (weapon.disabledBySubPartLoss) {
+                // The receiver is gone, so there is no action to cycle (D17-R61). Slot 6 decided
+                // this one phase ago from the sub-parts still attached; the table lives there, and
+                // this line is the whole of what the firing path knows about it (D17-R61).
+                continue;
+            }
             fire(world, partEntity, vehicleEntity, weapon, partRef, block, input, tick, dtSeconds);
         }
     }
@@ -198,6 +204,11 @@ public final class WeaponSystem implements EntitySystem {
         float projectileSpeed =
                 statOrDefault(stats, StatBlock.Stat.PROJECTILE_SPEED_MPS, WeaponBlock.DEFAULT_PROJECTILE_SPEED_MPS);
 
+        // Slot 6 resolved this from the weapon block and whatever sub-parts survive: a gun whose
+        // barrel has been shot off reaches half as far (D17-R61). Falling back to the block's own
+        // range keeps a built-in weapon that never went through slot 6 firing its authored distance.
+        float effectiveRangeM = weapon.effectiveRangeM > 0f ? weapon.effectiveRangeM : block.effectiveRangeM();
+
         Pcg32 spread = world.random().stream(StreamId.DAMAGE_SPREAD);
         aimDirection(input.aimYawRad, input.aimPitchRad, spreadRad, spread, scratchAim);
 
@@ -210,6 +221,7 @@ public final class WeaponSystem implements EntitySystem {
                     scratchAim,
                     projectileSpeed,
                     damagePerShot,
+                    effectiveRangeM,
                     vehicleEntity,
                     ownerPlayer,
                     weapon.groupIndex,
@@ -223,7 +235,7 @@ public final class WeaponSystem implements EntitySystem {
                     world,
                     scratchMuzzle,
                     scratchAim,
-                    block.effectiveRangeM(),
+                    effectiveRangeM,
                     block.damageType(),
                     amount,
                     0f,
@@ -272,6 +284,7 @@ public final class WeaponSystem implements EntitySystem {
             Vector3 direction,
             float speedMps,
             float damageAmount,
+            float maxRangeM,
             int shooterVehicle,
             int ownerPlayer,
             int weaponGroup,
@@ -294,7 +307,7 @@ public final class WeaponSystem implements EntitySystem {
         projectile.damageType = block.damageType();
         projectile.damageAmount = damageAmount;
         projectile.blastRadiusM = block.blastRadiusM();
-        projectile.maxRangeM = block.effectiveRangeM();
+        projectile.maxRangeM = maxRangeM;
         projectile.shooterVehicleEntity = shooterVehicle;
         projectile.sourceWeaponGroup = weaponGroup;
         world.addComponent(projectileEntity, projectile);

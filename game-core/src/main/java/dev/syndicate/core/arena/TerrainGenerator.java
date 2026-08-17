@@ -10,6 +10,8 @@ import java.util.BitSet;
 import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Turns a seed into ground (docs/16_procedural_arena_generation.md#D16-S5.1).
@@ -27,6 +29,8 @@ import java.util.Objects;
  * parallelism.
  */
 public final class TerrainGenerator {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TerrainGenerator.class);
 
     /**
      * The most of a dune's wavelength its slip face may occupy.
@@ -189,6 +193,16 @@ public final class TerrainGenerator {
      * @param pads spawn clearances and structure footprints, applied in list order (G3)
      */
     public static TerrainField generate(Vector3 min, Vector3 max, float groundY, TerrainParams params, List<Pad> pads) {
+        return generate(min, max, groundY, params, pads, List.of());
+    }
+
+    /**
+     * Generates an arena's ground with roads carved into it (D16-S5.1 stage 4).
+     *
+     * @param roads carved in array order, later roads winning where they overlap (D16-R10)
+     */
+    public static TerrainField generate(
+            Vector3 min, Vector3 max, float groundY, TerrainParams params, List<Pad> pads, List<RoadSpec> roads) {
         Objects.requireNonNull(min, "min");
         Objects.requireNonNull(max, "max");
         Objects.requireNonNull(params, "params");
@@ -238,11 +252,37 @@ public final class TerrainGenerator {
         // [5] Pads. Before classification and drivability, because levelling ground changes both.
         flattenPads(heights, min, params, pads);
 
-        // [6] and [7]: what the ground is made of, and whether a vehicle can be on it. Both need the
-        // finished heights, so both run over a field nothing will change again.
+        // [6] What the ground is made of, over the finished landform.
         TerrainField bare =
                 new TerrainField(params, min.x, min.z, groundY, heights, new byte[params.sampleCount()], new BitSet());
         byte[] surfaces = classify(bare, params);
+
+        // [4] Roads, carved after classification rather than before it: the carve paints tarmac and
+        // verge onto the cells it owns, and running the classifier afterwards would immediately
+        // repaint them as whatever the slope suggests. The heights it changes are why drivability
+        // has to come last — a cutting's walls are legitimately unclimbable (D16-R37).
+        List<RoadCarver.Report> roadReports = RoadCarver.carve(heights, surfaces, params, min.x, min.z, roads);
+        for (RoadCarver.Report report : roadReports) {
+            // Cut and fill are logged because they are the numbers that go wrong silently. A road
+            // whose spline reaches into the border rise (D16-S5.5) carves a canyon through the wall
+            // meant to contain the arena — 31 m on the first desert spline tried, against the 3 m a
+            // road across open dunes digs — and the only symptom is the connectivity check
+            // rejecting every seed with a message about spawn points (DISC-062).
+            LOG.info(
+                    "road {} carved: {} m long, {} carriageway cells, {} verge, cut {} m, fill {} m, grade {}%",
+                    report.roadId(),
+                    Math.round(report.lengthM()),
+                    report.carriagewayCells(),
+                    report.vergeCells(),
+                    String.format("%.1f", report.maxCutM()),
+                    String.format("%.1f", report.maxFillM()),
+                    String.format("%.1f", report.maxGradePct()));
+        }
+        if (!roadReports.isEmpty()) {
+            bare = new TerrainField(params, min.x, min.z, groundY, heights, surfaces, new BitSet());
+        }
+
+        // [7] Whether a vehicle can be there. Last, over heights nothing will change again.
         BitSet drivable = markDrivable(bare, params);
 
         return new TerrainField(params, min.x, min.z, groundY, heights, surfaces, drivable);

@@ -1,6 +1,6 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-16 (end of SESS-036)
+**Last updated:** 2026-08-17 (end of SESS-037)
 
 This is the plan, in order. Each step below is meant to be picked up from the top: everything above
 "you are here" is done, everything below it is not, and the order is the order they should be done
@@ -28,17 +28,21 @@ torn down and rebuilt when you go back in.
 
 Five things that sentence leaves out, in the order they hurt:
 
-1. **The guns are mounted but nobody has pulled the trigger in anger.** This is new, and it is the
-   line that changed most this session. Two weapons ship — an autocannon and a cannon, each an
-   *assembly* of five or seven sub-parts with its own mass, health and damage state, so a barrel can
-   be shot off and the gun keeps firing worse. Firing kicks the car that fired and a shell shoves what
-   it hits. What has **not** happened is a person playing it: the damage numbers are D01's defaults,
-   the sub-part degradation table is written down and not yet implemented, and no weapon fractures
-   when it dies — it detaches whole. Six of the eight families still have no content at all.
-2. **The arenas are real places now, but bare ones.** Both generate from a theme and a seed — a
-   Desert Highway of dunes and scoured rock, a Scrapyard of flat compacted yard with spoil heaps
-   across it — and both are drawn. What they have not got is roads, structures, or anything to take
-   cover behind that was not extruded from a noise function.
+1. **The guns work, the sub-parts now matter, and it has been driven — badly.** Two weapons ship, each
+   an *assembly* of five or seven sub-parts. Shoot the barrel off and accuracy collapses and range
+   halves; take the breech and the fire rate halves; take the receiver and the gun stops. That table
+   landed this session and it is what makes a loadout a decision rather than a formality. It has now
+   also been **played**, headlessly, with a scripted drive — and that first drive found two things no
+   test had: at 145 km/h the desert's dunes launch the car and the anti-tunnelling clamp holds it
+   airborne (DISC-063), and a road spline 50 m too long carves a canyon through the arena wall
+   (DISC-062). The damage numbers are still D01's defaults, no weapon fractures when it dies, and six
+   of the eight families have no content.
+2. **The Desert Highway now has a highway.** A 612 m tarmac road is carved from a spline, and the
+   blend either side digs cuttings and raises embankments without anybody authoring one — cover on
+   both sides, and ridges you can be pushed off. Sand is slower than tarmac at the wheel now, so
+   leaving the road costs you something. What the arenas still have not got is **structures**: nothing
+   to take cover behind that was not extruded from a noise function. The scrapyard's haul road was
+   withdrawn rather than shipped broken (DISC-062).
 3. **The cars are real now, and unproven.** Each ships as thirty-odd parts — doors that hinge and
    dent, glass that shatters, lamps and grilles that come off, and now a weapon — cut from its own
    art, colour-matched to a house palette, and calibrated to a published spec sheet. Their headlights
@@ -76,85 +80,53 @@ numbers, one renderer and one socket.
   NEXT
    1. Guns, finished                          ← degradation, fracture, more families
    2. Roads and structures                    ← terrain stages 3 and 4
-   3. Tuning, with a console to do it from    ← the alpha gate
-   4. Options, and the rest of the shell
-   5. Terrain rendering, properly             ← needs a real GPU to measure
-   6. Sockets
-   7. Hardening and release
+   4. Tuning, with a console to do it from    ← the alpha gate
+   5. Options, and the rest of the shell
+   6. Terrain rendering, properly             ← needs a real GPU to measure
+   7. Sockets
+   8. Hardening and release
 ```
 
 ---
 
 ## 3. The plan, in order
 
-### Step 1 — Guns, finished
+### Step 1 — What driving it found
 
-**Where this got to.** The hard half is done and is bigger than this step originally described. A
-weapon is no longer "a `part.json` with a `weapon` block": it is an **assembly**, built from a
-downloaded model by a third Blender tool (`syndicate_weapon`, against `docs/17_weapon_system.md`),
-with a mount that bolts to the vehicle and a receiver, barrel, breech and muzzle hanging off it —
-each its own part with its own mass, health and damage state. Two ship:
+The client can now be **driven from a script** (`--script`) and photographed at several frames of one
+run (`--capture-frames`), which is what finally closed the hole every other capture flag was working
+around: a capture has no keyboard, so the half of the game that is verbs could never be looked at.
+The first two drives found two things eleven passing test suites had not.
 
-| | `weapon_machinegun_01` | `weapon_cannon_01` |
-|---|---|---|
-| Family, size | AUTOCANNON, LIGHT | CANNON, HEAVY |
-| Mass, length | 17.7 kg, 0.9 m | 178.1 kg, 1.8 m |
-| Sub-parts | 5 | 7 |
-| Fitted to | Eclipse, both flanks | Stampede, roof turret |
+1. **The speed clamp does not know the car is airborne** (DISC-063). Full throttle in the desert
+   reaches 145 km/h, launches off a dune, and the car is still flying 130 frames later reading exactly
+   145 — which is `MAX_VEHICLE_SPEED_MPS` to the digit. The clamp exists to stop a chassis tunnelling
+   through geometry, which a car with no wheel in contact cannot do. Exempting an airborne vehicle is
+   a few lines; the interesting part is driving it again afterwards and seeing whether the dunes are
+   still a problem once landings are landings.
+2. **A road that reaches the border rise digs a canyon through it** (DISC-062). Measured: ±290 m of
+   spline cuts 31 m, ±240 m cuts 3 m. It is a threshold at the foot of the rim, not a gradient — and
+   the two guards that fire are about spawn connectivity and rim containment, neither of which
+   mentions roads. The carve now logs its cut and fill, which makes it a one-line diagnosis; the real
+   fix is a load-time guard so a too-long spline is an authoring error rather than eight silently
+   rejected seeds.
 
-The machine gun is fitted twice, the left one produced by running the tool again with `--mirror`:
-the model has a side bracket, so it is a flank weapon, and a bracket designed for one side does not
-fit the other. The cannon keeps its pedestal and both elevation cogs, which an earlier reading of the
-model had it throwing away as a gun carriage.
+Both are cheap. Both are the kind of thing only driving finds, which is the argument for doing this
+step before anything else on the list.
 
-Alongside them: **size classes** decide which weapons fit which mounts, firing **kicks** the vehicle
-and a hit **shoves** the target, barrels **recoil** when they fire, and the cannon's cogs **elevate**
-as it aims.
+### Step 2 — Structures
 
-Arming the grid also exposed a driving bug that had been latent since the behaviour tree was written:
-a bot already at engagement range was given a destination inside its own turning circle and shuffled
-in place for the whole match. Bots now orbit their target, and every one of them covers two to four
-times the ground it did before.
+Stage 4 of the four D16 defines; stages 1, 2a and 3 are done. A factory, a placement pass, and four or
+five things to place. Everything that *breaks* them already exists (DEC-071), so the work is two new
+pieces plus a fracture run per object — and that fracture run is the catch: it needs Blender, which
+the development sandbox does not have.
 
-**What is left, in the order it matters:**
+This matters more for the Scrapyard than for the desert. A breaker's yard with no wrecks in it is a
+quarry, and it is currently a quarry.
 
-1. **Sub-part degradation.** D17-S5.13 is a table — barrel gone means spread ×4 and range halved,
-   breech gone means half fire rate, feed gone means no ammunition — and **nothing reads it yet**.
-   This is the difference between sub-parts that are separately destroyable and sub-parts that
-   *matter*, and it is the single highest-value thing left on this list.
-2. **Fracture manifests per weapon**, so a destroyed gun breaks up rather than detaching whole.
-3. **A third weapon that is not a gun** — a rocket pod or a flamer — so damage types other than
-   `KINETIC` have a caller. `ROCKET`, `MORTAR` and `FLAMER` are reachable only through `--family`
-   by design: nothing in a static mesh distinguishes a rocket pod from a box.
-4. **Play it.** Fire at a bot and watch what happens; the numbers are all defaults.
-
-**Done when:** you shoot a bot's gun off, it keeps firing and misses, and you can feel your own car
-rock when the cannon goes off.
-
-**Since this was written**, the garage learned to arm the car (D01-NG1a): pick a vehicle, pick a
-weapon for each of its hardpoints, deploy. That makes item 3 above worth more than it was — a third
-weapon is now a third *choice* rather than a second row in the asset tree — and it makes item 1 the
-thing standing between a loadout screen and a loadout *decision*, because until sub-part degradation
-lands, every gun that fits a mounting is strictly better than leaving it empty.
-
-### Step 2 — Roads and structures
-
-Stages 3 and 4 of the four D16 defines. Stages 1 and 2a are done: the ground generates from a theme,
-collides, and is drawn.
-
-- **2a. Roads and surfaces** (D16-S5.4, S5.10). The spline carve, cut and fill, and per-surface grip
-  at the wheel. This is what turns a landscape into an arena: a raised tarmac ribbon with sand either
-  side, cuttings you can be pushed into, and — finally — sand that is slower than tarmac and sounds
-  different under the tyres. The surface grid it needs exists and is populated; what is missing is
-  the carve that puts tarmac in it and the four lines in the wheel code that read it. It is also
-  what makes the Desert *Highway* deserve its name.
-- **2b. Structures** (D16-S7). A factory, a placement pass, and four or five things to place.
-  Everything that breaks them already exists (DEC-071), so the work is two new pieces plus a fracture
-  run per object. This matters more for the Scrapyard than for the desert: a breaker's yard with no
-  wrecks in it is a quarry.
-- **2c. A third theme, once those two exist.** Themes are cheap now — a relief layer, a palette and
-  eight numbers — and the marginal one costs a day rather than a session. Worth waiting until roads
-  and structures are in, so a new theme arrives complete rather than as more empty ground.
+Also here, and smaller: **the scrapyard's haul road**, withdrawn this session rather than shipped
+broken. Its extent has to be measured against its own rim, which is at a different place from the
+desert's because the two arenas have different cell sizes — 1 m against 2 m.
 
 ### Step 3 — Tuning, with a console to do it from ★ the alpha gate
 
@@ -170,7 +142,7 @@ Then turn them, in roughly this order:
 |---|---|
 | Steering rate and lock, chase camera half-lives | Feel. Everything else is judged through them. |
 | Collision damage scale and threshold | Decides whether ramming is the game or a nuisance. |
-| Weapon damage, rate of fire, falloff | Only meaningful once step 1 exists. |
+| Weapon damage, rate of fire, falloff | Now fully wired, including what a damaged gun does. Nothing has been tuned. |
 | Armour floors, propagation fraction, degradation curves | Decides how long a fight lasts and how it ends. |
 | Bot reaction delay and aim error | Difficulty. Use the headless runner, then confirm by playing. |
 | Match length and frag limit | Cheapest to change, so change it last. |
@@ -233,8 +205,7 @@ Real work, no fixed place in the sequence.
   rubber. Worth doing when a second vehicle *class* is actually wanted.
 - **More vehicles that are cars.** A command, not a project: drop a model in `art-source/vehicles/`
   and run the pipeline. The roster is the cheapest content this project has.
-- **JSON schemas enforced at load.** `schemas/` exists and nothing reads it, so malformed content
-  fails on whichever field a hand-written check happens to read first.
+
 - **Reference recordings** for the V6, V10, V12 and four-cylinder engines. One real V8 moved the
   synthesiser further than forty generic clips did; the other families are inference, and the Eclipse
   in particular has no reference at all.
@@ -242,11 +213,9 @@ Real work, no fixed place in the sequence.
   Mustang's low-order energy is panels and cabin, which nothing here reproduces.
 - **Capture the client's screens in CI.** Now possible (DISC-046) and not yet wired. It would make a
   visual regression a failing build rather than something noticed three sessions later.
-- **A `verifyBeforePush` task.** CLAUDE.md §8.1 now spells out the four CI stages to reproduce
-  locally before pushing, and the whole procedure is mechanical — stage everything, run the
-  generators, copy the tracked files out, run four commands. It is written as prose because a person
-  had to read it once; it should end up as a single Gradle task, so the one step that gets skipped
-  is not skippable.
+- **JSON schemas at load, still.** `schemas/` is an empty directory that D08-R18 makes a hard
+  requirement and that D09-R7, D09-AC-7, D14-R7 and D14-AC-6 all cite. Eight schemas and a validator;
+  it cannot be deleted, because five requirements point at it.
 
 ---
 
@@ -261,22 +230,24 @@ Not decided, and not for the assistant to decide alone.
   `armorValue` naming question below urgent rather than tidy. Two smaller ones are also open: the
   loadout is remembered for the session and **not** saved to disk, and nothing stops you deploying a
   car with every mounting empty.
-- **Whether single-player should route through the loopback pair** now or at step 7. Doing it early
-  costs a session and tests replication continuously; doing it late keeps the current path simple.
-- **Whether `armorValue` should follow `ARMOR` into a rename.** The category became `PANEL`; the
-  stat stayed `armorValue`, because it is the protection a part gives and every category carries it,
-  including wheels and the chassis. That separation is deliberate and now leaves the word "armour"
-  free for fitted plating if the garage ever offers a choice of it. If you would rather the word
-  disappeared entirely, the rename is mechanical but touches the JSON schema and the Blender tool.
+- **~~Whether single-player should route through the loopback pair~~ — deferred, deliberately.** You
+  chose to leave it until the sockets step. Recording it here so the next session reads it as a
+  decision rather than as an omission: four of the 27 systems have still never run in a shipping
+  configuration, and that is understood and accepted for now.
+- **~~Whether `armorValue` should follow `ARMOR` into a rename.~~ Decided: it stays.** You chose to
+  keep it — it is the protection a part gives and every category carries it, including wheels and the
+  chassis, and keeping it leaves the word "armour" free for fitted plating if the garage ever offers a
+  choice of it. DEC-073 is closed on that reading.
 - **What the house style should actually look like.** `assets/materials/style.json` is ten surface
   roles, a six-hue palette and a luminance band, aimed at Crossout's wasteland. Every number in it
   is a taste decision; the pipeline re-runs in about ninety seconds a vehicle, and the report says
   what the result measured. The hue list is the highest-leverage thing to change.
-- **Whether the ground should follow the same palette.** The vehicles are now held inside one
-  luminance band and the generated terrain is not — it comes from `ArenaTheme` (D16) and reads
-  noticeably lighter than the cars sitting on it. Unifying the two is the single biggest remaining
-  "the scene does not look right" item, and it is a change to a different system than the style
-  table.
+- **~~Whether the ground should follow the same palette.~~ Decided: it does.** Both of DEC-079's
+  mechanisms — the six-hue snap and the luminance band — now apply to an arena theme's albedo, with a
+  test that fails if the constants and `style.json` drift apart. The desert measured 0.561 luma
+  against a 0.409 ceiling and has come down into the band; the other two themes were already under it
+  and are untouched. **Still open:** whether a ground should sit at two thirds of the vehicles' ceiling
+  (the number chosen) or somewhere else. It is a composition call, and it is one line.
 - **When it should be dark.** Night is a launch option (`--night`) and the `N` key today, because
   headlights needed something to be visible against. Time of day is properly an arena's property —
   D16-S4 already reserves a `sky` block — and whether a match picks its hour, cycles through one, or
@@ -305,6 +276,12 @@ Not decided, and not for the assistant to decide alone.
   plate and the trail, over half its triangles. That was your call ("drop the carriage") and it is
   the right one for a roof-mounted gun. A towed-artillery weapon type, if you ever wanted one, would
   need that geometry kept and a different rule.
+- **How fast a car should be allowed to leave the ground.** DISC-063's clamp is a physics fix, but
+  behind it is a design question nobody has answered: the desert at full throttle is a jump course,
+  and whether that is a bug or the best thing in the game is a matter of taste. A car that flies 40 m
+  off a dune is either the moment people remember or the reason the arena feels uncontrolled. Worth
+  driving once the clamp no longer decides it for you.
+
 - **Whether a match should be able to pick its theme**, rather than its arena. `--arena` names a
   file; nothing stops a mode from naming a theme and generating a fresh map with spawn points placed
   to suit. That is a small change to the arena loader and a real change to what a "map" is.

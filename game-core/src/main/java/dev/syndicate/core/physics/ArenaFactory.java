@@ -197,8 +197,8 @@ public final class ArenaFactory {
 
         for (int attempt = 0; attempt < attempts; attempt++) {
             TerrainParams params = seedFor(arena.terrain(), world, arena.arenaId(), attempt);
-            TerrainField field =
-                    TerrainGenerator.generate(arena.boundsMin(), arena.boundsMax(), arena.groundY(), params, pads);
+            TerrainField field = TerrainGenerator.generate(
+                    arena.boundsMin(), arena.boundsMax(), arena.groundY(), params, pads, arena.roads());
             lastFinding = TerrainGenerator.playabilityFinding(field, spawnPositions);
             if (lastFinding == null) {
                 if (attempt > 0) {
@@ -312,6 +312,10 @@ public final class ArenaFactory {
                 arena.groundY(),
                 Math.round(field.drivableFraction() * 100f),
                 arena.spawnPoints().size());
+        // The wheels read the surface under them from here (D16-R54, DEC-070). Set alongside the
+        // body rather than returned to the caller to plumb, so a world that has terrain collision
+        // cannot end up without the field that collision was generated from.
+        physics.setTerrain(field);
         return new LoadedArena(List.of(entityId), field);
     }
 

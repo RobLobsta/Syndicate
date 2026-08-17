@@ -27,8 +27,27 @@ public final class WeaponControllerComponent implements Component {
     /** Seconds between shots at full health. */
     public float baseFireIntervalS;
 
-    /** {@link #baseFireIntervalS} after the degradation curve (D05-S5.4). */
+    /** {@link #baseFireIntervalS} after the degradation curve (D05-S5.4) and D17-S5.13. */
     public float effectiveFireIntervalS;
+
+    /** Metres a shot may travel, from the weapon block, before any sub-part loss (D17-R61). */
+    public float baseRangeM;
+
+    /** {@link #baseRangeM} after D17-S5.13 — halved while the barrel is gone. */
+    public float effectiveRangeM;
+
+    /** Rounds this weapon can hold, from the weapon block. {@code -1} is unlimited. */
+    public int ammoCapacity = -1;
+
+    /**
+     * True while a sub-part loss stops this weapon firing at all — its receiver is gone (D17-R61).
+     *
+     * <p>Written by {@code VehicleStatsSystem} (6) and read by {@code WeaponSystem} (8), which is
+     * what keeps the D17-S5.13 table out of the firing path: slot 8 asks whether it may fire, not
+     * why. A weapon with no barrel still fires (D17-R62), which is why this is its own flag rather
+     * than something derived from the multipliers beside it.
+     */
+    public boolean disabledBySubPartLoss;
 
     /** Rounds left, or {@code -1} for unlimited. */
     public int ammoRemaining = -1;
@@ -48,6 +67,10 @@ public final class WeaponControllerComponent implements Component {
         cooldownRemainingS = 0f;
         baseFireIntervalS = 0f;
         effectiveFireIntervalS = 0f;
+        baseRangeM = 0f;
+        effectiveRangeM = 0f;
+        ammoCapacity = -1;
+        disabledBySubPartLoss = false;
         ammoRemaining = -1;
         heat = 0f;
         groupIndex = 0;

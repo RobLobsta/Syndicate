@@ -12,16 +12,25 @@ The full schemas are `docs/08_asset_pipeline.md#D08-S4.2` (parts), `#D08-S4.3` (
 
 ```
 assets/
-├── materials/materials.json          one table, the authority for density (D08-R7)
-├── parts/<partTypeId>/               one directory per part type
+├── materials/
+│   ├── materials.json                one table, the authority for density (D08-R7)
+│   └── style.json                    the house style: palette, tone band (DEC-076, DEC-079)
+├── parts/<partTypeId>/               the SHARED library — weapons, modules, accessories
 │   ├── part.json                     mass, health, stats, handling, slots
 │   ├── mesh.glb                      ← YOUR MODEL GOES HERE
 │   ├── shards.glb                    the fractured version (Blender tool output)
-│   └── fracture_manifest.json        shard masses and placements (Blender tool output)
+│   ├── fracture_manifest.json        shard masses and placements (Blender tool output)
+│   └── <weaponId>.weapon.json        a modular weapon's sub-part tree (D17-R16)
 ├── vehicles/<vehicleTypeId>/
-│   └── assembly.json                 which parts go in which slots
-├── arenas/                           not implemented yet
-└── balance/                          not implemented yet
+│   ├── assembly.json                 which parts go in which slots
+│   └── parts/                        this vehicle's OWN parts — chassis, doors, wheels
+│       ├── manifest.json             every part it is made of, with mass and stats
+│       └── <partTypeId>/             same four files as above
+├── arenas/<arenaId>/arena.json       bounds, spawns, theme and seed (D08-S4.7, D16-S4)
+├── audio/                            the synthesised sound bank (DEC-046, DEC-056)
+├── fonts/                            Oswald, for menu type (DEC-072)
+├── input/bindings.json               keyboard and gamepad tuning (DEC-048)
+└── balance/                          class power budgets, bot difficulty
 ```
 
 ---

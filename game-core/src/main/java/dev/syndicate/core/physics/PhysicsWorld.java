@@ -108,6 +108,19 @@ public final class PhysicsWorld implements AutoCloseable {
 
     private final List<PendingImpulse> pendingImpulses = new ArrayList<>();
 
+    /**
+     * The generated ground, or null when this world has no height field (D16-R54, DEC-070).
+     *
+     * <p>Here rather than passed down the call chain because the caller that needs it is the shared
+     * vehicle control operation, which runs from two systems (DEC-061) and would otherwise need the
+     * terrain threaded through both. This world already owns the terrain <em>body</em>; owning the
+     * field it was built from keeps the two together.
+     *
+     * <p>Nullable by design: the flat box arena is still a legal arena (D16-R4), and a wheel on one
+     * finds no surface and keeps its authored grip.
+     */
+    private dev.syndicate.core.arena.TerrainField terrain;
+
     private long impulseSequence;
     private int nanRemovalCount;
     private boolean disposed;
@@ -522,6 +535,16 @@ public final class PhysicsWorld implements AutoCloseable {
      * upstream: it is evicted so the disposed world does not keep a pointer to it, and reported at
      * WARN rather than disposed, because it belongs to a component that may still be holding it.
      */
+    /** The generated ground this world collides against, or null (D16-R54). */
+    public dev.syndicate.core.arena.TerrainField terrain() {
+        return terrain;
+    }
+
+    /** Records the field the terrain body was built from, so wheels can read the surface under them. */
+    public void setTerrain(dev.syndicate.core.arena.TerrainField field) {
+        this.terrain = field;
+    }
+
     public void dispose() {
         if (disposed) {
             return;

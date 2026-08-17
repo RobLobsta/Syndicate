@@ -5,6 +5,7 @@
 package dev.syndicate.core.asset;
 
 import com.badlogic.gdx.math.Vector3;
+import dev.syndicate.core.arena.RoadSpec;
 import dev.syndicate.core.arena.TerrainParams;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.GameMode;
@@ -47,7 +48,34 @@ public record ArenaDef(
         List<SpawnPoint> spawnPoints,
         Set<GameMode> modes,
         String collisionMeshRef,
-        TerrainParams terrain) {
+        TerrainParams terrain,
+        List<RoadSpec> roads) {
+
+    /** An arena with no roads, which is every arena authored before D16-S4.3. */
+    public ArenaDef(
+            AssetId arenaId,
+            String displayName,
+            Vector3 boundsMin,
+            Vector3 boundsMax,
+            float killPlaneY,
+            float groundY,
+            List<SpawnPoint> spawnPoints,
+            Set<GameMode> modes,
+            String collisionMeshRef,
+            TerrainParams terrain) {
+        this(
+                arenaId,
+                displayName,
+                boundsMin,
+                boundsMax,
+                killPlaneY,
+                groundY,
+                spawnPoints,
+                modes,
+                collisionMeshRef,
+                terrain,
+                List.of());
+    }
 
     /**
      * Metres. The minimum clearance a spawn point must have (D06-E7, D08-R15).

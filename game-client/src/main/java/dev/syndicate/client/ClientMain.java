@@ -60,6 +60,7 @@ public final class ClientMain {
         String vehicle = null;
         int garageRow = -1;
         java.util.List<String> fittings = new java.util.ArrayList<>();
+        String captureFrames = null;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--capture" -> capturePath = Path.of(args[++i]);
@@ -77,6 +78,12 @@ public final class ClientMain {
                     // asks for a dark frame, since a capture cannot press a key.
                 case "--night" -> dev.syndicate.client.render.RenderEnvironment.setLaunchNightFraction(
                         Float.parseFloat(args[++i]));
+                    // A capture cannot drive, aim or pull a trigger either, and that is the half of
+                    // the game nothing could photograph. See ScriptedSource for the format.
+                case "--script" -> dev.syndicate.client.input.ScriptedSource.setLaunchScript(args[++i]);
+                    // Comma-separated frames. One run, several PNGs, so a fight can be photographed
+                    // as the sequence it is rather than as one arbitrary instant.
+                case "--capture-frames" -> captureFrames = args[++i];
                 default -> remaining.add(args[i]);
             }
         }
@@ -108,7 +115,7 @@ public final class ClientMain {
         LOG.info("opening on {}", resolvedStart);
 
         SyndicateApplicationListener listener = new SyndicateApplicationListener(
-                config, capturePath, captureFrame, resolvedStart, vehicle, garageRow, fittings);
+                config, capturePath, captureFrame, resolvedStart, vehicle, garageRow, fittings, captureFrames);
         try {
             new Lwjgl3Application(listener, lwjgl3Config(config));
         } catch (RuntimeException e) {

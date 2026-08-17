@@ -52,7 +52,7 @@ Requirements are numbered `R1..Rn`, cited as `D09-R21`.
 | `docs/08_asset_pipeline.md#D08-S4.3` | `materials.json` — the shared density table |
 | `docs/08_asset_pipeline.md#D08-S6.1` | Where the manifest schema lives |
 | `docs/06_physics_simulation.md#D06-S4.3` | Hull constraints the tool must satisfy |
-| External: Blender 4.2 LTS (`bpy`, `bmesh`, `mathutils`), Cell Fracture add-on, `voro++` (bundled with the add-on) | Implementation substrate |
+| External: Blender 4.2 LTS (`bpy`, `bmesh`, `mathutils`) only — no add-ons, no `voro++` (R8a, DEV-002) | Implementation substrate |
 
 ---
 
@@ -81,7 +81,7 @@ blender --background --factory-startup [<input.blend>] \
 | **Atomicity** | Outputs are written to a temp directory and moved into place only after verification passes, so a failed run never leaves a half-written asset |
 | **Side effects** | None outside `--out` (and the temp dir). Never modifies the input file. |
 
-**R3.** `--factory-startup` is mandatory: user preferences, enabled add-ons, and unit settings would otherwise vary per machine and break determinism (G11). The Cell Fracture add-on is enabled programmatically by the tool itself.
+**R3.** `--factory-startup` is mandatory: user preferences, enabled add-ons, and unit settings would otherwise vary per machine and break determinism (G11). The tool enables **no add-ons at all** — the half-space cell construction of R8a depends on `bmesh` and `mathutils` only, which is what makes the guarantee this rule asks for achievable rather than aspirational (DEV-002).
 
 <!-- D09-S4.2 -->### 4.2 CLI Argument Schema
 
@@ -127,7 +127,7 @@ blender --background --factory-startup [<input.blend>] \
 | 67 | `MATERIAL_UNRESOLVED` | A mesh material has no entry in the material table | Add the material or pass `--material-override` |
 | 68 | `FRACTURE_FAILED` | Voronoi/boolean stage produced no shards or failed | Lower `--shards`, or fix source geometry |
 | 69 | `SHAPEKEY_FAILED` | Morph generation failed or produced degenerate morphs | Lower `--morph-amplitude`, check topology |
-| 70 | `BLENDER_ERROR` | Blender API raised, add-on unavailable, or Blender not found | Check the Blender install/version |
+| 70 | `BLENDER_ERROR` | Blender API raised, or Blender not found | Check the Blender install/version |
 | 71 | `HULL_FAILED` | A shard's convex hull could not be built or exceeds budget | Reduce shard count / raise budget deliberately |
 | 72 | `MASS_IMPLAUSIBLE` | Mass conservation or expected-mass check failed | Check density, units, and watertightness |
 | 73 | `VERIFICATION_FAILED` | One or more self-verification checks failed (any other than mass) | Read `failures[]` in the report |
@@ -277,17 +277,15 @@ function main(argv):
 <!-- D09-S5.2 -->### 5.2 Voronoi Fracturing
 
 ```pseudo
-# STAGE 2. Voronoi cells partition the part's volume. Blender's Cell Fracture add-on
-# wraps voro++ and performs the boolean intersection of each cell with the source mesh.
-# We drive it programmatically and then take ownership of the resulting objects.
+# STAGE 2. Voronoi cells partition the part's volume. A cell is built AS A HALF-SPACE
+# SET and intersected with the source exactly — see R8a. Blender 4.2 no longer ships the
+# Cell Fracture add-on, and depending on one would reintroduce the add-on-state
+# determinism risk R3 exists to remove.
 
 function voronoiFracture(obj, args):
-    ensureAddonEnabled("object_fracture_cell")                   # exit 70 if unavailable
-
-    # --- 2a. Generate fracture SITES ourselves, not from Blender's own randomness. --
-    # Rationale: the add-on's "own particles/verts" source modes depend on scene state
-    # we do not fully control; generating sites explicitly and feeding them in is the
-    # only way to guarantee G11 across Blender patch versions.
+    # --- 2a. Generate fracture SITES ourselves. ------------------------------------
+    # Explicit sites are the only way to guarantee G11 across Blender patch versions:
+    # any "own particles/verts" source mode depends on scene state we do not control.
     rng   = Pcg32(seed = mix(args.seed, hash(obj.name)))
     bbox  = obj.boundingBoxLocal()
     sites = []
@@ -322,23 +320,24 @@ function voronoiFracture(obj, args):
     sites = sortLexicographically(sites)      # G11: cell ORDER must not depend on
                                               # insertion order or hash iteration
 
-    # --- 2b. Run the cell fracture operator with explicit sites. -------------------
-    bpy.ops.object.add_fracture_cell_objects(
-        source          = {'PARTICLE_OWN'} if usingParticles else {'VERT_OWN'},
-        source_limit    = sites.size,
-        source_noise    = 0.0,                # explicit sites; no extra jitter (G11)
-        cell_scale      = (1.0, 1.0, 1.0),
-        recursion       = 0,                  # recursion multiplies shard count
-                                              # unpredictably; we control count directly
-        use_smooth_faces= false,
-        use_sharp_edges = true,
-        margin          = 0.0001,             # tiny gap so cells do not share coplanar faces
-        material_index  = obj.activeMaterialIndex,
-        use_interior_vgroup = true,           # tags interior faces for material assignment
-        collection_name = obj.name + "_shards")
-
-    raw = collection(obj.name + "_shards").objects
-    if raw.isEmpty(): fail(FRACTURE_FAILED, "operator produced no cells")
+    # --- 2b. Build each cell as an exact convex polytope, then intersect. ----------
+    # R8a. A Voronoi cell about site s is by DEFINITION the intersection of the
+    # half-spaces bisecting s against every other site. Constructing it that way is not
+    # a workaround for the missing add-on — it is the definition, it needs no
+    # third-party library, and it is exact rather than a boolean solver's approximation.
+    raw = []
+    for s in sites:
+        cell = bbox.asHalfSpaceSet()
+        for other in sites where other != s:
+            cell = cell.clip(bisectingPlane(s, other))     # half-space intersection
+        # A non-convex source is first decomposed into disjoint convex pieces by a solid
+        # BSP over its own face planes (DEC-011), so `cell ∩ source` is a union of exact
+        # polytope intersections. An approximate decomposition (V-HACD) and a per-cell
+        # mesh boolean were both rejected: each gives up the exactness that is the point.
+        for piece in convexPiecesOf(obj):
+            fragment = cell.intersect(piece)
+            if not fragment.isEmpty(): raw.append(fragment.toMesh())
+    if raw.isEmpty(): fail(FRACTURE_FAILED, "no cell intersected the source")
 
     # --- 2c. Post-process: merge slivers, clean, rename deterministically. ---------
     shards = []
@@ -364,9 +363,9 @@ function voronoiFracture(obj, args):
     return shards
 ```
 
-**R9.** `recursion = 0` always. Recursive fracture produces a shard count that is a function of the operator's internal choices, which defeats both the shard budget and determinism. Different shard sizes are achieved by site distribution (`--shard-mode`), not recursion.
+**R9.** Fracture is never recursive. Recursion would produce a shard count that is a function of the construction's internal choices, which defeats both the shard budget and determinism. Different shard sizes are achieved by site distribution (`--shard-mode`).
 
-**R10.** Sites are generated by our own PCG32, sorted lexicographically before use, and shards are re-sorted by quantised centroid after generation. Two sorts, because the operator's output order is not guaranteed stable even for identical input.
+**R10.** Sites are generated by our own PCG32, sorted lexicographically before use, and shards are re-sorted by quantised centroid after generation. Two sorts: the first fixes which cell is which, the second fixes the order they are written in, and neither is implied by the other.
 
 **R11.** Sub-minimum-volume cells are **merged into the nearest neighbour**, never dropped and never mass-clamped. Dropping would break mass conservation (G7); clamping mass would break the volume × density relationship (D06-R3).
 
@@ -536,12 +535,24 @@ function generateHulls(obj, shards, args):
     return hulls
 
 function simplifyHull(hull, maxVerts):
-    # Greedy vertex removal: repeatedly drop the vertex whose removal increases the
-    # hull volume least, then re-hull. Terminates at the budget.
-    while hull.vertexCount > maxVerts:
-        worst = argmin(v in hull.vertices, key = volumeIncreaseIfRemoved(hull, v))
-        hull = convexHull(hull.vertices - worst)
-    return hull
+    # R14a. Removing a vertex from a CONVEX hull can only shrink it, never grow it, so
+    # the rule is "keep the most volume", not "add the least". The wording this replaces
+    # described polygon simplification, where the opposite comparison is the right one.
+    if hull.vertexCount - maxVerts > GREEDY_MAX_REDUCTION:      # 8
+        # Direction sampling: keep the extreme vertex along each of maxVerts
+        # Fibonacci-sphere directions. The greedy loop below re-hulls once per candidate
+        # per step — O(n^3) — and takes minutes on a 362-vertex sphere hull.
+        hull = convexHull(extremeVerticesAlong(fibonacciDirections(maxVerts), hull))
+    else:
+        while hull.vertexCount > maxVerts:
+            best = argmax(v in hull.vertices, key = volumeIfRemoved(hull, v))
+            hull = convexHull(hull.vertices - best)
+
+    # R14b. Simplifying a curved hull ALWAYS leaves it inside its source, so inflation
+    # is not optional. Scale about the centroid by 1 + margin / r_min, where r_min is
+    # the closest any face plane comes to the centroid: every plane then moves outward
+    # by at least margin, and enclosure holds by construction rather than by luck.
+    return inflateHull(hull, margin = HULL_ENCLOSE_M)
 
 function validateHull(hull, source):
     if hull.vertexCount < 4:            fail(HULL_FAILED, "degenerate hull for " + source.name)
@@ -941,7 +952,7 @@ function verifyDeterminism(args):
 | E11 | Mesh has multiple materials | Exit 67 unless `--material-override` is given. Per-shard mixed density is not supported in v1; recording this limitation is preferable to guessing. |
 | E12 | Material not in the table | Exit 67. No default density (D09-R19). |
 | E13 | Blender executable not found | Exit 70 naming the paths tried (D02-R12). |
-| E14 | Cell Fracture add-on unavailable in this Blender build | Exit 70 with the add-on name and Blender version. |
+| E14 | A cell's half-space set clips to an empty polytope for every convex piece of the source | The site contributed no shard; it is dropped and the run continues, because a site outside the mesh is a legitimate rejection-sampling outcome rather than a failure. Exit 71 only if fewer than two shards survive. |
 | E15 | glTF exporter silently drops morph targets | TV-006 catches it after re-import; exit 74. |
 | E16 | Disk full mid-write | Exit 75; temp directory cleaned; output directory untouched. |
 | E17 | Determinism self-check diverges | Exit 76. This is a tool bug; the asset must not ship. |

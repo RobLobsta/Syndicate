@@ -183,13 +183,19 @@ function main(argv):
     if config.profile or isDebugBuild(): NativeResourceTracker.install()
 
     # ---- 4. Application shell ----------------------------------------------
-    # The libGDX Application is created BEFORE assets, because asset loading needs
-    # Gdx.files. Headless mode uses HeadlessApplication, which provides files and
-    # the app lifecycle with no GL context (G17).
+    # The Application shell is the RENDERING CLIENT'S. A libGDX Application is created
+    # before assets, because asset loading needs Gdx.files.
+    #
+    # A headless process does NOT create one. It installs HeadlessFiles — which is the
+    # only thing it wanted from HeadlessApplication — and runs HeadlessLoop directly,
+    # because that loop is specified in detail by D03-S5.4 and owns its own timing,
+    # overload resync and shutdown. Driving it from HeadlessApplication's render
+    # callback would put two clocks in charge of one tick rate. Recorded as DEV-011.
+    if config.headless:
+        Gdx.files = new HeadlessFiles()
+        return HeadlessLoop.run(config)                # D03-S5.4, D03-S5.6
     listener = new SyndicateApplicationListener(config)
-    app = config.headless
-            ? new HeadlessApplication(listener, headlessConfig(config.tickRateHz))
-            : new Lwjgl3Application(listener, lwjgl3Config(config))
+    app = new Lwjgl3Application(listener, lwjgl3Config(config))
     return app.exitCode()
 
 function SyndicateApplicationListener.create():

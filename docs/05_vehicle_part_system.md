@@ -390,9 +390,8 @@ function detachPart(world, vehicle, partEntity, impulseAtDetach):
     for p in subtree where p.category != wheel:
         compound.removeChildShape(p.compoundChildIndex)
     for p in subtree where p.category == wheel:
-        vehicleController.removeWheel(p.WheelController.wheelIndex)
-        reindexRemainingWheels(vehicle)        # wheel indices are dense; remap and
-                                               # update every WheelController (D05-R24)
+        retireWheelSlot(vehicle, p.WheelController.wheelIndex)   # disarm in place,
+                                               # indices are stable for life (D05-R24)
 
     # 3. Recompute the vehicle's mass properties BEFORE the next physics step (G10).
     removedMass = sum(p.massKg for p in subtree)
@@ -422,10 +421,15 @@ function detachPart(world, vehicle, partEntity, impulseAtDetach):
 #      velocity are NOT modified. Bullet recomputes the body's response from the new
 #      mass and inertia on the next step; artificially adjusting velocity here would
 #      create or destroy momentum and shows up as VEH-009 failing (D14-S4.5).
-# R24. Wheel indices in btRaycastVehicle are dense and positional. Removing a wheel
-#      shifts every higher index. Every WheelController.wheelIndex MUST be remapped in
-#      the same operation, or the vehicle will drive the wrong wheels — a classic,
-#      silent, hard-to-diagnose bug.
+# R24. A detached wheel's controller slot is RETIRED IN PLACE, and wheel indices are
+#      stable for the life of a vehicle. btRaycastVehicle has no removeWheel: the
+#      native array only ever grows, so an index that renumbered on the Java side
+#      would silently address a different native wheel — the classic, silent,
+#      hard-to-diagnose bug this rule exists to prevent. Retiring means the slot is
+#      commanded to zero engine force, zero steering and zero grip every tick
+#      (DEC-028) and its WheelController is marked detached; nothing renumbers.
+#      An earlier reading of this rule required re-densification, which is only
+#      correct if the native array densifies too. Recorded as DEV-015.
 # R25. A vehicle that loses all wheels is immobile but alive (D01-E4). Do not destroy it.
 # R26. Detaching the chassis is impossible; the chassis reaching 0 HP destroys the
 #      vehicle, which detaches every remaining part as debris (D07-S5.7).
@@ -556,7 +560,7 @@ function isExposed(vehicle, part):
 - [ ] **AC-D05-9.** Inverted stats (`fireIntervalS`, `spreadRad`) increase as health falls.
 - [ ] **AC-D05-10.** Detaching a part removes exactly its mass from the vehicle within the same tick.
 - [ ] **AC-D05-11.** Detaching a part recomputes COM and inertia before the next physics step (G10).
-- [ ] **AC-D05-12.** Detaching a wheel remaps all remaining wheel indices correctly (D05-R24), verified by driving after each of several detach orders.
+- [ ] **AC-D05-12.** Detaching a wheel retires its controller slot and leaves every remaining wheel index addressing the same native wheel it did before (D05-R24), verified by driving after each of several detach orders.
 - [ ] **AC-D05-13.** Vehicle velocity is not modified by a detach event (D05-R23); Δv ≤ `DETACH_VELOCITY_STEP_MPS`.
 - [ ] **AC-D05-14.** Detaching a part detaches its whole subtree.
 - [ ] **AC-D05-15.** Aggregation is pure: recomputing twice from the same state yields identical `VehicleStats`.

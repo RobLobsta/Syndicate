@@ -139,9 +139,13 @@ public enum ArenaTheme {
         this.displayName = displayName;
         this.relief = relief;
         this.palette = palette;
-        this.albedoR = albedoR;
-        this.albedoG = albedoG;
-        this.albedoB = albedoB;
+        // The ground goes through the same house style the vehicles do (DEC-079), applied here so
+        // that no consumer can read a theme's colour without it. The authored triple above is what
+        // an arena designer picked; these three are what the scene is allowed to show.
+        float[] styled = GroundStyle.apply(albedoR, albedoG, albedoB);
+        this.albedoR = styled[0];
+        this.albedoG = styled[1];
+        this.albedoB = styled[2];
         this.shape = shape;
     }
 

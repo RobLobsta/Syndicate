@@ -4,6 +4,7 @@
  */
 package dev.syndicate.core.component;
 
+import dev.syndicate.core.arena.Surface;
 import dev.syndicate.core.ecs.Component;
 
 /**
@@ -80,8 +81,19 @@ public final class WheelControllerComponent implements Component {
      */
     public float skid;
 
+    /**
+     * What this wheel is standing on, or null off a generated arena (D16-R54, D16-R56).
+     *
+     * <p>Written once per tick by the shared vehicle control operation, from the surface grid at the
+     * suspension ray's contact point. Slot 25 reads it for the tyre loop rather than looking the
+     * surface up a second time: D16-R56 requires the physics and the audio to agree, and two
+     * independent lookups is exactly how they come to disagree.
+     */
+    public Surface surface;
+
     @Override
     public void reset() {
+        surface = null;
         wheelIndex = 0;
         isSteering = false;
         isDriven = false;
