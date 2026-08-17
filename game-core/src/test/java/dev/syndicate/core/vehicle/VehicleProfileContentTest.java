@@ -84,10 +84,34 @@ class VehicleProfileContentTest {
                     .isNotNull();
         }
         for (AssetId assemblyId : assets.assemblies().keySet()) {
+            if (isRotorcraft(assemblyId)) {
+                // A `VehicleProfile` records a **car's** published performance — a 0-100 time,
+                // tyre codes, a braking distance, a gearbox — and a rotorcraft has none of those.
+                // The Kestrel's researched figures live in its own `art-source` `profile.json`,
+                // which `syndicate-prepare` reads and which is what set its 1,600 kg (DEC-090).
+                // Forcing an aircraft into this record would mean inventing a 0-100 time for a
+                // helicopter so that a test about cars could keep its shape.
+                continue;
+            }
             assertThat(VehicleProfiles.byId(assemblyId))
                     .as("profile for assembly %s", assemblyId.value())
                     .isNotNull();
         }
+    }
+
+    /** True when any part of this assembly is a rotor — the vehicles a car profile cannot describe. */
+    private boolean isRotorcraft(AssetId assemblyId) {
+        AssemblyDef assembly = assets.assembly(assemblyId);
+        if (assembly == null) {
+            return false;
+        }
+        for (AssemblyDef.PartPlacement placement : assembly.parts()) {
+            PartType type = assets.partType(placement.partTypeId());
+            if (type != null && type.category() == dev.syndicate.model.PartCategory.ROTOR) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The chassis carries the profile's engine, brakes and aerodynamics. */

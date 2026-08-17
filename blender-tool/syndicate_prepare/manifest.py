@@ -46,6 +46,7 @@ from .labels import (
     GLASS,
     HUB,
     PART_CATEGORY,
+    ROTOR,
     SLOT_TYPE_REQUIRED,
     UNCLASSIFIED,
     WEAPON,
@@ -502,8 +503,18 @@ def _origin_for(group, corner, body):
     local rotation animates, and a rotation animates about the part's origin. Everything else
     gets its own bounds centre, which is where its mass acts (DEC-043) and therefore the
     point the compound shape wants it at.
+
+    A **rotor** is the wheel case again and is the one place the bounds centre is not good
+    enough. A wheel's box centre *is* its axle because a wheel is symmetric about it in every
+    direction; a three-blade rotor at rest is not, and the Kestrel's main disc boxes 0.77 m
+    away from its own mast. Left at the box centre the blades orbit the mast instead of
+    turning about it — the exact failure this docstring warns about for wheels — so a rotor
+    takes its **area centroid**, which for a set of equal blades is the hub by symmetry.
     """
     del corner, body
+    if any(shell.label == ROTOR for shell in group.shells):
+        hubs = [shell.centroid for shell in group.shells]
+        return tuple(sum(hub[i] for hub in hubs) / len(hubs) for i in range(3))
     # For a wheel this is the axle, and that is not a coincidence: a wheel group is a disc,
     # symmetric about its axle in every direction, so its bounding box centre *is* the axle.
     #
@@ -519,31 +530,59 @@ def _origin_for(group, corner, body):
 # ---- Mass ---------------------------------------------------------------------------------
 
 
-def body_width_m(body, corners) -> float:
+def body_width_m(body, corners, shells=()) -> float:
     """The vehicle's width over its bodywork, not over its bounding box.
 
     A bounding box includes the wing mirrors, and on the Eclipse that is 2.18 m against a real
     2.0 — 11% on a number the kerb mass is derived from. When the pipeline found wheels it
     knows something better: the track plus a wheel's width is a vehicle's width to within a
     few centimetres on every road car, because that is what a track *is*.
+
+    A rotorcraft has no track, and its bounding box is worse than a car's by an order of
+    magnitude rather than by 11%: the Kestrel's box is 7.83 m across because that is its
+    **rotor span**, against a 3.10 m airframe. Left in, the footprint estimate made a light
+    helicopter weigh 15.7 tonnes, which no rotor was ever going to lift. So rotor shells are
+    excluded here for exactly the reason the track excludes mirrors — a disc that sweeps over
+    the aircraft is not part of how wide the aircraft is.
     """
-    if not corners:
-        return body.width
-    offsets = [abs(corner.axle[0]) for corner in corners]
-    widths = [corner.width_m for corner in corners]
-    return 2.0 * (sum(offsets) / len(offsets)) + sum(widths) / len(widths)
+    if corners:
+        offsets = [abs(corner.axle[0]) for corner in corners]
+        widths = [corner.width_m for corner in corners]
+        return 2.0 * (sum(offsets) / len(offsets)) + sum(widths) / len(widths)
+    airframe = [shell for shell in shells if shell.label != ROTOR]
+    if airframe and len(airframe) != len(shells):
+        return max(shell.hi[0] for shell in airframe) - min(shell.lo[0] for shell in airframe)
+    return body.width
 
 
-def target_mass_kg(body, override: float | None, corners=()) -> tuple[float, str]:
+def body_length_m(body, shells=()) -> float:
+    """The vehicle's length over its bodywork, excluding a rotor's overhang.
+
+    The other half of the same correction: the Kestrel measures 11.63 m only because its main
+    rotor hangs over the nose, against a 10.02 m airframe.
+    """
+    airframe = [shell for shell in shells if shell.label != ROTOR]
+    if airframe and len(airframe) != len(shells):
+        return max(shell.hi[2] for shell in airframe) - min(shell.lo[2] for shell in airframe)
+    return body.length
+
+
+def target_mass_kg(body, override: float | None, corners=(), shells=()) -> tuple[float, str]:
     """The vehicle's kerb mass: what was asked for, or what its footprint implies."""
     if override is not None and override > 0.0:
         return override, "given on the command line"
-    width = body_width_m(body, corners)
-    mass = width * body.length * DEFAULT_AREAL_DENSITY_KG_PER_M2
-    over = "its track" if corners else "its bounding box"
+    width = body_width_m(body, corners, shells)
+    length = body_length_m(body, shells)
+    mass = width * length * DEFAULT_AREAL_DENSITY_KG_PER_M2
+    if corners:
+        over = "its track"
+    elif shells and any(shell.label == ROTOR for shell in shells):
+        over = "its airframe, excluding the rotor span"
+    else:
+        over = "its bounding box"
     return mass, (
         f"{DEFAULT_AREAL_DENSITY_KG_PER_M2:.0f} kg/m² over a {width:.2f} x "
-        f"{body.length:.2f} m footprint, measured across {over} — pass --mass to author it"
+        f"{length:.2f} m footprint, measured across {over} — pass --mass to author it"
     )
 
 
@@ -795,6 +834,7 @@ def build_part_document(
     produced: dict | None = None,
     weapon: dict | None = None,
     light: dict | None = None,
+    rotor: dict | None = None,
 ) -> dict:
     """One ``part.json``, exactly as D08-S4.2 specifies it.
 
@@ -862,6 +902,20 @@ def build_part_document(
         # modular weapon needs none of this -- it is authored content in the shared library
         # and arrives with its own block.
         document["weapon"] = weapon
+    if part.label == ROTOR and rotor is not None:
+        document["rotor"] = rotor
+        # The disc's visible spin (DEC-083, DEC-090). Cosmetic throughout: the client reads
+        # the rotor's authoritative rpm and poses the blades from it, and nothing reads back.
+        # Emitted here rather than left to the client to synthesise, because articulation is
+        # already the one place a part says how it moves and a second mechanism for the same
+        # thing is a second mechanism to keep in step.
+        document["articulation"] = {
+            "motion": "SPIN",
+            "driver": "ROTOR",
+            "axisLocal": rotor["spinAxisLocal"],
+            "pivotLocal": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "rateDegPerSec": round(rotor["maxRpm"] * 6.0, 1),
+        }
     if part.hinge is not None:
         # D15-R30: a hinge is data on the part, not an armature. The runtime animates the
         # slot's local rotation about this axis; nothing here is a second transform hierarchy.
@@ -990,6 +1044,119 @@ def light_block(part: PreparedPart, body) -> dict | None:
         },
     }
 
+
+
+#: Newtons of thrust per square metre of disc, at full collective.
+#:
+#: A rotor's thrust really is proportional to its disc area — that is what disc loading means,
+#: and it is the one figure that lets a rotor sized from art be given a believable number
+#: rather than a guessed one. 320 N/m² puts the Kestrel's 9.45 m disc at 22.4 kN, about 1.6
+#: times the aircraft's own weight, which is the thrust margin a light utility helicopter
+#: actually has. Real disc loadings run 250-400 N/m² for this class.
+ROTOR_THRUST_N_PER_M2 = 320.0
+
+#: The share of the main rotor's thrust an anti-torque rotor makes. A tail rotor absorbs a few
+#: per cent of a helicopter's power and its thrust is around a tenth of the main disc's, which
+#: is comfortably enough to trim the torque and still steer.
+TAIL_ROTOR_THRUST_FRACTION = 0.11
+
+#: Governed rotor speed, revolutions per minute, for a disc of a given radius.
+#:
+#: Rotor speed is not free: blade tips must stay below about Mach 0.65 or the retreating blade
+#: stalls, so a bigger disc must turn slower and the tip speed is very nearly constant across
+#: the whole class. 210 m/s is the figure real machines are designed to, and dividing it by the
+#: radius gives 394 rpm for a 5.1 m blade — which is, to three figures, what an H125 turns at.
+ROTOR_TIP_SPEED_MPS = 210.0
+
+
+def rotor_block(part: PreparedPart, body) -> dict:
+    """The ``rotor`` block for a part the taxonomy labelled ``rotor`` (D08-R5, DEC-090).
+
+    Everything is derived from the disc's own geometry, in the same spirit as
+    :func:`weapon_block`: nothing here is authored per model, because a pipeline whose promise
+    is "drop in a model" cannot ask an operator to measure a rotor.
+
+    **Radius** is the furthest any blade reaches from the hub, and the hub is the disc's area
+    centroid rather than its bounding-box centre — the same distinction that made the cue work
+    at all (:func:`cues._rotor_axle`). Half the bounding box is *not* good enough here: a
+    three-blade rotor at rest boxes asymmetrically about its mast, and the Kestrel's measures
+    4.10 m that way against a true swept 4.72 m. That is 13%, and thrust goes as the square of
+    it, so the error would have been a third of the aircraft's lift.
+
+    **The spin axis** is the axis the disc is thin along, which is the same measurement
+    :func:`roles._rotor_role` used to decide which rotor it is.
+
+    **Speed** comes from the radius through the constant tip speed above, which is what makes a
+    bigger rotor turn slower without it being authored. Thrust is deliberately *not* here — it
+    is a stat, so that degradation reaches it (DEC-090) — and :func:`rotor_thrust_n` derives it.
+    """
+    del body
+    lo = tuple(min(shell.lo[i] for shell in part.group.shells) for i in range(3))
+    hi = tuple(max(shell.hi[i] for shell in part.group.shells) for i in range(3))
+    axis = min(range(3), key=lambda i: hi[i] - lo[i])
+    radius_m = _disc_radius_m(part, axis)
+    is_main = axis == 1
+
+    return {
+        "role": "MAIN" if is_main else "TAIL",
+        "radiusM": round(radius_m, 4),
+        "bladeCount": max(2, rotor_symmetry_order_of(part)),
+        "maxRpm": round(ROTOR_TIP_SPEED_MPS / max(radius_m, 0.05) * 60.0 / (2.0 * math.pi), 1),
+        "spinAxisLocal": {
+            "x": 1.0 if axis == 0 else 0.0,
+            "y": 1.0 if axis == 1 else 0.0,
+            "z": 1.0 if axis == 2 else 0.0,
+        },
+    }
+
+
+
+
+def _disc_radius_m(part: PreparedPart, axis: int) -> float:
+    """The furthest a blade reaches from the hub, in the plane normal to ``axis``.
+
+    Falls back to half the bounding box when a shell carries no vertex sample, which happens
+    only for geometry too small to have been sampled and where the two agree anyway.
+    """
+    first = (axis + 1) % 3
+    second = (axis + 2) % 3
+    best = 0.0
+    for shell in part.group.shells:
+        hub = shell.centroid
+        for point in shell.vertex_sample:
+            reach = math.hypot(point[first] - hub[first], point[second] - hub[second])
+            best = max(best, reach)
+    if best > 0.0:
+        return best
+    lo = tuple(min(shell.lo[i] for shell in part.group.shells) for i in range(3))
+    hi = tuple(max(shell.hi[i] for shell in part.group.shells) for i in range(3))
+    return max(hi[i] - lo[i] for i in range(3) if i != axis) * 0.5
+
+def rotor_thrust_n(part: PreparedPart, main_thrust_n: float) -> float:
+    """The ``ROTOR_THRUST_N`` stat for one rotor, in newtons.
+
+    A **main** rotor is sized by disc loading: thrust is its swept area times
+    :data:`ROTOR_THRUST_N_PER_M2`, which is how a real rotor's lift actually scales and what
+    makes a bigger disc lift more without anyone authoring a number.
+
+    A **tail** rotor is sized against the *main* rotor instead, which is why this function
+    needs it passed in. Disc loading on a 0.5 m fan gives about 250 N — nowhere near enough to
+    trim a 22 kN disc's torque — because a tail rotor is not sized to lift anything. It is
+    sized to produce a *moment*, and what it is a fraction of is the thing it opposes.
+    """
+    lo = tuple(min(shell.lo[i] for shell in part.group.shells) for i in range(3))
+    hi = tuple(max(shell.hi[i] for shell in part.group.shells) for i in range(3))
+    axis = min(range(3), key=lambda i: hi[i] - lo[i])
+    if axis != 1:
+        return round(main_thrust_n * TAIL_ROTOR_THRUST_FRACTION, 1)
+    radius_m = _disc_radius_m(part, axis)
+    return round(ROTOR_THRUST_N_PER_M2 * math.pi * radius_m * radius_m, 1)
+
+def rotor_symmetry_order_of(part: PreparedPart) -> int:
+    """How many blades the disc has, taken from the shell the cue already measured."""
+    from .cues import rotor_symmetry_order
+
+    return max((rotor_symmetry_order(shell) for shell in part.group.shells), default=2)
 
 def weapon_block(part: PreparedPart, body) -> dict:
     """The ``weapon`` block for a part the taxonomy labelled ``weapon`` (D15-R41, D08-R5).

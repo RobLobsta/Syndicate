@@ -13,10 +13,11 @@ it sequential, and keep it honest about what does not work.
 
 ## 1. What this is, right now
 
-A single-player vehicular combat game you can start, play and quit.
+A single-player vehicular combat game you can start, play and quit — and, as of this session, one
+that has something in it that flies.
 
-Launch the client and you get a title screen. PLAY takes you to a garage: two cars, drawn from their
-real art, turning on a floor line, with the figures they were derived from beside them — an Eclipse
+Launch the client and you get a title screen. PLAY takes you to a garage: two cars and a helicopter,
+drawn from their real art, turning on a floor line, with the figures they were derived from beside them — an Eclipse
 at 1500 kg doing 0–100 in 2.9 s with a machine gun on each flank, a Stampede that is heavier, holds
 speed where the Eclipse cannot, and carries a pedestal cannon on its roof with the cogs that elevate
 it. Under each car's name is its armament: every mounting it has, what is on it, and left and right
@@ -25,6 +26,15 @@ seven bots. They drive, hunt you, and ram. Panels dent, glass shatters, parts co
 the car handles, sparks fly, the engine sounds like the engine it was modelled on, a chase camera
 follows and a scoreboard keeps score. Escape returns you to the menu, and the whole physics world is
 torn down and rebuilt when you go back in.
+
+The newest of the three is the **Kestrel**, a 1,600 kg light helicopter with a nine-and-a-half metre
+three-blade rotor. It is not a car with the physics turned off: a rotor is its own part category, its
+blades are geometry you can shoot, and its thrust acts along the aircraft's own up axis — so tilting
+the nose down is what makes it go forward, and shooting the main rotor off is what makes it stop
+flying. Its tail rotor cancels the torque of the main one, which means shooting *that* off sets the
+whole fuselage spinning, and nothing in the code says it should: it is what is left when a term is
+removed. Space climbs, Ctrl descends, and it will hold a hover with the stick centred. Leave it
+parked on a hill, though, and it will break its own rotor — see §5.
 
 Five things that sentence leaves out, in the order they hurt:
 
@@ -77,7 +87,9 @@ numbers, one renderer and one socket.
    ├── Blender in the sandbox, and the fixture gate green       DISC-064
    ├── The two things the first drive found, fixed              DEV-019
    ├── Cars no longer spawn underground                         DISC-067
-   └── The glass breaks into glass                              PROG-038
+   ├── The glass breaks into glass                              PROG-038
+   └── **The Kestrel: the first thing that flies**              PROG-041
+  ───── one known rough edge: a parked helicopter on a slope breaks its own rotor (DISC-071)
   ─────────────────────────────────────────────────────── you are here
   NEXT
    1. Structures                              ← terrain stage 4, the last one
@@ -298,6 +310,23 @@ Real work, no fixed place in the sequence.
 ## 5. Decisions waiting on you
 
 Not decided, and not for the assistant to decide alone.
+
+- **How a parked helicopter should behave** (DISC-071). Neutral collective trims to a full hover,
+  which is right in the air and wrong on the ground: a Kestrel left sitting on a slope slides,
+  rocks and destroys its own rotor within seconds, because it has 100% of the thrust it needs to fly
+  and no wheels to hold it. Flown it is fine. Three ways out, and it is a feel question rather than
+  a physics one: **trim only when airborne** (correct, needs a ground-contact test a rotorcraft does
+  not have yet), **spawn aircraft already flying** (cheap, sidesteps it rather than solving it, and
+  leaves the same problem for anyone who lands), or **let the collective rest down** so lifting off
+  takes input — truest to a real machine and the biggest change to how it feels to fly.
+
+- **Whether the forward axis is +Z or −Z** (DEV-020). `D00-R15` says a vehicle faces −Z. The engine
+  faces +Z — `setCoordinateSystem(0, 1, 2)` — and both cars, the helicopter and the whole preparation
+  pipeline agree with the engine. Nothing is broken today because the one piece of code that would
+  read the document, D07-S5.4's hit zones, is not written; the moment it is, every frontal hit
+  registers as a rear hit. Changing the **document** is a one-line edit and makes it describe the
+  game that exists. Changing the **implementation** means re-yawing three vehicles, re-deriving every
+  muzzle offset and re-capturing every reference shot, to arrive at a game that behaves identically.
 
 - **How much further the garage goes.** You asked for weapon loadouts and they exist (D01-NG1a): the
   hardpoints are yours, everything else is the vehicle the artist authored. The next rung is

@@ -15,6 +15,7 @@ import dev.syndicate.core.asset.FractureManifest;
 import dev.syndicate.core.asset.InMemoryAssetIndex;
 import dev.syndicate.core.asset.MeshData;
 import dev.syndicate.core.asset.PartType;
+import dev.syndicate.core.asset.RotorBlock;
 import dev.syndicate.core.asset.ShardDefinition;
 import dev.syndicate.core.asset.SlotDefinition;
 import dev.syndicate.core.component.DamageStateComponent;
@@ -101,7 +102,8 @@ public final class DestructionTestScene implements AutoCloseable {
             AssetId partTypeId,
             AssetId manifestRef,
             boolean hangsBeforeFalling,
-            StatBlock stats) {
+            StatBlock stats,
+            RotorBlock rotor) {
 
         public static PartSpec of(String slotPath, PartCategory category, float massKg, Vector3 localPosition) {
             return new PartSpec(
@@ -113,7 +115,36 @@ public final class DestructionTestScene implements AutoCloseable {
                     AssetId.of("part_" + slotPath.replace('/', '_')),
                     null,
                     false,
-                    new StatBlock());
+                    new StatBlock(),
+                    null);
+        }
+
+        /**
+         * The same part, made a rotor of the given role and thrust.
+         *
+         * <p>Sets the {@code rotor} block <em>and</em> the {@code ROTOR_THRUST_N} stat, because
+         * the two halves of a rotor live in different places by design (DEC-090) and a test that
+         * set only one would build a rotor that either has no identity or no power.
+         */
+        public PartSpec lifting(RotorBlock.Role role, float radiusM, float thrustN) {
+            StatBlock combined = new StatBlock().set(stats);
+            combined.setAdd(StatBlock.Stat.ROTOR_THRUST_N, thrustN);
+            return new PartSpec(
+                    slotPath,
+                    PartCategory.ROTOR,
+                    massKg,
+                    halfExtents,
+                    localPosition,
+                    partTypeId,
+                    manifestRef,
+                    hangsBeforeFalling,
+                    combined,
+                    new RotorBlock(
+                            role,
+                            radiusM,
+                            role == RotorBlock.Role.MAIN ? new Vector3(0f, 1f, 0f) : new Vector3(1f, 0f, 0f),
+                            3,
+                            RotorBlock.DEFAULT_MAX_RPM));
         }
 
         /** The same part with a different collision box — a wheel's radius comes from it (DEC-022). */
@@ -127,7 +158,8 @@ public final class DestructionTestScene implements AutoCloseable {
                     partTypeId,
                     manifestRef,
                     hangsBeforeFalling,
-                    stats);
+                    stats,
+                    rotor);
         }
 
         /** The same part, but one that breaks into shards described by {@code manifestRef}. */
@@ -141,13 +173,23 @@ public final class DestructionTestScene implements AutoCloseable {
                     partTypeId,
                     manifestRef,
                     hangsBeforeFalling,
-                    stats);
+                    stats,
+                    rotor);
         }
 
         /** The same part, but one that hangs by a thread before it falls (D07-S5.7 T1). */
         public PartSpec hanging() {
             return new PartSpec(
-                    slotPath, category, massKg, halfExtents, localPosition, partTypeId, manifestRef, true, stats);
+                    slotPath,
+                    category,
+                    massKg,
+                    halfExtents,
+                    localPosition,
+                    partTypeId,
+                    manifestRef,
+                    true,
+                    stats,
+                    rotor);
         }
 
         /** The same part, contributing {@code add} of one stat — an engine force, a fire interval. */
@@ -163,7 +205,8 @@ public final class DestructionTestScene implements AutoCloseable {
                     partTypeId,
                     manifestRef,
                     hangsBeforeFalling,
-                    combined);
+                    combined,
+                    rotor);
         }
 
         /** The same part, multiplying one stat — a utility's buff (D05-S5.6 phase 2). */
@@ -179,7 +222,8 @@ public final class DestructionTestScene implements AutoCloseable {
                     partTypeId,
                     manifestRef,
                     hangsBeforeFalling,
-                    combined);
+                    combined,
+                    rotor);
         }
 
         /** The slot's id on the parent: the last segment of the path. */
@@ -467,6 +511,7 @@ public final class DestructionTestScene implements AutoCloseable {
                             .breakImpulseN(TEST_BREAK_IMPULSE_NS)
                             .hangsBeforeFalling(spec.hangsBeforeFalling())
                             .stats(spec.stats())
+                            .rotor(spec.rotor())
                             .fractureManifestRef(spec.manifestRef()));
         }
 
@@ -517,6 +562,7 @@ public final class DestructionTestScene implements AutoCloseable {
         return switch (category) {
             case CHASSIS -> SlotType.ROOT;
             case WHEEL -> SlotType.WHEEL;
+            case ROTOR -> SlotType.ROTOR_MOUNT;
             case PANEL -> SlotType.PANEL;
             case WEAPON, UTILITY -> SlotType.HARDPOINT;
             case DECORATIVE -> SlotType.ACCESSORY;

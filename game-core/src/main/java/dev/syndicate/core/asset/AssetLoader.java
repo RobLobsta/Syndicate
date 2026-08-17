@@ -481,6 +481,7 @@ public final class AssetLoader {
         readHandling(root.path("handling"), partTypeId, builder);
         readWeapon(root.path("weapon"), partTypeId, category, builder);
         readModule(root.path("module"), partTypeId, category, builder);
+        readRotor(root.path("rotor"), partTypeId, category, builder);
         readDegradationOverrides(root.path("degradationOverrides"), partTypeId, builder);
         SizeClass partSizeClass = SizeClass.parse(root.path("sizeClass").asText(null));
         if (partSizeClass == null) {
@@ -922,6 +923,54 @@ public final class AssetLoader {
      * their stats and need no identity — but an <em>active</em> module does, which is exactly what
      * the block is for.
      */
+    /**
+     * Reads the {@code rotor} block: what kind of rotor this part is (D08-R5, DEC-090).
+     *
+     * <p>Both directions are checked, for the reason {@link #readWeapon} checks both: a block on a
+     * part that is not a {@code ROTOR} is A223 because it would be read by nothing, and a
+     * {@code ROTOR} that authors none is A223 as a warning because it is a part that looks like it
+     * lifts and does not. A rotorcraft whose main rotor loaded blockless would sit on the ground
+     * with no indication why.
+     */
+    private void readRotor(JsonNode node, AssetId partTypeId, PartCategory category, PartType.Builder builder) {
+        if (!node.isObject()) {
+            if (category == PartCategory.ROTOR) {
+                issues.add(ValidationIssue.warn(
+                        "A223",
+                        partTypeId.value(),
+                        "category is ROTOR but no rotor block is authored; this part produces no thrust"));
+            }
+            return;
+        }
+        if (category != PartCategory.ROTOR) {
+            issues.add(ValidationIssue.error(
+                    "A223",
+                    partTypeId.value(),
+                    "a rotor block is authored on a " + category + " part; only a ROTOR part may carry one"));
+            return;
+        }
+        RotorBlock.Role role =
+                enumValue(RotorBlock.Role.class, node.path("role").asText(null));
+        if (role == null) {
+            issues.add(ValidationIssue.error(
+                    "A224",
+                    partTypeId.value(),
+                    "rotor.role \"" + node.path("role").asText() + "\" is not one of "
+                            + java.util.Arrays.toString(RotorBlock.Role.values())));
+            return;
+        }
+        try {
+            builder.rotor(new RotorBlock(
+                    role,
+                    (float) node.path("radiusM").asDouble(0d),
+                    readVector(node.path("spinAxisLocal")),
+                    node.path("bladeCount").asInt(2),
+                    (float) node.path("maxRpm").asDouble(RotorBlock.DEFAULT_MAX_RPM)));
+        } catch (IllegalArgumentException e) {
+            issues.add(ValidationIssue.error("A224", partTypeId.value(), "rotor: " + e.getMessage()));
+        }
+    }
+
     private void readModule(JsonNode node, AssetId partTypeId, PartCategory category, PartType.Builder builder) {
         if (!node.isObject()) {
             return;

@@ -42,8 +42,9 @@ from . import (
     roles,
     style,
 )
-from .labels import CHASSIS, LIGHT, MAX_SHELLS, UNCLASSIFIED, WEAPON
+from .labels import CHASSIS, LIGHT, MAX_SHELLS, ROTOR, UNCLASSIFIED, WEAPON
 from .overrides import Overrides
+from .roles import MAIN
 from .shell import Shell
 
 try:  # pragma: no cover - exercised only inside a Blender host
@@ -659,7 +660,10 @@ def assemble(options: Options, shells, parts, corners, body, objects, stages) ->
     # A researched kerb mass outranks the footprint estimate and is outranked by --mass, which
     # is an operator saying "not this time" about a file they can see (D15-S11).
     target, target_note = manifest.target_mass_kg(
-        body, options.mass_kg if options.mass_kg is not None else researched.kerb_mass_kg, corners
+        body,
+        options.mass_kg if options.mass_kg is not None else researched.kerb_mass_kg,
+        corners,
+        shells,
     )
     if options.mass_kg is None and researched.kerb_mass_kg is not None:
         target_note = f"the researched kerb mass of the {researched.reference or 'reference car'}"
@@ -745,6 +749,23 @@ def assemble(options: Options, shells, parts, corners, body, objects, stages) ->
         "maxMassKg": hardpoints[0]["maxMassKg"] if hardpoints else 0.0,
     }
 
+    # The main rotor's thrust first, because a tail rotor is sized as a fraction of it rather
+    # than by its own disc loading (manifest.rotor_thrust_n). Zero when there is no main
+    # rotor, which is every wheeled vehicle and costs nothing.
+    main_thrust_n = max(
+        (
+            manifest.rotor_thrust_n(part, 0.0)
+            for part in prepared
+            if part.label == ROTOR and part.role == MAIN
+        ),
+        default=0.0,
+    )
+    rotor_thrusts = {
+        part.part_type_id: manifest.rotor_thrust_n(part, main_thrust_n)
+        for part in prepared
+        if part.label == ROTOR
+    }
+
     for part in prepared:
         document = manifest.build_part_document(
             part,
@@ -754,7 +775,18 @@ def assemble(options: Options, shells, parts, corners, body, objects, stages) ->
             produced=produced.get(part.part_type_id),
             weapon=manifest.weapon_block(part, body) if part.label == WEAPON else None,
             light=manifest.light_block(part, body) if part.label == LIGHT else None,
+            rotor=manifest.rotor_block(part, body) if part.label == ROTOR else None,
         )
+        if part.label == ROTOR:
+            # The stat rather than the block, so degradation reaches it (DEC-090): a rotor
+            # shot to half health lifts less, and nothing in the flight model knows that.
+            # camelCase key and an {"add": ...} term, which is what every other stat in a
+            # part.json is and what AssetLoader parses. Written as a bare number under a
+            # SCREAMING_CASE key first, which loaded silently as no stat at all and left the
+            # aircraft on the ground with a rotor that turned and lifted nothing.
+            document.setdefault("stats", {})["rotorThrustN"] = {
+                "add": rotor_thrusts[part.part_type_id]
+            }
         if options.out is not None:
             documents[Path(options.out) / part.part_type_id / "part.json"] = document
 

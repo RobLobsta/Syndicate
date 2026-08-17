@@ -53,7 +53,17 @@ public final class StatBlock {
         PROJECTILE_SPEED_MPS,
         SENSOR_RANGE_M,
         MODULE_DURATION_S,
-        MODULE_COOLDOWN_S;
+        MODULE_COOLDOWN_S,
+
+        /**
+         * Newtons of thrust one rotor makes at full collective (D05-S4.5, extended for the Kestrel).
+         *
+         * <p>A stat rather than a field on {@link dev.syndicate.core.asset.RotorBlock} for the
+         * reason the weapon stats are: this is the number that has to fall when the rotor is shot,
+         * and degradation only reaches stats (D05-S5.4). Appended rather than inserted because a
+         * stat's ordinal is its index into two float arrays.
+         */
+        ROTOR_THRUST_N;
 
         /** How many stats exist. Cached because it is an array length on a hot path. */
         public static final int COUNT = values().length;

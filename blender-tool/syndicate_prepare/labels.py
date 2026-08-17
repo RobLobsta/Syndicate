@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 CHASSIS = "chassis"
 WHEEL = "wheel"
+ROTOR = "rotor"
 HUB = "hub"
 PANEL = "panel"
 GLASS = "glass"
@@ -34,6 +35,7 @@ UNCLASSIFIED = "unclassified"
 LABELS = (
     CHASSIS,
     WHEEL,
+    ROTOR,
     HUB,
     PANEL,
     GLASS,
@@ -51,6 +53,7 @@ LABELS = (
 SLOT_ROLE = {
     CHASSIS: "ROOT",
     WHEEL: "WHEEL",
+    ROTOR: "ROTOR_MOUNT",
     HUB: "HUB",
     PANEL: "PANEL",
     GLASS: "GLASS",
@@ -69,6 +72,7 @@ SLOT_ROLE = {
 DESTRUCTION_CLASS = {
     CHASSIS: "STRUCTURAL",
     WHEEL: "RIGID",
+    ROTOR: "RIGID",
     HUB: "RIGID",
     PANEL: "SHEET_METAL",
     GLASS: "GLASS",
@@ -93,6 +97,7 @@ DESTRUCTION_CLASS = {
 PART_CATEGORY = {
     CHASSIS: "CHASSIS",
     WHEEL: "WHEEL",
+    ROTOR: "ROTOR",
     HUB: "UTILITY",
     PANEL: "PANEL",
     GLASS: "DECORATIVE",
@@ -112,6 +117,7 @@ PART_CATEGORY = {
 SLOT_TYPE_REQUIRED = {
     CHASSIS: "ROOT",
     WHEEL: "WHEEL",
+    ROTOR: "ROTOR_MOUNT",
     HUB: "HARDPOINT",
     PANEL: "PANEL",
     GLASS: "ACCESSORY",
@@ -133,6 +139,7 @@ SLOT_TYPE_REQUIRED = {
 DEFAULT_MATERIAL = {
     CHASSIS: "steel",
     WHEEL: "rubber",
+    ROTOR: "steel_hardened",
     HUB: "steel",
     PANEL: "steel",
     GLASS: "glass",
@@ -150,6 +157,7 @@ DEFAULT_MATERIAL = {
 DETACHES = {
     CHASSIS: False,
     WHEEL: True,
+    ROTOR: True,
     HUB: True,
     PANEL: True,
     GLASS: True,

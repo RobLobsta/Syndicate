@@ -1,0 +1,198 @@
+{
+  "armorValue": 18.93,
+  "assets": {
+    "collisionSource": "mesh.glb#node=chassis_kestrel_01_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 22770.9,
+  "category": "CHASSIS",
+  "destructionClass": "STRUCTURAL",
+  "displayName": "Chassis",
+  "handling": {
+    "downforceCoefficient": 0.0,
+    "dragCoefficient": 9.0,
+    "rollingResistance": 0.0
+  },
+  "hangsBeforeFalling": false,
+  "massKg": 1423.183,
+  "materialId": "steel",
+  "maxHp": 2846.4,
+  "partTypeId": "chassis_kestrel_01",
+  "powerCost": 36.987,
+  "schemaVersion": "1.0.0",
+  "sizeClass": "MEDIUM",
+  "slotTypeRequired": "ROOT",
+  "slots": [
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.0001,
+        "y": 1.2246,
+        "z": -4.7804
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 2.8,
+      "slotId": "decal",
+      "slotType": "ACCESSORY"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0,
+        "y": 2.171,
+        "z": 4.1862
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 128.0,
+      "sizeClass": "MEDIUM",
+      "slotId": "hardpoint_bonnet",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -3.5996,
+        "y": 1.9259,
+        "z": 0.0
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 180.0
+      },
+      "maxMassKg": 128.0,
+      "sizeClass": "LIGHT",
+      "slotId": "hardpoint_flank_l",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 3.5996,
+        "y": 1.9259,
+        "z": 0.0
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 180.0
+      },
+      "maxMassKg": 128.0,
+      "sizeClass": "LIGHT",
+      "slotId": "hardpoint_flank_r",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0,
+        "y": 2.3111,
+        "z": -4.4188
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 128.0,
+      "sizeClass": "MEDIUM",
+      "slotId": "hardpoint_rear",
+      "slotType": "HARDPOINT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0063,
+        "y": 2.9715,
+        "z": 1.3394
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 231.7,
+      "slotId": "rotor_main",
+      "slotType": "ROTOR_MOUNT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.0024,
+        "y": 1.9656,
+        "z": -5.0316
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 30.8,
+      "slotId": "rotor_tail",
+      "slotType": "ROTOR_MOUNT"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0,
+        "y": 3.5717,
+        "z": -0.2326
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 320.0,
+      "sizeClass": "HEAVY",
+      "slotId": "turret_main",
+      "slotType": "TURRET_MOUNT"
+    }
+  ],
+  "stats": {
+    "brakeForceN": {
+      "add": 14943.4
+    },
+    "engineForceN": {
+      "add": 11385.5
+    },
+    "enginePowerW": {
+      "add": 128086.5
+    }
+  },
+  "tags": [
+    "chassis",
+    "prepared"
+  ],
+  "yieldImpulseN": 9000.0
+}

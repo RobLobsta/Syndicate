@@ -9,8 +9,9 @@ art-source/
 ├── parts/                  per-part .blend sources (D08-S4.1) — none yet
 ├── arenas/                                                    — none yet
 ├── shared/                 material library                    — none yet
-├── vehicles/               whole-vehicle source models         ← the two cars
+├── vehicles/               whole-vehicle source models         ← two cars and a helicopter
 │   ├── eclipse/
+│   ├── kestrel/
 │   └── stampede/
 └── weapons/                whole-weapon source models          ← the two guns
     ├── machinegun/
@@ -34,6 +35,7 @@ records the bucket and why.
 | `vehicles/stampede/` | **Stampede** | Ford Mustang GTD | 234,057 | CC-BY-NC-SA-4.0 |
 | `weapons/machinegun/` | `weapon_machinegun_01` | Car Combat Machine Gun | 350 | **CC-BY-4.0** |
 | `weapons/cannon/` | `weapon_cannon_01` | SS. Hope Cannon | 8,898 | **CC-BY-4.0** |
+| `vehicles/kestrel/` | **Kestrel** | Cartoonish Helicopter (Codematics) | 2,807 | **Animatics single-use commercial** |
 
 `weapons/` is processed by `syndicate_weapon` rather than `syndicate_prepare`, against
 `docs/17_weapon_system.md`. A weapon comes out as an **assembly** — a mount with a receiver, a
@@ -56,6 +58,12 @@ derivatives under the same licence. They are prototype and reference art. They c
 screenshotted here; they cannot ship in anything commercial, and a derivative of one — including a
 part split out of it — carries the same licence. Each `SOURCE.md` carries the credit line its
 author requires.
+
+The **Kestrel** is a **third** licence and it is neither of the other two. It is a *purchased*
+Animatics Asset Store certificate: non-exclusive, commercial, worldwide — and **single-use for this
+registered project, and revokable**. So it may ship commercially where the cars may not, and it may
+**not** be lifted into a second project or redistributed as source art, where a CC model could be.
+No attribution line is contractually required. Its `SOURCE.md` carries the certificate's terms.
 
 The two **weapons** are **CC-BY-4.0**: attribution required, commercial use **permitted**, and no
 share-alike. They are therefore the only art in this repository that could ship commercially as it

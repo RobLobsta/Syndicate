@@ -72,6 +72,10 @@ public enum DestructionClass {
      * <p>{@code PANEL} maps to {@code SHEET_METAL} rather than {@code STRUCTURAL}: bodywork is hung
      * on the frame, and what a player watches is it crumpling and falling off, not the frame behind
      * it buckling.
+     *
+     * <p>{@code ROTOR} maps to {@code RIGID} — it detaches whole rather than denting or shattering.
+     * A bent rotor blade is not a thing anyone watches for: what reads at speed is the disc leaving
+     * the mast, and D15-S5.7 gives {@code RIGID} exactly that and no authored transform.
      */
     public static DestructionClass forCategory(PartCategory category) {
         if (category == null) {
@@ -80,7 +84,7 @@ public enum DestructionClass {
         return switch (category) {
             case CHASSIS -> STRUCTURAL;
             case PANEL -> SHEET_METAL;
-            case WHEEL, WEAPON, UTILITY -> RIGID;
+            case WHEEL, ROTOR, WEAPON, UTILITY -> RIGID;
             case DECORATIVE -> NONE;
         };
     }

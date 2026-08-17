@@ -17,6 +17,7 @@ import dev.syndicate.core.asset.FractureManifest;
 import dev.syndicate.core.asset.HandlingBlock;
 import dev.syndicate.core.asset.MeshData;
 import dev.syndicate.core.asset.PartType;
+import dev.syndicate.core.asset.RotorBlock;
 import dev.syndicate.core.asset.WeaponBlock;
 import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.FractureDataComponent;
@@ -26,6 +27,7 @@ import dev.syndicate.core.component.PartRefComponent;
 import dev.syndicate.core.component.PartStatsComponent;
 import dev.syndicate.core.component.PlayerInputComponent;
 import dev.syndicate.core.component.RigidBodyComponent;
+import dev.syndicate.core.component.RotorControllerComponent;
 import dev.syndicate.core.component.SlotAttachmentComponent;
 import dev.syndicate.core.component.SlotGraphComponent;
 import dev.syndicate.core.component.TeamComponent;
@@ -152,6 +154,16 @@ public final class VehicleFactory {
      */
     public static final float WHEEL_RADIUS_FALLBACK_M = 0.42f;
 
+    /**
+     * Metres of air left under a spawning vehicle's hull (D16-R4, DEC-069).
+     *
+     * <p>Small but not zero: a hull resting exactly on the height field is already in contact on
+     * the first tick, and the height field is sampled bilinearly so the triangle under one corner
+     * can sit a centimetre above the sample. Ten centimetres costs an imperceptible drop and
+     * removes the overlap entirely.
+     */
+    public static final float SPAWN_GROUND_CLEARANCE_M = 0.10f;
+
     /** Wheel travel direction in chassis-local space: straight down (D00-R16, Y-up). */
     private static final Vector3 WHEEL_DIRECTION_LOCAL = new Vector3(0f, -1f, 0f);
 
@@ -239,6 +251,17 @@ public final class VehicleFactory {
             if (placed.type().category() == PartCategory.WHEEL) {
                 wheels.add(placed);
                 chassis.wheelEntities[chassis.wheelCount++] = partEntity;
+            }
+            if (placed.type().category() == PartCategory.ROTOR) {
+                chassis.rotorEntities[chassis.rotorCount++] = partEntity;
+                // A vehicle is a rotorcraft when something on it lifts, not when something on it
+                // spins: a tail rotor alone is an anti-torque device with no torque to oppose
+                // (DEC-090). The layout's parts are already in ascending slot-path order, so this
+                // array is too (G3).
+                RotorBlock rotor = placed.type().rotor();
+                if (rotor != null && rotor.isMain()) {
+                    chassis.isRotorcraft = true;
+                }
             }
             if (placed.type().category().isInCompoundShape()) {
                 compoundChildren.add(new VehicleCompound.Child(
@@ -379,6 +402,22 @@ public final class VehicleFactory {
                     : placed.overrides().weaponGroup();
             world.addComponent(partEntity, weapon);
         }
+        if (type.category() == PartCategory.ROTOR) {
+            RotorBlock block = type.rotor();
+            RotorControllerComponent rotor = new RotorControllerComponent();
+            if (block != null) {
+                rotor.isMain = block.isMain();
+                rotor.radiusM = block.radiusM();
+                rotor.bladeCount = block.bladeCount();
+                rotor.maxRpm = block.maxRpm();
+                rotor.spinAxisLocal.set(block.spinAxisLocal());
+                // Spun up at spawn rather than from rest: a vehicle enters the arena flying, and
+                // a helicopter that had to spool up would drop several metres before its own
+                // spawn placement finished settling.
+                rotor.currentRpm = block.maxRpm();
+            }
+            world.addComponent(partEntity, rotor);
+        }
         if (type.category() == PartCategory.WHEEL) {
             world.addComponent(partEntity, wheelController(type, placed));
         }
@@ -491,6 +530,57 @@ public final class VehicleFactory {
     // ---- The chassis body (D05-S5.2 step 2) ------------------------------------------
 
     /** Creates the vehicle's single rigid body, already carrying its mass properties (D06-S5.7). */
+
+    /**
+     * Raises a spawning vehicle so its hull sits on the terrain rather than inside it.
+     *
+     * <p>An arena's spawn points are authored as flat-plane coordinates — every one in both shipped
+     * arenas is at {@code y = 1.0} — and both arenas generate a height field (DEC-069). Where the
+     * relief is higher than the authored point, a vehicle is spawned *inside* the ground and Bullet
+     * resolves the overlap with a large impulse on the first tick.
+     *
+     * <p>For a car that is survivable: the suspension pushes it out and the worst of it is a lurch.
+     * For the Kestrel it is not, because its rotor is in the compound shape (DEC-090) and its disc
+     * is 9.45 m across — so the overlap is enormous, the impulse exceeds the rotor's own
+     * {@code breakImpulseN}, and the aircraft sheds both rotors before the player has touched
+     * anything. A capture caught it at 2 of 3 parts twelve seconds in, sitting on the sand.
+     *
+     * <p>The lift is the gap between the hull's lowest point and the terrain under the spawn, and it
+     * is only ever applied upward: a vehicle already clear of the ground is left where the arena put
+     * it, so this cannot turn an intended drop into a teleport. Arenas with no height field — the
+     * flat box of D16-R4 — are unaffected.
+     */
+    private static void liftOntoTerrain(PhysicsWorld physics, VehicleCompound compound, Matrix4 bodyTransform) {
+        if (physics == null || physics.terrain() == null) {
+            return;
+        }
+        Vector3 position = bodyTransform.getTranslation(new Vector3());
+        Vector3 aabbMin = new Vector3();
+        Vector3 aabbMax = new Vector3();
+        compound.localAabb(aabbMin, aabbMax);
+
+        // Sampled across the hull's whole footprint, not under its centre. A car's overhang is a
+        // bumper and the difference is centimetres; the Kestrel's is a 4.72 m rotor blade 2.97 m up,
+        // and on a slope the ground under a blade tip is metres above the ground under the mast.
+        // A centre-only sample cleared the fuselage and left the disc buried in the hillside, which
+        // destroyed the rotor within seconds of spawning with no input at all.
+        float groundY = Float.NEGATIVE_INFINITY;
+        for (int corner = 0; corner < 4; corner++) {
+            float x = position.x + ((corner & 1) == 0 ? aabbMin.x : aabbMax.x);
+            float z = position.z + ((corner & 2) == 0 ? aabbMin.z : aabbMax.z);
+            groundY = Math.max(groundY, physics.terrain().heightAt(x, z));
+        }
+        groundY = Math.max(groundY, physics.terrain().heightAt(position.x, position.z));
+
+        // The compound has already been recentred on the COM, so its local AABB is COM-relative
+        // and its lowest point is a signed offset from the body's own origin.
+        float hullBottomY = position.y + aabbMin.y;
+        float lift = groundY + SPAWN_GROUND_CLEARANCE_M - hullBottomY;
+        if (lift > 0f) {
+            bodyTransform.trn(0f, lift, 0f);
+        }
+    }
+
     private static void attachChassisBody(
             World world,
             PhysicsWorld physics,
@@ -509,6 +599,8 @@ public final class VehicleFactory {
         // for it. Matrix4.translate post-multiplies, so the shift lands in the world already rotated
         // by the spawn orientation, which is what a local-origin shift means.
         Matrix4 bodyTransform = new Matrix4(spawnTransform).translate(comLocal);
+
+        liftOntoTerrain(physics, compound, bodyTransform);
 
         btDefaultMotionState motionState = new btDefaultMotionState(bodyTransform);
         NativeResourceTracker.register("btDefaultMotionState");

@@ -29,6 +29,22 @@ public enum PartCategory {
     /** Ground contact, drive, steering. Not in the compound shape — wheels are ray casts (D06-S4.3). */
     WHEEL(true, false),
 
+    /**
+     * A lifting rotor: what holds a rotorcraft up and what turns it (D05-S4.2, amended for the
+     * Kestrel).
+     *
+     * <p>It is not a {@code WHEEL} and the difference is not cosmetic. A wheel is a ray cast and
+     * carries no hull (D06-S4.3); a rotor is real geometry above the vehicle that a shot can reach,
+     * so it is <em>in</em> the compound shape. A wheel converts engine force into traction against
+     * a surface; a rotor converts it into thrust against nothing, which is why lift is a body force
+     * and not a wheel command.
+     *
+     * <p>It detaches on destroy, and that is the whole point of making it a part rather than a
+     * number on the chassis: shoot the main rotor off a helicopter and it stops flying, in the same
+     * arithmetic that already makes a wheel-less car stop driving.
+     */
+    ROTOR(true, true),
+
     /** Damage output. */
     WEAPON(true, true),
 

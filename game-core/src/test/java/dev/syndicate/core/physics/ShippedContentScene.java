@@ -33,6 +33,7 @@ import dev.syndicate.core.util.NativeResourceTracker;
 import dev.syndicate.core.vehicle.ShippedContent;
 import dev.syndicate.core.vehicle.VehicleFactory;
 import dev.syndicate.core.vehicle.VehicleProfile;
+import dev.syndicate.model.AssetId;
 import dev.syndicate.model.CollisionLayer;
 import dev.syndicate.model.DamageState;
 import dev.syndicate.model.SimulationConstants;
@@ -148,10 +149,21 @@ public final class ShippedContentScene implements AutoCloseable {
 
     /** Spawns a profile's vehicle from the shipped assembly, through the real spawn path. */
     public int spawn(VehicleProfile profile, Vector3 position) {
-        AssemblyDef assembly = assets.assembly(profile.profileId());
+        return spawn(profile.profileId(), position);
+    }
+
+    /**
+     * Spawns a shipped assembly by id.
+     *
+     * <p>Beside the {@link VehicleProfile} overload rather than replacing it, because not every
+     * shipped vehicle has a profile: {@link VehicleProfile} records a *car's* published figures —
+     * a 0-100 time, tyre codes, a braking distance — and the Kestrel is a helicopter, whose
+     * researched figures live in its own {@code profile.json} instead (DEC-090).
+     */
+    public int spawn(AssetId assemblyId, Vector3 position) {
+        AssemblyDef assembly = assets.assembly(assemblyId);
         if (assembly == null) {
-            throw new IllegalStateException(
-                    "no shipped assembly for profile " + profile.profileId().value());
+            throw new IllegalStateException("no shipped assembly " + assemblyId.value());
         }
         return VehicleFactory.spawnVehicle(
                 world,

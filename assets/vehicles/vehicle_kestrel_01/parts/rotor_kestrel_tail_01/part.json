@@ -1,0 +1,57 @@
+{
+  "armorValue": 0.0,
+  "articulation": {
+    "axisLocal": {
+      "x": 1.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "driver": "ROTOR",
+    "motion": "SPIN",
+    "pivotLocal": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "rateDegPerSec": 23698.8
+  },
+  "assets": {
+    "collisionSource": "mesh.glb#node=rotor_kestrel_tail_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 1745.4,
+  "category": "ROTOR",
+  "destructionClass": "RIGID",
+  "displayName": "Tail Rotor",
+  "hangsBeforeFalling": false,
+  "massKg": 20.534,
+  "materialId": "steel_hardened",
+  "maxHp": 205.3,
+  "partTypeId": "rotor_kestrel_tail_01",
+  "powerCost": 2.687,
+  "rotor": {
+    "bladeCount": 2,
+    "maxRpm": 3949.8,
+    "radiusM": 0.5077,
+    "role": "TAIL",
+    "spinAxisLocal": {
+      "x": 1.0,
+      "y": 0.0,
+      "z": 0.0
+    }
+  },
+  "schemaVersion": "1.0.0",
+  "sizeClass": "MEDIUM",
+  "slotTypeRequired": "ROTOR_MOUNT",
+  "slots": [],
+  "stats": {
+    "rotorThrustN": {
+      "add": 2467.8
+    }
+  },
+  "tags": [
+    "prepared",
+    "rotor",
+    "tail"
+  ]
+}

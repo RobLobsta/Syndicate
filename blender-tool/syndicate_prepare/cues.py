@@ -21,6 +21,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 
+from .grouping import angular_coverage_deg, rotational_symmetry_order
 from .labels import (
     CHASSIS,
     DECAL,
@@ -33,6 +34,8 @@ from .labels import (
     MIRROR,
     MIRROR_TOLERANCE_M,
     PANEL,
+    ROTATION_SECTORS,
+    ROTOR,
     UNCLASSIFIED,
     WHEEL,
     Vote,
@@ -149,11 +152,122 @@ def geometric_votes(shell: Shell, body: BodyFrame) -> list[Vote]:
     if body.contains_in_plan(shell.centroid, inset=0.22) and 0.25 < height < 0.85:
         votes.append(Vote("C1_geometric", INTERIOR, 0.35, "inside the cabin volume"))
 
+    # A rotor: a disc, symmetric about the axis it is thin along. Voted before the chassis
+    # rule below and at a higher confidence, because a main rotor spans most of the aircraft
+    # and would otherwise be swallowed by "big and central is structure" — which is exactly
+    # what happened to the Kestrel's on the first run.
+    if _is_disc_shaped(shell):
+        order = rotor_symmetry_order(shell)
+        coverage = rotor_coverage_deg(shell)
+        if order >= MIN_ROTOR_SYMMETRY_ORDER or coverage >= ROTOR_MIN_COVERAGE_DEG:
+            because = (
+                f"{order}-fold symmetric"
+                if order >= MIN_ROTOR_SYMMETRY_ORDER
+                else f"covering {coverage:.0f}° of"
+            )
+            votes.append(
+                Vote(
+                    "C1_geometric",
+                    ROTOR,
+                    0.9,
+                    f"a {shell.disc_aspect:.2f}-square disc {shell.shortest_extent:.3f} m thick, "
+                    f"{because} the circle about {'xyz'[shell.thinnest_axis]}",
+                )
+            )
+
     # Anything big and central is structure.
     if shell.longest_extent > body.length * 0.35:
         votes.append(Vote("C1_geometric", CHASSIS, 0.7, "spans a third of the vehicle"))
 
     return votes
+
+
+#: What a rotor is, measured. Every figure is from the Kestrel's two discs, and each bar is
+#: placed to exclude a different thing that is also flat.
+#:
+#: The **main** rotor is 7.83 m by 8.20 m by 0.020 m — a flatness of 0.998, a disc aspect of
+#: 0.955, and three-fold symmetric about y. The **tail** rotor is 1.015 m square by 0.055 m —
+#: flatness 0.946, disc aspect 1.000.
+#:
+#: What must not match, and which bar holds it out: a road **wheel** is 0.25 m through a
+#: 0.70 m disc, a flatness of 0.64, so it fails :data:`ROTOR_MIN_FLATNESS` by a wide margin
+#: and keeps its own cue. A **decal** — the Kestrel's tail marking is 0.02 m by 0.49 m by
+#: 1.17 m — is *flatter* than the tail rotor at 0.983 and fails on disc aspect, 0.42 against
+#: the 0.80 bar. A **windscreen** and a **door** fail both the aspect bar and the symmetry
+#: one. Nothing on either shipped car passes all three.
+ROTOR_MIN_FLATNESS = 0.90
+ROTOR_MIN_DISC_ASPECT = 0.80
+
+#: Metres. The smallest disc that is a rotor rather than a washer, a vent cover or a hub cap.
+#:
+#: Absolute rather than a fraction of the vehicle, which is the one place this departs from
+#: D15-R7's "fractions of the vehicle's own dimensions" and does so deliberately. A rotor's
+#: size is set by the air it has to move, not by the aircraft it is bolted to — and, more
+#: practically, the body length a fraction would be taken against *includes the main rotor's
+#: own overhang*. The Kestrel measures 11.63 m only because its disc hangs over the nose, and
+#: a 9%-of-length bar computed from that put the floor at 1.047 m and rejected its own 1.015 m
+#: tail rotor. A bar that moves because of the thing it is measuring is not a bar.
+MIN_ROTOR_DIAMETER_M = 0.6
+
+#: Fewest evenly spaced blades that make a disc a rotor. Two, not the three
+#: :data:`roles.MIN_SYMMETRY_ORDER` wants of a bolt pattern: a two-blade teetering rotor is
+#: the commonest light-helicopter head there is, and the reason three is right for lug nuts —
+#: that two opposite pieces are as likely to be the ends of one bracket — does not apply to
+#: something that has already passed the disc test.
+MIN_ROTOR_SYMMETRY_ORDER = 2
+
+#: Degrees of the circle a disc may instead cover to count as a rotor.
+#:
+#: The second of D15-R24a's two sufficient tests, which exists because a rotating piece has
+#: two possible shapes and this taxonomy contains one of each. The Kestrel's **main** rotor is
+#: a *pattern* — three blades, nine sectors of twenty-four, 135° — and passes on symmetry. Its
+#: **tail** rotor is a *solid of revolution*: a shrouded fan whose many blades occupy 18
+#: sectors, 270°, with no exact symmetry order at this sampling. Neither test alone finds both.
+#:
+#: Lower than :data:`labels.ROTATION_SYMMETRY_MIN_DEG`'s 300° because that bar is set for a
+#: wheel, which is a continuous tyre; a fan sampled at 96 vertices leaves real gaps between
+#: blades. 240° is clear of the 270° measured and far above anything a panel reaches.
+ROTOR_MIN_COVERAGE_DEG = 240.0
+
+
+def _rotor_axle(shell: Shell) -> tuple[float, float, float]:
+    """The point a disc turns about: its **area centroid**, never its bounding-box centre.
+
+    This distinction is the whole reason the first rotor cue found nothing. A three-blade
+    rotor at rest has its blades at 120°, so its bounding box is not centred on its hub — the
+    Kestrel's main rotor boxes to ``x = -0.760`` while its mast stands at ``x = 0.006``, 0.77 m
+    away. Bearings taken from that point are meaningless and the disc measures as having no
+    symmetry at all (order 1). From the area centroid, which for a set of equal blades *is* the
+    hub by symmetry, the same disc measures 3.
+    """
+    return shell.centroid
+
+
+def rotor_symmetry_order(shell: Shell) -> int:
+    """How many times a shell's geometry repeats around its thinnest axis (D15-R24a)."""
+    if not shell.vertex_sample:
+        return 1
+    return rotational_symmetry_order(
+        shell.vertex_sample, _rotor_axle(shell), ROTATION_SECTORS, shell.thinnest_axis
+    )
+
+
+def rotor_coverage_deg(shell: Shell) -> float:
+    """How much of the circle a disc occupies about its thinnest axis (D15-R21)."""
+    if not shell.vertex_sample:
+        return 0.0
+    return angular_coverage_deg(
+        shell.vertex_sample, _rotor_axle(shell), ROTATION_SECTORS, shell.thinnest_axis
+    )
+
+
+def _is_disc_shaped(shell: Shell) -> bool:
+    """Whether a shell is a disc: thin one way, square the other two, and big enough to matter."""
+    return (
+        shell.flatness >= ROTOR_MIN_FLATNESS
+        and shell.disc_aspect >= ROTOR_MIN_DISC_ASPECT
+        and shell.longest_extent > MIN_ROTOR_DIAMETER_M
+    )
 
 
 #: What a door is, measured (D15-R6a). Every figure below is from the two shipped cars: the

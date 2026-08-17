@@ -490,6 +490,7 @@ public final class AssetIndexBuilder {
             double powerBudget = chassis.path("powerCost").asDouble(0d);
             int partCount = 1;
             int wheelCount = 0;
+            int rotorCount = 0;
             Set<String> occupiedSlots = new TreeSet<>();
             for (JsonNode placement : root.path("parts")) {
                 String partTypeId = placement.path("partTypeId").asText("");
@@ -516,6 +517,9 @@ public final class AssetIndexBuilder {
                 if ("WHEEL".equalsIgnoreCase(part.path("category").asText(""))) {
                     wheelCount++;
                 }
+                if ("ROTOR".equalsIgnoreCase(part.path("category").asText(""))) {
+                    rotorCount++;
+                }
             }
             if (partCount > SimulationConstants.MAX_PARTS_PER_VEHICLE) {
                 findings.add(Finding.error(
@@ -524,8 +528,15 @@ public final class AssetIndexBuilder {
                         partCount + " parts exceeds MAX_PARTS_PER_VEHICLE (" + SimulationConstants.MAX_PARTS_PER_VEHICLE
                                 + ")"));
             }
-            if (wheelCount < MIN_WHEELS) {
-                findings.add(Finding.error("A309", id, wheelCount + " wheels; a vehicle needs at least " + MIN_WHEELS));
+            // A rotorcraft satisfies A309 a different way: the rule asks whether the vehicle
+            // can move under its own power, and a rotor is an answer to that (DEC-090). Kept in
+            // step with AssemblyValidator, which enforces the same rule at load (DEC-041).
+            if (wheelCount < MIN_WHEELS && rotorCount == 0) {
+                findings.add(Finding.error(
+                        "A309",
+                        id,
+                        wheelCount + " wheels and no rotor; a vehicle needs at least " + MIN_WHEELS
+                                + " wheels to be drivable, or a rotor to fly"));
             }
 
             JsonNode expected = root.path("expected");

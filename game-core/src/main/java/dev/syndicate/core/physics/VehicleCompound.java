@@ -5,6 +5,7 @@
 package dev.syndicate.core.physics;
 
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.btCompoundShape;
 import dev.syndicate.core.asset.MeshData;
 import java.util.ArrayList;
@@ -178,6 +179,34 @@ public final class VehicleCompound {
         }
         compound.recalculateLocalAabb();
     }
+
+    /**
+     * The lowest point of the whole compound, in the compound's own local space.
+     *
+     * <p>Called after {@link #recentre}, so the compound's origin is the vehicle's centre of mass
+     * and this is a signed offset from it — negative for every vehicle, because a centre of mass is
+     * above the ground. It is what {@code VehicleFactory} needs to know how far a spawning vehicle
+     * has to be raised to stand on the terrain rather than inside it.
+     */
+    public float lowestPointY() {
+        localAabb(scratchAabbMin, scratchAabbMax);
+        return scratchAabbMin.y;
+    }
+
+    /**
+     * The compound's own axis-aligned bounds, in its local space.
+     *
+     * <p>Called after {@link #recentre}, so these are relative to the vehicle's centre of mass.
+     */
+    public void localAabb(Vector3 outMin, Vector3 outMax) {
+        compound.getAabb(IDENTITY, outMin, outMax);
+    }
+
+    private final Vector3 scratchAabbMin = new Vector3();
+    private final Vector3 scratchAabbMax = new Vector3();
+
+    /** Reused for the local-space AABB query above; never mutated. */
+    private static final Matrix4 IDENTITY = new Matrix4();
 
     @Override
     public String toString() {

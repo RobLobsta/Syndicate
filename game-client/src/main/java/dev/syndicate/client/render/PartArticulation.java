@@ -62,7 +62,16 @@ public final class PartArticulation {
         /** Match time, while the weapon is live. */
         CONTINUOUS,
         /** Commanded aim, relative to the rest pose. */
-        AIM
+        AIM,
+        /**
+         * The rotor's own governed speed, read off {@code RotorControllerComponent} (DEC-090).
+         *
+         * <p>Not {@link #CONTINUOUS}, which is keyed to a weapon firing and coasts to a stop
+         * between bursts — a main rotor turns whether or not anything is shooting, and stops
+         * only when the disc is destroyed. It reads authoritative state and writes nothing
+         * back, which is the one direction G6 permits.
+         */
+        ROTOR
     }
 
     /**

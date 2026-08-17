@@ -41,8 +41,11 @@ public final class KeyboardMouseSource implements InputSource {
 
         boolean isRightHeld();
 
-        /** Handbrake. */
+        /** Handbrake, and collective up on a rotorcraft (DEC-092). */
         boolean isBrakeHeld();
+
+        /** Collective down: descend, on a rotorcraft. Does nothing on a wheeled vehicle. */
+        boolean isDescendHeld();
 
         /** Mouse movement since the last frame, in pixels, right positive. */
         float mouseDeltaX();
@@ -62,6 +65,7 @@ public final class KeyboardMouseSource implements InputSource {
 
     private float steer;
     private float throttle;
+    private float collective;
     private float aimYawRad;
     private float aimPitchRad;
 
@@ -99,6 +103,14 @@ public final class KeyboardMouseSource implements InputSource {
         out.steer = steer;
         out.throttle = throttle;
         out.brake = state.isBrakeHeld() ? 1f : 0f;
+        // Space climbs and left-control descends. Space doubles as the handbrake because the
+        // two vehicles never coexist: a car has no collective to spend and a helicopter has no
+        // handbrake, so one key can mean "up" on one and "stop" on the other without either
+        // player ever meeting the other meaning. Ramped like the throttle, for the reason the
+        // throttle is: a key is on or off and an axis is not.
+        int collectiveTarget = (state.isBrakeHeld() ? 1 : 0) - (state.isDescendHeld() ? 1 : 0);
+        collective = approach(collective, collectiveTarget, tuning.throttleRampPerSec(), dtSeconds);
+        out.collective = collective;
 
         float deltaX = state.mouseDeltaX();
         float deltaY = state.mouseDeltaY();
@@ -148,6 +160,7 @@ public final class KeyboardMouseSource implements InputSource {
     public void reset() {
         steer = 0f;
         throttle = 0f;
+        collective = 0f;
         aimYawRad = 0f;
         aimPitchRad = 0f;
     }
