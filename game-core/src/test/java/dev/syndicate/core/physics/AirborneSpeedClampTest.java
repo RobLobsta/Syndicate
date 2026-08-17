@@ -112,6 +112,38 @@ class AirborneSpeedClampTest {
     }
 
     /**
+     * DISC-067: airborne is bounded, not unbounded. The regression the previous test let through.
+     *
+     * <p>The first drive after the horizontal-only clamp shipped read <b>1167 km/h</b>, because
+     * leaving the vertical axis "to gravity" had been implemented as leaving it untouched — and
+     * gravity is not the only thing that writes it. A collision impulse at spawn wrote 324 m/s and
+     * nothing took it back out.
+     *
+     * <p>The lesson is in the assertion above, which reads {@code isGreaterThan(MAX + 2)} and is
+     * satisfied just as happily by 44 m/s as by 324. A one-sided bound on a quantity whose bug is
+     * runaway growth cannot fail.
+     */
+    @Test
+    @DisplayName("airborne, a violent impulse is still bounded on the vertical axis")
+    void anAirborneVehicleIsBoundedVertically() {
+        try (ShippedContentScene scene = new ShippedContentScene(1L)) {
+            int vehicle = scene.spawn(VehicleProfiles.ECLIPSE, new Vector3(0f, LAUNCH_HEIGHT_M, 0f));
+            // What a penetration-resolution impulse looks like: far beyond anything gravity or an
+            // engine could produce, on the axis the horizontal clamp does not touch.
+            setVelocity(scene.world(), vehicle, new Vector3(0f, 400f, 0f));
+            scene.step(2);
+
+            assertThat(scene.wheelsInContact(vehicle)).isZero();
+            assertThat(Math.abs(velocityOf(scene.world(), vehicle).y))
+                    .as("vertical speed is bounded, not merely left alone (DISC-067)")
+                    .isLessThanOrEqualTo(VehicleControl.MAX_AIRBORNE_VERTICAL_SPEED_MPS + 0.5f);
+            assertThat(scene.speedOf(vehicle))
+                    .as("and so total speed cannot run away")
+                    .isLessThan(100f);
+        }
+    }
+
+    /**
      * Grounded, the clamp is unchanged — the whole vector is scaled, exactly as before.
      *
      * <p>This is the assertion that protects the seed-locked regressions of D12-S4.2: the fix is

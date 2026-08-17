@@ -46,6 +46,22 @@ public final class VehicleControl {
     public static final float MAX_VEHICLE_SPEED_MPS = 40f;
 
     /**
+     * Metres per second. The bound on an airborne vehicle's vertical speed.
+     *
+     * <p>Airborne, the horizontal clamp deliberately leaves the vertical axis alone so that gravity
+     * can do its work (DEV-019). "Left to gravity" is not the same as "left unbounded", and the
+     * first drive after that change found the difference: a collision impulse at spawn put the car
+     * at <b>324 m/s</b> — 1167 km/h on the HUD — because nothing was bounding {@code y} at all.
+     *
+     * <p>55 m/s is chosen to sit above anything gravity can produce inside an arena and below
+     * anything that is not a bug. The desert's relief spans 55 m, so the fastest a fall inside it
+     * can reach is {@code sqrt(2 g h)} = 33 m/s; a real car's terminal velocity is around this
+     * figure. Gravity therefore always wins within the world the game actually has, and a runaway
+     * impulse is still caught two orders of magnitude short of where it used to end up.
+     */
+    public static final float MAX_AIRBORNE_VERTICAL_SPEED_MPS = 55f;
+
+    /**
      * Newtons per (m/s)². Downforce, applied at the centre of mass so it cannot induce a torque
      * (D06-S4.5, D01-S5.2's mild driving assist).
      */
@@ -293,10 +309,19 @@ public final class VehicleControl {
     private void applySpeedClamp(World world, int vehicleEntity, btRigidBody body, float speedMps) {
         if (isAirborne(world, vehicleEntity)) {
             float horizontalMps = (float) Math.hypot(scratchVelocity.x, scratchVelocity.z);
-            if (horizontalMps > MAX_VEHICLE_SPEED_MPS) {
-                float scale = MAX_VEHICLE_SPEED_MPS / horizontalMps;
+            float verticalMps = scratchVelocity.y;
+            boolean overHorizontal = horizontalMps > MAX_VEHICLE_SPEED_MPS;
+            boolean overVertical = Math.abs(verticalMps) > MAX_AIRBORNE_VERTICAL_SPEED_MPS;
+            if (overHorizontal || overVertical) {
+                // Each axis bounded on its own, never by rescaling the vector: rescaling is what
+                // let the horizontal term bleed away in flight, which is the bug this branch
+                // exists to avoid. The vertical bound is far enough above gravity's reach inside
+                // an arena that a real fall never touches it (DEV-019, DISC-067).
+                float scale = overHorizontal ? MAX_VEHICLE_SPEED_MPS / horizontalMps : 1f;
+                float clampedVertical =
+                        overVertical ? Math.copySign(MAX_AIRBORNE_VERTICAL_SPEED_MPS, verticalMps) : verticalMps;
                 body.setLinearVelocity(
-                        scratchVelocity.set(scratchVelocity.x * scale, scratchVelocity.y, scratchVelocity.z * scale));
+                        scratchVelocity.set(scratchVelocity.x * scale, clampedVertical, scratchVelocity.z * scale));
             }
             return;
         }
