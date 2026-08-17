@@ -175,6 +175,15 @@ capture from the real client rather than an inference from the code: a style pas
 with black discs for wheels past eleven passing unit tests (`DISC-051`), and the garage drew every
 wheel a fifth of a metre inside its own arch for three sessions, because nobody had looked.
 
+**Blender is available. Install it.** The sandbox has no `blender` on PATH, and several notes in
+this repository read that as a fixed constraint deferring fracture manifests, structures and fixture
+verification. It is not one — it is an untested assumption. `bash blender-tool/tools/install-blender.sh`
+fetches headless Blender 4.2 LTS and puts it on PATH in about ninety seconds. The sandbox is
+ephemeral, so run it once per session, in any session that touches `blender-tool/`, `assets/` or the
+fixture pipeline. Read `DISC-064` and `DISC-065` first: the executable host needs a `sys.path` insert inside the
+`--python-expr` and `--python-exit-code 1`, because Blender's bundled Python ignores `PYTHONPATH`
+and exits 0 on an uncaught exception.
+
 Before reporting a task complete, run the checks the change touches:
 
 ```bash
