@@ -873,7 +873,7 @@ D06-S5.5's clamp rescales the entire velocity vector to `MAX_VEHICLE_SPEED_MPS`.
 | [SESS-035](session_summaries/SESS-035.md) | two guns, taken apart | 2026-08-16 | active | D17-S1, D17-S5.6, D05-S4.3 |
 | [SESS-036](session_summaries/SESS-036.md) | the garage arms the car | 2026-08-16 | active | D01-S2.2, D17-S4.5 |
 | [SESS-037](session_summaries/SESS-037.md) | a maintenance pass that closed the deviation backlog and then went driving | 2026-08-17 | active | D17-S5.13, D16-S5.4, D13-S5.6 |
-| [SESS-038](session_summaries/SESS-038.md) | Blender installed, the executable host repaired, and two driving bugs closed | 2026-08-17 | active | D02-S4.6, D06-S5.5, D16-S5.4 |
+| [SESS-038](session_summaries/SESS-038.md) | Blender installed, the fixture gate turned on, and the desert made drivable | 2026-08-17 | active | D02-S4.6, D06-S5.5, D16-S5.6 |
 
 ### SESS-027 — the glass shatters, the doors are found, and the tank is answered
 Three asks: fix the glass shatter, decide whether the Stampede has doors and find them, and say what happens to a tank. All nine glass panes on both cars now fracture into 24 shards with mass conserved exactly; both cars now yield two hinged doors; and a tank was built and run rather than reasoned about, which produced a clear answer and turned up a defect that had nothing to do with tanks.
@@ -908,8 +908,8 @@ Three corrections and one feature. The cannon was already HEAVY and needed nothi
 ### SESS-037 — a maintenance pass that closed the deviation backlog and then went driving
 A maintenance session with a mandate to resolve open decisions, delete stale text, and finish unfinished work by implementing it. Nine spec deviations closed, three stale documents corrected, two specified-but-unimplemented subsystems built (D17-S5.13 and D16 stage 3), and the client taught to drive itself — which immediately found two defects nothing else had.
 
-### SESS-038 — Blender installed, the executable host repaired, and two driving bugs closed
-Blender 4.2 installs in the sandbox in ninety seconds, retiring an assumption three sessions had built around. That exposed that the `blender` executable host had never run. Fixing it turned on the D14-S7.3 fixture gate for the first time and found three bugs in the fracture tool. Separately, DISC-062 and DISC-063 are fixed and tested.
+### SESS-038 — Blender installed, the fixture gate turned on, and the desert made drivable
+Blender installs in the sandbox in ninety seconds, retiring an assumption three sessions built around and exposing that the executable host had never run. Fixing it turned on the D14-S7.3 fixture gate for the first time. Then the client was driven, which found worse than any test had: every car in the desert starts several metres underground.
 
 ## Blueprint Coverage
 

@@ -1,55 +1,55 @@
-# SESS-038: Blender installed, the executable host repaired, and two driving bugs closed
+# SESS-038: Blender installed, the fixture gate turned on, and the desert made drivable
 
 **Date:** 2026-08-17
 **Category:** session_summaries
-**Related Docs:** docs/02_technical_architecture.md#D02-S4.6, docs/06_physics_simulation.md#D06-S5.5, docs/16_procedural_arena_generation.md#D16-S5.4
+**Related Docs:** docs/02_technical_architecture.md#D02-S4.6, docs/06_physics_simulation.md#D06-S5.5, docs/16_procedural_arena_generation.md#D16-S5.6
 
 **Status:** active
 
 ## Summary
-Blender 4.2 installs in the sandbox in ninety seconds, retiring an assumption three sessions had
-built around. That exposed that the `blender` executable host had never run. Fixing it turned on the
-D14-S7.3 fixture gate for the first time and found three bugs in the fracture tool. Separately,
-DISC-062 and DISC-063 are fixed and tested.
+Blender installs in the sandbox in ninety seconds, retiring an assumption three sessions built
+around and exposing that the executable host had never run. Fixing it turned on the D14-S7.3 fixture
+gate for the first time. Then the client was driven, which found worse than any test had: every car
+in the desert starts several metres underground.
 
 ## Details
 
-**The host.** `blender-tool/tools/install-blender.sh` fetches headless 4.2.13 LTS. The executable
-invocation could not import the tool — Blender's bundled Python builds `sys.path` from `PYTHONHOME`
-and reads neither `PYTHONPATH` nor the working directory — and `--python-expr` exits 0 on an
-uncaught exception, so the fixture task ran five fixtures, failed all five and reported success
-(DISC-064). Both fixed. `:test-environment:verifyFixtures` now passes 31/31 per fixture, the first
-time that gate has executed.
+**Blender and the fixture gate.** `install-blender.sh` fetches headless 4.2.13 LTS. The executable
+invocation could not import the tool and `--python-expr` exits 0 on an uncaught exception, so the
+fixture task ran five fixtures, failed all five and reported success (DISC-064). Fixed;
+`verifyFixtures` now passes 31/31 per fixture. Three fracture-tool bugs fell out of pointing it at
+real parts (DISC-066), and DISC-065's claim that the 44 unfractured parts were a gap was wrong —
+D15-S5.7 gives shards to `glass` alone.
 
-**The fracture tool.** Three defects, fixed with unit tests: watertightness was never checked
-despite D09 having exit 66 for it; the check must weld by position or glTF's per-normal vertex
-splitting rejects the tool's own fixtures; and re-fracturing an already-dented part duplicated its
-`dmg_*` shape keys (DISC-066).
+**The two things the first drive had found.** DISC-063's airborne clamp, now horizontal-only while
+no wheel is in contact (DEV-019); DISC-062's road canyon, now a load-time guard on the measured cut.
+Both tested against a deliberately disabled fix.
 
-**The correction that matters.** DISC-065 read "44 of 53 parts have no fracture manifest" as a gap.
-It is not: D15-S5.7 gives shards to `glass` alone and the pipeline implements that faithfully.
-Superseded by DISC-066 rather than edited, because the wrong reading is the part worth leaving.
+**Then it was driven.** The desert at full throttle, photographed at six frames. Every car starts
+buried (DISC-067): spawns are authored at `y = 1.0`, the pad levels the
+ground to the landform's height up to 7.44 m above that, and the chassis is created at the authored
+`y`. Bullet ejects it. The Eclipse lost 26 of 40 parts in 1.5 s and finished upside down and
+immobile — alive, so never respawned — for the remaining three minutes. Fixed; driven again upright
+and driving.
 
-**The two driving bugs.**
+It also caught a regression in this session's own clamp fix: bounding only the horizontal term left
+the vertical *unbounded* rather than left to gravity, and the ejection impulse rode it to 1167 km/h.
+Bounded at 55 m/s. The test that let it through asserted `speed > MAX + 2`, which 44 and 324 satisfy
+equally.
 
-- *DISC-063, the airborne clamp.* D06-S5.5 rescales the whole velocity vector, which on a car at the
-  horizontal limit removes whatever gravity adds. Now horizontal-only while no wheel is in contact;
-  grounded behaviour is unchanged so the seed-locked regressions do not move (DEV-019). The obvious
-  test does not discriminate — the old clamp *rotates* the vector rather than freezing it, so a
-  launched car descends either way. The signature is total speed pinned at exactly 40. All three
-  tests were checked against a deliberately disabled fix.
-- *DISC-062, the road canyon.* A guard on the carve's measured cut, calibrated against DISC-062's
-  table (2.7 and 3.3 m inside the playable area, 30.8 m into the rim). A measurement rather than a
-  rule about spline length, because the two arenas have different cell sizes and rim positions. A
-  first attempt as a geometric pre-check was abandoned: it rejected the existing ±250 m test road.
+**Found and not fixed:** no `FractureManifest` is ever loaded at runtime, so every glass part
+shatters without shards and the authored destruction path has never run. Now step 0 of the roadmap.
 
 ## Rationale / Context
-The through-line is that three things were believed rather than measured — that Blender was
-unavailable, that the executable host worked, and that the missing manifests were a gap. Each was
-cheap to check; none had been.
+Five things were believed rather than measured: that Blender was unavailable, that the executable
+host worked, that the missing manifests were a gap, that the clamp fix was complete, and that the
+desert was drivable. The last was only reachable by running the game — DISC-051's lesson, a fourth
+time.
+
+Two smaller traps: the default arena is the scrapyard, so "drive the desert" needs `--arena`; and a
+drive without `--seed` cannot be compared with the one before it.
 
 ## Impact
 - `blender-tool/` — installer, host invocation, watertight check, morph idempotence.
-- `game-core` `vehicle` and `arena` — the two driving fixes, with tests.
-- `test-environment/build.gradle.kts` — a failing harness reports its output, not just its code.
-- DISC-064, DISC-066, DEV-019 written; DISC-065 superseded.
+- `game-core` `vehicle` and `arena` — three fixes, each with a test that fails without it.
+- DISC-064, DISC-066, DISC-067, DEV-019 written; DISC-065 superseded.

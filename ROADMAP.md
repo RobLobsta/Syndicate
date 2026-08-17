@@ -77,10 +77,11 @@ numbers, one renderer and one socket.
    ├── Bots that orbit their target instead of shuffling        DISC-059
    ├── A garage that arms the car                               DEC-084
    ├── Blender in the sandbox, and the fixture gate green       DISC-064
-   └── The two things the first drive found, fixed              DEV-019
+   ├── The two things the first drive found, fixed              DEV-019
+   └── Cars no longer spawn underground                         DISC-067
   ─────────────────────────────────────────────────────── you are here
   NEXT
-   0. Drive it again                          ← the fixes are tested, not looked at
+   0. Load the fracture manifests             ← authored destruction never runs
    1. Guns, finished                          ← degradation, fracture, more families
    2. Roads and structures                    ← terrain stages 3 and 4
    4. Tuning, with a console to do it from    ← the alpha gate
@@ -118,9 +119,22 @@ found two things eleven passing test suites had not. Both are now fixed and test
    arenas have different cell sizes and rim positions, so an extent verified on one says nothing
    about the other.
 
-**Still open from this step:** nobody has driven it *again*. Both fixes are covered by tests, and
-neither has been checked the way the bugs were found — with a scripted drive and a look at the
-frames. That is the cheapest next thing on this list, and the dune field is the place to point it.
+**Driven again, and it found worse.** Both fixes hold, and the drive turned up two things no test had.
+
+3. **Every car in the desert started several metres underground** (DISC-067). Spawns are authored at
+   `y = 1.0`; the pad that flattens the ground at one levelled it to the landform's height, up to
+   **7.44 m higher**, and the chassis was created at the authored `y` anyway. Bullet ejects a buried
+   body, so the Eclipse lost 26 of 40 parts in a second and a half and finished upside down and
+   immobile — alive, so never respawned — for the remaining three minutes. Fixed: a pad now cuts to
+   the level it is given. Driven again, the car is upright and driving.
+
+4. **The airborne clamp fix had a regression in it.** Bounding only the horizontal term left the
+   vertical one unbounded rather than "left to gravity", and the ejection impulse rode it to
+   1167 km/h. Now bounded at 55 m/s. The test that let it through was one-sided.
+
+**Still open from this step:** the car still sheds parts on a hard landing, and the residual damage
+has not been characterised against a fixed seed. Use `--seed` — a drive without one cannot be
+compared with the drive before it.
 
 ### Step 1b — Blender, and the fixture gate that had never run ✅ done
 
@@ -144,6 +158,18 @@ It is not missing: D15-S5.7 gives shards to `glass` alone — sheet metal dents,
 whole, structural buckles — and the pipeline implements that faithfully. All 53 shipped parts are
 open surface meshes, which is normal for downloaded car art. Making a door shatter is a **content
 decision** that needs D15-S5.7 amended first, not a batch command somebody forgot to run.
+
+### Step 0 — Load the fracture manifests ★ the next thing
+
+**No fracture manifest is ever loaded at runtime.** Nothing in `game-core` or `game-client`
+constructs a `FractureManifest`; the index has a map for them, `FractureSystem` reads it, and it is
+never filled. So every glass part that shatters is destroyed *without shards*, in every match, and
+logs an ERROR saying so. The whole authored glass destruction path — the Blender tool, the shards,
+the harness that verifies them — has never once run in the actual game.
+
+The work is a JSON reader for `fracture_manifest.json` plus the shard hull geometry out of
+`shards.glb`, which the game-core glTF reader (DEC-035) can already do and which `test-environment`
+already does independently (DEC-008). It is the cheapest large visible improvement left.
 
 ### Step 2 — Structures
 
