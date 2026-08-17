@@ -126,6 +126,95 @@ class AssetIndexBuilderTest {
         assertThat(builder.findings()).extracting(Finding::code).contains("A312");
     }
 
+    /**
+     * A510: a manifest's transform must be one the part's destruction class receives (D15-S5.7).
+     *
+     * <p>The gate half of the rule the Blender tools enforce at authoring time. Both exist because
+     * nothing at runtime checks: a part dents because its mesh has shape keys and shatters because
+     * it declares a manifest, so a manifest that arrived by hand or from a tool version predating
+     * the FRACTURE/DEFORM split would otherwise ship (DISC-068).
+     */
+    @Test
+    void aFractureManifestOnAPartThatMustNotShatterIsCaught(@TempDir Path temp) throws Exception {
+        writeMinimalCatalogue(temp, 1500.0, "medium");
+        // A PANEL defaults to SHEET_METAL, which D15-S5.7 dents rather than shatters.
+        writeFracturingPart(temp, "panel_test_01", "PANEL", "FRACTURE", "SHEET_METAL");
+
+        AssetIndexBuilder builder = new AssetIndexBuilder();
+        builder.build(temp);
+
+        assertThat(builder.findings()).extracting(Finding::code).contains("A510");
+    }
+
+    @Test
+    void aManifestPredatingTheTransformSplitIsCaught(@TempDir Path temp) throws Exception {
+        writeMinimalCatalogue(temp, 1500.0, "medium");
+        // No "transform" field at all: every manifest written before the split looks like this,
+        // and it must be regenerated rather than trusted.
+        writeFracturingPart(temp, "glass_test_01", "DECORATIVE", null, "GLASS");
+
+        AssetIndexBuilder builder = new AssetIndexBuilder();
+        builder.build(temp);
+
+        assertThat(builder.findings())
+                .filteredOn(finding -> "A510".equals(finding.code()))
+                .isNotEmpty();
+    }
+
+    @Test
+    void aGlassPartWithAProperlyDeclaredManifestPasses(@TempDir Path temp) throws Exception {
+        writeMinimalCatalogue(temp, 1500.0, "medium");
+        writeFracturingPart(temp, "glass_test_01", "DECORATIVE", "FRACTURE", "GLASS");
+
+        AssetIndexBuilder builder = new AssetIndexBuilder();
+        builder.build(temp);
+
+        assertThat(builder.findings()).extracting(Finding::code).doesNotContain("A510");
+    }
+
+    /** A part declaring a fracture manifest, with the manifest's own header under test. */
+    private static void writeFracturingPart(
+            Path root, String partTypeId, String category, String transform, String destructionClass) throws Exception {
+
+        Path directory = root.resolve("parts").resolve(partTypeId);
+        Files.createDirectories(directory);
+        Files.writeString(
+                directory.resolve("part.json"),
+                """
+                {
+                  "schemaVersion": "1.0.0",
+                  "partTypeId": "%s",
+                  "category": "%s",
+                  "destructionClass": "%s",
+                  "massKg": 20.0,
+                  "maxHp": 100.0,
+                  "armorValue": 0.0,
+                  "materialId": "steel",
+                  "powerCost": 1.0,
+                  "breakImpulseN": 500.0,
+                  "slots": [],
+                  "assets": { "fractureManifest": "fracture_manifest.json" }
+                }
+                """
+                        .formatted(partTypeId, category, destructionClass));
+        String header = transform == null ? "" : "\"transform\": \"" + transform + "\",";
+        Files.writeString(
+                directory.resolve("fracture_manifest.json"),
+                """
+                {
+                  "schemaVersion": "1.0.0",
+                  "toolVersion": "0.1.0",
+                  %s
+                  "destructionClass": "%s",
+                  "partTypeId": "%s",
+                  "partMassKg": 20.0,
+                  "shardCount": 2,
+                  "shards": [ { "id": "a", "massKg": 10.0 }, { "id": "b", "massKg": 10.0 } ]
+                }
+                """
+                        .formatted(header, destructionClass, partTypeId));
+    }
+
     /** A103: a schema major this build cannot read is FATAL, whatever else the file says. */
     @Test
     void anUnreadableSchemaVersionIsFatal(@TempDir Path temp) throws Exception {

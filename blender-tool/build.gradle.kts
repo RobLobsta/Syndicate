@@ -108,6 +108,10 @@ private fun blenderCommand(module: String, toolArgs: Array<out String>): List<St
 fun fractureCommand(vararg toolArgs: String): List<String> =
     blenderCommand("syndicate_fracture", toolArgs)
 
+/** The deform tool's invocation, on whichever host is present — as `fractureCommand`. */
+fun deformCommand(vararg toolArgs: String): List<String> =
+    blenderCommand("syndicate_deform", toolArgs)
+
 /** The preparation tool's invocation, on whichever host is present — as `fractureCommand`. */
 fun prepareCommand(vararg toolArgs: String): List<String> =
     blenderCommand("syndicate_prepare", toolArgs)
@@ -120,7 +124,9 @@ val lint = tasks.register<Exec>("lint") {
     commandLine(
         "ruff",
         "check",
+        "syndicate_policy",
         "syndicate_fracture",
+        "syndicate_deform",
         "syndicate_dissect",
         "syndicate_prepare",
         "syndicate_weapon",
@@ -212,7 +218,12 @@ tasks.register("processFixtures") {
             "--out", File(outRoot, name).absolutePath,
             "--seed", seed.toString(),
             "--shards", shards.toString(),
-            "--damage-morphs", "4",
+            // The fixtures are geometry probes for the fracture maths, not parts, so their
+            // material (steel, aluminium) says what they weigh and this says which transform
+            // is under test. It used to also pass `--damage-morphs 4`, which authored both
+            // transforms onto every fixture and made the gate prove the tool doing the one
+            // thing D15-S5.7 forbids (DISC-068). The deform half is `processDeformFixtures`.
+            "--destruction-class", "GLASS",
             "--material-table", materialTable.absolutePath,
         )
     }
@@ -249,6 +260,72 @@ tasks.register("processFixtures") {
                 )
             }
             this@register.logger.lifecycle("processFixtures: $name -> ${File(outRoot, name)}")
+        }
+    }
+}
+
+/**
+ * `:blender-tool:processDeformFixtures` — the DEFORM half of the fixture gate.
+ *
+ * `processFixtures` exercises the fracture maths over canonical geometry; this exercises the
+ * deform tool over the same geometry, into a *separate* directory. Separate because a part
+ * carrying both a `fracture_manifest.json` and a `deform_manifest.json` is the exact mixture
+ * D15-S5.7 forbids, and a gate that produced one would be asserting the opposite of what it
+ * means to.
+ *
+ * Two fixtures rather than five: the plate and the cylinder are the shapes whose dents are worth
+ * looking at (a flat panel and a curved one), and the tool's own TV-002/TV-003 guards are what
+ * actually check the morphs. Running all five would cost Blender time for no extra coverage.
+ */
+tasks.register("processDeformFixtures") {
+    group = "build"
+    description = "Authors damage morphs on two fixtures into build/deform-fixtures-out/."
+
+    val toolDir = layout.projectDirectory.asFile
+    val meshesDir = rootProject.layout.projectDirectory.dir("fixtures/meshes").asFile
+    val outRoot = rootProject.layout.buildDirectory.dir("deform-fixtures-out").get().asFile
+
+    val invocations: List<Pair<String, List<String>>> =
+        listOf("test_plate_2x1x0.1" to 1002, "test_cylinder_r0.5_h1" to 1003).map { (name, seed) ->
+            name to deformCommand(
+                "--input", File(meshesDir, "$name.glb").absolutePath,
+                "--out", File(outRoot, name).absolutePath,
+                "--seed", seed.toString(),
+                "--destruction-class", "SHEET_METAL",
+                "--amplitude", "0.02",
+            )
+        }
+    val required = blenderRequired
+    val available = blenderAvailable
+    val exe = blenderExe
+
+    inputs.dir(meshesDir).withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.dir(outRoot)
+
+    doLast {
+        if (!available) {
+            val message = "Blender not found; tried '$exe' on PATH and the bpy module (D02-R12)"
+            if (required) {
+                throw GradleException("$message — SYNDICATE_REQUIRE_BLENDER=1")
+            }
+            this@register.logger.warn("SKIPPED :blender-tool:processDeformFixtures — $message")
+            return@doLast
+        }
+        for ((name, command) in invocations) {
+            val process = ProcessBuilder(command)
+                .directory(toolDir)
+                .redirectErrorStream(false)
+                .also { it.environment()["PYTHONPATH"] = toolDir.absolutePath }
+                .start()
+            val document = process.inputStream.bufferedReader().readText()
+            val diagnostics = process.errorStream.bufferedReader().readText()
+            val code = process.waitFor()
+            if (code != 0) {
+                throw GradleException(
+                    "deform failed for '$name' with exit $code:\n$document\n$diagnostics",
+                )
+            }
+            this@register.logger.lifecycle("processDeformFixtures: $name -> ${File(outRoot, name)}")
         }
     }
 }

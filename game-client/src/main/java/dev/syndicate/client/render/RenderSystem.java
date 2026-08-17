@@ -17,11 +17,16 @@ import dev.syndicate.client.component.RenderModelComponent;
 import dev.syndicate.client.component.RenderTransformComponent;
 import dev.syndicate.client.effect.EffectSystem;
 import dev.syndicate.client.input.InputDeviceKind;
+import dev.syndicate.core.asset.AssetIndex;
+import dev.syndicate.core.asset.FractureManifest;
+import dev.syndicate.core.asset.ShardDefinition;
+import dev.syndicate.core.component.DebrisTagComponent;
 import dev.syndicate.core.component.HealthComponent;
 import dev.syndicate.core.component.MatchClockComponent;
 import dev.syndicate.core.component.MatchStateComponent;
 import dev.syndicate.core.component.PartRefComponent;
 import dev.syndicate.core.component.PlayerIdentityComponent;
+import dev.syndicate.core.component.RigidBodyComponent;
 import dev.syndicate.core.component.ScoreComponent;
 import dev.syndicate.core.component.SlotGraphComponent;
 import dev.syndicate.core.component.VehicleChassisComponent;
@@ -33,6 +38,7 @@ import dev.syndicate.core.ecs.EntitySystem;
 import dev.syndicate.core.ecs.Family;
 import dev.syndicate.core.ecs.Phase;
 import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.physics.ShapeCacheKey;
 import dev.syndicate.core.vehicle.SlotNode;
 import dev.syndicate.model.MatchOutcome;
 import dev.syndicate.model.MatchPhase;
@@ -65,6 +71,7 @@ public final class RenderSystem implements EntitySystem {
     public static final float OVERVIEW_RADIUS_M = 60f;
 
     private final RenderContext context;
+    private final AssetIndex assets;
     private final LocalPlayer localPlayer;
     private final Supplier<InputDeviceKind> activeDevice;
     private final EffectSystem effects;
@@ -75,6 +82,7 @@ public final class RenderSystem implements EntitySystem {
 
     private Family drawable;
     private Family undrawn;
+    private Family undrawnDebris;
     private Family players;
     private Family bursts;
     private Family lamps;
@@ -96,10 +104,12 @@ public final class RenderSystem implements EntitySystem {
      */
     public RenderSystem(
             RenderContext context,
+            AssetIndex assets,
             LocalPlayer localPlayer,
             EffectSystem effects,
             Supplier<InputDeviceKind> activeDevice) {
         this.context = Objects.requireNonNull(context, "context");
+        this.assets = Objects.requireNonNull(assets, "assets");
         this.localPlayer = Objects.requireNonNull(localPlayer, "localPlayer");
         this.effects = Objects.requireNonNull(effects, "effects");
         this.activeDevice = Objects.requireNonNull(activeDevice, "activeDevice");
@@ -118,6 +128,12 @@ public final class RenderSystem implements EntitySystem {
     @Override
     public void initialize(World world) {
         undrawn = world.family(ComponentQuery.all(PartRefComponent.class).exclude(RenderModelComponent.class));
+        // Debris is the other half of what has a mesh, and it is not a part: a shard has no
+        // PartRefComponent, because the part it broke off was destroyed in the tick that made it
+        // (DEC-018, D04-E1). What it does carry is the shape key its hull came from, which names
+        // the manifest and the shard within it.
+        undrawnDebris = world.family(ComponentQuery.all(DebrisTagComponent.class, RigidBodyComponent.class)
+                .exclude(RenderModelComponent.class));
         drawable = world.family(ComponentQuery.all(RenderModelComponent.class, RenderTransformComponent.class));
         players = world.family(ComponentQuery.all(PlayerIdentityComponent.class, ScoreComponent.class));
         // A lamp is a part with a render transform. Whether it is *lit* is decided per frame from
@@ -171,6 +187,48 @@ public final class RenderSystem implements EntitySystem {
             model.modelInstance = part == null ? null : context.partModels().instanceOf(part.partTypeId);
             world.addComponent(entityId, model);
         }
+        attachShardModels(world);
+    }
+
+    /**
+     * Gives every shard the piece of glass it is.
+     *
+     * <p>Without this the authored destruction is invisible: {@code FractureSystem} spawns one
+     * debris body per shard and they collide, slide and settle, but nothing draws them, so a
+     * windscreen taking a burst still just disappears. The shard's own hull is already the right
+     * shape — this asks {@code shards.glb} for the same node the loader took that hull from
+     * (D08-S5.3 step 2), which is why {@link ShardDefinition#meshNodeName()} exists rather than
+     * each side inventing a naming convention.
+     *
+     * <p>A shard whose manifest is not in the index still simulates and still cannot be drawn, and
+     * that is a null instance rather than a skipped entity: the component is attached either way,
+     * so a failed lookup happens once per shard rather than once per frame for its whole life.
+     */
+    private void attachShardModels(World world) {
+        int[] entityIds = undrawnDebris.snapshot();
+        int count = undrawnDebris.size();
+        for (int i = 0; i < count; i++) {
+            int entityId = entityIds[i];
+            RenderModelComponent model = new RenderModelComponent();
+            model.modelInstance = shardInstance(world.getComponent(entityId, RigidBodyComponent.class));
+            world.addComponent(entityId, model);
+        }
+    }
+
+    private ModelInstance shardInstance(RigidBodyComponent body) {
+        if (body == null || body.shapeKey == null || body.shapeKey.variant() != ShapeCacheKey.Variant.SHARD_HULL) {
+            return null;
+        }
+        FractureManifest manifest = assets.fractureManifest(body.shapeKey.assetId());
+        if (manifest == null) {
+            return null;
+        }
+        for (ShardDefinition shard : manifest.shards()) {
+            if (shard.index() == body.shapeKey.index()) {
+                return context.partModels().shardInstanceOf(manifest.partTypeId(), shard);
+            }
+        }
+        return null;
     }
 
     // ---- Lamps ----------------------------------------------------------------------

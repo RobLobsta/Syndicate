@@ -823,7 +823,7 @@ def assemble(options: Options, shells, parts, corners, body, objects, stages) ->
 
 
 def _export_all(options: Options, prepared, chassis, objects) -> list[dict]:
-    """Stage 8's Blender half: one mesh per part, then the glass fracture, then nothing else.
+    """Stage 8's Blender half: one mesh per part, then the fractures, then nothing else.
 
     The fracture runs after every mesh is on disk because the D09 tool reloads the scene
     (D09-R15), which would invalidate every object reference the parts still being exported
@@ -836,7 +836,7 @@ def _export_all(options: Options, prepared, chassis, objects) -> list[dict]:
         results.append(exporter.export_part(part, members, out, options.seed))
     for part, produced in zip(prepared, results, strict=True):
         if destruction.treatment_for(part.label).fracture_shards and part is not chassis:
-            exporter.fracture_glass(part, out, options.material_table, options.seed, produced)
+            exporter.author_fracture(part, out, options.material_table, options.seed, produced)
     return [
         {**produced.as_dict(), "massOverrideKg": produced.mass_override_kg}
         for produced in results

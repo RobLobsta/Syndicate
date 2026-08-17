@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/17_weapon_system.md#D17-S5.1, docs/08_asset_pipeline.md#D08-S4.6, docs/15_vehicle_preparation_pipeline.md#D15-S5.10
 
-**Status:** active
+**Status:** superseded (by PROG-037)
 
 Supersedes: PROG-034
 

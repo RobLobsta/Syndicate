@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/03_runtime_modes.md#D03-S5.1, docs/03_runtime_modes.md#D03-S5.3, docs/01_product_game_design.md#D01-S3, docs/15_vehicle_preparation_pipeline.md#D15-S8
 
-**Status:** active
+**Status:** superseded (by PROG-039)
 
 Supersedes: PROG-021
 Supersedes: PROG-022

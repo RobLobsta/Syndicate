@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/09_blender_destruction_tool.md#D09-S5.2, docs/15_vehicle_preparation_pipeline.md#D15-S5.1, docs/14_test_environment.md#D14-S5.13
 
-**Status:** active
+**Status:** superseded (by PROG-040)
 
 Supersedes: PROG-008
 Supersedes: PROG-024

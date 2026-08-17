@@ -1,9 +1,15 @@
-"""Exit codes and the machine-readable failure report of D09-S4.3 and D09-S9.
+"""The machine-readable failure report of D09-S4.3 and D09-S9.
 
 The tool's primary user is an agent reading an exit code, so the codes are the contract:
 grouped so a caller can branch on the category, specific where a specific response exists,
 and never reused. D09-R6 makes a specific code win over the general ``VERIFICATION_FAILED``
 so the common cases need no report parsing at all.
+
+The codes themselves now live in :mod:`syndicate_policy.exit_codes`, which is the one table
+the whole suite shares — three packages previously kept their own copies and disagreed about
+what 65 and 66 meant (DISC-068). They are re-exported here so every existing
+``from .errors import EXIT_*`` keeps working and there is still one import for a failure path
+to reach for.
 """
 
 from __future__ import annotations
@@ -14,38 +20,24 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any
 
-# --- Exit codes (D09-S4.3) -------------------------------------------------------------
-EXIT_OK = 0
-EXIT_USAGE = 64
-EXIT_INPUT_INVALID = 65
-EXIT_INPUT_GEOMETRY_INVALID = 66
-EXIT_MATERIAL_UNRESOLVED = 67
-EXIT_FRACTURE_FAILED = 68
-EXIT_SHAPEKEY_FAILED = 69
-EXIT_BLENDER_ERROR = 70
-EXIT_HULL_FAILED = 71
-EXIT_MASS_IMPLAUSIBLE = 72
-EXIT_VERIFICATION_FAILED = 73
-EXIT_EXPORT_FAILED = 74
-EXIT_OUTPUT_WRITE_FAILED = 75
-EXIT_DETERMINISM_VIOLATION = 76
-
-EXIT_NAMES: dict[int, str] = {
-    EXIT_OK: "OK",
-    EXIT_USAGE: "USAGE",
-    EXIT_INPUT_INVALID: "INPUT_INVALID",
-    EXIT_INPUT_GEOMETRY_INVALID: "INPUT_GEOMETRY_INVALID",
-    EXIT_MATERIAL_UNRESOLVED: "MATERIAL_UNRESOLVED",
-    EXIT_FRACTURE_FAILED: "FRACTURE_FAILED",
-    EXIT_SHAPEKEY_FAILED: "SHAPEKEY_FAILED",
-    EXIT_BLENDER_ERROR: "BLENDER_ERROR",
-    EXIT_HULL_FAILED: "HULL_FAILED",
-    EXIT_MASS_IMPLAUSIBLE: "MASS_IMPLAUSIBLE",
-    EXIT_VERIFICATION_FAILED: "VERIFICATION_FAILED",
-    EXIT_EXPORT_FAILED: "EXPORT_FAILED",
-    EXIT_OUTPUT_WRITE_FAILED: "OUTPUT_WRITE_FAILED",
-    EXIT_DETERMINISM_VIOLATION: "DETERMINISM_VIOLATION",
-}
+from syndicate_policy.exit_codes import (  # noqa: F401 - re-exported for the whole package
+    EXIT_BLENDER_ERROR,
+    EXIT_DETERMINISM_VIOLATION,
+    EXIT_EXPORT_FAILED,
+    EXIT_FRACTURE_FAILED,
+    EXIT_HULL_FAILED,
+    EXIT_INPUT_GEOMETRY_INVALID,
+    EXIT_INPUT_INVALID,
+    EXIT_MASS_IMPLAUSIBLE,
+    EXIT_MATERIAL_UNRESOLVED,
+    EXIT_NAMES,
+    EXIT_OK,
+    EXIT_OUTPUT_WRITE_FAILED,
+    EXIT_SHAPEKEY_FAILED,
+    EXIT_TRANSFORM_NOT_PERMITTED,
+    EXIT_USAGE,
+    EXIT_VERIFICATION_FAILED,
+)
 
 # Codes that always beat EXIT_VERIFICATION_FAILED when several checks fail at once
 # (D09-R6). Lower index wins, so a caller sees the most actionable cause.

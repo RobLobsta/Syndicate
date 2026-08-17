@@ -1,6 +1,6 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-17 (end of SESS-038)
+**Last updated:** 2026-08-17 (end of SESS-039)
 
 This is the plan, in order. Each step below is meant to be picked up from the top: everything above
 "you are here" is done, everything below it is not, and the order is the order they should be done
@@ -28,15 +28,13 @@ torn down and rebuilt when you go back in.
 
 Five things that sentence leaves out, in the order they hurt:
 
-1. **The guns work, the sub-parts now matter, and it has been driven — badly.** Two weapons ship, each
+1. **The guns work, the sub-parts matter, and the glass now breaks into glass.** Two weapons ship, each
    an *assembly* of five or seven sub-parts. Shoot the barrel off and accuracy collapses and range
-   halves; take the breech and the fire rate halves; take the receiver and the gun stops. That table
-   landed this session and it is what makes a loadout a decision rather than a formality. It has now
-   also been **played**, headlessly, with a scripted drive — and that first drive found two things no
-   test had: at 145 km/h the desert's dunes launch the car and the anti-tunnelling clamp holds it
-   airborne (DISC-063), and a road spline 50 m too long carves a canyon through the arena wall
-   (DISC-062). The damage numbers are still D01's defaults, no weapon fractures when it dies, and six
-   of the eight families have no content.
+   halves; take the breech and the fire rate halves; take the receiver and the gun stops. And a
+   windscreen that dies now comes apart into the two dozen fragments the Blender tool cut for it,
+   which fly, land and slide — the first time any of that authored destruction has run inside the
+   game rather than in a harness beside it. The damage numbers are still D01's defaults, only glass
+   has shards, no weapon fractures when it dies, and six of the eight families have no content.
 2. **The Desert Highway now has a highway.** A 612 m tarmac road is carved from a spline, and the
    blend either side digs cuttings and raises embankments without anybody authoring one — cover on
    both sides, and ridges you can be pushed off. Sand is slower than tarmac at the wheel now, so
@@ -78,17 +76,16 @@ numbers, one renderer and one socket.
    ├── A garage that arms the car                               DEC-084
    ├── Blender in the sandbox, and the fixture gate green       DISC-064
    ├── The two things the first drive found, fixed              DEV-019
-   └── Cars no longer spawn underground                         DISC-067
+   ├── Cars no longer spawn underground                         DISC-067
+   └── The glass breaks into glass                              PROG-038
   ─────────────────────────────────────────────────────── you are here
   NEXT
-   0. Load the fracture manifests             ← authored destruction never runs
-   1. Guns, finished                          ← degradation, fracture, more families
-   2. Roads and structures                    ← terrain stages 3 and 4
-   4. Tuning, with a console to do it from    ← the alpha gate
-   5. Options, and the rest of the shell
-   6. Terrain rendering, properly             ← needs a real GPU to measure
-   7. Sockets
-   8. Hardening and release
+   1. Structures                              ← terrain stage 4, the last one
+   2. Tuning, with a console to do it from    ← the alpha gate
+   3. Options, and the rest of the shell
+   4. Terrain rendering, properly             ← needs a real GPU to measure
+   5. Sockets
+   6. Hardening and release
 ```
 
 ---
@@ -159,24 +156,38 @@ whole, structural buckles — and the pipeline implements that faithfully. All 5
 open surface meshes, which is normal for downloaded car art. Making a door shatter is a **content
 decision** that needs D15-S5.7 amended first, not a batch command somebody forgot to run.
 
-### Step 0 — Load the fracture manifests ★ the next thing
+### Step 1c — The fracture manifests, loaded ✅ done
 
-**No fracture manifest is ever loaded at runtime.** Nothing in `game-core` or `game-client`
-constructs a `FractureManifest`; the index has a map for them, `FractureSystem` reads it, and it is
-never filled. So every glass part that shatters is destroyed *without shards*, in every match, and
-logs an ERROR saying so. The whole authored glass destruction path — the Blender tool, the shards,
-the harness that verifies them — has never once run in the actual game.
+No manifest had ever reached the runtime. `FractureSystem` looked one up on every destroyed glass
+part, the index's map was never filled, and so every pane in every match was destroyed *without
+shards*, logging an error as it went. The Blender tool, the shards it cuts and the harness that
+verifies them had never once run inside the game.
 
-The work is a JSON reader for `fracture_manifest.json` plus the shard hull geometry out of
-`shards.glb`, which the game-core glTF reader (DEC-035) can already do and which `test-environment`
-already does independently (DEC-008). It is the cheapest large visible improvement left.
+Both halves landed. `AssetLoader` reads `fracture_manifest.json` and pulls each shard's geometry out
+of `shards.glb`, and `RenderSystem` draws the shards — because loading them alone would have changed
+the physics and nothing anybody can see, which is the shape of the mistake that shipped a car with
+black discs for wheels.
 
-### Step 2 — Structures
+One thing that needed deciding and is worth knowing: **`shards.glb` is exported in the part's frame**,
+and the spawn path composes the shard's own placement on top of it, so the offset would have been
+applied twice — every fragment a metre from where it belongs, with every test still passing. Both
+readers now invert the placement, and the manifest's per-shard bounding box is checked against the
+exported geometry so which space the file is in is verified rather than assumed (DEC-086).
+
+Photographed, not inferred: fragments on the tarmac beside a rolled Eclipse, and a burst of them
+around a Stampede that has just lost its windows.
+
+**Still only glass**, and that is D15-S5.7 working as written rather than a gap. Giving a door shards
+is a content decision that needs that section amended first — see §5.
+
+### Step 1 — Structures
 
 Stage 4 of the four D16 defines; stages 1, 2a and 3 are done. A factory, a placement pass, and four or
-five things to place. Everything that *breaks* them already exists (DEC-071), so the work is two new
-pieces plus a fracture run per object — and that fracture run is the catch: it needs Blender, which
-the development sandbox does not have.
+five things to place. Everything that *breaks* them already exists (DEC-071) and, since this session,
+everything that *loads* what breaks them does too — so the work is two new pieces plus a fracture run
+per object. That fracture run needs Blender, which the sandbox does not ship and
+`blender-tool/tools/install-blender.sh` fetches in ninety seconds (§Step 1b); it was read as a
+blocker for three sessions and is not one.
 
 This matters more for the Scrapyard than for the desert. A breaker's yard with no wrecks in it is a
 quarry, and it is currently a quarry.
@@ -185,7 +196,7 @@ Also here, and smaller: **the scrapyard's haul road**, withdrawn this session ra
 broken. Its extent has to be measured against its own rim, which is at a different place from the
 desert's because the two arenas have different cell sizes — 1 m against 2 m.
 
-### Step 3 — Tuning, with a console to do it from ★ the alpha gate
+### Step 2 — Tuning, with a console to do it from ★ the alpha gate
 
 This is the only question left that cannot be answered by writing code, and it is the one that
 decides whether the game is any good.
@@ -208,17 +219,17 @@ Then turn them, in roughly this order:
 Use the offline headless runner for everything that is not about feel — eight bots for sixty seconds
 with a report at the end is a much faster loop than driving.
 
-**This is the alpha gate.** A build that reaches the end of step 4 is worth putting in front of a
+**This is the alpha gate.** A build that reaches the end of step 2 is worth putting in front of a
 playtester. A build before it is worth putting in front of you.
 
-### Step 4 — Options, and the rest of the shell
+### Step 3 — Options, and the rest of the shell
 
 Once the game is worth playing, it needs the things a player expects around it: a settings screen
 (resolution, volume, bindings, difficulty), a pause menu, a post-match results screen that is not the
 in-match scoreboard, and persistence of the vehicle you last chose. Small, and all of it obvious once
 `GameShell` exists.
 
-### Step 5 — Terrain rendering, properly
+### Step 4 — Terrain rendering, properly
 
 What exists draws the ground as one mesh, decimated to a stride, with a material per surface. That is
 enough to look at, drive on and judge — and it is not D16-S6. What is missing is everything that
@@ -234,9 +245,9 @@ Doing this work without a machine that can measure it is guessing.
 The decimation is also visible today: the desert's dune slip faces read as jagged where the stride
 skips them. That is the stride, not the classifier, and chunking fixes it.
 
-### Step 6 — Sockets
+### Step 5 — Sockets
 
-### Step 7 — Hardening and release
+### Step 6 — Hardening and release
 
 The performance budgets, packaging and balance sweeps D12-S5.4 requires before anything ships.
 Bandwidth is now measurable for the first time: the budget is 128 kbit/s down and 32 kbit/s up per
@@ -270,6 +281,14 @@ Real work, no fixed place in the sequence.
   Mustang's low-order energy is panels and cabin, which nothing here reproduces.
 - **Capture the client's screens in CI.** Now possible (DISC-046) and not yet wired. It would make a
   visual regression a failing build rather than something noticed three sessions later.
+- **The Blender suite, and what is left of its tidy-up.** The six defects `blender-tool/README.md`
+  found are fixed: one tool per transform, each refusing a destruction class D15-S5.7 does not give
+  it, every manifest declaring what it is, and an asset-gate rule that pairs the two. Three things
+  were left deliberately, all of them readability rather than correctness — `syndicate_dissect` and
+  `syndicate_prepare` keep names that describe jobs they no longer do, the low-level modules
+  `syndicate_deform` borrows still live in `syndicate_fracture`, and the runtime still does not
+  check a part's class before fracturing it. The first two belong in a commit with no behaviour in
+  it; the third is worth doing when a second class has shards to get wrong.
 - **JSON schemas at load, still.** `schemas/` is an empty directory that D08-R18 makes a hard
   requirement and that D09-R7, D09-AC-7, D14-R7 and D14-AC-6 all cite. Eight schemas and a validator;
   it cannot be deleted, because five requirements point at it.
@@ -295,6 +314,12 @@ Not decided, and not for the assistant to decide alone.
   keep it — it is the protection a part gives and every category carries it, including wheels and the
   chassis, and keeping it leaves the word "armour" free for fitted plating if the garage ever offers a
   choice of it. DEC-073 is closed on that reading.
+- **Which parts should shatter, and not just glass.** D15-S5.7 gives shards to `glass` alone — sheet
+  metal dents, rigid parts detach whole, structural buckles — and the pipeline implements that
+  faithfully. Now that shards actually reach the game, the limit is visible: a door comes off in one
+  piece and always will until that section says otherwise. Making a bonnet fold into three is a
+  content decision (amend D15-S5.7, re-run the tool for those parts), not a bug. Worth deciding once
+  you have watched a fight.
 - **What the house style should actually look like.** `assets/materials/style.json` is ten surface
   roles, a six-hue palette and a luminance band, aimed at Crossout's wasteland. Every number in it
   is a taste decision; the pipeline re-runs in about ninety seconds a vehicle, and the report says

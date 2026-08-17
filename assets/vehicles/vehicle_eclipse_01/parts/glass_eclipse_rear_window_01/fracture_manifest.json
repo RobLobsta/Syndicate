@@ -9,7 +9,7 @@
     "y": -0.21752,
     "z": -0.764135
   },
-  "blenderVersion": "4.2.0",
+  "blenderVersion": "4.2.13 LTS",
   "collision": {
     "partHullPieces": 1,
     "partHullVertexCount": 54,
@@ -21,7 +21,8 @@
     "z": -0.448462
   },
   "densityKgPerM3": 2500.0,
-  "generatedAt": "2026-08-15T18:46:20Z",
+  "destructionClass": "GLASS",
+  "generatedAt": "2026-08-17T15:22:54Z",
   "inertiaDiagonal": {
     "x": 0.370821,
     "y": 3.579316,
@@ -31,12 +32,11 @@
   "morphStats": [],
   "morphTargets": [],
   "parameters": {
-    "damageMorphs": 0,
     "hullMaxVerts": 32,
     "minShardVolumeM3": 1e-06,
-    "morphAmplitude": 0.06,
     "shardMode": "uniform",
-    "shards": 24
+    "shards": 24,
+    "shellThicknessM": 0.005
   },
   "partMassKg": 13.465352,
   "partTypeId": "glass_eclipse_rear_window_01",
@@ -1104,10 +1104,11 @@
       "volumeM3": 0.000146
     }
   ],
-  "sourceFile": "../assets/vehicles/vehicle_eclipse_01/parts/glass_eclipse_rear_window_01/mesh.glb",
-  "sourceHash": "sha256:b6863a89f9162c15923a4d281ac57c082e13b9d7ff2b28cd2e4642fac8a16e48",
+  "sourceFile": "assets/vehicles/vehicle_eclipse_01/parts/glass_eclipse_rear_window_01/mesh.glb",
+  "sourceHash": "sha256:8b5cf6dc3f95a4beea8e42226f455fb2e992b371934ad79679e40f85f9aebe16",
   "toolVersion": "0.1.0",
   "topologyHash": "sha256:fc234fbcb0bbfb3dbfcec7c4159c31892ce79eee48dbe74dc2effadf0a21dfe5",
+  "transform": "FRACTURE",
   "verification": {
     "checks": [
       {
@@ -1115,13 +1116,6 @@
         "id": "TV-001",
         "measured": "min 0.1017 kg, max 1.9094 kg over 24 shards",
         "name": "All shards have positive mass",
-        "status": "pass"
-      },
-      {
-        "expected": "strictly increasing",
-        "id": "TV-003",
-        "measured": "[]",
-        "name": "Shape key severity increases across levels",
         "status": "pass"
       },
       {
@@ -1310,7 +1304,7 @@
         "expected": "[]",
         "id": "TV-006",
         "measured": "[]",
-        "name": "Morph targets present in exported mesh",
+        "name": "Exported mesh carries no damage morphs",
         "status": "pass"
       },
       {

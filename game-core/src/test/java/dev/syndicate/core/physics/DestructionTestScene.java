@@ -418,8 +418,8 @@ public final class DestructionTestScene implements AutoCloseable {
             float offset = (i - (shardCount - 1) * 0.5f) * 0.2f;
             Transform placement = new Transform();
             placement.position.set(offset, 0f, 0f);
-            shards.add(new ShardDefinition(
-                    String.format("shard_%03d", i), i, shardMass, new Vector3(offset, 0f, 0f), placement, hull));
+            String name = String.format("shard_%03d", i);
+            shards.add(new ShardDefinition(name, name, i, shardMass, new Vector3(offset, 0f, 0f), placement, hull));
         }
         FractureManifest manifest = new FractureManifest(manifestId, partTypeId, partMassKg, shards);
         assets.put(manifest);

@@ -220,18 +220,23 @@ public final class CheckRunner {
                 conservationDelta,
                 String.format("delta %.3f%% of part mass", 100 * conservationDelta / manifest.partMassKg)));
 
+        // ASSET-007 asks the opposite question it used to. A fracture manifest describes the
+        // FRACTURE transform and no destruction class in D15-S5.7 receives both transforms, so a
+        // part with shards must carry *no* damage morphs — deformation is a separate tool writing
+        // a separate `deform_manifest.json` beside it. The check used to require four morph
+        // targets here, which is what let one tool author both and nothing notice (DISC-068).
         add(timed(
                 "ASSET-007",
-                "Shape keys present",
+                "A fractured part declares no damage morphs",
                 Check.Category.ASSET,
-                manifest.morphTargets.size() == 4,
-                "four damage morph targets are declared",
+                manifest.morphTargets.isEmpty(),
+                "a part that shatters does not also dent (D15-S5.7)",
                 String.valueOf(manifest.morphTargets),
-                4.0,
+                0.0,
                 (double) manifest.morphTargets.size(),
                 null,
                 null,
-                manifest.morphTargets.size() + "/4 morph targets"));
+                manifest.morphTargets.size() + " morph targets on a fracturing part"));
         physicsData.put("morph_targets", manifest.morphTargets);
 
         add(timed(

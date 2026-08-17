@@ -25,6 +25,7 @@ import java.util.Objects;
 public final class ShardDefinition {
 
     private final String shardId;
+    private final String meshNodeName;
     private final int index;
     private final float massKg;
     private final Vector3 centroidLocal = new Vector3();
@@ -34,22 +35,27 @@ public final class ShardDefinition {
     /**
      * @param shardId the manifest's shard id; ties are broken by it so iteration is deterministic
      *     (G3)
+     * @param meshNodeName the manifest's {@code name} — the node this shard's geometry sits on in
+     *     {@code shards.glb} (D09-S4.4, A501). Null falls back to {@code shardId}
      * @param index the shard's index within the manifest, which is also its {@code ShapeCacheKey}
      *     index
      * @param massKg from the manifest, {@code > MIN_BODY_MASS_KG} for a spawnable shard
      * @param centroidLocal the shard's centroid in the <em>part's</em> local space; its direction
      *     from the origin is the outward scatter direction of D07-S5.6
      * @param localTransform where the shard sits within the intact part
-     * @param hullMesh the shard's collision mesh, decimated further than a part's (D06-R6)
+     * @param hullMesh the shard's collision mesh in the shard's <em>own</em> space, decimated
+     *     further than a part's (D06-R6)
      */
     public ShardDefinition(
             String shardId,
+            String meshNodeName,
             int index,
             float massKg,
             Vector3 centroidLocal,
             Transform localTransform,
             MeshData hullMesh) {
         this.shardId = Objects.requireNonNull(shardId, "shardId");
+        this.meshNodeName = meshNodeName == null || meshNodeName.isBlank() ? this.shardId : meshNodeName;
         if (index < 0) {
             throw new IllegalArgumentException("shard index must be >= 0, got " + index);
         }
@@ -65,6 +71,17 @@ public final class ShardDefinition {
 
     public String shardId() {
         return shardId;
+    }
+
+    /**
+     * The node this shard's geometry sits on in {@code shards.glb}.
+     *
+     * <p>Carried rather than derived from {@link #shardId} because A501 pairs the two by exact
+     * match, and because the client resolves a shard's drawable model by the same name the loader
+     * resolved its hull by — one field instead of two conventions that can drift.
+     */
+    public String meshNodeName() {
+        return meshNodeName;
     }
 
     public int index() {

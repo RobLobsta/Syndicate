@@ -15,9 +15,11 @@ from syndicate_fracture.cli import (
     parse,
     split_blender_args,
 )
-from syndicate_fracture.errors import EXIT_USAGE, ToolError
+from syndicate_fracture.errors import EXIT_TRANSFORM_NOT_PERMITTED, EXIT_USAGE, ToolError
 
-REQUIRED = ["--input", "in.glb", "--out", "out"]
+#: Every invocation needs a destruction class now: the tool refuses to fracture a class
+#: D15-S5.7 gives no shards to, and cannot refuse what it was never told (DISC-068).
+REQUIRED = ["--input", "in.glb", "--out", "out", "--destruction-class", "GLASS"]
 
 
 class TestSeparator:
@@ -37,8 +39,7 @@ class TestValidation:
         assert args.seed == DEFAULT_SEED == 1337
         assert args.shards == DEFAULT_SHARDS == 24
         assert args.shard_mode == "uniform"
-        assert args.damage_morphs == 4
-        assert args.morph_amplitude == pytest.approx(0.06)
+        assert args.destruction_class == "GLASS"
         assert args.hull_max_verts == 32
         assert args.part_hull_max_verts == 64
         assert args.mass_tolerance == pytest.approx(0.02)
@@ -81,9 +82,6 @@ class TestValidation:
     @pytest.mark.parametrize(
         "flags",
         [
-            ["--damage-morphs", "5"],
-            ["--damage-morphs", "-1"],
-            ["--morph-amplitude", "0"],
             ["--hull-max-verts", "3"],
             ["--mass-tolerance", "0"],
         ],
@@ -104,8 +102,48 @@ class TestValidation:
         assert block == {
             "shards": 8,
             "shardMode": "surface_biased",
-            "damageMorphs": 4,
-            "morphAmplitude": pytest.approx(0.06),
             "hullMaxVerts": 32,
             "minShardVolumeM3": pytest.approx(1e-6),
+            "shellThicknessM": pytest.approx(0.0),
         }
+
+
+class TestTransformIsolation:
+    """The tool authors FRACTURE and nothing else (D00-S6, D15-S5.7, DISC-068)."""
+
+    def test_a_class_that_does_not_fracture_is_refused(self) -> None:
+        # Not a usage error: the invocation is well formed and the content decision behind it
+        # is what is wrong, so an agent is sent to the label rather than to the flags.
+        for destruction_class in ("SHEET_METAL", "STRUCTURAL", "RIGID", "NONE"):
+            with pytest.raises(ToolError) as caught:
+                parse(["--input", "in.glb", "--out", "out",
+                       "--destruction-class", destruction_class])
+            assert caught.value.code == EXIT_TRANSFORM_NOT_PERMITTED
+            assert destruction_class in caught.value.message
+
+    def test_the_class_is_required(self) -> None:
+        with pytest.raises(ToolError) as caught:
+            parse(["--input", "in.glb", "--out", "out"])
+        assert caught.value.code == EXIT_USAGE
+        assert "--destruction-class" in caught.value.message
+
+    def test_an_unknown_class_is_a_usage_error(self) -> None:
+        with pytest.raises(ToolError) as caught:
+            parse(["--input", "in.glb", "--out", "out", "--destruction-class", "CHEESE"])
+        assert caught.value.code == EXIT_USAGE
+
+    def test_the_class_is_case_insensitive(self) -> None:
+        assert parse(["--input", "in.glb", "--out", "out",
+                      "--destruction-class", "glass"]).destruction_class == "GLASS"
+
+    @pytest.mark.parametrize(
+        "flags", [["--damage-morphs", "4"], ["--morph-amplitude", "0.06"]]
+    )
+    def test_the_deform_flags_name_the_other_tool(self, flags: list[str]) -> None:
+        # Dropping them silently would leave every old invocation looking like it still worked
+        # while quietly authoring one transform instead of two — the same failure in the other
+        # direction. They are still parsed, and saying where they went is their whole job.
+        with pytest.raises(ToolError) as caught:
+            parse([*REQUIRED, *flags])
+        assert caught.value.code == EXIT_USAGE
+        assert "syndicate_deform" in caught.value.message

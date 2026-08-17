@@ -1,4 +1,4 @@
-"""Stage 3: damage shape key generation (D09-S5.3).
+"""Damage shape key generation — the DEFORM transform (D09-S5.3, D15-S5.7).
 
 Produces N morph targets on the *intact* mesh representing progressive damage. Shards never
 carry morphs (D09-R12): a shard is already the fully-broken representation, so morphing
@@ -14,11 +14,10 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from . import blender
-from .blender import require_bpy
-from .cli import Args
-from .errors import EXIT_SHAPEKEY_FAILED, ToolError
-from .geometry import (
+from syndicate_fracture import blender
+from syndicate_fracture.blender import require_bpy
+from syndicate_fracture.errors import EXIT_SHAPEKEY_FAILED, ToolError
+from syndicate_fracture.geometry import (
     Tri,
     Vec3,
     aabb_of,
@@ -33,7 +32,8 @@ from .geometry import (
     triangle_area,
     vertex_normals,
 )
-from .rng import Pcg32, mix, stable_hash
+from syndicate_fracture.rng import Pcg32, mix, stable_hash
+from syndicate_policy.classes import MORPH_LEVELS
 
 # D14-S6.4 tolerances the morphs must satisfy by construction, so ASSET-008/009 pass in the
 # harness rather than being discovered broken there.
@@ -41,7 +41,8 @@ MORPH_MIN_DELTA_M = 0.005
 MIN_FACE_AREA_M2 = 1e-8
 CRUMPLE_FREQ = 18.0
 
-LEVEL_NAMES = ("dmg_25", "dmg_50", "dmg_75", "dmg_100")
+#: Re-exported from the shared policy so the four names have one definition in the suite.
+LEVEL_NAMES = MORPH_LEVELS
 
 
 @dataclass
@@ -91,10 +92,17 @@ def _remove_existing_damage_keys(obj, mesh) -> None:
             obj.shape_key_remove(key_block)
 
 
-def generate_damage_morphs(obj, args: Args) -> list[MorphStats]:
-    """Add the damage shape keys to ``obj`` and return their statistics (D09-S5.3)."""
+def generate_damage_morphs(
+    obj, *, levels: int = 4, amplitude: float = 0.06, seed: int = 1337
+) -> list[MorphStats]:
+    """Add the damage shape keys to ``obj`` and return their statistics (D09-S5.3).
+
+    Takes the three numbers it needs rather than a whole ``Args``. It used to take the fracture
+    tool's, which is how the two transforms came to share a command line and then a pipeline
+    (DISC-068); nothing about denting a panel needs to know a shard count.
+    """
     require_bpy()
-    if args.damage_morphs == 0:
+    if levels == 0:
         return []
 
     mesh = obj.data
@@ -110,14 +118,14 @@ def generate_damage_morphs(obj, args: Args) -> list[MorphStats]:
     bounding_radius = 0.5 * length(bounds.extent)
     sharp = _sharp_vertices(mesh)
 
-    rng = Pcg32(seed=mix(args.seed, stable_hash(obj.name), stable_hash("morph")))
+    rng = Pcg32(seed=mix(seed, stable_hash(obj.name), stable_hash("morph")))
     dents = _place_dents(basis, triangles, normals, bounding_radius, rng)
 
-    levels = LEVEL_NAMES[: args.damage_morphs]
+    level_names = LEVEL_NAMES[:levels]
     stats: list[MorphStats] = []
 
-    for level_index, name in enumerate(levels):
-        severity = (level_index + 1) / len(levels)
+    for level_index, name in enumerate(level_names):
+        severity = (level_index + 1) / len(level_names)
         key = obj.shape_key_add(name=name, from_mix=False)
 
         max_disp = 0.0
@@ -131,15 +139,15 @@ def generate_damage_morphs(obj, args: Args) -> list[MorphStats]:
                 dist = distance(base, dent.center)
                 if dist < dent.radius:
                     falloff = _smoothstep(1.0 - dist / dent.radius)
-                    depth = args.morph_amplitude * severity * dent.weight * falloff
+                    depth = amplitude * severity * dent.weight * falloff
                     displacement = add(displacement, scale(dent.direction, depth))
 
             # (b) High-frequency crumple, seeded per vertex index so it is identical
             #     regardless of iteration order or Blender version (G11).
-            crumple = _value_noise(base, mix(args.seed, vi))
+            crumple = _value_noise(base, mix(seed, vi))
             displacement = add(
                 displacement,
-                scale(normals[vi], -abs(crumple) * args.morph_amplitude * 0.25 * severity),
+                scale(normals[vi], -abs(crumple) * amplitude * 0.25 * severity),
             )
 
             # (c) Edge preservation: silhouette vertices move less, so the part stays

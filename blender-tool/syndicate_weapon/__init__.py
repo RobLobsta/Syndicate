@@ -45,7 +45,7 @@ EXIT_USAGE = 64
 EXIT_BAD_MODEL = 65
 
 #: The model file or directory is missing.
-EXIT_INPUT_MISSING = 66
+EXIT_INPUT_MISSING = 65
 
 #: A Blender-side failure with no more specific code.
 EXIT_BLENDER_ERROR = 70

@@ -29,6 +29,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from syndicate_deform.subdivide import subdivide_to
+
 from .destruction import treatment_for
 from .manifest import WALL_THICKNESS_M
 
@@ -37,16 +39,6 @@ try:  # pragma: no cover - exercised only inside a Blender host
     import bmesh  # isort: skip
 except ImportError:  # pragma: no cover - the pure-Python unit test path
     bpy = bmesh = None  # type: ignore[assignment]
-
-#: Faces a part may be subdivided up to. A chassis arrives with a hundred thousand and needs
-#: no subdivision at all; a door skin arrives with two hundred and needs a lot. The cap is
-#: what stops a part that arrives somewhere in between from being subdivided into a part no
-#: renderer wants, and it is per part rather than per vehicle for the same reason.
-MAX_SUBDIVIDED_FACES = 40_000
-
-#: Passes of edge subdivision. Each halves the longest edges, so three passes take a 0.6 m
-#: edge to 0.075 m — past the sheet-metal target — and no pass runs if nothing is too long.
-MAX_SUBDIVISION_PASSES = 3
 
 #: Amplitudes handed to the D09 morph generator, in metres of inward displacement at full
 #: damage, tried in order until one passes that tool's own guards.
@@ -133,26 +125,6 @@ def export_part(part, objects, out_root: Path, seed: int) -> Produced:
     return produced
 
 
-def subdivide_to(obj, target_edge_m: float) -> None:
-    """Subdivide edges longer than ``target_edge_m``, bounded by :data:`MAX_SUBDIVIDED_FACES`.
-
-    A panel crumples locally and keeps its area (D15-S5.7), which needs vertex density where
-    the dent is or the dent is a facet. A door skin exported from a game model is often four
-    quads, and four quads cannot dent.
-    """
-    for _pass in range(MAX_SUBDIVISION_PASSES):
-        mesh = bmesh.new()
-        mesh.from_mesh(obj.data)
-        long_edges = [edge for edge in mesh.edges if edge.calc_length() > target_edge_m]
-        if not long_edges or len(mesh.faces) >= MAX_SUBDIVIDED_FACES:
-            mesh.free()
-            return
-        bmesh.ops.subdivide_edges(mesh, edges=long_edges, cuts=1, use_grid_fill=True)
-        mesh.to_mesh(obj.data)
-        mesh.free()
-        obj.data.update()
-
-
 def generate_morphs(obj, seed: int, produced: Produced) -> list[str]:
     """The D09 damage shape keys, or none and a note saying why (D09-S5.3, D15-S5.7).
 
@@ -161,18 +133,15 @@ def generate_morphs(obj, seed: int, produced: Produced) -> list[str]:
     meaningfully trips them legitimately — a wing mirror is 60 triangles. The part then ships
     rigid, which is what it would have been if the taxonomy had called it one.
     """
-    from syndicate_fracture.cli import Args
+    from syndicate_deform.morphs import generate_damage_morphs, morph_names
     from syndicate_fracture.errors import ToolError
-    from syndicate_fracture.morphs import generate_damage_morphs, morph_names
 
     last: Exception | None = None
     for amplitude in MORPH_AMPLITUDES_M:
-        args = Args(
-            input=Path("."), out=Path("."), seed=seed,
-            damage_morphs=4, morph_amplitude=amplitude,
-        )
         try:
-            names = morph_names(generate_damage_morphs(obj, args))
+            names = morph_names(
+                generate_damage_morphs(obj, levels=4, amplitude=amplitude, seed=seed)
+            )
         except ToolError as error:
             last = error
             _clear_shape_keys(obj)
@@ -190,8 +159,13 @@ def _clear_shape_keys(obj) -> None:
         obj.shape_key_remove(obj.data.shape_keys.key_blocks[0])
 
 
-def fracture_glass(part, out_root: Path, material_table: Path, seed: int, produced: Produced):
-    """Cell-fracture a ``glass`` part through the D09 tool (D15-S5.7).
+def author_fracture(part, out_root: Path, material_table: Path, seed: int, produced: Produced):
+    """Run the FRACTURE transform over a part whose class receives it (D15-S5.7).
+
+    Named for the transform rather than for the class, because glass being the only class with
+    shards today is a *content* decision that D15-S5.7 owns and can change. The caller decides
+    whether to call this by asking the treatment table; this function no longer has an opinion,
+    and it passes the class down so the tool can refuse if the caller got it wrong.
 
     Runs after every mesh is written, because the fracture pipeline reloads the scene. The
     part's own ``mesh.glb`` is both the input and part of the output: the tool republishes it
@@ -214,7 +188,11 @@ def fracture_glass(part, out_root: Path, material_table: Path, seed: int, produc
         object=part.part_type_id,
         seed=seed,
         shards=treatment.fracture_shards,
-        damage_morphs=0,
+        # Passed so the tool can check D15-S5.7 for itself and refuse. It used to be told
+        # `damage_morphs=0` instead — a caller remembering not to ask for the wrong transform,
+        # which is the arrangement that held the invariant up on one function's discipline
+        # (DISC-068). Now the tool holds it.
+        destruction_class=str(treatment.destruction_class),
         material_table=material_table,
         material_override=part.material_id,
         # The pane is exported as the surface the artist made, and the fracture gives each

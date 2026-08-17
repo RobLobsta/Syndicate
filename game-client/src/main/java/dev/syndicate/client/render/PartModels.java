@@ -7,7 +7,11 @@ package dev.syndicate.client.render;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.model.Node;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Quaternion;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
+import dev.syndicate.core.asset.ShardDefinition;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.AssetPaths;
 import java.nio.file.Path;
@@ -50,9 +54,16 @@ public final class PartModels implements Disposable {
     /** The file a part directory holds its geometry in (D08-S4.2). */
     public static final String MESH_FILE = "mesh.glb";
 
+    /** The file a part directory holds its shards in (D09-S4.4). */
+    public static final String SHARD_FILE = "shards.glb";
+
     private final Path assetRoot;
     private final Map<String, SceneAsset> assets = new LinkedHashMap<>();
     private final Set<String> missing = new HashSet<>();
+
+    private final Matrix4 placement = new Matrix4();
+    private final Quaternion inverseRotation = new Quaternion();
+    private final Vector3 inverseTranslation = new Vector3();
 
     public PartModels(Path assetRoot) {
         this.assetRoot = Objects.requireNonNull(assetRoot, "assetRoot");
@@ -69,7 +80,7 @@ public final class PartModels implements Disposable {
         if (partTypeId == null) {
             return null;
         }
-        SceneAsset asset = load(partTypeId.value());
+        SceneAsset asset = load(partTypeId.value(), MESH_FILE);
         if (asset == null || asset.scene == null) {
             return null;
         }
@@ -79,14 +90,53 @@ public final class PartModels implements Disposable {
         return instance;
     }
 
-    /** How many distinct part meshes are resident. */
+    /**
+     * A fresh drawable instance of one shard of a fractured part, or null when it has no mesh.
+     *
+     * <p>The counterpart of {@link #instanceOf} for the bodies {@code FractureSystem} spawns.
+     * {@code shards.glb} holds every shard of a part in the <em>part's</em> frame — which is what
+     * makes the file reassemble into the intact part when an artist opens it — while a shard's
+     * debris body is placed at that same offset by D07-S5.6. Drawing the node as exported would
+     * therefore apply the offset twice, so the node is moved onto the shard's own origin by the
+     * inverse of the placement the manifest gives it: exactly what {@code AssetLoader} does to the
+     * same shard's collision hull, and the two must agree or the glass you shoot is not the glass
+     * you see.
+     */
+    public ModelInstance shardInstanceOf(AssetId partTypeId, ShardDefinition shard) {
+        if (partTypeId == null || shard == null) {
+            return null;
+        }
+        SceneAsset asset = load(partTypeId.value(), SHARD_FILE);
+        if (asset == null || asset.scene == null || asset.scene.model.getNode(shard.meshNodeName(), true) == null) {
+            return null;
+        }
+        ModelInstance instance = new ModelInstance(asset.scene.model, shard.meshNodeName(), false);
+        if (instance.nodes.size == 0) {
+            return null;
+        }
+        shard.localTransform(placement);
+        placement.getRotation(inverseRotation, true);
+        placement.getTranslation(inverseTranslation);
+        inverseRotation.conjugate();
+        inverseRotation.transform(inverseTranslation).scl(-1f);
+
+        Node root = instance.nodes.first();
+        root.translation.set(inverseTranslation);
+        root.rotation.set(inverseRotation);
+        root.scale.set(1f, 1f, 1f);
+        instance.calculateTransforms();
+        return instance;
+    }
+
+    /** How many distinct meshes are resident, counting a part's shards separately from its body. */
     public int loadedCount() {
         return assets.size();
     }
 
-    private SceneAsset load(String partTypeId) {
-        SceneAsset cached = assets.get(partTypeId);
-        if (cached != null || missing.contains(partTypeId)) {
+    private SceneAsset load(String partTypeId, String fileName) {
+        String key = partTypeId + "/" + fileName;
+        SceneAsset cached = assets.get(key);
+        if (cached != null || missing.contains(key)) {
             return cached;
         }
         // A part lives either in the shared library or under the vehicle that owns it
@@ -94,21 +144,21 @@ public final class PartModels implements Disposable {
         Path partDirectory = AssetPaths.partDirectory(assetRoot, partTypeId);
         FileHandle handle = partDirectory == null
                 ? null
-                : new FileHandle(partDirectory.resolve(MESH_FILE).toFile());
+                : new FileHandle(partDirectory.resolve(fileName).toFile());
         if (handle == null || !handle.exists()) {
-            LOG.warn("part {} has no {}; it will simulate but not draw (D08-S4.2)", partTypeId, MESH_FILE);
-            missing.add(partTypeId);
+            LOG.warn("part {} has no {}; it will simulate but not draw (D08-S4.2)", partTypeId, fileName);
+            missing.add(key);
             return null;
         }
         try {
             SceneAsset asset = new GLBLoader().load(handle);
-            assets.put(partTypeId, asset);
-            LOG.info("loaded render mesh for {} ({} meshes)", partTypeId, asset.meshes.size);
+            assets.put(key, asset);
+            LOG.info("loaded render mesh for {} from {} ({} meshes)", partTypeId, fileName, asset.meshes.size);
             return asset;
         } catch (RuntimeException e) {
             // G18 again: one unreadable model must not take the client down with it.
-            LOG.error("part {} has an unreadable {}; it will not draw", partTypeId, MESH_FILE, e);
-            missing.add(partTypeId);
+            LOG.error("part {} has an unreadable {}; it will not draw", partTypeId, fileName, e);
+            missing.add(key);
             return null;
         }
     }

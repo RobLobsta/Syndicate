@@ -3,6 +3,17 @@
 Unknown arguments are a fatal usage error, never ignored (D09-R4). A tool whose primary
 caller is an agent must reject a misspelled flag loudly: silently ignoring ``--shard=24``
 would produce a 24-shard default that looks like success and ships the wrong asset.
+
+The same reasoning now covers two more cases that used to fail quietly:
+
+- **The deformation flags are gone.** ``--damage-morphs`` and ``--morph-amplitude`` belong to
+  ``syndicate_deform``; this tool authors the FRACTURE transform and nothing else (D00-S6 makes
+  them two different words on purpose). They are still *recognised* so that an old invocation
+  gets exit 64 and a sentence naming the other tool, rather than an "unknown argument" that
+  reads like a typo.
+- **A known flag is never accepted and ignored.** ``--verify-only`` and ``--keep-blend`` were
+  parsed, validated and then read by nothing; ``--verify-only`` promised to produce no new data
+  and performed a destructive overwrite (DISC-068). Both are implemented.
 """
 
 from __future__ import annotations
@@ -13,7 +24,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .errors import EXIT_USAGE, ToolError
+from syndicate_policy.classes import FRACTURE, parse_class, require_permitted
+
+from .errors import EXIT_TRANSFORM_NOT_PERMITTED, EXIT_USAGE, ToolError
 
 TOOL_VERSION = "0.1.0"
 
@@ -24,8 +37,6 @@ LOG_LEVELS = ("DEBUG", "INFO", "WARN", "ERROR")
 DEFAULT_SEED = 1337
 DEFAULT_SHARDS = 24
 MAX_SHARDS_PER_PART = 256
-DEFAULT_DAMAGE_MORPHS = 4
-DEFAULT_MORPH_AMPLITUDE = 0.06
 DEFAULT_HULL_MAX_VERTS = 32
 DEFAULT_PART_HULL_MAX_VERTS = 64
 DEFAULT_MIN_SHARD_VOLUME = 1e-6
@@ -44,8 +55,9 @@ class Args:
     shards: int = DEFAULT_SHARDS
     shard_mode: str = "uniform"
     impact_point: tuple[float, float, float] | None = None
-    damage_morphs: int = DEFAULT_DAMAGE_MORPHS
-    morph_amplitude: float = DEFAULT_MORPH_AMPLITUDE
+    #: The part's destruction class (D15-S5.7). Required: the tool refuses to fracture a class
+    #: that D15-S5.7 does not give shards to, and it cannot refuse what it was never told.
+    destruction_class: str = "GLASS"
     material_table: Path = field(default_factory=lambda: Path(DEFAULT_MATERIAL_TABLE))
     material_override: str | None = None
     hull_max_verts: int = DEFAULT_HULL_MAX_VERTS
@@ -66,10 +78,9 @@ class Args:
         return {
             "shards": self.shards,
             "shardMode": self.shard_mode,
-            "damageMorphs": self.damage_morphs,
-            "morphAmplitude": self.morph_amplitude,
             "hullMaxVerts": self.hull_max_verts,
             "minShardVolumeM3": self.min_shard_volume,
+            "shellThicknessM": self.shell_thickness,
         }
 
 
@@ -102,8 +113,12 @@ def parse(argv: list[str] | None = None) -> Args:
     parser.add_argument("--shards", type=int, default=DEFAULT_SHARDS)
     parser.add_argument("--shard-mode", choices=SHARD_MODES, default="uniform")
     parser.add_argument("--impact-point")
-    parser.add_argument("--damage-morphs", type=int, default=DEFAULT_DAMAGE_MORPHS)
-    parser.add_argument("--morph-amplitude", type=float, default=DEFAULT_MORPH_AMPLITUDE)
+    # Required, and with no default: the whole point is that the tool knows what it is
+    # authoring for and can refuse (D15-S5.7). A default would restore the silence.
+    parser.add_argument("--destruction-class")
+    # Recognised only so an old invocation gets a sentence instead of "unknown argument".
+    parser.add_argument("--damage-morphs", type=int, default=None)
+    parser.add_argument("--morph-amplitude", type=float, default=None)
     parser.add_argument("--material-table", type=Path, default=Path(DEFAULT_MATERIAL_TABLE))
     parser.add_argument("--material-override")
     parser.add_argument("--hull-max-verts", type=int, default=DEFAULT_HULL_MAX_VERTS)
@@ -131,6 +146,9 @@ def parse(argv: list[str] | None = None) -> Args:
     if namespace.input is None or namespace.out is None:
         raise ToolError(EXIT_USAGE, "--input and --out are both required")
 
+    _reject_deform_flags(namespace)
+    destruction_class = _destruction_class(namespace.destruction_class)
+
     shards = namespace.shards
     if shards < 2 or shards > MAX_SHARDS_PER_PART:
         # Clamped rather than rejected per D09-S4.2, but the clamp is logged by the caller:
@@ -142,10 +160,6 @@ def parse(argv: list[str] | None = None) -> Args:
         impact = _parse_vec3(namespace.impact_point)
     if namespace.shard_mode == "impact_biased" and impact is None:
         raise ToolError(EXIT_USAGE, "--shard-mode impact_biased requires --impact-point x,y,z")
-    if namespace.damage_morphs < 0 or namespace.damage_morphs > 4:
-        raise ToolError(EXIT_USAGE, "--damage-morphs must be in [0, 4]")
-    if namespace.morph_amplitude <= 0.0:
-        raise ToolError(EXIT_USAGE, "--morph-amplitude must be positive")
     if namespace.hull_max_verts < 4 or namespace.part_hull_max_verts < 4:
         raise ToolError(EXIT_USAGE, "hull vertex budgets must be at least 4")
     if namespace.mass_tolerance <= 0.0:
@@ -161,8 +175,7 @@ def parse(argv: list[str] | None = None) -> Args:
         shards=shards,
         shard_mode=namespace.shard_mode,
         impact_point=impact,
-        damage_morphs=namespace.damage_morphs,
-        morph_amplitude=namespace.morph_amplitude,
+        destruction_class=destruction_class,
         material_table=namespace.material_table,
         material_override=namespace.material_override,
         hull_max_verts=namespace.hull_max_verts,
@@ -178,6 +191,65 @@ def parse(argv: list[str] | None = None) -> Args:
         log_level=namespace.log_level,
         dry_run=namespace.dry_run,
     )
+
+
+def _reject_deform_flags(namespace: argparse.Namespace) -> None:
+    """Exit 64 naming ``syndicate_deform`` when asked to author damage morphs.
+
+    This tool used to run the deformation stage as well, unconditionally, on every object
+    (DISC-068). Dropping the flags silently would leave every old invocation looking like it
+    still worked while quietly authoring one transform instead of two — which is the same
+    failure in the other direction. So the flags are still parsed, and saying so is the whole
+    of their remaining job.
+    """
+    asked = [
+        flag
+        for flag, value in (
+            ("--damage-morphs", namespace.damage_morphs),
+            ("--morph-amplitude", namespace.morph_amplitude),
+        )
+        if value is not None
+    ]
+    if asked:
+        raise ToolError(
+            EXIT_USAGE,
+            f"{' and '.join(asked)} moved to syndicate_deform: this tool authors the FRACTURE "
+            f"transform only, and no destruction class in D15-S5.7 receives both. Run "
+            f"`python3 -m syndicate_deform` for damage shape keys",
+            movedTo="syndicate_deform",
+            flags=asked,
+        )
+
+
+def _destruction_class(raw: str | None) -> str:
+    """The part's class, checked against D15-S5.7 before Blender is ever started.
+
+    Two different failures, two different codes: a class this tool cannot parse is a usage
+    error, and a class D15-S5.7 simply does not give shards to is a *content* decision that is
+    wrong — exit 77, so an agent knows to fix the label rather than the flags.
+    """
+    from syndicate_policy.classes import PolicyError
+
+    if raw is None:
+        raise ToolError(
+            EXIT_USAGE,
+            "--destruction-class is required (D15-S5.7); the tool refuses to fracture a class "
+            "that does not receive shards, and cannot refuse what it was not told",
+        )
+    try:
+        parsed = parse_class(raw)
+    except PolicyError as error:
+        raise ToolError(EXIT_USAGE, str(error), destructionClass=raw) from error
+    try:
+        require_permitted(FRACTURE, parsed)
+    except PolicyError as error:
+        raise ToolError(
+            EXIT_TRANSFORM_NOT_PERMITTED,
+            str(error),
+            destructionClass=str(parsed),
+            transform=str(FRACTURE),
+        ) from error
+    return str(parsed)
 
 
 class _VersionRequested(Exception):  # noqa: N818 - control flow, not a failure

@@ -11,7 +11,6 @@ report.
 
 from __future__ import annotations
 
-import itertools
 import math
 from pathlib import Path
 from typing import Any
@@ -22,7 +21,6 @@ from .errors import (
     EXIT_HULL_FAILED,
     EXIT_INPUT_GEOMETRY_INVALID,
     EXIT_MASS_IMPLAUSIBLE,
-    EXIT_SHAPEKEY_FAILED,
     EXIT_VERIFICATION_FAILED,
     CheckResult,
     VerificationReport,
@@ -31,7 +29,6 @@ from .fracture import Shard
 from .geometry import Tri, Vec3, aabb_of, is_finite
 from .hulls import Hull
 from .mass import MIN_BODY_MASS_KG
-from .morphs import MORPH_MIN_DELTA_M, MorphStats
 
 # D14-S6.4 plausibility bounds. A part outside them almost always means the source was
 # authored in centimetres or inches — a units bug that is invisible until a 40-tonne door
@@ -42,7 +39,6 @@ MAX_PART_EXTENT_M = 20.0
 
 def run(
     shards: list[Shard],
-    morphs: list[MorphStats],
     hulls: list[Hull],
     manifest: dict[str, Any],
     source_vertices: list[Vec3],
@@ -71,36 +67,10 @@ def run(
         )
     )
 
-    # ---- TV-002: Shape keys are non-degenerate ----------------------------------------
-    for morph in morphs:
-        report.checks.append(
-            CheckResult(
-                id="TV-002",
-                name=f"Shape key {morph.name} is non-degenerate",
-                status=_status(
-                    math.isfinite(morph.max_displacement_m)
-                    and math.isfinite(morph.mean_displacement_m)
-                    and morph.max_displacement_m >= MORPH_MIN_DELTA_M
-                ),
-                measured=f"max disp {morph.max_displacement_m:.5f} m, "
-                f"mean {morph.mean_displacement_m:.5f} m",
-                expected=f"finite, max disp >= {MORPH_MIN_DELTA_M} m",
-                fail_code=EXIT_SHAPEKEY_FAILED,
-            )
-        )
-
-    # ---- TV-003: Shape key severity is monotonic --------------------------------------
-    means = [m.mean_displacement_m for m in morphs]
-    report.checks.append(
-        CheckResult(
-            id="TV-003",
-            name="Shape key severity increases across levels",
-            status=_status(all(b > a for a, b in itertools.pairwise(means))),
-            measured=str([round(m, 5) for m in means]),
-            expected="strictly increasing",
-            fail_code=EXIT_SHAPEKEY_FAILED,
-        )
-    )
+    # TV-002 and TV-003 belong to the DEFORM transform and moved to `syndicate_deform`
+    # with the stage that produces the shape keys they check. Their ids are permanent and are
+    # not reused here (D09-S7): a `TV-002` in a report still means "shape keys are
+    # non-degenerate", it is simply reported by the tool that authored them.
 
     # ---- TV-004: Collision shapes are valid -------------------------------------------
     for hull in hulls:
@@ -138,14 +108,18 @@ def run(
             )
         )
 
-    # ---- TV-006: Morph targets survived export ----------------------------------------
+    # ---- TV-006: the exported mesh carries no damage morphs ---------------------------
+    # The manifest's `morphTargets` is now always empty (a fracturing class does not deform),
+    # so this check has become "nothing authored deformation onto this part" rather than
+    # "the morphs this tool wrote survived export". Same id, same comparison, and it is a
+    # sharper check than it was: it fails on exactly the mixture D15-S5.7 forbids.
     if exported_morph_names is None:
-        report.checks.append(_skipped("TV-006", "Morph targets present in exported mesh"))
+        report.checks.append(_skipped("TV-006", "Exported mesh carries no damage morphs"))
     else:
         report.checks.append(
             CheckResult(
                 id="TV-006",
-                name="Morph targets present in exported mesh",
+                name="Exported mesh carries no damage morphs",
                 status=_status(exported_morph_names == manifest["morphTargets"]),
                 measured=str(exported_morph_names),
                 expected=str(manifest["morphTargets"]),
@@ -211,7 +185,7 @@ def run(
     )
 
     # ---- TV-011: Manifest conforms to schema ------------------------------------------
-    violations = _validate_manifest(manifest)
+    violations = validate_manifest(manifest)
     report.checks.append(
         CheckResult(
             id="TV-011",
@@ -259,7 +233,7 @@ def _skipped(check_id: str, name: str) -> CheckResult:
     )
 
 
-def _validate_manifest(manifest: dict[str, Any]) -> list[str]:
+def validate_manifest(manifest: dict[str, Any]) -> list[str]:
     """Structural validation against the D09-S4.4 schema.
 
     Implemented directly rather than through ``jsonschema`` so the tool has no hard

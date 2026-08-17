@@ -84,7 +84,7 @@ public final class ClientSystemProvider implements SystemProvider {
         this.damageVisual = new DamageVisualSystem();
         this.effects = new EffectSystem();
         this.audio = new AudioSystem(bank, assets, localPlayer);
-        this.render = new RenderSystem(context, localPlayer, effects, input::activeDevice);
+        this.render = new RenderSystem(context, assets, localPlayer, effects, input::activeDevice);
     }
 
     private static InputCollectionSystem buildInput(InputBindings bindings) {

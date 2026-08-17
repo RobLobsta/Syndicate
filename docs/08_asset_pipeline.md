@@ -576,6 +576,7 @@ function AssetRegistry.load(assetRoot, headless):
 | A507 | WARN | Manifest `toolVersion` older than the current build's |
 | A508 | ERROR | Mesh AABB outside `[MIN_PART_EXTENT_M, MAX_PART_EXTENT_M]` (unit error, D14) |
 | A509 | ERROR | Collision hull exceeds `MAX_HULL_VERTICES` after simplification |
+| A510 | ERROR | A manifest's `transform` is absent, or is one its part's `destructionClass` does not receive (D15-S5.7); or the part declares both damage morphs and a fracture manifest. Nothing at runtime consults `destructionClass` — a part dents because its mesh has shape keys and shatters because it declares a manifest — so this is the only gate between the content and a door that shatters (DISC-068) |
 
 ```pseudo
 function handleValidationFailure(errors, strictMode):
@@ -716,6 +717,8 @@ function assertMajorVersionMatches(fileVersion):
 | T-D08-10 | Change a part's mass without updating `expected` | A310 |
 | T-D08-11 | Push one vehicle 5% over its class power budget | A312 |
 | T-D08-12 | Delete a shard node from `shards.glb` | A501 |
+| T-D08-12a | A `PANEL` part carrying a `FRACTURE` manifest | A510 |
+| T-D08-12b | A manifest written before the transform split, with no `transform` field | A510 |
 | T-D08-13 | Remove `dmg_50` from the mesh | A502 |
 | T-D08-14 | Scale a source mesh by 100 and re-export | A508 |
 | T-D08-15 | Run `buildIndex` twice | Identical output but `generatedAt` |

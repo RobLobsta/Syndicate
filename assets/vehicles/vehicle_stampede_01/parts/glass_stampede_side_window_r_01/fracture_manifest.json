@@ -9,7 +9,7 @@
     "y": -0.155736,
     "z": -0.804208
   },
-  "blenderVersion": "4.2.0",
+  "blenderVersion": "4.2.13 LTS",
   "collision": {
     "partHullPieces": 1,
     "partHullVertexCount": 25,
@@ -21,7 +21,8 @@
     "z": 0.680814
   },
   "densityKgPerM3": 2500.0,
-  "generatedAt": "2026-08-15T18:47:50Z",
+  "destructionClass": "GLASS",
+  "generatedAt": "2026-08-17T15:23:28Z",
   "inertiaDiagonal": {
     "x": -4.152815,
     "y": -4.180221,
@@ -31,12 +32,11 @@
   "morphStats": [],
   "morphTargets": [],
   "parameters": {
-    "damageMorphs": 0,
     "hullMaxVerts": 32,
     "minShardVolumeM3": 1e-06,
-    "morphAmplitude": 0.06,
     "shardMode": "uniform",
-    "shards": 24
+    "shards": 24,
+    "shellThicknessM": 0.005
   },
   "partMassKg": 8.843949,
   "partTypeId": "glass_stampede_side_window_r_01",
@@ -1132,10 +1132,11 @@
       "volumeM3": 9.1e-05
     }
   ],
-  "sourceFile": "../assets/vehicles/vehicle_stampede_01/parts/glass_stampede_side_window_r_01/mesh.glb",
-  "sourceHash": "sha256:9dd8baf2eca96e39f069cb8a63d79e1bb19f2d134f01b264f571f8e8de50e9f8",
+  "sourceFile": "assets/vehicles/vehicle_stampede_01/parts/glass_stampede_side_window_r_01/mesh.glb",
+  "sourceHash": "sha256:b1f947d15f88152d3df3a7200aa7a1489c96c0d06ff223f3d730e43cac8b81b3",
   "toolVersion": "0.1.0",
-  "topologyHash": "sha256:3a6500e206691f4411665863819d7b5d3d9a2c1c7a826846f34e6d96db6f817e",
+  "topologyHash": "sha256:70fd2d13937b0f870940c7d8f8847d9a6d46711ca6db2a4cdb9f101b6ac6ec7e",
+  "transform": "FRACTURE",
   "verification": {
     "checks": [
       {
@@ -1143,13 +1144,6 @@
         "id": "TV-001",
         "measured": "min 0.0635 kg, max 0.7814 kg over 24 shards",
         "name": "All shards have positive mass",
-        "status": "pass"
-      },
-      {
-        "expected": "strictly increasing",
-        "id": "TV-003",
-        "measured": "[]",
-        "name": "Shape key severity increases across levels",
         "status": "pass"
       },
       {
@@ -1338,7 +1332,7 @@
         "expected": "[]",
         "id": "TV-006",
         "measured": "[]",
-        "name": "Morph targets present in exported mesh",
+        "name": "Exported mesh carries no damage morphs",
         "status": "pass"
       },
       {
