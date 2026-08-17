@@ -26,7 +26,7 @@ from .errors import (
     log,
 )
 from .fracture import Shard, voronoi_fracture
-from .geometry import Vec3, aabb_of, is_finite, mesh_volume, surface_area
+from .geometry import Vec3, aabb_of, boundary_edge_count, is_finite, mesh_volume, surface_area
 from .hulls import Hull, build_hull
 from .mass import assign_masses
 from .morphs import generate_damage_morphs
@@ -225,6 +225,23 @@ def _validate_source(
                 object=name,
             )
         return
+    # Watertightness before volume, because on an open mesh the volume is not evidence of
+    # anything. `mesh_volume` integrates the divergence theorem, which needs a closed surface to
+    # be a theorem, and then takes an absolute value — so an open mesh arrives at mass assignment
+    # carrying a plausible positive number that is not its volume. Both shipped cars' wheels
+    # integrate to a negative number and were being fractured as though they had a volume of
+    # 0.058 m3; the shards then summed 26% over and the only symptom was exit 72, three stages
+    # later, blaming mass (DISC-065).
+    holes = boundary_edge_count(vertices, triangles)
+    if holes > 0:
+        raise ToolError(
+            EXIT_INPUT_GEOMETRY_INVALID,
+            f"'{name}' is not watertight: {holes} edges belong to only one face, so it encloses "
+            f"no volume and cannot be fractured as a solid. If it is a panel, a pane or any other "
+            f"surface, fracture it as a shell with --shell-thickness",
+            object=name,
+            boundaryEdges=holes,
+        )
     volume = mesh_volume(vertices, triangles)
     if volume <= 0.0:
         raise ToolError(

@@ -46,6 +46,22 @@ public final class VehicleControl {
     public static final float MAX_VEHICLE_SPEED_MPS = 40f;
 
     /**
+     * Metres per second. The bound on an airborne vehicle's vertical speed.
+     *
+     * <p>Airborne, the horizontal clamp deliberately leaves the vertical axis alone so that gravity
+     * can do its work (DEV-019). "Left to gravity" is not the same as "left unbounded", and the
+     * first drive after that change found the difference: a collision impulse at spawn put the car
+     * at <b>324 m/s</b> — 1167 km/h on the HUD — because nothing was bounding {@code y} at all.
+     *
+     * <p>55 m/s is chosen to sit above anything gravity can produce inside an arena and below
+     * anything that is not a bug. The desert's relief spans 55 m, so the fastest a fall inside it
+     * can reach is {@code sqrt(2 g h)} = 33 m/s; a real car's terminal velocity is around this
+     * figure. Gravity therefore always wins within the world the game actually has, and a runaway
+     * impulse is still caught two orders of magnitude short of where it used to end up.
+     */
+    public static final float MAX_AIRBORNE_VERTICAL_SPEED_MPS = 55f;
+
+    /**
      * Newtons per (m/s)². Downforce, applied at the centre of mass so it cannot induce a torque
      * (D06-S4.5, D01-S5.2's mild driving assist).
      */
@@ -269,9 +285,80 @@ public final class VehicleControl {
         scratchForce.set(0f, -downforce * speedMps * speedMps, 0f);
         body.applyCentralForce(scratchForce);
 
+        applySpeedClamp(world, vehicleEntity, body, speedMps);
+    }
+
+    /**
+     * The anti-tunnelling speed clamp of D06-S5.5, which must not be allowed to cancel gravity.
+     *
+     * <p>Scaling the whole velocity vector is correct while a wheel is down: the vehicle is moving
+     * across the ground, the vertical term is suspension noise, and shrinking it costs nothing.
+     * Airborne it is a bug with a very long tail (DISC-063). A car that leaves a dune at the
+     * grounded top speed is already at the limit horizontally, so every metre per second gravity
+     * adds downward pushes the <em>total</em> over the limit — and the clamp answers by scaling the
+     * entire vector, which takes the fall speed back out again. The car cannot accelerate downward,
+     * so it does not come down: the first scripted drive of the desert flew 130 frames against an
+     * empty sky reading exactly 40 m/s, which is this clamp holding it there.
+     *
+     * <p>So airborne, only the horizontal component is clamped. That is what "top speed" means in
+     * D05-S5.6 and what the HUD reads, it is still a bound on the term that can tunnel a chassis
+     * through a wall, and it leaves the vertical axis entirely to gravity — which is the one force
+     * that has to win. Grounded, the behaviour is byte-for-byte what it was, so the seed-locked
+     * regressions of D12-S4.2 see no change.
+     */
+    private void applySpeedClamp(World world, int vehicleEntity, btRigidBody body, float speedMps) {
+        if (isAirborne(world, vehicleEntity)) {
+            float horizontalMps = (float) Math.hypot(scratchVelocity.x, scratchVelocity.z);
+            float verticalMps = scratchVelocity.y;
+            boolean overHorizontal = horizontalMps > MAX_VEHICLE_SPEED_MPS;
+            boolean overVertical = Math.abs(verticalMps) > MAX_AIRBORNE_VERTICAL_SPEED_MPS;
+            if (overHorizontal || overVertical) {
+                // Each axis bounded on its own, never by rescaling the vector: rescaling is what
+                // let the horizontal term bleed away in flight, which is the bug this branch
+                // exists to avoid. The vertical bound is far enough above gravity's reach inside
+                // an arena that a real fall never touches it (DEV-019, DISC-067).
+                float scale = overHorizontal ? MAX_VEHICLE_SPEED_MPS / horizontalMps : 1f;
+                float clampedVertical =
+                        overVertical ? Math.copySign(MAX_AIRBORNE_VERTICAL_SPEED_MPS, verticalMps) : verticalMps;
+                body.setLinearVelocity(
+                        scratchVelocity.set(scratchVelocity.x * scale, clampedVertical, scratchVelocity.z * scale));
+            }
+            return;
+        }
         if (speedMps > MAX_VEHICLE_SPEED_MPS) {
             body.setLinearVelocity(scratchVelocity.scl(MAX_VEHICLE_SPEED_MPS / speedMps));
         }
+    }
+
+    /**
+     * True when no live wheel's suspension ray is touching anything.
+     *
+     * <p>Read from {@code isInContact}, which {@code mirrorContactState} refreshes for every wheel
+     * earlier in this same tick, so the answer is this tick's and not the last one's. A vehicle
+     * whose wheels are all destroyed is not airborne — it is sitting on its chassis — so a
+     * destroyed wheel counts as no evidence either way rather than as evidence of flight.
+     */
+    private boolean isAirborne(World world, int vehicleEntity) {
+        VehicleChassisComponent chassis = world.getComponent(vehicleEntity, VehicleChassisComponent.class);
+        if (chassis == null) {
+            return false;
+        }
+        int liveWheels = 0;
+        for (int i = 0; i < chassis.wheelCount; i++) {
+            int wheelEntity = chassis.wheelEntities[i];
+            WheelControllerComponent wheel = world.getComponent(wheelEntity, WheelControllerComponent.class);
+            if (wheel == null || isDestroyed(world, wheelEntity)) {
+                continue;
+            }
+            if (wheel.isInContact) {
+                return false;
+            }
+            liveWheels++;
+        }
+        // No live wheel left to report contact is a wreck on its belly (D05-E1), not a car in
+        // flight. Falling back to the whole-vector clamp there keeps the pre-existing behaviour
+        // for a case this change has no evidence about.
+        return liveWheels > 0;
     }
 
     /**

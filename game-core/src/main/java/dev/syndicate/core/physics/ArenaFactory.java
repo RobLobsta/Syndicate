@@ -282,7 +282,8 @@ public final class ArenaFactory {
         List<Vector3> spawnPositions = new ArrayList<>();
         for (ArenaDef.SpawnPoint point : arena.spawnPoints()) {
             spawnPositions.add(point.position());
-            pads.add(new TerrainGenerator.Pad(point.position().x, point.position().z, point.clearanceRadiusM()));
+            pads.add(new TerrainGenerator.Pad(
+                    point.position().x, point.position().z, point.clearanceRadiusM(), point.position().y));
         }
 
         TerrainField field = generatePlayable(world, arena, pads, spawnPositions);

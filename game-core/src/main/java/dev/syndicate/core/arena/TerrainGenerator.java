@@ -167,8 +167,19 @@ public final class TerrainGenerator {
      * @param x world x of the centre
      * @param z world z of the centre
      * @param radiusM how much is levelled flat, before the ramp out
+     * @param levelM the height to cut to, or {@link Float#NaN} to cut to whatever the landform
+     *     already is at the centre. A spawn pad passes its spawn's own authored {@code y}, because
+     *     the vehicle is created at that {@code y} and nothing else reconciles the two — see
+     *     {@link #flattenPads}. A structure's pad passes NaN: it stands on the ground rather than
+     *     dictating where the ground is.
      */
-    public record Pad(float x, float z, float radiusM) {}
+    public record Pad(float x, float z, float radiusM, float levelM) {
+
+        /** A pad that takes its level from the landform, which is what a structure wants. */
+        public Pad(float x, float z, float radiusM) {
+            this(x, z, radiusM, Float.NaN);
+        }
+    }
 
     /**
      * Generates an arena's ground.
@@ -278,6 +289,9 @@ public final class TerrainGenerator {
                     String.format("%.1f", report.maxFillM()),
                     String.format("%.1f", report.maxGradePct()));
         }
+        // After the log line, so the numbers that explain the failure are already on the record
+        // when it throws (DISC-062).
+        RoadCarver.validateCuts(roadReports);
         if (!roadReports.isEmpty()) {
             bare = new TerrainField(params, min.x, min.z, groundY, heights, surfaces, new BitSet());
         }
@@ -460,7 +474,16 @@ public final class TerrainGenerator {
         for (Pad pad : pads) {
             int centreI = clamp(Math.round((pad.x() - min.x) / cell), grid);
             int centreJ = clamp(Math.round((pad.z() - min.z) / cell), grid);
-            float level = heights[centreJ * grid + centreI];
+            // A pad with an authored level cuts to it; one without takes the landform's own.
+            //
+            // The distinction is the whole of DISC-067. An arena authors a spawn's world position
+            // including its y — both shipped arenas say 1.0 — and `SpawnSystem` creates the chassis
+            // exactly there. Taking the level from the landform instead left the two disagreeing by
+            // however much the noise happened to raise that spot: six of the desert's eight spawns
+            // sat between 1.7 m and 7.4 m *underground*, and Bullet answers a 7 m penetration by
+            // throwing the vehicle out of it. The first scripted drive lost 26 of 40 parts in a
+            // second and a half and finished upside down with the throttle still open.
+            float level = Float.isNaN(pad.levelM()) ? heights[centreJ * grid + centreI] : pad.levelM();
 
             // How far the ground around the pad departs from the level it is being cut to, which is
             // what decides how long the ramp has to be.

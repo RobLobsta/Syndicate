@@ -5,6 +5,7 @@
 package dev.syndicate.core.arena;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.badlogic.gdx.math.Vector3;
 import java.util.List;
@@ -56,6 +57,54 @@ class RoadCarverTest {
         assertThat(tarmacStations)
                 .as("every station on the centreline is carriageway")
                 .isEqualTo(49);
+    }
+
+    /** A road with the same profile as {@link #diagonalRoad} but reaching into the border rise. */
+    private static RoadSpec overlongRoad() {
+        return new RoadSpec(
+                "test_road_overlong",
+                Surface.TARMAC,
+                14.0f,
+                3.0f,
+                Surface.GRAVEL,
+                6f,
+                List.of(new RoadSpec.Point(-290f, -290f), new RoadSpec.Point(0f, 0f), new RoadSpec.Point(290f, 290f)));
+    }
+
+    /**
+     * DISC-062: a spline that reaches the rim carves a canyon through it, and that is an authoring
+     * error at load rather than eight silently rejected seeds.
+     *
+     * <p>±290 m is the extent that actually shipped and had to be withdrawn; ±250 m is what
+     * {@link #diagonalRoad} uses and is fine. The failure has to name the road, because the whole
+     * cost of DISC-062 was three stages of downstream messages that never mentioned one.
+     */
+    @Test
+    void aRoadReachingTheBorderRiseIsRejected() {
+        assertThatThrownBy(() -> desert(12345L, List.of(overlongRoad())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("test_road_overlong")
+                .hasMessageContaining("border rise");
+    }
+
+    /** The same guard does not fire on a road that stays inside the playable area (DISC-062). */
+    @Test
+    void aRoadInsideThePlayableAreaCarvesWell() {
+        TerrainParams params = TerrainParams.of(ArenaTheme.DESERT_HIGHWAY, 12345L, 600f);
+        TerrainField bare = TerrainGenerator.generate(
+                new Vector3(-300f, -40f, -300f), new Vector3(300f, 120f, 300f), 0f, params, List.of(), List.of());
+        float[] heights = new float[params.sampleCount()];
+        byte[] surfaces = new byte[params.sampleCount()];
+        for (int j = 0; j < params.gridSize(); j++) {
+            for (int i = 0; i < params.gridSize(); i++) {
+                heights[j * params.gridSize() + i] = bare.heightAtSample(i, j);
+            }
+        }
+        List<RoadCarver.Report> reports =
+                RoadCarver.carve(heights, surfaces, params, -300f, -300f, List.of(diagonalRoad(6f)));
+        assertThat(reports.get(0).maxCutM())
+                .as("a road across open dunes digs a cutting, not a canyon")
+                .isLessThan(RoadCarver.MAX_CUT_M);
     }
 
     /** D16-R11: without a road the desert has no tarmac at all, so the ribbon is the carve's doing. */

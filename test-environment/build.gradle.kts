@@ -74,6 +74,12 @@ val verifyFixtures = tasks.register("verifyFixtures") {
                     ?: "${asset.name}: exit $code",
             )
             if (code != 0) {
+                // The harness's own output, not just its exit code. A non-zero exit here is
+                // either a failed check — which the report explains — or the harness dying
+                // before it wrote one, which only its stderr explains. Reporting the code
+                // alone makes those two indistinguishable, and the second is what a fixture
+                // pipeline that has never run is most likely to hit.
+                this@register.logger.error("verifyFixtures: ${asset.name} exited $code\n$output")
                 failures += "${asset.name} (exit $code, D14-S4.2)"
             }
         }

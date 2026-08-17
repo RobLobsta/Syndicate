@@ -42,6 +42,58 @@ public final class RoadCarver {
     }
 
     /**
+     * Metres. The deepest cutting a road may dig before it is treated as an authoring error
+     * (D16-S5.5, DISC-062).
+     *
+     * <p>A road that reaches into the border rise does not climb it. The profile is smoothed over
+     * {@link RoadSpec#PROFILE_SMOOTH_SIGMA_M} and then grade-limited, so a centreline ending 36 m
+     * up the rim flattens to something near the arena floor and the blend drags the rim down to
+     * meet it — opening a drivable canyon straight through the wall that exists to contain the
+     * arena.
+     *
+     * <p>Calibrated against the measurements in DISC-062, on the desert at seed 12345:
+     *
+     * <pre>
+     *   spline +/-200 m   cut  2.7 m      inside the playable area
+     *   spline +/-240 m   cut  3.3 m      at the foot of the rim
+     *   spline +/-290 m   cut 30.8 m      50 m into the rim: a canyon
+     * </pre>
+     *
+     * <p>Ten metres sits an order of magnitude clear of what a road across open dunes digs and far
+     * below what reaching the rim costs — there is a cliff between the two rows, not a gradient, so
+     * the threshold does not need to be precise. It is deliberately a measurement of the carve
+     * rather than a rule about spline length: the two shipped arenas have different cell sizes and
+     * different rim positions, so an extent verified on one says nothing about the other, and a
+     * canyon dug for some other reason is just as fatal.
+     */
+    public static final float MAX_CUT_M = 10.0f;
+
+    /**
+     * Rejects a carve that dug through the border rise (D16-S5.5, DISC-062).
+     *
+     * <p>A hard failure at load, because the alternative is what DISC-062 cost: the damage surfaces
+     * three stages downstream as {@code D16-R58} rejecting spawn connectivity or {@code D16-R38}
+     * finding drivable ground at the arena edge, on eight consecutive seeds, and neither message
+     * says the word "road".
+     *
+     * @throws IllegalArgumentException naming the road and its cut
+     */
+    public static void validateCuts(List<Report> reports) {
+        if (reports == null) {
+            return;
+        }
+        for (Report report : reports) {
+            if (report.maxCutM() > MAX_CUT_M) {
+                throw new IllegalArgumentException(String.format(
+                        "road '%s' cut %.1f m, over the %.1f m limit: its spline reaches into the border rise and "
+                                + "has carved a drivable canyon through it. Shorten the spline so the corridor "
+                                + "stays inside the playable area (D16-S5.5, DISC-062)",
+                        report.roadId(), report.maxCutM(), MAX_CUT_M));
+            }
+        }
+    }
+
+    /**
      * Carves every road into {@code heights} and paints {@code surfaces}, in array order (D16-R10).
      *
      * @param heights metres above {@code groundY}, row-major in {@code (z, x)}; modified in place
