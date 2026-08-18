@@ -31,8 +31,8 @@ invisible even once it ran.
 | **Render: debris shards** | done | One node of `shards.glb` per shard, moved onto its own origin (DEC-086) |
 | HUD and scoreboard | done | Speed, health, parts, phase, clock, scores |
 | Chase camera | done | Two half-lives, neither tuned by a person |
-| Input: gamepad, keyboard, and a script | done | Peers, not fallbacks (DEC-048); `--script` drives a capture |
-| Engine audio | done | Synthesised at runtime, own mixer and device (DEC-055, DEC-052) |
+| Input: gamepad, keyboard, and a script | done | Peers, not fallbacks (DEC-048); `--script` drives a capture. All four axes bound on all three (2026-08-18) |
+| Engine audio | done | Synthesised at runtime, own mixer and device (DEC-055, DEC-052). Bus no longer dies mid-match — DISC-073 |
 | Terrain rendering proper | not_started | The ground is drawn; chunking, LOD and textures are not — see PROG-036 |
 | Mix and voicing balance | not_started | Every gain is a first guess; nobody has balanced them by ear |
 | Options / settings screen | not_started | No way to change resolution, volume or bindings in-game |

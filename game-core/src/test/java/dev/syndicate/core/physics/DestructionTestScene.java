@@ -280,7 +280,13 @@ public final class DestructionTestScene implements AutoCloseable {
         physicsSystem = new PhysicsSystem(physics);
         spawnSystem = new SpawnSystem(spawnQueue, assets, physics, shapes);
         vehicleStatsSystem = new VehicleStatsSystem(assets);
-        vehicleControlSystem = new VehicleControlSystem();
+        // Given the world, not left null. The scene has a PhysicsWorld and every other system here
+        // is handed it; a control system without one silently disables both things that read it —
+        // D16's per-surface grip (DEC-070) and the rotorcraft's ground probe (DISC-071) — so a
+        // defect in either is invisible to every test in this package. Behaviour-neutral for the
+        // wheeled cases: the scene generates no height field, and the surface read falls back to
+        // the part's authored grip when there is none.
+        vehicleControlSystem = new VehicleControlSystem(physics);
         hitResolution = new HitResolution(shapes);
         damageApplication = new DamageApplication(assets, hitResolution);
         projectileImpact = new ProjectileImpact(physics, assets, hitResolution);
@@ -356,12 +362,25 @@ public final class DestructionTestScene implements AutoCloseable {
      * a plane has no thickness, so anything that outruns a step passes through it.
      */
     public void addGround() {
+        addGround(0f);
+    }
+
+    /**
+     * A static ground box tilted by {@code slopeDeg} about the x axis, with its top face still
+     * through the origin.
+     *
+     * <p>The flat overload cannot catch anything whose mechanism is the tilt — a vehicle resting on
+     * level ground has no horizontal component to any body-relative force, so a term that is wrong
+     * only on a gradient reads as correct. DISC-071 is exactly that shape of defect.
+     */
+    public void addGround(float slopeDeg) {
         btBoxShape shape = new btBoxShape(new Vector3(200f, 1f, 200f));
         shape.setMargin(PhysicsWorld.COLLISION_MARGIN_M);
         groundShapes.add(shape);
         NativeResourceTracker.register("btBoxShape");
 
-        btDefaultMotionState motionState = new btDefaultMotionState(new Matrix4().setToTranslation(0f, -1f, 0f));
+        Matrix4 placement = new Matrix4().setToTranslation(0f, -1f, 0f).rotate(Vector3.X, slopeDeg);
+        btDefaultMotionState motionState = new btDefaultMotionState(placement);
         NativeResourceTracker.register("btDefaultMotionState");
         btRigidBody.btRigidBodyConstructionInfo info =
                 new btRigidBody.btRigidBodyConstructionInfo(0f, motionState, shape, Vector3.Zero);

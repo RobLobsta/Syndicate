@@ -316,9 +316,36 @@ class InputTest {
 
     // ---- Fakes ------------------------------------------------------------------------------------
 
+    /**
+     * A pad can fly a helicopter: the left stick's vertical axis is the collective.
+     *
+     * <p>It wrote nothing at all before, so {@code collective} kept whatever the keyboard source or
+     * the previous match had left in the component — which for a rotorcraft is the difference
+     * between hovering and climbing at full power with the stick centred.
+     */
+    @Test
+    void aGamepadFliesWithTheLeftStick() {
+        FakePad pad = new FakePad();
+        GamepadSource source = new GamepadSource(pad, bindings);
+        PlayerInputComponent input = new PlayerInputComponent();
+
+        pad.leftStickY = 1f;
+        source.poll(input, DT);
+        assertThat(input.collective).as("stick up is climb").isEqualTo(1f);
+
+        pad.leftStickY = -1f;
+        source.poll(input, DT);
+        assertThat(input.collective).as("stick down is descend").isEqualTo(-1f);
+
+        pad.leftStickY = 0f;
+        source.poll(input, DT);
+        assertThat(input.collective).as("centred is neutral").isZero();
+    }
+
     private static final class FakePad implements GamepadSource.State {
         boolean connected = true;
         float leftStickX;
+        float leftStickY;
         float rightStickX;
         float rightStickY;
         float rightTrigger;
@@ -334,6 +361,11 @@ class InputTest {
         @Override
         public float leftStickX() {
             return leftStickX;
+        }
+
+        @Override
+        public float leftStickY() {
+            return leftStickY;
         }
 
         @Override

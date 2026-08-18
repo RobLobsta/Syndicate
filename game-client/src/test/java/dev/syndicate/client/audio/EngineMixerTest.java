@@ -201,6 +201,52 @@ class EngineMixerTest {
         assertThat(energy(stereo, 0) + energy(stereo, 1)).isZero();
     }
 
+    /**
+     * A voice held at a distance whose propagation delay sits just above a whole frame does not
+     * take the audio bus down with it.
+     *
+     * <p>The delay line is read at a fractional position wrapped into range by adding
+     * {@code DELAY_FRAMES} while it is negative. {@code DELAY_FRAMES} is 28,249 and a float's
+     * spacing there is about 0.002, so a read position anywhere in that last sliver below zero
+     * rounds to precisely {@code DELAY_FRAMES} when the wrap adds it back, and indexes one past the
+     * end of the line. The read position is {@code write - 1 - delay} and the write pointer walks
+     * the whole line every 110 blocks, so it passes through the sliver whenever the delay's own
+     * fractional part is inside it — which is a property of the float grid, not of any distance a
+     * player would think of as special.
+     *
+     * <p>Set up deliberately rather than swept, because the window is one part in five hundred and
+     * a sweep finds it by luck. The distance chosen puts the delay a thousandth of a frame above
+     * frame 512, and the run is long enough for the write pointer to reach it.
+     *
+     * <p>Worth a test rather than a fix alone, because of how it failed: on the render thread,
+     * caught by the bus's own catch-all, which logs one WARN and stops. Every engine in the match
+     * goes silent from that frame on and the game carries on as if nothing had happened. It was
+     * found in a capture run, not by any test.
+     */
+    @Test
+    @Tag("unit")
+    void aVoiceWhoseDelayLandsOnAFrameBoundaryDoesNotKillTheBus() {
+        EngineMixer mixer = new EngineMixer();
+        int slot = acquireV8(mixer, 7L);
+        mixer.setListener(EngineMixer.Listener.ORIGIN);
+
+        float delayFrames = 512.001f;
+        float distanceM = delayFrames * EngineMixer.SPEED_OF_SOUND_MPS / SR;
+
+        float[] stereo = new float[FRAMES * 2];
+        // 130 blocks is one full traversal of the delay line by the write pointer, plus margin.
+        for (int block = 0; block < 130; block++) {
+            mixer.publish(slot, new EngineMixer.VoiceUpdate(running(4000f), 0f, 0f, -distanceM, 1f));
+            mixer.render(stereo, FRAMES);
+        }
+
+        for (float sample : stereo) {
+            assertThat(Float.isFinite(sample))
+                    .as("the bus survives every write-pointer position and stays finite")
+                    .isTrue();
+        }
+    }
+
     private static void settle(EngineMixer mixer, float[] stereo, int blocks) {
         for (int i = 0; i < blocks; i++) {
             mixer.render(stereo, FRAMES);

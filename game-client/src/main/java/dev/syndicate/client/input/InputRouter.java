@@ -138,6 +138,7 @@ public final class InputRouter {
                 out.throttle = 0f;
                 out.steer = 0f;
                 out.brake = 0f;
+                out.collective = 0f;
                 out.fireMask = 0;
                 return true;
             }

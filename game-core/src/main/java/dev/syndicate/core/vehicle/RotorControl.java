@@ -141,7 +141,6 @@ public final class RotorControl {
     private final Vector3 scratchAngular = new Vector3();
     private final Matrix4 scratchTransform = new Matrix4();
 
-    @SuppressWarnings("unused")
     private final PhysicsWorld physics;
 
     public RotorControl() {
@@ -149,8 +148,9 @@ public final class RotorControl {
     }
 
     /**
-     * @param physics kept for symmetry with {@link VehicleControl} and for the ground effect and
-     *     terrain-relative flight D16 will want; nothing reads it yet.
+     * @param physics asked whether the aircraft is standing on the world, which is what decides
+     *     whether the hover trim engages ({@link #isFlying}). Null is treated as airborne, which is
+     *     what a pure-logic test with no Bullet world wants.
      */
     public RotorControl(PhysicsWorld physics) {
         this.physics = physics;
@@ -224,7 +224,9 @@ public final class RotorControl {
         scratchAngular.set(body.getAngularVelocity());
 
         float massKg = chassis.totalMassKg > 0f ? chassis.totalMassKg : 1f;
-        float thrustN = mainThrustMax * collectiveFraction(input.collective, massKg, mainThrustMax, scratchVelocity.y);
+        float trim = isFlying(body) ? 1f : 0f;
+        float thrustN =
+                mainThrustMax * collectiveFraction(input.collective, massKg, mainThrustMax, scratchVelocity.y, trim);
 
         // 1 + 2 — lift along the vehicle's up axis, at the hub rather than the centre of mass, so a
         // tilted aircraft gets the pendulum restoring moment a real one has for free.
@@ -263,11 +265,19 @@ public final class RotorControl {
      * down to {@link #MIN_COLLECTIVE_FRACTION}. Both halves are linear in the input, so the stick
      * feels the same in either direction even though the two ranges are different sizes.
      */
-    private float collectiveFraction(float collective, float massKg, float maxThrustN, float verticalMps) {
+    private float collectiveFraction(float collective, float massKg, float maxThrustN, float verticalMps, float trim) {
         float hover = hoverFraction(massKg, maxThrustN);
         float demand = clamp(collective, -1f, 1f);
-        float fraction =
+        float trimmed =
                 demand >= 0f ? hover + demand * (1f - hover) : hover + demand * (hover - MIN_COLLECTIVE_FRACTION);
+        // On the ground the stick is a raw thrust command that rests at the bottom of its range,
+        // which is where a real machine's collective sits on a pad (DISC-071). A released stick
+        // therefore leaves the aircraft parked instead of holding it at flying thrust — and it has
+        // to be the bottom of the range rather than the middle of it, because the middle is 62.5%
+        // of maximum, which for a light helicopter is 95% of its own weight and still enough to
+        // skate it down a slope.
+        float parked = MIN_COLLECTIVE_FRACTION + Math.max(demand, 0f) * (1f - MIN_COLLECTIVE_FRACTION);
+        float fraction = parked + (trimmed - parked) * trim;
         // Height hold and a climb-rate limit, from one term. Cancelling weight is not the same as
         // holding height, and the first build did only the first: a Kestrel that had climbed to
         // 80 m on full collective coasted another 72 m after the stick was released, which reads
@@ -276,8 +286,35 @@ public final class RotorControl {
         // docstring already claimed neutral meant — and it gives the climb a terminal rate for
         // free at about (1 - hover) / VERTICAL_DAMPING_PER_MPS, which is 10 m/s for the Kestrel
         // against the 8.5 m/s an H125 actually manages.
-        fraction -= verticalMps * VERTICAL_DAMPING_PER_MPS;
+        // Scaled by the same engagement: height hold is part of the trim, and a machine sitting on
+        // its skids being shoved downward should not answer by making more thrust.
+        fraction -= verticalMps * VERTICAL_DAMPING_PER_MPS * trim;
         return clamp(fraction, MIN_COLLECTIVE_FRACTION, 1f);
+    }
+
+    /**
+     * Whether the hover trim applies: true in the air, false while standing on the world.
+     *
+     * <p>"Neutral collective hovers" is right in the air and wrong on the ground (DISC-071). A
+     * parked machine given 100% of the thrust it needs to fly is a puck: on a slope the trim tilts
+     * with the airframe and gains a horizontal component of {@code weight × sin(θ)} that no wheel,
+     * no suspension and no rolling resistance opposes, so it slides, rocks on the offset hub moment
+     * and puts its own disc into the hillside. Measured on a 12° gradient with no input at all, the
+     * aircraft covered 43.9 m in five seconds.
+     *
+     * <p>A switch rather than a blend. The two mappings meet at full up-collective, which is the
+     * only deflection a lift-off can happen at — the aircraft cannot leave the ground until the
+     * parked mapping already exceeds hover — so what the switch adds at the moment of lift-off is a
+     * step of at most a fifth of maximum thrust, in the direction of climbing, which the vertical
+     * damping term absorbs within a second or two. Lifting off feels like unsticking, which is what
+     * it is; nothing else in the envelope crosses this boundary.
+     *
+     * <p>It runs inside the shared control operation and is therefore replayed by
+     * {@code ReconciliationSystem} (DEC-061), exactly as D16's per-surface grip read already is
+     * (DEC-070).
+     */
+    private boolean isFlying(btRigidBody body) {
+        return physics == null || !physics.isTouchingStatic(body);
     }
 
     /** The share of maximum thrust that exactly cancels weight, capped by {@link #MAX_HOVER_FRACTION}. */
