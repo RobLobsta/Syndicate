@@ -82,8 +82,14 @@ output. This is a normal stage of an art pipeline and not a deviation from R2: t
 are what a part must satisfy *by the time it is exported*, and a preparation tool's entire job is
 getting a model there. Recorded as DEV-013.
 
-**R1b. Third-party terms are recorded beside the model.** Every directory under `vehicles/` and
-`weapons/` carries a `LICENCE.md` naming the source, the author and the licence, and the licence
+**R1c.** `art-source/structures/<name>/` is a third such bucket, holding one whole-structure model
+per directory — `scene.glb`, `import.json`, and a `parts.json` where the geometry cannot say what
+the tool needs (a material, a weapon family). It is processed by `syndicate_structure` against
+D16-S7, and it exists for the same reason `vehicles/` does: a downloaded building is one mesh, and
+the game needs the support chain that mesh implies.
+
+**R1b. Third-party terms are recorded beside the model.** Every directory under `vehicles/`,
+`weapons/` and `structures/` carries a `LICENCE.md` naming the source, the author and the licence, and the licence
 string is carried through the glTF `asset.extras` into the weapon manifest (D17-R16) where it is
 load-bearing rather than decorative. A model with no recorded terms is not processed. `parts.json`,
 where present, holds per-model overrides for the preparation pipeline (D15-S4.3).
@@ -568,6 +574,9 @@ function AssetRegistry.load(assetRoot, headless):
 | A413 | ERROR | `terrain.theme` names a value outside the closed set (D16-S9 E13) |
 | A414 | ERROR | Generated relief puts a spawn point below `killPlaneY` (D16-S9 E15) |
 | A415 | WARN | Every structure candidate for a placement rule was rejected (D16-S9 E7) |
+| A416 | ERROR | A `structures` placement rule names no `structureId` (D16-R21) |
+| A417 | ERROR | A placement rule's `placement` is outside the closed set of D16-R22 |
+| A418 | ERROR | `structure.json` names no `rootPartTypeId`, or names one that is not loaded (D16-R18) |
 | **A5xx — mesh and manifest agreement** | | |
 | A501 | ERROR | `shards.glb` lacks a node named in the manifest |
 | A502 | ERROR | `mesh.glb` lacks a declared morph target |

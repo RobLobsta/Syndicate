@@ -28,5 +28,14 @@ public enum StreamId {
     SPAWN_SELECT,
 
     /** Everything else gameplay-relevant. */
-    MATCH_MISC;
+    MATCH_MISC,
+
+    /**
+     * Structure placement across a generated arena (D16-R43).
+     *
+     * <p>Appended safely: a stream's seed mixes its {@code name()} rather than its {@code ordinal()},
+     * so adding a member does not renumber the existing ones and a replay from before this line
+     * still reproduces exactly.
+     */
+    ARENA_LAYOUT;
 }

@@ -78,6 +78,18 @@ public interface AssetIndex {
     ArenaDef arena(AssetId arenaId);
 
     /**
+     * A destructible structure by id, or {@code null} (D16-S4.6).
+     *
+     * <p>Read by the arena's placement pass and by {@code StructureFactory}. A structure is an
+     * assembly (DEC-071), so everything downstream of the lookup goes through
+     * {@link AssemblyLayout} exactly as a vehicle does.
+     *
+     * @param structureId the structure's asset id
+     * @return the definition, or {@code null} when nothing is registered under that id
+     */
+    StructureDef structure(AssetId structureId);
+
+    /**
      * Every loaded assembly id, sorted (D11-R12).
      *
      * <p>The one enumerating lookup on this interface, and it exists because {@code BotFactory} has
@@ -86,6 +98,9 @@ public interface AssetIndex {
      * whose order depended on hash iteration would make a replay diverge from its own seed (G3, G4).
      */
     List<AssetId> assemblyIds();
+
+    /** Every loaded structure id, ascending, so a placement pass iterates deterministically (G3). */
+    List<AssetId> structureIds();
 
     /**
      * The bot difficulty table (D11-R4).

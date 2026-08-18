@@ -35,6 +35,8 @@ public final class InMemoryAssetIndex implements AssetIndex {
 
     private final Map<AssetId, ArenaDef> arenas = new TreeMap<>();
 
+    private final Map<AssetId, StructureDef> structures = new TreeMap<>();
+
     private final Map<AssetId, WeaponDef> weapons = new TreeMap<>();
 
     /**
@@ -72,6 +74,12 @@ public final class InMemoryAssetIndex implements AssetIndex {
     /** Registers a material under its own {@link MaterialDef#materialId()}. */
     public InMemoryAssetIndex put(MaterialDef material) {
         materials.put(material.materialId(), material);
+        return this;
+    }
+
+    /** Registers a structure under its own {@link StructureDef#structureId()}. */
+    public InMemoryAssetIndex put(StructureDef structure) {
+        structures.put(structure.structureId(), structure);
         return this;
     }
 
@@ -128,6 +136,16 @@ public final class InMemoryAssetIndex implements AssetIndex {
     }
 
     @Override
+    public StructureDef structure(AssetId structureId) {
+        return structureId == null ? null : structures.get(structureId);
+    }
+
+    @Override
+    public List<AssetId> structureIds() {
+        return List.copyOf(structures.keySet());
+    }
+
+    @Override
     public ArenaDef arena(AssetId arenaId) {
         return arenaId == null ? null : arenas.get(arenaId);
     }
@@ -168,6 +186,11 @@ public final class InMemoryAssetIndex implements AssetIndex {
     /** Every loaded material, by ascending id. */
     public Map<AssetId, MaterialDef> materials() {
         return Collections.unmodifiableMap(materials);
+    }
+
+    /** Every loaded structure, by ascending id. */
+    public Map<AssetId, StructureDef> structures() {
+        return Collections.unmodifiableMap(structures);
     }
 
     /** Every loaded arena, by ascending id. */

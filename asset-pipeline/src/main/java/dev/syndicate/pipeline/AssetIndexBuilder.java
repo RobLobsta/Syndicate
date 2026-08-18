@@ -94,6 +94,7 @@ public final class AssetIndexBuilder {
         Map<String, JsonNode> materials = readMaterials(assetRoot);
         Map<String, PartRecord> parts = readParts(assetRoot, materials.keySet());
         List<ObjectNode> vehicles = readVehicles(assetRoot, parts);
+        List<ObjectNode> structures = readStructures(assetRoot, parts);
         List<ObjectNode> arenas = readArenas(assetRoot);
         checkBalanceClasses(assetRoot, vehicles);
 
@@ -120,6 +121,9 @@ public final class AssetIndexBuilder {
 
         ArrayNode vehicleArray = index.putArray("vehicles");
         vehicles.forEach(vehicleArray::add);
+
+        ArrayNode structureArray = index.putArray("structures");
+        structures.forEach(structureArray::add);
 
         ArrayNode arenaArray = index.putArray("arenas");
         arenas.forEach(arenaArray::add);
@@ -561,6 +565,83 @@ public final class AssetIndexBuilder {
         }
         summaries.sort(Comparator.comparing(node -> node.path("vehicleTypeId").asText("")));
         return summaries;
+    }
+
+    // ---- Structures (D16-S4.6) -------------------------------------------------------
+
+    /**
+     * Every {@code assets/structures/<id>/structure.json}, summarised and mass-checked.
+     *
+     * <p>Lighter than {@link #readVehicles}, and the difference is the point: a structure has no
+     * class target, no power budget, no wheels and no centre of mass to assert (D16-R77), so the
+     * only cross-part arithmetic left is that its declared mass matches what its parts sum to. Every
+     * other rule that applies to it applies to its <em>parts</em>, and they were read above like any
+     * others — which is D16-R19 holding, visible here as this method being short.
+     */
+    private List<ObjectNode> readStructures(Path assetRoot, Map<String, PartRecord> parts) {
+        List<ObjectNode> summaries = new ArrayList<>();
+        for (Path directory : AssetPaths.structureDirectories(assetRoot)) {
+            String directoryName = directory.getFileName().toString();
+            JsonNode root = readJson(directory.resolve("structure.json"), directoryName);
+            if (root == null || !checkSchemaVersion(root, directoryName)) {
+                continue;
+            }
+            String id = root.path("structureId").asText("");
+            if (!AssetId.isValid(id)) {
+                findings.add(Finding.error("A104", directoryName, "\"" + id + "\" is not a valid asset id"));
+                continue;
+            }
+            if (!id.equals(directoryName)) {
+                findings.add(
+                        Finding.error("A105", id, "structureId does not equal its directory name " + directoryName));
+            }
+            String rootPart = root.path("rootPartTypeId").asText("");
+            if (!parts.containsKey(rootPart)) {
+                findings.add(Finding.error("A418", id, "rootPartTypeId " + rootPart + " is not a loaded part"));
+                continue;
+            }
+
+            double totalMassKg = massOf(parts, rootPart);
+            int partCount = 1;
+            for (JsonNode entry : root.path("parts")) {
+                String partTypeId = entry.path("partTypeId").asText("");
+                if (!parts.containsKey(partTypeId)) {
+                    findings.add(Finding.error("A107", id, "part type " + partTypeId + " is not loaded"));
+                    continue;
+                }
+                totalMassKg += massOf(parts, partTypeId);
+                partCount++;
+            }
+
+            double expectedMass = root.path("expected").path("massKg").asDouble(0d);
+            if (expectedMass > 0d && Math.abs(expectedMass - totalMassKg) > MASS_DELTA_FRAC * expectedMass) {
+                findings.add(Finding.error(
+                        "A310", id, "expected.massKg " + expectedMass + " differs from the computed " + totalMassKg));
+            }
+            double radiusM = root.path("footprint").path("radiusM").asDouble(0d);
+            if (radiusM <= 0d) {
+                findings.add(
+                        Finding.error("A412", id, "footprint.radiusM " + radiusM + " does not enclose the structure"));
+            }
+
+            ObjectNode summary = mapper.createObjectNode();
+            summary.put("structureId", id);
+            summary.put("path", "structures/" + id);
+            summary.put("rootPartTypeId", rootPart);
+            summary.put("partCount", partCount);
+            summary.put("totalMassKg", totalMassKg);
+            summary.put("footprintRadiusM", radiusM);
+            summary.put(
+                    "footprintHeightM", root.path("footprint").path("heightM").asDouble(0d));
+            summaries.add(summary);
+        }
+        summaries.sort(Comparator.comparing(node -> node.path("structureId").asText("")));
+        return summaries;
+    }
+
+    private static double massOf(Map<String, PartRecord> parts, String partTypeId) {
+        PartRecord record = parts.get(partTypeId);
+        return record == null ? 0d : record.document().path("massKg").asDouble(0d);
     }
 
     // ---- Arenas (D08-S4.7) -----------------------------------------------------------

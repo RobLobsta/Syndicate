@@ -116,6 +116,10 @@ fun deformCommand(vararg toolArgs: String): List<String> =
 fun prepareCommand(vararg toolArgs: String): List<String> =
     blenderCommand("syndicate_prepare", toolArgs)
 
+/** The structure tool's invocation, on whichever host is present — as `fractureCommand`. */
+fun structureCommand(vararg toolArgs: String): List<String> =
+    blenderCommand("syndicate_structure", toolArgs)
+
 /** `ruff check` — CI stage 0 (D12-S5.4). */
 val lint = tasks.register<Exec>("lint") {
     group = "verification"
@@ -129,6 +133,7 @@ val lint = tasks.register<Exec>("lint") {
         "syndicate_deform",
         "syndicate_dissect",
         "syndicate_prepare",
+        "syndicate_structure",
         "syndicate_weapon",
         "tests",
     )
@@ -434,6 +439,91 @@ registerPreparation(
 registerPreparation(
     "prepareVehicles",
     "Turns art-source/vehicles/ into assets/vehicles/<id>/parts (D15-S5.1, all 9 stages).",
+    writeAssets = true,
+)
+
+/**
+ * The structure pipeline of D16-S7, over every model in `art-source/structures/`.
+ *
+ * Two tasks over one tool, for the reason `classifyVehicles` and `prepareVehicles` are two:
+ * cutting a model up and *writing the result into `assets/`* have opposite consequences, and
+ * only one of them belongs in an exploratory run.
+ *
+ * `classifyStructures` runs the cut and reports where the bands landed, writing nothing. It is
+ * what to run when `BAND_TARGET_M` or a clustering threshold changed and the question is what
+ * that did to the part split.
+ *
+ * `prepareStructures` writes `assets/structures/<structureId>/` — its parts, their meshes,
+ * their destruction data and its `structure.json`, all committed content. Running it is a
+ * decision to re-cut the art and belongs in the commit that does so, which is why it is wired
+ * into no other task.
+ */
+fun registerStructurePreparation(taskName: String, taskDescription: String, writeAssets: Boolean) =
+    tasks.register(taskName) {
+        group = "build"
+        description = taskDescription
+
+        val toolDir = layout.projectDirectory.asFile
+        val structuresDir = rootProject.layout.projectDirectory.dir("art-source/structures").asFile
+        val reportRoot = rootProject.layout.buildDirectory.dir("structure-reports").get().asFile
+        val assetRoot = rootProject.layout.projectDirectory.dir("assets/structures").asFile
+        val materialTable =
+            rootProject.layout.projectDirectory.file("assets/materials/materials.json").asFile
+        val styleTable =
+            rootProject.layout.projectDirectory.file("assets/materials/style.json").asFile
+
+        val models: List<Pair<String, List<String>>> =
+            (structuresDir.listFiles()?.filter { it.isDirectory }?.sortedBy { it.name } ?: emptyList())
+                .map { dir ->
+                    val arguments = mutableListOf(
+                        "--model", dir.absolutePath,
+                        "--material-table", materialTable.absolutePath,
+                        "--style-table", styleTable.absolutePath,
+                        "--report", File(reportRoot, "${dir.name}.json").absolutePath,
+                    )
+                    if (writeAssets) {
+                        arguments += listOf("--out", assetRoot.absolutePath)
+                    }
+                    dir.name to structureCommand(*arguments.toTypedArray())
+                }
+        val required = blenderRequired
+        val available = blenderAvailable
+        val exe = blenderExe
+
+        inputs.dir(structuresDir).withPathSensitivity(PathSensitivity.RELATIVE)
+        outputs.dir(reportRoot)
+
+        doLast {
+            if (!available) {
+                val message = "Blender not found; tried '$exe' on PATH and the bpy module (D02-R12)"
+                if (required) {
+                    throw GradleException("$message — SYNDICATE_REQUIRE_BLENDER=1")
+                }
+                this@register.logger.warn("SKIPPED :blender-tool:$taskName — $message")
+                return@doLast
+            }
+            for ((name, command) in models) {
+                val process =
+                    ProcessBuilder(command).directory(toolDir).redirectErrorStream(false).start()
+                val document = process.inputStream.bufferedReader().readText()
+                val exit = process.waitFor()
+                if (exit != 0) {
+                    throw GradleException("syndicate-structure on $name exited $exit\n$document")
+                }
+                this@register.logger.lifecycle("$taskName: $name")
+            }
+        }
+    }
+
+registerStructurePreparation(
+    "classifyStructures",
+    "Cuts art-source/structures/ into bands and reports; writes no assets (D16-S7.1).",
+    writeAssets = false,
+)
+
+registerStructurePreparation(
+    "prepareStructures",
+    "Turns art-source/structures/ into assets/structures/<id>/ (D16-S7, all nine stages).",
     writeAssets = true,
 )
 

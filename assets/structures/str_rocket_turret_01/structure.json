@@ -1,0 +1,40 @@
+{
+  "displayName": "Rocket Turret",
+  "expected": {
+    "massKg": 410684.215
+  },
+  "footprint": {
+    "heightM": 31.178,
+    "radiusM": 27.298
+  },
+  "parts": [
+    {
+      "parentSlotId": "tier1",
+      "parentSlotPath": "root",
+      "partTypeId": "struct_rocket_turret_tier1_01",
+      "slotPath": "root/tier1"
+    },
+    {
+      "parentSlotId": "tier2",
+      "parentSlotPath": "root/tier1",
+      "partTypeId": "struct_rocket_turret_tier2_01",
+      "slotPath": "root/tier1/tier2"
+    },
+    {
+      "parentSlotId": "tier3",
+      "parentSlotPath": "root/tier1/tier2",
+      "partTypeId": "struct_rocket_turret_tier3_01",
+      "slotPath": "root/tier1/tier2/tier3"
+    },
+    {
+      "parentSlotId": "tier4",
+      "parentSlotPath": "root/tier1/tier2/tier3",
+      "partTypeId": "struct_rocket_turret_tier4_01",
+      "slotPath": "root/tier1/tier2/tier3/tier4"
+    }
+  ],
+  "rootPartTypeId": "struct_rocket_turret_base_01",
+  "schemaVersion": "1.0.0",
+  "staticRoot": true,
+  "structureId": "str_rocket_turret_01"
+}

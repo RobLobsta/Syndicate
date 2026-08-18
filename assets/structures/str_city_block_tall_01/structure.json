@@ -1,0 +1,34 @@
+{
+  "displayName": "Corner Block",
+  "expected": {
+    "massKg": 369775.087
+  },
+  "footprint": {
+    "heightM": 22.216,
+    "radiusM": 6.534
+  },
+  "parts": [
+    {
+      "parentSlotId": "tier1",
+      "parentSlotPath": "root",
+      "partTypeId": "struct_city_block_tall_tier1_01",
+      "slotPath": "root/tier1"
+    },
+    {
+      "parentSlotId": "tier2",
+      "parentSlotPath": "root/tier1",
+      "partTypeId": "struct_city_block_tall_tier2_01",
+      "slotPath": "root/tier1/tier2"
+    },
+    {
+      "parentSlotId": "tier3",
+      "parentSlotPath": "root/tier1/tier2",
+      "partTypeId": "struct_city_block_tall_tier3_01",
+      "slotPath": "root/tier1/tier2/tier3"
+    }
+  ],
+  "rootPartTypeId": "struct_city_block_tall_base_01",
+  "schemaVersion": "1.0.0",
+  "staticRoot": true,
+  "structureId": "str_city_block_tall_01"
+}

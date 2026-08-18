@@ -1,0 +1,52 @@
+{
+  "armorValue": 60.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=struct_rocket_turret_tier3_01_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 5091111.2,
+  "category": "PANEL",
+  "destructionClass": "STRUCTURAL",
+  "displayName": "Rocket Turret \u2014 Tier3",
+  "hangsBeforeFalling": false,
+  "massKg": 113135.804,
+  "materialId": "steel",
+  "maxHp": 6788.1,
+  "partTypeId": "struct_rocket_turret_tier3_01",
+  "powerCost": 0.0,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "PANEL",
+  "slots": [
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -3.2193,
+        "y": 6.2355,
+        "z": -0.0068
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 377644.8,
+      "sizeClass": "HEAVY",
+      "slotId": "tier4",
+      "slotType": "TURRET_MOUNT"
+    }
+  ],
+  "stats": {},
+  "tags": [
+    "structure",
+    "tier3",
+    "prepared"
+  ]
+}

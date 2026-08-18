@@ -9,17 +9,23 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.linearmath.btDefaultMotionState;
+import dev.syndicate.core.arena.StructurePlacer;
 import dev.syndicate.core.arena.TerrainField;
 import dev.syndicate.core.arena.TerrainGenerator;
 import dev.syndicate.core.arena.TerrainParams;
 import dev.syndicate.core.asset.ArenaDef;
+import dev.syndicate.core.asset.AssetIndex;
 import dev.syndicate.core.asset.MeshData;
+import dev.syndicate.core.asset.StructureDef;
 import dev.syndicate.core.component.RigidBodyComponent;
 import dev.syndicate.core.component.StaticCollisionComponent;
 import dev.syndicate.core.component.TransformComponent;
 import dev.syndicate.core.ecs.Entity;
+import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.core.ecs.World;
+import dev.syndicate.core.structure.StructureFactory;
 import dev.syndicate.core.util.NativeResourceTracker;
+import dev.syndicate.core.util.StreamId;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.CollisionLayer;
 import java.util.ArrayList;
@@ -79,12 +85,25 @@ public final class ArenaFactory {
      * @return the created entity ids, floor first, in the order the surfaces were built
      */
     public static LoadedArena load(World world, PhysicsWorld physics, ShapeCache shapes, ArenaDef arena) {
+        return load(world, physics, shapes, arena, null);
+    }
+
+    /**
+     * Loads an arena and places the structures it declares (D16-S4.7, D16-S5.7).
+     *
+     * <p>The asset index is what separates this from the four-argument form: without one there is
+     * nothing to resolve a {@code structureId} against, so an arena loads as its ground and its
+     * bounds and nothing else. Every caller that has an index should pass it — the four-argument
+     * form exists for the physics fixtures, which are a floor and two cars by design.
+     */
+    public static LoadedArena load(
+            World world, PhysicsWorld physics, ShapeCache shapes, ArenaDef arena, AssetIndex assets) {
         if (arena == null) {
             LOG.warn("no arena to load; the world has no ground and nothing will stay in it");
             return new LoadedArena(List.of(), null);
         }
         if (arena.hasTerrain()) {
-            return loadTerrain(world, physics, shapes, arena);
+            return loadTerrain(world, physics, shapes, arena, assets);
         }
         Vector3 min = arena.boundsMin();
         Vector3 max = arena.boundsMax();
@@ -139,6 +158,7 @@ public final class ArenaFactory {
                 min,
                 max,
                 arena.spawnPoints().size());
+        entities.addAll(placeStructures(world, physics, shapes, arena, null, assets));
         return new LoadedArena(List.copyOf(entities), null);
     }
 
@@ -273,7 +293,8 @@ public final class ArenaFactory {
      * something it cannot see. The kill plane stays as the hard backstop for anything that leaves
      * anyway.
      */
-    private static LoadedArena loadTerrain(World world, PhysicsWorld physics, ShapeCache shapes, ArenaDef arena) {
+    private static LoadedArena loadTerrain(
+            World world, PhysicsWorld physics, ShapeCache shapes, ArenaDef arena, AssetIndex assets) {
         // Every spawn point gets a levelled pad (D16-S9 E2). Without them a spawn on a dune's slip
         // face is a car dropped onto a wall it cannot climb, and which of the twelve points that
         // happens to is a property of the seed — so it would be found by playing rather than by
@@ -287,6 +308,11 @@ public final class ArenaFactory {
         }
 
         TerrainField field = generatePlayable(world, arena, pads, spawnPositions);
+
+        // Before the collision shape, and not after: a pad flatten writes into the height buffer the
+        // shape borrows (D16-R47), and a shape built first would keep the AABB the unflattened field
+        // had. That is D16-R48's failure mode arriving through the other door.
+        List<Integer> structureEntities = placeStructures(world, physics, shapes, arena, field, assets);
 
         Entity entity = world.createEntity();
         int entityId = entity.id();
@@ -317,7 +343,49 @@ public final class ArenaFactory {
         // body rather than returned to the caller to plumb, so a world that has terrain collision
         // cannot end up without the field that collision was generated from.
         physics.setTerrain(field);
-        return new LoadedArena(List.of(entityId), field);
+        List<Integer> entities = new ArrayList<>();
+        entities.add(entityId);
+        entities.addAll(structureEntities);
+        return new LoadedArena(List.copyOf(entities), field);
+    }
+
+    /**
+     * Runs the placement pass and instantiates what it decided (D16-S5.7, D16-S7).
+     *
+     * <p>Two halves on purpose. {@link StructurePlacer} answers "where", is pure apart from the pads
+     * it flattens, and can be asserted without a physics world; {@link StructureFactory} answers
+     * "what", and needs one. Nothing here decides anything.
+     */
+    private static List<Integer> placeStructures(
+            World world,
+            PhysicsWorld physics,
+            ShapeCache shapes,
+            ArenaDef arena,
+            TerrainField field,
+            AssetIndex assets) {
+
+        if (assets == null || arena.structures().isEmpty()) {
+            return List.of();
+        }
+        StructurePlacer.Report report =
+                StructurePlacer.place(arena, field, assets, world.random().stream(StreamId.ARENA_LAYOUT));
+        for (String finding : report.findings()) {
+            LOG.warn("arena {} structure placement: {}", arena.arenaId().value(), finding);
+        }
+        List<Integer> entities = new ArrayList<>();
+        Matrix4 transform = new Matrix4();
+        for (StructurePlacer.Placement placement : report.placed()) {
+            StructureDef definition = assets.structure(placement.structureId());
+            if (definition == null) {
+                continue;
+            }
+            StructureFactory.transformAt(placement.position(), placement.yawDeg(), transform);
+            int entityId = StructureFactory.spawnStructure(world, physics, shapes, assets, definition, transform);
+            if (entityId != EntityId.NULL) {
+                entities.add(entityId);
+            }
+        }
+        return List.copyOf(entities);
     }
 
     /**

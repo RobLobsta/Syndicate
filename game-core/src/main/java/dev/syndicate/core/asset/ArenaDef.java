@@ -37,6 +37,8 @@ import java.util.TreeSet;
  * @param collisionMeshRef the arena's collision geometry file, or null when its collision is
  *     generated from {@link #boundsMin} and {@link #boundsMax} (DEV-014)
  * @param terrain the generated-ground parameters, or null for a flat arena (D16-R3, R4)
+ * @param roads the corridors carved through the terrain, in authored order (D16-R7, R10)
+ * @param structures the placement rules for destructible structures, in authored order (D16-R21)
  */
 public record ArenaDef(
         AssetId arenaId,
@@ -49,7 +51,36 @@ public record ArenaDef(
         Set<GameMode> modes,
         String collisionMeshRef,
         TerrainParams terrain,
-        List<RoadSpec> roads) {
+        List<RoadSpec> roads,
+        List<StructurePlacementRule> structures) {
+
+    /** An arena with roads and no structures, which is every arena authored before D16-S4.7. */
+    public ArenaDef(
+            AssetId arenaId,
+            String displayName,
+            Vector3 boundsMin,
+            Vector3 boundsMax,
+            float killPlaneY,
+            float groundY,
+            List<SpawnPoint> spawnPoints,
+            Set<GameMode> modes,
+            String collisionMeshRef,
+            TerrainParams terrain,
+            List<RoadSpec> roads) {
+        this(
+                arenaId,
+                displayName,
+                boundsMin,
+                boundsMax,
+                killPlaneY,
+                groundY,
+                spawnPoints,
+                modes,
+                collisionMeshRef,
+                terrain,
+                roads,
+                List.of());
+    }
 
     /** An arena with no roads, which is every arena authored before D16-S4.3. */
     public ArenaDef(
@@ -118,6 +149,11 @@ public record ArenaDef(
         sorted.sort((a, b) -> a.id().compareTo(b.id()));
         spawnPoints = Collections.unmodifiableList(sorted);
         modes = modes == null || modes.isEmpty() ? Set.of() : Collections.unmodifiableSet(new TreeSet<>(modes));
+        roads = roads == null ? List.of() : List.copyOf(roads);
+        // Authored order, deliberately unsorted: D16-R21 places rules in array order and D16-R45
+        // flattens each candidate's pad as it goes, so the order a designer wrote is the order the
+        // arena comes out — reordering here would silently change the map.
+        structures = structures == null ? List.of() : List.copyOf(structures);
     }
 
     /**

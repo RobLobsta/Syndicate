@@ -13,9 +13,15 @@ art-source/
 │   ├── eclipse/
 │   ├── kestrel/
 │   └── stampede/
-└── weapons/                whole-weapon source models          ← the two guns
-    ├── machinegun/
-    └── cannon/
+├── weapons/                whole-weapon source models          ← the two guns
+│   ├── machinegun/
+│   └── cannon/
+└── structures/             whole-structure source models       ← a turret and a city block's worth
+    ├── rocket_turret/
+    ├── city_block_low/
+    ├── city_block_tall/
+    ├── street_tree/
+    └── street_bench/
 ```
 
 `vehicles/` is not in D08-S4.1's tree. It holds a whole car as one model — body and wheels in one
@@ -36,6 +42,17 @@ records the bucket and why.
 | `weapons/machinegun/` | `weapon_machinegun_01` | Car Combat Machine Gun | 350 | **CC-BY-4.0** |
 | `weapons/cannon/` | `weapon_cannon_01` | SS. Hope Cannon | 8,898 | **CC-BY-4.0** |
 | `vehicles/kestrel/` | **Kestrel** | Cartoonish Helicopter (Codematics) | 2,807 | **Animatics single-use commercial** |
+| `structures/rocket_turret/` | `str_rocket_turret_01` | `turret.blend` | 163,616 | **not recorded** |
+| `structures/city_block_low/` | `str_city_block_low_01` | `city_alley_kit.blend` | 946 | **not recorded** |
+| `structures/city_block_tall/` | `str_city_block_tall_01` | `city_alley_kit.blend` | 3,243 | **not recorded** |
+| `structures/street_tree/` | `str_street_tree_01` | `city_alley_kit.blend` | 1,134 | **not recorded** |
+| `structures/street_bench/` | `str_street_bench_01` | `city_alley_kit.blend` | 4,416 | **not recorded** |
+
+`structures/` is processed by `syndicate_structure` against `docs/16_procedural_arena_generation.md`.
+A structure comes out as an **assembly** — a root part on the ground with parts stacked on its slots
+— so shooting the bottom of a building drops what stands on it, through the machinery that already
+drops a wheel (D16-R80). `structures/README.md` is the file-by-file mapping from the two `.blend`
+files that arrived to the five structures that ship.
 
 `weapons/` is processed by `syndicate_weapon` rather than `syndicate_prepare`, against
 `docs/17_weapon_system.md`. A weapon comes out as an **assembly** — a mount with a receiver, a
@@ -64,6 +81,12 @@ Animatics Asset Store certificate: non-exclusive, commercial, worldwide — and 
 registered project, and revokable**. So it may ship commercially where the cars may not, and it may
 **not** be lifted into a second project or redistributed as source art, where a CC model could be.
 No attribution line is contractually required. Its `SOURCE.md` carries the certificate's terms.
+
+The five **structures** arrived with **no terms at all** — no licence text, no author, no
+`asset.extras`. D08-R1b says a model with no recorded terms is not processed; they were processed
+anyway, deliberately and on the record, because D16-S7 had no content and a subsystem with nothing
+in it cannot be looked at. Each directory's `LICENCE.md` says exactly that and says what has to
+happen before anything ships. **None of this art may be distributed until it does.**
 
 The two **weapons** are **CC-BY-4.0**: attribution required, commercial use **permitted**, and no
 share-alike. They are therefore the only art in this repository that could ship commercially as it

@@ -18,36 +18,6 @@
   ],
   "materials": [
     {
-      "materialId": "steel",
-      "displayName": "Mild steel",
-      "densityKgPerM3": 7850.0,
-      "resistance": {
-        "KINETIC": 1.0,
-        "EXPLOSIVE": 1.0,
-        "INCENDIARY": 1.0,
-        "ENERGY": 1.0,
-        "COLLISION": 1.0
-      },
-      "fractureBrittleness": 0.5,
-      "audioMaterial": "METAL",
-      "notes": "The reference material: every resistance is 1.0 by definition. Body panels, chassis rails, doors, bonnets -- how each of those fails is its part's destructionClass, not this row's business."
-    },
-    {
-      "materialId": "steel_hardened",
-      "displayName": "Hardened steel",
-      "densityKgPerM3": 7850.0,
-      "resistance": {
-        "KINETIC": 0.85,
-        "EXPLOSIVE": 0.95,
-        "INCENDIARY": 1.15,
-        "ENERGY": 1.05,
-        "COLLISION": 0.9
-      },
-      "fractureBrittleness": 0.35,
-      "audioMaterial": "METAL",
-      "notes": "Armour plate, brake discs, uprights and calipers. Resists kinetic well and heat badly, which is the trade that makes an incendiary loadout worth carrying."
-    },
-    {
       "materialId": "aluminium",
       "displayName": "Aluminium",
       "densityKgPerM3": 2700.0,
@@ -78,19 +48,19 @@
       "notes": "Splitters, wings, monocoque panels. Light and stiff, and it does not dent so much as delaminate \u2014 which is why it is brittle and why its blast resistance is the worst on the table."
     },
     {
-      "materialId": "rubber",
-      "displayName": "Rubber",
-      "densityKgPerM3": 1100.0,
+      "materialId": "concrete",
+      "displayName": "Reinforced concrete",
+      "densityKgPerM3": 2400.0,
       "resistance": {
-        "KINETIC": 1.0,
-        "EXPLOSIVE": 1.1,
-        "INCENDIARY": 1.4,
-        "ENERGY": 1.0,
-        "COLLISION": 0.7
+        "KINETIC": 0.75,
+        "EXPLOSIVE": 1.3,
+        "INCENDIARY": 0.4,
+        "ENERGY": 0.85,
+        "COLLISION": 0.6
       },
-      "fractureBrittleness": 0.1,
-      "audioMaterial": "RUBBER",
-      "notes": "Tyres. Shrugs off a collision better than anything else here and burns better than anything else too."
+      "fractureBrittleness": 0.85,
+      "audioMaterial": "COMPOSITE",
+      "notes": "Structures: walls, floors, footings, gun emplacements. Shrugs off bullets and fire and comes apart under explosives, which is the trade that makes a rocket the right tool against a building and a machine gun the wrong one. Audio is COMPOSITE for its sharp crack; masonry has no bank of its own yet and adding one is a content change, not a material one."
     },
     {
       "materialId": "glass",
@@ -108,6 +78,21 @@
       "notes": "Windscreen, side and rear glazing, lamp lenses. Intact or shattered, never dented \u2014 a deformed windscreen reads as a bug."
     },
     {
+      "materialId": "lead",
+      "displayName": "Lead",
+      "densityKgPerM3": 11340.0,
+      "resistance": {
+        "KINETIC": 0.8,
+        "EXPLOSIVE": 0.9,
+        "INCENDIARY": 0.95,
+        "ENERGY": 0.9,
+        "COLLISION": 0.85
+      },
+      "fractureBrittleness": 0.2,
+      "audioMaterial": "METAL",
+      "notes": "Ballast and dense armour inserts. On the table so a build can buy protection with mass, which is the one currency every other material spends."
+    },
+    {
       "materialId": "plastic",
       "displayName": "Plastic",
       "densityKgPerM3": 950.0,
@@ -121,6 +106,51 @@
       "fractureBrittleness": 0.7,
       "audioMaterial": "PLASTIC",
       "notes": "Bumper covers, lamp housings, mirrors, grille inserts."
+    },
+    {
+      "materialId": "rubber",
+      "displayName": "Rubber",
+      "densityKgPerM3": 1100.0,
+      "resistance": {
+        "KINETIC": 1.0,
+        "EXPLOSIVE": 1.1,
+        "INCENDIARY": 1.4,
+        "ENERGY": 1.0,
+        "COLLISION": 0.7
+      },
+      "fractureBrittleness": 0.1,
+      "audioMaterial": "RUBBER",
+      "notes": "Tyres. Shrugs off a collision better than anything else here and burns better than anything else too."
+    },
+    {
+      "materialId": "steel",
+      "displayName": "Mild steel",
+      "densityKgPerM3": 7850.0,
+      "resistance": {
+        "KINETIC": 1.0,
+        "EXPLOSIVE": 1.0,
+        "INCENDIARY": 1.0,
+        "ENERGY": 1.0,
+        "COLLISION": 1.0
+      },
+      "fractureBrittleness": 0.5,
+      "audioMaterial": "METAL",
+      "notes": "The reference material: every resistance is 1.0 by definition. Body panels, chassis rails, doors, bonnets -- how each of those fails is its part's destructionClass, not this row's business."
+    },
+    {
+      "materialId": "steel_hardened",
+      "displayName": "Hardened steel",
+      "densityKgPerM3": 7850.0,
+      "resistance": {
+        "KINETIC": 0.85,
+        "EXPLOSIVE": 0.95,
+        "INCENDIARY": 1.15,
+        "ENERGY": 1.05,
+        "COLLISION": 0.9
+      },
+      "fractureBrittleness": 0.35,
+      "audioMaterial": "METAL",
+      "notes": "Armour plate, brake discs, uprights and calipers. Resists kinetic well and heat badly, which is the trade that makes an incendiary loadout worth carrying."
     },
     {
       "materialId": "trim",
@@ -138,19 +168,19 @@
       "notes": "Seats, dash, decals. Visible through glass and never hit (D15-S4.1): the NONE class is what keeps a hundred interior shells out of the destruction budget."
     },
     {
-      "materialId": "lead",
-      "displayName": "Lead",
-      "densityKgPerM3": 11340.0,
+      "materialId": "wood",
+      "displayName": "Timber",
+      "densityKgPerM3": 700.0,
       "resistance": {
-        "KINETIC": 0.8,
-        "EXPLOSIVE": 0.9,
-        "INCENDIARY": 0.95,
-        "ENERGY": 0.9,
-        "COLLISION": 0.85
+        "KINETIC": 1.15,
+        "EXPLOSIVE": 1.2,
+        "INCENDIARY": 1.8,
+        "ENERGY": 1.1,
+        "COLLISION": 1.25
       },
-      "fractureBrittleness": 0.2,
-      "audioMaterial": "METAL",
-      "notes": "Ballast and dense armour inserts. On the table so a build can buy protection with mass, which is the one currency every other material spends."
+      "fractureBrittleness": 0.55,
+      "audioMaterial": "COMPOSITE",
+      "notes": "Street furniture, hoardings, pallets. The one material in the table that genuinely fears fire: 1.80 incendiary is the largest single resistance figure anywhere here and it is the reason to carry a flamer past the first minute of a match."
     }
   ]
 }

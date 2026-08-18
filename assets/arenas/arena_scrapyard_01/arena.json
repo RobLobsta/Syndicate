@@ -197,5 +197,46 @@
     "seed": 0,
     "cellSizeM": 1.0,
     "gridSize": 301
-  }
+  },
+  "structures": [
+    {
+      "structureId": "str_rocket_turret_01",
+      "placement": "scatter",
+      "countMin": 1,
+      "countMax": 2,
+      "densityPerHa": 0.2
+    },
+    {
+      "structureId": "str_city_block_low_01",
+      "placement": "scatter",
+      "countMin": 2,
+      "countMax": 4,
+      "densityPerHa": 0.4
+    },
+    {
+      "structureId": "str_city_block_tall_01",
+      "placement": "scatter",
+      "countMin": 1,
+      "countMax": 3,
+      "densityPerHa": 0.3
+    },
+    {
+      "structureId": "str_street_tree_01",
+      "placement": "road_verge",
+      "spacingM": 18.0,
+      "jitterM": 2.0,
+      "countMin": 0,
+      "countMax": 12,
+      "densityPerHa": 1.4
+    },
+    {
+      "structureId": "str_street_bench_01",
+      "placement": "road_verge",
+      "spacingM": 24.0,
+      "jitterM": 1.0,
+      "countMin": 0,
+      "countMax": 8,
+      "densityPerHa": 0.9
+    }
+  ]
 }

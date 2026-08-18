@@ -1,0 +1,32 @@
+{
+  "armorValue": 60.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=struct_city_block_tall_tier3_01_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 4476156.0,
+  "category": "PANEL",
+  "destructionClass": "STRUCTURAL",
+  "displayName": "Corner Block \u2014 Tier3",
+  "hangsBeforeFalling": false,
+  "massKg": 99470.133,
+  "materialId": "concrete",
+  "maxHp": 5968.2,
+  "partTypeId": "struct_city_block_tall_tier3_01",
+  "powerCost": 0.0,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "PANEL",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "structure",
+    "tier3",
+    "prepared"
+  ]
+}

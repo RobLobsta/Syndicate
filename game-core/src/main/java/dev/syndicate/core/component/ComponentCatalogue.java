@@ -79,13 +79,15 @@ public final class ComponentCatalogue {
             DamageLedgerComponent.class,
             // --- Appended for the match and bot systems of D04-S4.4 slots 3 and 4 ---
             PlayerIdentityComponent.class,
-            ControlledVehicleComponent.class);
+            ControlledVehicleComponent.class,
+            // --- Appended for the destructible structures of D16-S7 ---
+            StructureComponent.class);
 
     /**
      * How many types the catalogue holds. Asserted by a test, so appending a type without updating
      * this constant fails loudly rather than drifting.
      */
-    public static final int EXPECTED_SIZE = 36;
+    public static final int EXPECTED_SIZE = 37;
 
     private ComponentCatalogue() {}
 

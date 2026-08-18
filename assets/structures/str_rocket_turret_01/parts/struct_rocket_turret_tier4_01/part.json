@@ -1,0 +1,61 @@
+{
+  "armorValue": 60.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=struct_rocket_turret_tier4_01_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 4248503.9,
+  "category": "WEAPON",
+  "destructionClass": "STRUCTURAL",
+  "displayName": "Rocket Turret \u2014 Tier4",
+  "hangsBeforeFalling": false,
+  "massKg": 94411.198,
+  "materialId": "steel_hardened",
+  "maxHp": 5664.7,
+  "partTypeId": "struct_rocket_turret_tier4_01",
+  "powerCost": 0.0,
+  "schemaVersion": "1.0.0",
+  "sizeClass": "HEAVY",
+  "slotTypeRequired": "TURRET_MOUNT",
+  "slots": [],
+  "stats": {
+    "damagePerShot": {
+      "add": 420.0
+    },
+    "fireIntervalS": {
+      "add": 3.2
+    },
+    "heatPerShot": {
+      "add": 0.22
+    },
+    "projectileSpeedMps": {
+      "add": 120.0
+    },
+    "spreadRad": {
+      "add": 0.006
+    }
+  },
+  "tags": [
+    "structure",
+    "tier4",
+    "prepared"
+  ],
+  "weapon": {
+    "ammoCapacity": 12,
+    "blastRadiusM": 8.0,
+    "damageType": null,
+    "family": "ROCKET",
+    "muzzleLocal": {
+      "x": 0.0,
+      "y": 2.9519,
+      "z": 6.3138
+    },
+    "rangeM": 220.0
+  }
+}

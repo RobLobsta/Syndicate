@@ -7,6 +7,7 @@ package dev.syndicate.core.system;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
+import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.dynamics.btTypedConstraint;
 import dev.syndicate.core.asset.AssetIndex;
 import dev.syndicate.core.asset.PartType;
@@ -18,6 +19,7 @@ import dev.syndicate.core.component.PartRefComponent;
 import dev.syndicate.core.component.RigidBodyComponent;
 import dev.syndicate.core.component.SlotAttachmentComponent;
 import dev.syndicate.core.component.SlotGraphComponent;
+import dev.syndicate.core.component.StructureComponent;
 import dev.syndicate.core.component.TransformComponent;
 import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.component.VelocityComponent;
@@ -39,6 +41,7 @@ import dev.syndicate.core.vehicle.PartPlacement;
 import dev.syndicate.core.vehicle.SlotChain;
 import dev.syndicate.core.vehicle.SlotNode;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.CollisionLayer;
 import dev.syndicate.model.DamageState;
 import dev.syndicate.model.SimulationConstants;
 import java.util.ArrayList;
@@ -137,6 +140,8 @@ public final class DetachSystem implements EntitySystem {
     private Family vehicles;
     private Family looseParts;
 
+    private Family structures;
+
     private final Matrix4 scratchWorld = new Matrix4();
     private final Matrix4 scratchFrameInVehicle = new Matrix4();
     private final Matrix4 scratchFrameInPart = new Matrix4();
@@ -170,6 +175,7 @@ public final class DetachSystem implements EntitySystem {
         attachedParts = world.family(
                 ComponentQuery.all(DamageStateComponent.class, SlotAttachmentComponent.class, PartRefComponent.class));
         vehicles = world.family(ComponentQuery.all(VehicleChassisComponent.class, SlotGraphComponent.class));
+        structures = world.family(ComponentQuery.all(StructureComponent.class, SlotGraphComponent.class));
         looseParts = world.family(
                 ComponentQuery.all(DamageStateComponent.class, PartRefComponent.class, RigidBodyComponent.class));
         debrisFactory.initialize(world);
@@ -179,6 +185,7 @@ public final class DetachSystem implements EntitySystem {
     public void update(World world, float dtSeconds, long tick) {
         detachTriggers(world, tick);
         wreckTrigger(world, tick);
+        collapseTrigger(world, tick);
         embodyDetachedParts(world, tick);
     }
 
@@ -394,6 +401,82 @@ public final class DetachSystem implements EntitySystem {
         world.destroyEntity(vehicleEntity);
     }
 
+    // ---- T4, for a structure (D16-R78, D16-R79) --------------------------------------
+
+    /**
+     * A structure whose root part died comes apart, exactly as a vehicle whose chassis died does.
+     *
+     * <p>This is D07-S5.7's T4 with the vehicle taken out of it, and it is the whole of D16-R79's
+     * "the only addition is inside the detach path". Everything above the root is already covered
+     * without it: a middle part that is destroyed detaches itself under T1 and carries its subtree,
+     * which is why a gantry's span drops when its leg is shot away. The <em>root</em> is the one part
+     * with no {@code SlotAttachmentComponent}, so T1 never sees it, and without this a building whose
+     * ground floor was destroyed would keep standing on a floor that no longer exists.
+     *
+     * <p>No wreck event and no chassis debris: a structure is not a vehicle, nobody scored a kill on
+     * it, and its root becomes debris through the same pass every other part does.
+     */
+    private void collapseTrigger(World world, long tick) {
+        int count = structures.size();
+        int[] entityIds = structures.snapshot();
+        for (int i = 0; i < count; i++) {
+            int structureEntity = entityIds[i];
+            if (!world.isAlive(structureEntity)) {
+                continue;
+            }
+            StructureComponent structure = world.getComponent(structureEntity, StructureComponent.class);
+            if (structure == null || structure.rootPartEntity == EntityId.NULL) {
+                continue;
+            }
+            if (!isChassisDead(world, structure.rootPartEntity)) {
+                continue;
+            }
+            SlotGraphComponent graph = world.getComponent(structureEntity, SlotGraphComponent.class);
+            if (graph != null) {
+                // Ascending slot path order (G3). A part whose ancestor was visited first has already
+                // left with it, and detaching it again is the no-op D05-E5 requires.
+                scratchNodes.clear();
+                scratchNodes.addAll(graph.nodes);
+                scratchNodes.sort(Comparator.comparing(node -> node.slotPath));
+                for (int n = 0; n < scratchNodes.size(); n++) {
+                    PartDetachment.detach(
+                            world,
+                            shapes,
+                            structureEntity,
+                            scratchNodes.get(n).childEntity,
+                            DetachReason.PARENT_DETACHED,
+                            tick);
+                }
+                scratchNodes.clear();
+            }
+            // The root itself falls too. It has no attachment to release and no slot to leave, so it
+            // is handed to `embodyDetachedParts` the same way a detached part is: state DETACHED,
+            // owner cleared, transform and mass already on it.
+            releaseRoot(world, structure.rootPartEntity, tick);
+            LOG.debug(
+                    "structure {} collapsed at tick {}",
+                    structure.structureId == null ? "?" : structure.structureId.value(),
+                    tick);
+            world.destroyEntity(structureEntity);
+        }
+    }
+
+    /** Puts a structure's root part into the state {@link #embodyDetachedParts} acts on. */
+    private void releaseRoot(World world, int rootPartEntity, long tick) {
+        if (!world.isAlive(rootPartEntity)) {
+            return;
+        }
+        PartRefComponent ref = world.getComponent(rootPartEntity, PartRefComponent.class);
+        if (ref != null) {
+            ref.vehicleEntity = EntityId.NULL;
+        }
+        DamageStateComponent damageState = world.getComponent(rootPartEntity, DamageStateComponent.class);
+        if (damageState != null && damageState.state != DamageState.DETACHED) {
+            damageState.state = DamageState.DETACHED;
+            damageState.stateEnteredTick = tick;
+        }
+    }
+
     // ---- Turning what left into world objects (D05-S5.5 step 4) ----------------------
 
     /**
@@ -429,9 +512,18 @@ public final class DetachSystem implements EntitySystem {
 
             RigidBodyComponent rigidBody = world.getComponent(partEntity, RigidBodyComponent.class);
             if (rigidBody != null && rigidBody.body != null) {
-                // An articulated part was already its own body; it needs a lifetime, not a spawn.
-                markAsDebris(world, partEntity);
-                continue;
+                if (rigidBody.layer == CollisionLayer.STATIC) {
+                    // D16-R79's one addition. A structure part is a zero-mass STATIC body while its
+                    // support chain holds; the moment the chain breaks it has to *fall*, and a body
+                    // that is already in the world on the static layer would neither move nor be
+                    // replaced. Retiring it here lets the ordinary debris path below spawn a dynamic
+                    // one carrying the part's authored mass (DEC-014).
+                    retireStaticBody(rigidBody);
+                } else {
+                    // An articulated part was already its own body; it needs a lifetime, not a spawn.
+                    markAsDebris(world, partEntity);
+                    continue;
+                }
             }
 
             TransformComponent transform = world.getComponent(partEntity, TransformComponent.class);
@@ -457,6 +549,29 @@ public final class DetachSystem implements EntitySystem {
                     SimulationConstants.DEBRIS_LIFETIME_S);
             world.destroyEntity(partEntity);
         }
+    }
+
+    /**
+     * Takes a structure part's static body out of the world and disposes it (D16-R79).
+     *
+     * <p>Removed then disposed, in that order and never during a step (D02-S5.7 rule 4). This runs
+     * in {@code POST_SIM} for the same reason {@link #releaseConstraint} may, and the component's
+     * {@code massKg} is deliberately left alone: it is the part's authored mass, and it is what the
+     * debris body about to replace this one weighs.
+     */
+    private void retireStaticBody(RigidBodyComponent rigidBody) {
+        btRigidBody body = rigidBody.body;
+        rigidBody.body = null;
+        physics.removeBody(body);
+        body.dispose();
+        NativeResourceTracker.release("btRigidBody");
+        if (rigidBody.motionState != null) {
+            rigidBody.motionState.dispose();
+            NativeResourceTracker.release("btDefaultMotionState");
+            rigidBody.motionState = null;
+        }
+        rigidBody.layer = CollisionLayer.DEBRIS;
+        rigidBody.mask = CollisionLayer.DEBRIS.mask();
     }
 
     /**

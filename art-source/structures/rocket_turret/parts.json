@@ -1,0 +1,36 @@
+{
+  "displayName": "Rocket Turret",
+  "materials": {
+    "base": "steel",
+    "tier1": "steel",
+    "tier2": "steel",
+    "tier3": "steel",
+    "tier4": "steel_hardened"
+  },
+  "weapons": [
+    {
+      "part": "tier4",
+      "family": "ROCKET",
+      "ammoCapacity": 12,
+      "blastRadiusM": 8.0,
+      "rangeM": 220.0,
+      "stats": {
+        "damagePerShot": {
+          "add": 420.0
+        },
+        "fireIntervalS": {
+          "add": 3.2
+        },
+        "projectileSpeedMps": {
+          "add": 120.0
+        },
+        "heatPerShot": {
+          "add": 0.22
+        },
+        "spreadRad": {
+          "add": 0.006
+        }
+      }
+    }
+  ]
+}
