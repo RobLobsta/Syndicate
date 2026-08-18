@@ -7,6 +7,9 @@
     "heightM": 31.178,
     "radiusM": 27.298
   },
+  "licence": {
+    "status": "development-exception"
+  },
   "parts": [
     {
       "parentSlotId": "tier1",

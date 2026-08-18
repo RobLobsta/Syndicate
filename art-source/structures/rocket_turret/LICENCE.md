@@ -1,6 +1,20 @@
-# rocket_turret — licence
+# licence
 
-**Status: NOT RECORDED. This model may not ship.**
+**status: development-exception** (D08-R1d)
+
+**Terms: UNRESOLVED. This model may be used in development and may NOT be distributed.**
+
+The project owner granted the exception on 2026-08-18, for pre-alpha development only. It is
+recorded rather than assumed: D08-R1d permits an unresolved model to be processed while its
+`LICENCE.md` says so and says what is known, and the asset gate reports A512 for every model
+carrying it. `SYNDICATE_REQUIRE_LICENCE=1` turns that advisory into a build failure, which is what
+any distribution pipeline sets.
+
+Nothing below is invented. Where the terms are unknown this file says they are unknown.
+
+---
+
+## What is known about this model
 
 D08-R1b requires the source, the author and the licence beside every model, and says a model with
 no recorded terms is not processed. This one arrived as a bare `.blend` with no licence text, no

@@ -89,6 +89,9 @@ WALL_THICKNESS_M = {
     "SHEET_METAL": 0.0025,
     "GLASS": 0.0050,
     "STRUCTURAL": 0.0100,
+    # Thickest of the six: a wall shelled at a centimetre gives paper-thin shards that read as
+    # cardboard when they tumble. A block wall is a block thick, and the shards have to look it.
+    "MASONRY": 0.1500,
     "RIGID": 0.0200,
     "NONE": 0.0050,
 }

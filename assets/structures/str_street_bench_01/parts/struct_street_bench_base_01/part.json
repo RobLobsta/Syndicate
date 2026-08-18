@@ -1,5 +1,5 @@
 {
-  "armorValue": 0.19,
+  "armorValue": 0.09,
   "assets": {
     "collisionSource": "mesh.glb#node=struct_street_bench_base_01_col",
     "morphTargets": [

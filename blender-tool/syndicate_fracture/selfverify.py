@@ -36,6 +36,11 @@ from .mass import MIN_BODY_MASS_KG
 MIN_PART_EXTENT_M = 0.01
 MAX_PART_EXTENT_M = 20.0
 
+# TV-013's slack, in metres, before the 1% of source extent that is used when it is larger.
+# A shard's hull can sit a hair proud of the source where a cut lands on a vertex; a shard that
+# is *metres* outside is an unclipped Voronoi cell and not a rounding error.
+SHARD_ESCAPE_TOLERANCE_M = 0.05
+
 
 def run(
     shards: list[Shard],
@@ -181,6 +186,57 @@ def run(
             measured=f"{extent:.4f} m",
             expected=f"{MIN_PART_EXTENT_M}..{MAX_PART_EXTENT_M} m",
             fail_code=EXIT_INPUT_GEOMETRY_INVALID,
+        )
+    )
+
+    # ---- TV-013: No shard escapes the part it was cut from ----------------------------
+    #
+    # A shard is a *piece* of the part, so the union of the shards is the part and no single
+    # shard can be bigger than it. Obvious, and nothing checked it: a closed-shell glazing panel
+    # fractured into one cell 2,552 m across — the Voronoi region on the outside of the hull,
+    # unbounded because it was never clipped to the source. It passed TV-001 (positive mass),
+    # TV-007 (mass conserved, because the same wrong volume was on both sides), TV-009 (finite)
+    # and TV-010 (which measures the *source* extent, not the shards'), and shipped a 99-tonne
+    # pane of glass into the game.
+    #
+    # Hard failure rather than TV-008's advisory. A lopsided mass split is ugly content; a shard
+    # outside its own part is arithmetic that has gone wrong, and everything downstream — mass,
+    # inertia, the collision hull, the drawn mesh — is wrong with it.
+    #
+    # The tolerance has to clear the shell path's own geometry. Shell fracture cuts the surface
+    # into patches and *then* solidifies each one, so every shard legitimately stands proud of
+    # the source by up to its thickness — 0.2 m on a 150 mm masonry wall, which is correct
+    # output and not an escape. A factor of two over the thickness covers a patch solidified
+    # both ways on a curved surface, and is still four orders of magnitude below the failure
+    # this check exists for.
+    source_box = aabb_of(source_vertices)
+    tolerance = max(
+        SHARD_ESCAPE_TOLERANCE_M,
+        0.01 * source_box.max_extent,
+        2.0 * max(0.0, args.shell_thickness),
+    )
+    escaped = []
+    for shard in shards:
+        if not shard.vertices:
+            continue  # TV-001 and TV-005 own the empty-shard case; this one needs vertices.
+        box = aabb_of(shard.vertices)
+        outside = max(
+            max(source_box.min[i] - box.min[i], box.max[i] - source_box.max[i]) for i in range(3)
+        )
+        if outside > tolerance:
+            escaped.append((shard.name, outside))
+    report.checks.append(
+        CheckResult(
+            id="TV-013",
+            name="No shard lies outside the part's own bounds",
+            status=_status(not escaped),
+            measured=(
+                "all shards within bounds"
+                if not escaped
+                else "; ".join(f"{name} escapes by {by:.1f} m" for name, by in escaped[:3])
+            ),
+            expected=f"within {tolerance:.3f} m of the source AABB",
+            fail_code=EXIT_VERIFICATION_FAILED,
         )
     )
 

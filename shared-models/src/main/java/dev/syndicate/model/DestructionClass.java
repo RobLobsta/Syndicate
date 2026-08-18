@@ -46,6 +46,22 @@ public enum DestructionClass {
     STRUCTURAL,
 
     /**
+     * Brick, block, stone and concrete: the walls and floors a structure is built out of.
+     *
+     * <p>Cell-fractured at authoring time like {@link #GLASS}, and for the same reason — masonry has
+     * no plastic range, so there is no dented state between intact and broken. It parts company with
+     * glass on the <em>coarseness</em>: a pane bursts into slivers and a wall comes apart in blocks
+     * you can see edges on, which is why the two classes carry different shard counts rather than
+     * sharing one.
+     *
+     * <p>Deliberately not {@link #STRUCTURAL}, which is the class this used to borrow. A steel frame
+     * yields — it bends and twists and stays one piece — and giving that treatment to a brick wall
+     * makes the wall rubbery on impact, which is the single most obvious way a destructible building
+     * can read as wrong (DEC-100).
+     */
+    MASONRY,
+
+    /**
      * Calipers, mirrors, lamp housings, wheels.
      *
      * <p>No deformation. It survives, or it leaves whole, or it fractures if a manifest was authored

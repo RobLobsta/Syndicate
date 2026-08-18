@@ -46,6 +46,14 @@
     "durationSeconds" : 0.08,
     "audioMaterial" : "RUBBER"
   }, {
+    "soundId" : "debris_settle_stone",
+    "event" : "DEBRIS_SETTLE",
+    "key" : "STONE",
+    "file" : "debris_settle_stone.wav",
+    "loop" : false,
+    "durationSeconds" : 0.09,
+    "audioMaterial" : "STONE"
+  }, {
     "soundId" : "fire_loop",
     "event" : "FIRE_LOOP",
     "key" : "DEFAULT",
@@ -205,6 +213,33 @@
     "audioMaterial" : "RUBBER",
     "severity" : "medium"
   }, {
+    "soundId" : "impact_stone_heavy",
+    "event" : "IMPACT",
+    "key" : "STONE:heavy",
+    "file" : "impact_stone_heavy.wav",
+    "loop" : false,
+    "durationSeconds" : 0.426,
+    "audioMaterial" : "STONE",
+    "severity" : "heavy"
+  }, {
+    "soundId" : "impact_stone_light",
+    "event" : "IMPACT",
+    "key" : "STONE:light",
+    "file" : "impact_stone_light.wav",
+    "loop" : false,
+    "durationSeconds" : 0.123,
+    "audioMaterial" : "STONE",
+    "severity" : "light"
+  }, {
+    "soundId" : "impact_stone_medium",
+    "event" : "IMPACT",
+    "key" : "STONE:medium",
+    "file" : "impact_stone_medium.wav",
+    "loop" : false,
+    "durationSeconds" : 0.224,
+    "audioMaterial" : "STONE",
+    "severity" : "medium"
+  }, {
     "soundId" : "part_detach_glass",
     "event" : "PART_DETACH",
     "key" : "GLASS",
@@ -212,6 +247,14 @@
     "loop" : false,
     "durationSeconds" : 0.9,
     "destructionClass" : "GLASS"
+  }, {
+    "soundId" : "part_detach_masonry",
+    "event" : "PART_DETACH",
+    "key" : "MASONRY",
+    "file" : "part_detach_masonry.wav",
+    "loop" : false,
+    "durationSeconds" : 1.6,
+    "destructionClass" : "MASONRY"
   }, {
     "soundId" : "part_detach_rigid",
     "event" : "PART_DETACH",

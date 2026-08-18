@@ -33,6 +33,21 @@
       "notes": "Light panels, radiators, engine castings. A third of steel's mass for about a tenth more damage taken."
     },
     {
+      "materialId": "brick",
+      "displayName": "Brick and block",
+      "densityKgPerM3": 1900.0,
+      "resistance": {
+        "KINETIC": 0.85,
+        "EXPLOSIVE": 0.6,
+        "INCENDIARY": 1.5,
+        "ENERGY": 1.1,
+        "COLLISION": 0.9
+      },
+      "fractureBrittleness": 0.95,
+      "audioMaterial": "STONE",
+      "notes": "Masonry walls and infill. Weak against blast and impact, near-immune to fire, and the most brittle thing that is not glass -- it comes apart in blocks rather than yielding."
+    },
+    {
       "materialId": "composite",
       "displayName": "Carbon composite",
       "densityKgPerM3": 1900.0,
@@ -59,7 +74,7 @@
         "COLLISION": 0.6
       },
       "fractureBrittleness": 0.85,
-      "audioMaterial": "COMPOSITE",
+      "audioMaterial": "STONE",
       "notes": "Structures: walls, floors, footings, gun emplacements. Shrugs off bullets and fire and comes apart under explosives, which is the trade that makes a rocket the right tool against a building and a machine gun the wrong one. Audio is COMPOSITE for its sharp crack; masonry has no bank of its own yet and adding one is a content change, not a material one."
     },
     {

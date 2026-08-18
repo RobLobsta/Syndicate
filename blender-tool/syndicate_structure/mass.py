@@ -64,10 +64,32 @@ HP_PER_KG = 0.06
 #: No structure part is more fragile than this, however light. A bench is not a windscreen.
 MIN_MAX_HP = 120.0
 
-#: Armour per kilogram (D07-S5.2). Flat across materials: what a structure is made of already
-#: shows up in its mass and in its material's resistances, and a third knob on the same axis
-#: is how content stops being predictable.
+#: Armour per kilogram (D07-S5.2), before the material factor below.
 ARMOR_PER_KG = 0.0025
+
+#: Toughness by material, relative to concrete, applied to **both** hit points and armour.
+#:
+#: This used to be flat, on the reasoning that what a structure is made of already shows up in its
+#: mass and in its material's resistances. That reasoning held while every structure part was
+#: concrete. It stopped holding the moment glazing became a part of its own (DEC-100), because
+#: mass and fragility move in *opposite* directions for glass: a curtain wall is 2.3 tonnes of the
+#: most breakable material there is, so mass alone made it the toughest thing in the building —
+#: 5,964 hp and the full 60 armour, against 3,356 hp for the concrete beside it. Glass's 1.6-1.8x
+#: damage resistances went nowhere near closing a gap that size.
+#:
+#: So the factor is the third knob, and it is justified by the thing it fixes rather than by
+#: symmetry: a pane is not a wall however much it weighs.
+TOUGHNESS_BY_MATERIAL = {
+    "glass": 0.05,
+    "wood": 0.45,
+    "brick": 0.75,
+    "concrete": 1.0,
+    "steel": 1.3,
+    "steel_hardened": 1.7,
+}
+
+#: For a material with no row above. Concrete's, matching the areal-density default.
+DEFAULT_TOUGHNESS = 1.0
 
 #: Ceiling on that armour. A part heavy enough to reach it is a wall, and a wall that shrugs
 #: off more than this is one the player cannot make progress against.
@@ -101,14 +123,28 @@ def part_mass_kg(
     return max(MIN_BODY_MASS_KG, surface)
 
 
-def max_hp(mass_kg: float) -> float:
-    """How much damage a part of this mass absorbs before it is destroyed (D07-S5.3)."""
-    return max(MIN_MAX_HP, mass_kg * HP_PER_KG)
+def toughness(material_id: str) -> float:
+    """How much punishment this material takes, relative to concrete."""
+    return TOUGHNESS_BY_MATERIAL.get(material_id, DEFAULT_TOUGHNESS)
 
 
-def armor_value(mass_kg: float) -> float:
-    """The armour a part of this mass carries (D07-S5.2)."""
-    return min(MAX_ARMOR, mass_kg * ARMOR_PER_KG)
+def max_hp(mass_kg: float, material_id: str = "concrete") -> float:
+    """How much damage a part of this mass and material absorbs before it is destroyed (D07-S5.3).
+
+    The floor is applied *after* the material factor, so it is a floor on what a part ends up
+    with rather than on what its mass alone suggested — otherwise every pane in the game would
+    sit at ``MIN_MAX_HP`` and the factor would do nothing.
+    """
+    return max(MIN_MAX_HP, mass_kg * HP_PER_KG * toughness(material_id))
+
+
+def armor_value(mass_kg: float, material_id: str = "concrete") -> float:
+    """The armour a part of this mass and material carries (D07-S5.2).
+
+    No floor, unlike hit points: armour subtracts from every hit, so a floor here would make the
+    lightest glazing immune to the smallest weapons — which is the opposite of what glass is for.
+    """
+    return min(MAX_ARMOR, mass_kg * ARMOR_PER_KG * toughness(material_id))
 
 
 def break_impulse_ns(mass_kg: float) -> float:

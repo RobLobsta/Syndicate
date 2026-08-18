@@ -1,0 +1,85 @@
+{
+  "armorValue": 60.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=struct_city_block_tall_base_a_01_col",
+    "morphTargets": [],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 3056930.4,
+  "category": "PANEL",
+  "destructionClass": "MASONRY",
+  "displayName": "Corner Block \u2014 Base A",
+  "hangsBeforeFalling": false,
+  "massKg": 67931.786,
+  "materialId": "concrete",
+  "maxHp": 4075.9,
+  "partTypeId": "struct_city_block_tall_base_a_01",
+  "powerCost": 0.0,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ROOT",
+  "slots": [
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0004,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 3434.3,
+      "sizeClass": "HEAVY",
+      "slotId": "base_b",
+      "slotType": "PANEL"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0004,
+        "y": 5.5539,
+        "z": -0.0821
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 3884.1,
+      "sizeClass": "HEAVY",
+      "slotId": "tier1_a",
+      "slotType": "PANEL"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.0426,
+        "y": 5.5539,
+        "z": 0.0
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 229032.3,
+      "sizeClass": "HEAVY",
+      "slotId": "tier1_b",
+      "slotType": "PANEL"
+    }
+  ],
+  "stats": {},
+  "tags": [
+    "structure",
+    "base",
+    "prepared"
+  ]
+}

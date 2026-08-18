@@ -56,10 +56,11 @@ class DestructionClass(str):
 SHEET_METAL = DestructionClass("SHEET_METAL")
 GLASS = DestructionClass("GLASS")
 STRUCTURAL = DestructionClass("STRUCTURAL")
+MASONRY = DestructionClass("MASONRY")
 RIGID = DestructionClass("RIGID")
 NONE = DestructionClass("NONE")
 
-CLASSES: tuple[DestructionClass, ...] = (SHEET_METAL, GLASS, STRUCTURAL, RIGID, NONE)
+CLASSES: tuple[DestructionClass, ...] = (SHEET_METAL, GLASS, STRUCTURAL, MASONRY, RIGID, NONE)
 
 
 class PolicyError(ValueError):
@@ -129,6 +130,11 @@ TREATMENTS: dict[DestructionClass, Treatment] = {
     SHEET_METAL: Treatment(SHEET_METAL, 0.08, True, 0, 0.0),
     GLASS: Treatment(GLASS, 0.0, False, 24, 0.0),
     STRUCTURAL: Treatment(STRUCTURAL, 0.60, True, 0, 9000.0),
+    # Fractured like glass and for the same reason -- masonry has no plastic range, so there is
+    # no dented state to author -- but into a third again as many shards, and much bigger ones.
+    # A pane bursts into slivers; a wall comes apart into blocks whose edges you can see, and the
+    # difference between those two readings is the shard count and nothing else (DEC-100).
+    MASONRY: Treatment(MASONRY, 0.0, False, 32, 0.0),
     RIGID: Treatment(RIGID, 0.0, False, 0, 0.0),
     NONE: Treatment(NONE, 0.0, False, 0, 0.0),
 }

@@ -1,0 +1,28 @@
+{
+  "armorValue": 0.12,
+  "assets": {
+    "collisionSource": "mesh.glb#node=struct_city_block_tall_tier1_a_01_col",
+    "fractureManifest": "fracture_manifest.json",
+    "morphTargets": [],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 43695.7,
+  "category": "PANEL",
+  "destructionClass": "GLASS",
+  "displayName": "Corner Block \u2014 Tier1 A",
+  "hangsBeforeFalling": false,
+  "massKg": 971.016,
+  "materialId": "glass",
+  "maxHp": 120.0,
+  "partTypeId": "struct_city_block_tall_tier1_a_01",
+  "powerCost": 0.0,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "PANEL",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "structure",
+    "tier1",
+    "prepared"
+  ]
+}

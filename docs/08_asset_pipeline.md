@@ -94,6 +94,25 @@ string is carried through the glTF `asset.extras` into the weapon manifest (D17-
 load-bearing rather than decorative. A model with no recorded terms is not processed. `parts.json`,
 where present, holds per-model overrides for the preparation pipeline (D15-S4.3).
 
+<!-- D08-R1d -->**R1d. The development exception.** Before the project's first public build, a model
+whose terms are *unresolved* may be processed and used, provided its `LICENCE.md` declares
+`status: development-exception` and records everything that **is** known about the model's origin.
+The exception buys a working pipeline and a subsystem that can be looked at; it does not buy a right
+to distribute, and it is not a judgement that the terms are permissive.
+
+Two things follow from it, and both are checks rather than intentions:
+
+- The asset gate emits **A512**, an advisory finding, once per model carrying the exception. It
+  names the model and the count, so no build is ever quietly full of art nobody has cleared.
+- The exception **expires at distribution**. `SYNDICATE_REQUIRE_LICENCE=1` promotes A512 from
+  advisory to error, and any pipeline producing a build for someone outside the project sets it.
+  That is what makes "before anything ships" a gate rather than a sentence in a file.
+
+Fabricating terms is never the alternative. An invented author or licence is a false record that
+survives the person who wrote it, and it converts a known-unknown into an unknown-unknown — the one
+outcome strictly worse than the gap it papers over. `status: unresolved` with what is actually known
+beside it is the honest form, and it is the form this requirement asks for.
+
 **R2.** Scene conventions, all mandatory:
 
 | Convention | Rule | Why |

@@ -74,6 +74,12 @@ public final class SoundSynth {
             case PLASTIC -> new MaterialVoice(new double[] {1.0, 2.1, 3.9, 6.2}, 420.0, 0.22, 3.0, 0.004, 0.65, 2400.0);
             case COMPOSITE -> new MaterialVoice(
                     new double[] {1.0, 2.9, 5.1, 8.2}, 620.0, 0.19, 3.4, 0.003, 0.75, 5200.0);
+                // Lowest fundamental and shortest decay of the six: masonry is a thud and a
+                // scatter, not a note. The modes are packed close and inharmonic so no pitch
+                // emerges from them, and the low-pass sits well below glass's to keep the
+                // brightness that would make it read as ceramic out of it.
+            case STONE -> new MaterialVoice(
+                    new double[] {1.0, 1.43, 2.11, 3.07, 4.6}, 150.0, 0.16, 4.0, 0.006, 0.90, 1500.0);
         };
     }
 

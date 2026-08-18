@@ -8,6 +8,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import dev.syndicate.client.ClientLoop;
 import dev.syndicate.client.ClientRuntime;
+import dev.syndicate.client.debug.DebugConsole;
+import dev.syndicate.client.debug.DebugOverlay;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +32,16 @@ public final class MatchScreen implements Screen {
     private final ClientRuntime runtime;
     private final ClientLoop loop = new ClientLoop();
     private final ScreenId exitTo;
+
+    /**
+     * The live testing console (` or F1).
+     *
+     * <p>Owned by the match rather than by the shell, because everything it does needs a world: a
+     * console on the menu would have nothing to pause, spawn into or shoot.
+     */
+    private final DebugConsole console;
+
+    private final DebugOverlay consoleOverlay = new DebugOverlay();
 
     private ScreenId next = ScreenId.MATCH;
     private boolean escapeWasDown = true;
@@ -54,6 +66,12 @@ public final class MatchScreen implements Screen {
     public MatchScreen(ClientRuntime runtime, ScreenId exitTo) {
         this.runtime = runtime;
         this.exitTo = exitTo;
+        this.console = new DebugConsole(runtime, loop, runtime.localPlayer());
+    }
+
+    /** The console, so a capture can drive it without a keyboard. */
+    public DebugConsole console() {
+        return console;
     }
 
     /** The runtime, so the application listener can capture what it drew. */
@@ -84,7 +102,12 @@ public final class MatchScreen implements Screen {
         }
         nightWasDown = nightDown;
 
+        console.handleInput(frameDeltaSeconds);
         loop.advance(runtime.world(), frameDeltaSeconds);
+        // After the step, so what slot 3 decided this tick is what gets held at neutral.
+        console.applyHolds(runtime.world());
+        // After the loop, so the overlay draws over the frame slot 26 has just finished.
+        consoleOverlay.render(console);
     }
 
     @Override
@@ -95,10 +118,15 @@ public final class MatchScreen implements Screen {
     @Override
     public void resize(int width, int height) {
         runtime.render().resize(width, height);
+        consoleOverlay.resize(width, height);
     }
 
     @Override
     public void dispose() {
+        // The overlay owns a batch, a shape renderer and a font, and it is disposed before the
+        // runtime for the same reason D02-S5.7 orders the rest of the teardown: what borrows a
+        // context goes before what holds it.
+        consoleOverlay.dispose();
         runtime.close();
     }
 }

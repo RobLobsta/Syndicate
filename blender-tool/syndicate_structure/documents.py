@@ -12,6 +12,8 @@ part cannot express, that is a defect in the design rather than a licence to for
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from .graph import PartPlan, slot_local, slot_path_of
 from .mass import armor_value, break_impulse_ns, max_hp
 
@@ -69,8 +71,8 @@ def part_document(
         "materialId": part.material_id,
         "destructionClass": part.destruction_class,
         "massKg": round(part.mass_kg, 3),
-        "maxHp": round(max_hp(part.mass_kg), 1),
-        "armorValue": round(armor_value(part.mass_kg), 2),
+        "maxHp": round(max_hp(part.mass_kg, part.material_id), 1),
+        "armorValue": round(armor_value(part.mass_kg, part.material_id), 2),
         "breakImpulseN": round(break_impulse_ns(part.mass_kg), 1),
         "powerCost": POWER_COST,
         "hangsBeforeFalling": False,
@@ -120,12 +122,43 @@ def parent_slot_path(plans: list[PartPlan], part: PartPlan) -> str:
     return slot_path_of(plans, by_id[part.parent_id])
 
 
+#: The status a ``LICENCE.md`` declares when its terms are unresolved (D08-R1d).
+DEVELOPMENT_EXCEPTION = "development-exception"
+
+
+def licence_status(model_dir: Path) -> str:
+    """The ``status:`` a model's ``LICENCE.md`` declares, or ``"unknown"`` when it declares none.
+
+    Carried into ``structure.json`` for the reason D08-R1b carries a weapon's licence into its
+    manifest: the asset gate validates ``assets/``, ``art-source/`` is not shipped beside it, and a
+    rule that can only be checked against a directory the gate never sees is not a rule. With the
+    status in the document, A512 can count what a build actually contains.
+    """
+    path = model_dir / "LICENCE.md"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return "unknown"
+    for line in text.splitlines():
+        stripped = line.strip().lstrip("*").strip()
+        if not stripped.lower().startswith("status:"):
+            continue
+        # The declaration is a *word*, and the line around it is prose: bold markers, a trailing
+        # `(D08-R1d)` citation, a full stop. Take the first token and nothing else, so that
+        # rewording the sentence cannot change what the gate reads.
+        value = stripped.split(":", 1)[1].strip().strip("*").strip()
+        token = value.split()[0] if value.split() else ""
+        return token.strip("*_.,;`").strip() or "unknown"
+    return "unknown"
+
+
 def structure_document(
     structure_id: str,
     display: str,
     plans: list[PartPlan],
     footprint_radius_m: float,
     height_m: float,
+    licence: str = "unknown",
 ) -> dict:
     """The assembly (D16-R18): a root, the parts on its slots, and what it occupies."""
     root = next(p for p in plans if p.parent_id is None)
@@ -133,6 +166,8 @@ def structure_document(
         "schemaVersion": SCHEMA_VERSION,
         "structureId": structure_id,
         "displayName": display,
+        # D08-R1b/R1d: the terms travel with the asset, not only with the source model.
+        "licence": {"status": licence},
         "rootPartTypeId": root.part_type_id,
         "staticRoot": True,
         # `parentSlotPath` is the **parent's** path and `slotPath` is this part's, exactly as

@@ -7,6 +7,9 @@
     "heightM": 2.049,
     "radiusM": 0.754
   },
+  "licence": {
+    "status": "development-exception"
+  },
   "parts": [],
   "rootPartTypeId": "struct_street_tree_base_01",
   "schemaVersion": "1.0.0",

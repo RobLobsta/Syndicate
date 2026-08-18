@@ -1,0 +1,28 @@
+{
+  "armorValue": 0.11,
+  "assets": {
+    "collisionSource": "mesh.glb#node=struct_city_block_tall_base_b_01_col",
+    "fractureManifest": "fracture_manifest.json",
+    "morphTargets": [],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 38635.7,
+  "category": "PANEL",
+  "destructionClass": "GLASS",
+  "displayName": "Corner Block \u2014 Base B",
+  "hangsBeforeFalling": false,
+  "massKg": 858.57,
+  "materialId": "glass",
+  "maxHp": 120.0,
+  "partTypeId": "struct_city_block_tall_base_b_01",
+  "powerCost": 0.0,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "PANEL",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "structure",
+    "base",
+    "prepared"
+  ]
+}

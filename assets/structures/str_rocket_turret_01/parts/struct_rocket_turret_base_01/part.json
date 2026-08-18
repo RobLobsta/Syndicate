@@ -17,7 +17,7 @@
   "hangsBeforeFalling": false,
   "massKg": 75134.977,
   "materialId": "steel",
-  "maxHp": 4508.1,
+  "maxHp": 5860.5,
   "partTypeId": "struct_rocket_turret_base_01",
   "powerCost": 0.0,
   "schemaVersion": "1.0.0",

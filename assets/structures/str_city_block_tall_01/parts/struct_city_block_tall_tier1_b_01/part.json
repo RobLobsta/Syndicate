@@ -1,0 +1,66 @@
+{
+  "armorValue": 60.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=struct_city_block_tall_tier1_b_01_col",
+    "morphTargets": [],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 2576613.3,
+  "category": "PANEL",
+  "destructionClass": "MASONRY",
+  "displayName": "Corner Block \u2014 Tier1 B",
+  "hangsBeforeFalling": false,
+  "massKg": 57258.073,
+  "materialId": "concrete",
+  "maxHp": 3435.5,
+  "partTypeId": "struct_city_block_tall_tier1_b_01",
+  "powerCost": 0.0,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "PANEL",
+  "slots": [
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.043,
+        "y": 5.5539,
+        "z": -0.0821
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 3956.3,
+      "sizeClass": "HEAVY",
+      "slotId": "tier2_a",
+      "slotType": "PANEL"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0,
+        "y": 5.5539,
+        "z": 0.0
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 211493.2,
+      "sizeClass": "HEAVY",
+      "slotId": "tier2_b",
+      "slotType": "PANEL"
+    }
+  ],
+  "stats": {},
+  "tags": [
+    "structure",
+    "tier1",
+    "prepared"
+  ]
+}

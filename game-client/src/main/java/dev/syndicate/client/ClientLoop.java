@@ -55,6 +55,22 @@ public final class ClientLoop {
     private long tick;
     private long droppedTicks;
 
+    /**
+     * How much of each frame's real time is admitted to the accumulator. 1 is normal, 0 is paused.
+     *
+     * <p><b>This is the only correct place to slow the game down, and the reason is G2.</b> Time
+     * scaling here changes how <em>many</em> fixed steps a frame earns; it never changes how
+     * <em>long</em> one is. A half-speed match runs the same {@code TICK_DT} steps at half the
+     * rate, so every physics result is bit-identical to the same match at full speed — which is
+     * exactly what makes the console's slow motion usable for diagnosis rather than a second
+     * simulation with its own behaviour. Scaling {@code TICK_DT} instead would silently change
+     * every integration result and every seed-locked regression with it.
+     */
+    private float timeScale = 1f;
+
+    /** Fixed steps owed to {@link #stepOnce}, run whatever the time scale is. */
+    private int pendingSingleSteps;
+
     /** What one call to {@link #advance} did, so a caller can log or assert on it. */
     public record Step(int ticksRun, float alpha, int ticksDropped) {}
 
@@ -66,7 +82,15 @@ public final class ClientLoop {
      */
     public Step advance(dev.syndicate.core.ecs.World world, float frameDeltaSeconds) {
         double dt = Math.min(Math.max(frameDeltaSeconds, 0f), MAX_FRAME_DT_S);
-        accumulator += dt;
+        // The clamp is applied to real time and the scale afterwards, so a stall is still bounded
+        // to MAX_FRAME_DT_S of *game* time at any scale above 1.
+        accumulator += dt * timeScale;
+        // A requested single step is a whole tick's worth of credit, so it advances exactly one
+        // step from a standstill. Granted even at scale 0 — stepping a paused game is the point.
+        while (pendingSingleSteps > 0) {
+            accumulator += SimulationConstants.TICK_DT;
+            pendingSingleSteps--;
+        }
 
         int steps = 0;
         while (accumulator + TICK_EPSILON_S >= SimulationConstants.TICK_DT && steps < MAX_CATCHUP_TICKS) {
@@ -102,5 +126,26 @@ public final class ClientLoop {
     /** How many ticks have been dropped to overload since the loop started. */
     public long droppedTicks() {
         return droppedTicks;
+    }
+
+    /** How much real time is admitted per frame; 1 is normal and 0 is paused. */
+    public float timeScale() {
+        return timeScale;
+    }
+
+    /**
+     * Sets the time scale, clamped to {@code [0, 8]}.
+     *
+     * <p>PRESENT systems still see the real frame delta, so the camera, the particles and the HUD
+     * keep running at full rate while the simulation crawls — which is what makes a paused frame
+     * something you can still look around, rather than a frozen image.
+     */
+    public void setTimeScale(float scale) {
+        timeScale = Math.max(0f, Math.min(8f, scale));
+    }
+
+    /** Queues exactly one fixed step, which runs on the next {@link #advance} even when paused. */
+    public void stepOnce() {
+        pendingSingleSteps++;
     }
 }

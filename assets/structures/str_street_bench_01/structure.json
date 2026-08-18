@@ -7,6 +7,9 @@
     "heightM": 0.973,
     "radiusM": 1.024
   },
+  "licence": {
+    "status": "development-exception"
+  },
   "parts": [],
   "rootPartTypeId": "struct_street_bench_base_01",
   "schemaVersion": "1.0.0",

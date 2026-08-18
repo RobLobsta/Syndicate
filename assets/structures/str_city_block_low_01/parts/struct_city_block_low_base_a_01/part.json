@@ -1,0 +1,86 @@
+{
+  "armorValue": 60.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=struct_city_block_low_base_a_01_col",
+    "fractureManifest": "fracture_manifest.json",
+    "morphTargets": [],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 1992669.0,
+  "category": "PANEL",
+  "destructionClass": "MASONRY",
+  "displayName": "Brick Block \u2014 Base A",
+  "hangsBeforeFalling": false,
+  "massKg": 44281.533,
+  "materialId": "brick",
+  "maxHp": 1992.7,
+  "partTypeId": "struct_city_block_low_base_a_01",
+  "powerCost": 0.0,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ROOT",
+  "slots": [
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.281
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 9261.9,
+      "sizeClass": "HEAVY",
+      "slotId": "base_b",
+      "slotType": "PANEL"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": -0.0,
+        "y": 5.7078,
+        "z": -3.8689
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 1053.7,
+      "sizeClass": "HEAVY",
+      "slotId": "tier1_a",
+      "slotType": "PANEL"
+    },
+    {
+      "covers": [],
+      "isDetachable": true,
+      "localPosition": {
+        "x": 0.0,
+        "y": 5.7078,
+        "z": 0.0
+      },
+      "localRotationDeg": {
+        "order": "XYZ",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "maxMassKg": 274238.2,
+      "sizeClass": "HEAVY",
+      "slotId": "tier1_b",
+      "slotType": "PANEL"
+    }
+  ],
+  "stats": {},
+  "tags": [
+    "structure",
+    "base",
+    "prepared"
+  ]
+}

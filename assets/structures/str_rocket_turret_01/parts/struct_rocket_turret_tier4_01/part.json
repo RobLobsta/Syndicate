@@ -17,7 +17,7 @@
   "hangsBeforeFalling": false,
   "massKg": 94411.198,
   "materialId": "steel_hardened",
-  "maxHp": 5664.7,
+  "maxHp": 9629.9,
   "partTypeId": "struct_rocket_turret_tier4_01",
   "powerCost": 0.0,
   "schemaVersion": "1.0.0",

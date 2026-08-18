@@ -1,27 +1,48 @@
 {
-  "displayName": "Concrete Block",
+  "displayName": "Brick Block",
   "expected": {
-    "massKg": 335870.177
+    "massKg": 210534.103
   },
   "footprint": {
     "heightM": 17.123,
     "radiusM": 6.404
   },
+  "licence": {
+    "status": "development-exception"
+  },
   "parts": [
     {
-      "parentSlotId": "tier1",
+      "parentSlotId": "base_b",
       "parentSlotPath": "root",
-      "partTypeId": "struct_city_block_low_tier1_01",
-      "slotPath": "root/tier1"
+      "partTypeId": "struct_city_block_low_base_b_01",
+      "slotPath": "root/base_b"
     },
     {
-      "parentSlotId": "tier2",
-      "parentSlotPath": "root/tier1",
-      "partTypeId": "struct_city_block_low_tier2_01",
-      "slotPath": "root/tier1/tier2"
+      "parentSlotId": "tier1_a",
+      "parentSlotPath": "root",
+      "partTypeId": "struct_city_block_low_tier1_a_01",
+      "slotPath": "root/tier1_a"
+    },
+    {
+      "parentSlotId": "tier1_b",
+      "parentSlotPath": "root",
+      "partTypeId": "struct_city_block_low_tier1_b_01",
+      "slotPath": "root/tier1_b"
+    },
+    {
+      "parentSlotId": "tier2_a",
+      "parentSlotPath": "root/tier1_b",
+      "partTypeId": "struct_city_block_low_tier2_a_01",
+      "slotPath": "root/tier1_b/tier2_a"
+    },
+    {
+      "parentSlotId": "tier2_b",
+      "parentSlotPath": "root/tier1_b",
+      "partTypeId": "struct_city_block_low_tier2_b_01",
+      "slotPath": "root/tier1_b/tier2_b"
     }
   ],
-  "rootPartTypeId": "struct_city_block_low_base_01",
+  "rootPartTypeId": "struct_city_block_low_base_a_01",
   "schemaVersion": "1.0.0",
   "staticRoot": true,
   "structureId": "str_city_block_low_01"

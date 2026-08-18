@@ -69,6 +69,15 @@ public final class AssetIndexBuilder {
     private final ObjectMapper mapper = new ObjectMapper();
     private final List<Finding> findings = new ArrayList<>();
 
+    /**
+     * Whether A512 is an error rather than an advisory (D08-R1d).
+     *
+     * <p>Read from the environment rather than taken as a constructor argument, for the same reason
+     * {@code SYNDICATE_STRICT_ASSETS} is: it is a property of the <em>pipeline</em> running the
+     * gate, not of the asset tree being gated, and every caller would otherwise have to plumb it.
+     */
+    private final boolean requireLicence = "1".equals(System.getenv("SYNDICATE_REQUIRE_LICENCE"));
+
     /** Everything the walk found, in the order it found it. */
     public List<Finding> findings() {
         return List.copyOf(findings);
@@ -400,7 +409,9 @@ public final class AssetIndexBuilder {
         }
         // The rule itself: shards on a class D15-S5.7 gives none to. Its own message rather than
         // the mismatch above, because this one is wrong even when the two files agree.
-        if (partClass != DestructionClass.GLASS && partClass != DestructionClass.RIGID) {
+        if (partClass != DestructionClass.GLASS
+                && partClass != DestructionClass.MASONRY
+                && partClass != DestructionClass.RIGID) {
             findings.add(Finding.error(
                     "A510",
                     partTypeId,
@@ -623,6 +634,7 @@ public final class AssetIndexBuilder {
                 findings.add(
                         Finding.error("A412", id, "footprint.radiusM " + radiusM + " does not enclose the structure"));
             }
+            checkLicence(id, root.path("licence").path("status").asText(""));
 
             ObjectNode summary = mapper.createObjectNode();
             summary.put("structureId", id);
@@ -637,6 +649,31 @@ public final class AssetIndexBuilder {
         }
         summaries.sort(Comparator.comparing(node -> node.path("structureId").asText("")));
         return summaries;
+    }
+
+    /**
+     * A512: an asset whose third-party terms are unresolved (D08-R1b, D08-R1d).
+     *
+     * <p>Advisory by default and an error under {@code SYNDICATE_REQUIRE_LICENCE=1}, which is what
+     * makes D08-R1d's development exception a gate rather than a sentence in a file. A build for
+     * anybody outside the project sets the variable; a development build does not, and gets one
+     * finding per model saying exactly which art has not been cleared.
+     *
+     * <p>Read from {@code structure.json} rather than from {@code art-source/}: the gate validates
+     * an asset tree, {@code --assets} may point at one extracted anywhere, and {@code art-source/}
+     * is not shipped beside it. A rule checkable only against a directory the gate never sees is
+     * not a rule, which is why D08-R1b carries a weapon's licence into its manifest too.
+     */
+    private void checkLicence(String structureId, String status) {
+        if ("development-exception".equals(status) || status.isEmpty() || "unknown".equals(status)) {
+            String message = status.isEmpty() || "unknown".equals(status)
+                    ? "declares no licence status; D08-R1b requires recorded terms beside every model"
+                    : "carries D08-R1d's development exception; its terms are unresolved and it may not be distributed";
+            findings.add(
+                    requireLicence
+                            ? Finding.error("A512", structureId, message)
+                            : Finding.warn("A512", structureId, message));
+        }
     }
 
     private static double massOf(Map<String, PartRecord> parts, String partTypeId) {

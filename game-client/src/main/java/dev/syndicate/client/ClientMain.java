@@ -84,6 +84,11 @@ public final class ClientMain {
                     // Comma-separated frames. One run, several PNGs, so a fight can be photographed
                     // as the sequence it is rather than as one arbitrary instant.
                 case "--capture-frames" -> captureFrames = args[++i];
+                    // The debug console's timeline. A capture cannot press ` either, and the
+                    // console is the tool that produces evidence about everything else, so
+                    // without this it is the one part of the client nothing can photograph.
+                    // See DebugConsole.parseLaunchScript for the format.
+                case "--console" -> dev.syndicate.client.debug.DebugConsole.setLaunchScript(args[++i]);
                 default -> remaining.add(args[i]);
             }
         }

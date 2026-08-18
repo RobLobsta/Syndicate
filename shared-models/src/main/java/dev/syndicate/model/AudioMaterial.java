@@ -31,7 +31,17 @@ public enum AudioMaterial {
     PLASTIC,
 
     /** Carbon and glass-fibre composite. A sharp crack, unlike metal's ring. */
-    COMPOSITE;
+    COMPOSITE,
+
+    /**
+     * Brick, block, stone, concrete. A dull broadband crunch with almost no ring.
+     *
+     * <p>The sixth of these, added with {@link DestructionClass#MASONRY}, because a wall coming down
+     * was previously borrowing {@code COMPOSITE} — the crack of delaminating carbon fibre, which is
+     * a thin sharp sound and the opposite of what a building makes. Masonry barely rings at all:
+     * what carries it is the transient and the rubble after it.
+     */
+    STONE;
 
     /** The asset-id prefix a bank for this material uses, e.g. {@code impact_metal_heavy}. */
     public String token() {

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from syndicate_structure import bands, documents, graph, mass
+from syndicate_structure import bands, documents, graph, mass, materials
 
 
 def piece(name, lo, hi, *, area=10.0, volume=0.0, material="concrete", triangles=100):
@@ -193,3 +193,92 @@ class TestSplitPlan:
         from syndicate_structure.split import spans
 
         assert spans(5.69, 5.71, [0.0, 5.7, 11.4, 17.1]) == []
+
+
+# ---- Material families and toughness (DEC-100) -----------------------------------------
+
+
+class TestFailureFamilies:
+    """A band's parts are split by how they fail, not only by where they stand."""
+
+    def _piece(self, name, material, x0=0.0, y0=0.0):
+        from syndicate_structure.bands import Piece
+
+        return Piece(
+            name=name,
+            lo=(x0, y0, 0.0),
+            hi=(x0 + 4.0, y0 + 3.0, 4.0),
+            triangles=200,
+            area_m2=40.0,
+            volume_m3=8.0,
+            material=material,
+        )
+
+    def test_glazing_and_wall_sharing_a_footprint_become_two_parts(self):
+        """The failure this exists for: no spatial rule separates a curtain wall from its wall."""
+        pieces = [self._piece("wall", "Building_6_White"), self._piece("glass", "Building_6_Glass")]
+        found = bands.components(pieces)
+        assert len(found) == 1, "identical footprints must cluster together"
+        split = bands.split_families(found)
+        assert len(split) == 2
+        families = {materials.family_of(c.pieces[0].material) for c in split}
+        assert families == {"GLASS", "MASONRY"}
+
+    def test_one_material_is_left_alone(self):
+        pieces = [self._piece("a", "UV"), self._piece("b", "UV_Two")]
+        found = bands.components(pieces)
+        assert len(bands.split_families(found)) == len(found)
+
+    def test_band_zero_keeps_one_load_bearing_root_and_glazing_beside_it(self):
+        """D16-R18 gives a structure one root; glazing is not it."""
+        pieces = [
+            self._piece("wall_l", "concrete_wall", x0=0.0),
+            self._piece("wall_r", "concrete_wall", x0=40.0),
+            self._piece("pane", "glass_5", x0=0.0),
+        ]
+        cut = bands.cut(pieces, [0.0, 3.0])
+        assert len(cut) == 1
+        band = cut[0]
+        # The two walls merged into one root; the glazing did not join them.
+        assert materials.family_of(band[0].pieces[0].material) == "MASONRY"
+        assert len(band[0].pieces) == 2
+        assert [materials.family_of(c.pieces[0].material) for c in band[1:]] == ["GLASS"]
+
+
+class TestMaterialMapping:
+    def test_the_four_families_are_recognised_by_name(self):
+        assert materials.map_material("Building_6_Glass") == "glass"
+        assert materials.map_material("brick_wall_red") == "brick"
+        assert materials.map_material("steel_girder") == "steel"
+        assert materials.map_material("Wooden_Bench") == "wood"
+
+    def test_an_unrecognised_name_is_masonry(self):
+        """A building is mostly masonry, so that is the safe answer for a name that says nothing."""
+        assert materials.map_material("UV_Third") == "concrete"
+        assert materials.destruction_class_for("concrete") == "MASONRY"
+
+    def test_glass_shatters_masonry_breaks_apart_steel_bends(self):
+        """The three behaviours the content has to deliver, as one assertion."""
+        assert materials.family_of("glass_5") == "GLASS"
+        assert materials.family_of("brick_facade") == "MASONRY"
+        assert materials.family_of("steel_mast") == "STRUCTURAL"
+
+
+class TestToughness:
+    def test_glass_is_weaker_than_concrete_at_the_same_mass(self):
+        """The defect the family split exposed: mass alone made glazing the toughest thing."""
+        heavy = 55_935.0  # what the shipped ground-floor band actually weighs
+        assert mass.max_hp(heavy, "glass") < mass.max_hp(heavy, "concrete") / 10.0
+
+    def test_a_curtain_wall_dies_to_one_burst(self):
+        """A pane's whole job. 2.3 t of glazing must not need a rocket volley."""
+        assert mass.max_hp(2315.0, "glass") <= 200.0
+
+    def test_glass_carries_almost_no_armour(self):
+        assert mass.armor_value(2315.0, "glass") < mass.armor_value(2315.0, "concrete") / 10.0
+
+    def test_steel_outlasts_brick_at_the_same_mass(self):
+        assert mass.max_hp(50_000.0, "steel") > mass.max_hp(50_000.0, "brick")
+
+    def test_an_unknown_material_is_concrete(self):
+        assert mass.toughness("unobtainium") == mass.toughness("concrete")

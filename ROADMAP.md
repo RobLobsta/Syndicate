@@ -1,6 +1,6 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-18 (end of SESS-043)
+**Last updated:** 2026-08-18 (end of SESS-045)
 
 This is the plan, in order. Each step below is meant to be picked up from the top: everything above
 "you are here" is done, everything below it is not, and the order is the order they should be done
@@ -46,19 +46,22 @@ Five things that sentence leaves out, in the order they hurt:
    which fly, land and slide — the first time any of that authored destruction has run inside the
    game rather than in a harness beside it. The damage numbers are still D01's defaults, only glass
    has shards, no weapon fractures when it dies, and six of the eight families have no content.
-2. **Both arenas now have a road.** The Desert Highway's is 612 m and the Scrapyard's is a 235 m
-   haul road, new this session — the one that was withdrawn rather than shipped broken now that
-   there is a way to check it against its own rim (DEC-097). The blend either side digs cuttings and
-   raises embankments without anybody authoring one — cover on both sides, and ridges you can be
-   pushed off — and sand is slower than tarmac at the wheel, so leaving the road costs you
-   something. What the arenas still have not got is **structures**: nothing to take cover behind
-   that was not extruded from a noise function.
+2. **Both arenas have a road, and now they have buildings on them.** The Desert Highway's road is
+   612 m and the Scrapyard's is a 235 m haul road; the blend either side digs cuttings and raises
+   embankments nobody authored, and sand is slower than tarmac at the wheel, so leaving the road
+   costs you something. Around twenty structures are now placed per match by rule rather than by
+   hand — two mid-rise blocks cut into floors, a 31 m rocket emplacement, trees and benches — and
+   they are cover you can destroy. Shoot the ground floor out of a block and the six storeys above
+   it come down; the brick comes apart into blocks, the glazing shatters into fragments that land
+   and slide, and the steel turret dents rather than breaking. The **debug console** (` or F1) is
+   how you make any of that happen on demand.
 3. **The cars are real now, and unproven.** Each ships as thirty-odd parts — doors that hinge and
    dent, glass that shatters, lamps and grilles that come off, and now a weapon — cut from its own
    art, colour-matched to a house palette, and calibrated to a published spec sheet. Their headlights
    cast at night. Nobody has driven them in anger.
-4. **Nothing has been tuned by a person.** Handling is a real supercar's published figures. Damage
-   numbers are blueprint defaults. Bot difficulty is a scale nobody has lost to. The audio mix is a
+4. **Nothing has been tuned by a person** — but there is now a console to tune from. Handling is a
+   real supercar's published figures. Damage numbers are blueprint defaults. Bot difficulty is a
+   scale nobody has lost to. The audio mix is a
    set of first guesses — and until this session it was a set of first guesses you could not have
    heard anyway, because the engine bus silently stopped partway through every match (DISC-073).
 5. **Multiplayer talks only to itself.** Snapshots, deltas, prediction and reconciliation all work,
@@ -93,30 +96,52 @@ numbers, one renderer and one socket.
    ├── The glass breaks into glass                              PROG-038
    ├── The Kestrel: the first thing that flies                  PROG-041
    ├── A stabilisation pass: four defects, one road shipped     SESS-043
-   └── **Structures: five of them, and a building you can shoot down**  PROG-042
-  ───── no known rough edges; the five below are unbuilt work, not broken work
+   ├── Structures: five of them, and a building you can shoot down     PROG-042
+   ├── Structures actually placed, drawn, and shot at                  PROG-043
+   └── **A debug console: stop time, spawn things, break things**      DEC-101
+  ───── one known rough edge: the tall block will not fracture (DISC-077)
   ─────────────────────────────────────────────────────── you are here
   NEXT
-   1. Drawing the structures                  ← they collide and break; nothing renders them
-   2. Tuning, with a console to do it from    ← the alpha gate
-   3. Options, and the rest of the shell
-   4. Terrain rendering, properly             ← needs a real GPU to measure
-   5. Sockets
-   6. Hardening and release
+   1. Tuning — the console exists now, so turn the numbers  ← the alpha gate
+   2. Options, and the rest of the shell
+   3. Terrain rendering, properly             ← needs a real GPU to measure
+   4. Sockets
+   5. Hardening and release
 ```
 
-**What the structures session changed**, since it is the newest line. Two Blender files were
-uploaded — a giant rocket-launcher tower and a small city street — and both left as content: five
-destructible structures, placed into both arenas by rule rather than by hand. A building is cut into
-floors, a floor has health, and shooting the ground floor out drops the six above it. That last part
-cost eighteen lines, because a structure was specified as an ordinary assembly and everything that
-breaks a car already breaks one (DEC-071).
+**What this session changed.** The structures from last session were not invisible — they were
+*absent*. `ArenaFactory` has two ways to load an arena and only one of them places structures; all
+three runtime callers used the other, so no process had ever put a building in the world. One
+argument at three call sites put 23 buildings, trees and benches into the first capture, and nothing
+in the renderer needed touching at all — it had been drawing anything with a part on it all along.
 
-**What is not done about them:** *nothing draws them.* They collide, they take damage, they collapse,
-they leave debris — and the client's render pass does not know they exist, so from the driver's seat
-the desert has three invisible walls in it. That is Step 1 below and it is the next thing to do.
+Then the materials. Every pane of glass in the game was concrete, because a band of a building was
+one part and the pipeline gave it whichever material had the most surface — which on a building is
+always the walls. A band is now split by **how its pieces fail** as well as by where they stand, so
+a curtain wall is its own part with its own health. With that, the three behaviours are real and
+shipped as content:
 
-Also unresolved, and yours to settle: **neither model arrived with a licence** (DEV-021). See §5.
+| Material | Fails by | Where you can see it |
+|---|---|---|
+| **brick** breaks apart | 32 authored shards per floor | the low city block |
+| **glass** shatters | 24 shards per pane | every facade on both blocks |
+| **steel** bends and twists | 4 damage morphs, no shards | the rocket turret |
+
+And a **debug console** (` or F1), which is what the tuning step has been waiting for. Stop time,
+run at a tenth speed, step one tick at a time, spawn any vehicle or structure in front of you, freeze
+the enemy AI so the arena holds still, hit or flatten the nearest building, and read live counts of
+entities, structures and draw calls. It changes the game only through the same doors a player or a
+weapon uses, so what you watch through it is the game and not a special case of it.
+
+Three defects fell out of pointing it at things, none of which any test caught: a fracture shard
+**465 km across** that had been shipping inside a 99-tonne pane of glass, damage events emitted onto
+a queue nothing reads, and glazing tougher than the concrete holding it up.
+
+**Settled this session:** the licence question. `docs/08` now carries an explicit development
+exception (R1d) — the art is used, marked `development-exception`, and the asset gate reports it on
+every run and *fails the build* under `SYNDICATE_REQUIRE_LICENCE=1`, which any release pipeline sets.
+Nothing was invented: each `LICENCE.md` still says the terms are unresolved and what has to happen
+before anything ships (DEV-022).
 
 ---
 
@@ -227,34 +252,49 @@ metres tall**, so the geometry has to be *cut* at the floor lines before it can 
 whole objects into height bands — which is what the turret needed, since it arrived as 138 separate
 objects — gives a building that is a single part and vanishes the moment you shoot it (DEC-098).
 
-### Step 1 — Drawing the structures
+### Step 1c3 — Structures, placed and drawn ✅ done
 
-They are in the world and they are invisible. The client renders vehicles and the ground; a structure
-part is an ordinary part with an ordinary `mesh.glb`, so this is a render-pass addition rather than a
-new pipeline — but until it is done, "shoot the building down" is something the log reports and the
-screen does not show.
+They were never in the world. `ArenaFactory.load` has a four-argument form and a five-argument one,
+and the asset index is the difference — without it there is nothing to resolve a `structureId`
+against, so the placement pass returns an empty list. The client, the headless server and the
+offline match runner all used the four-argument form, so every claim about structures being in the
+game was true only of the tests that called the other one.
 
-Two smaller things belong with it: structures are not replicated yet (D16-S7.3 says they join the
-replicated set), and nothing has been *looked at* in the client, which is the check this project
-trusts most and the one that has caught the last four defects.
+Nothing in the renderer needed changing: the draw pass already covers anything with a part on it,
+and the interpolation pass already gives anything with a transform a render transform. The
+diagnosis in PROG-042 — "the client's render pass does not know they exist" — was inferred from the
+code and was simply wrong, which is the more useful half of this entry.
 
-~~Step 1 — Structures.~~ **Done, above.** A road's extent is now checked
-against the arena it is being carved into, by measuring how high the border rise stands under its
-centreline — which is the depth of the canyon it would dig (DEC-097). That runs before the carve, so
-it fails once naming the road, rather than eight times naming spawn points. With a way to check it,
-the withdrawn haul road ships: 235 m of tarmac through the yard, cutting 3.6 m at a 2.5% grade,
-holding across twelve seeds. The yard now has a fast route between the two spawn clusters, and a
-reason to leave it that costs grip.
+### Step 1c4 — Materials per piece, and a masonry class ✅ done
 
-### Step 2 — Tuning, with a console to do it from ★ the alpha gate
+A band of a building was one part, and its material was whichever of its pieces had the most
+surface — always the walls. So the glazing that was in the source art all along was absorbed into
+concrete, and every window in the game dented instead of shattering.
+
+Bands are now split by **failure family** as well as by footprint (DEC-100). Footprint clustering
+answers "what stands together", which is the right question for what a part is, and it can never
+separate a curtain wall from the wall behind it because they share a footprint exactly. `MASONRY`
+joins D15-S5.7 as a sixth destruction class: brick and concrete have no plastic range, so they
+cannot be `STRUCTURAL`, and they do not burst into slivers, so they should not borrow `GLASS`'s
+shard count.
+
+Two things this exposed and fixed on the way: glazing was choosing glazing as its parent on
+footprint overlap, so each building had two independent support chains; and hit points and armour
+came from mass alone, which made a 2.3-tonne curtain wall the toughest object in the building.
+
+### Step 1c5 — The console ✅ done
+
+Built ahead of the tuning pass below, because that pass is what it is for. See §2.
+
+### Step 1 — Tuning ★ the alpha gate
 
 This is the only question left that cannot be answered by writing code, and it is the one that
 decides whether the game is any good.
 
-**Build the live tuning console first.** Every number below is compiled in today, and a handling pass
-that needs a rebuild per value is a handling pass nobody finishes.
+**The console exists** (` or F1 in a match), so this step is now only the turning. Stop time to look
+at a frame, spawn what you want to test beside you, freeze the bots so nothing else moves.
 
-Then turn them, in roughly this order:
+Turn them in roughly this order:
 
 | What | Why it is first / last |
 |---|---|
@@ -272,14 +312,14 @@ with a report at the end is a much faster loop than driving.
 **This is the alpha gate.** A build that reaches the end of step 2 is worth putting in front of a
 playtester. A build before it is worth putting in front of you.
 
-### Step 3 — Options, and the rest of the shell
+### Step 2 — Options, and the rest of the shell
 
 Once the game is worth playing, it needs the things a player expects around it: a settings screen
 (resolution, volume, bindings, difficulty), a pause menu, a post-match results screen that is not the
 in-match scoreboard, and persistence of the vehicle you last chose. Small, and all of it obvious once
 `GameShell` exists.
 
-### Step 4 — Terrain rendering, properly
+### Step 3 — Terrain rendering, properly
 
 What exists draws the ground as one mesh, decimated to a stride, with a material per surface. That is
 enough to look at, drive on and judge — and it is not D16-S6. What is missing is everything that
@@ -295,9 +335,9 @@ Doing this work without a machine that can measure it is guessing.
 The decimation is also visible today: the desert's dune slip faces read as jagged where the stride
 skips them. That is the stride, not the classifier, and chunking fixes it.
 
-### Step 5 — Sockets
+### Step 4 — Sockets
 
-### Step 6 — Hardening and release
+### Step 5 — Hardening and release
 
 The performance budgets, packaging and balance sweeps D12-S5.4 requires before anything ships.
 Bandwidth is now measurable for the first time: the budget is 128 kbit/s down and 32 kbit/s up per
@@ -349,21 +389,22 @@ Real work, no fixed place in the sequence.
 
 Not decided, and not for the assistant to decide alone.
 
-- **Where the two structure models came from, and what may be done with them** (DEV-021). **This is
-  the one that blocks a release.** Neither `turret.blend` nor `city_alley_kit.blend` arrived with a
-  licence, an author or any metadata at all. `D08-R1b` says a model with no recorded terms is not
-  processed; both were processed anyway, on the record, because the structures subsystem had no
-  content and a subsystem with nothing in it cannot be looked at, driven at or shot at. Every
-  `art-source/structures/*/LICENCE.md` says so in full.
+- **~~Where the two structure models came from~~ — you settled this: an exception, on the record**
+  (DEV-022). `docs/08` gained **R1d**, which lets a model with unresolved terms be used before the
+  first public build so long as its `LICENCE.md` says so. Three things enforce the boundary rather
+  than merely stating it: the status is written into `structure.json` so it travels with the asset,
+  the gate raises **A512** for every model carrying it, and `SYNDICATE_REQUIRE_LICENCE=1` turns that
+  advisory into a build failure — which is what a release pipeline sets.
 
-  What is recoverable: the alley kit's props are **BlenderKit** downloads, and their asset ids
-  survive in the packed textures' original file paths — three of the four are named in the
-  `SOURCE.md` files. Each id needs looking up for its author and its terms. The turret carries
-  nothing: it needs whoever supplied it to say where it came from.
+  **Only one of the two things you offered was taken.** No licence or author was invented. An
+  invented record outlives whoever wrote it and turns a known gap into an unknown one, which is
+  worse than the gap. Every `LICENCE.md` still records that the terms are unresolved and what has to
+  happen before ship: the alley kit's props are BlenderKit downloads whose asset ids survive in the
+  packed textures' file paths and need looking up, and the turret needs whoever supplied it to say
+  where it came from.
 
-  **Nothing here is expensive to undo.** The tool, the cut, the destruction data and the runtime all
-  work off whatever geometry sits in `scene.glb`, so replacing a model that turns out to be
-  unusable is a re-run, not a rewrite.
+  **Still cheap to undo.** The tool, the cut, the destruction data and the runtime all work off
+  whatever geometry is in `scene.glb`; replacing an unusable model is a re-run, not a rewrite.
 
 - **~~How a parked helicopter should behave~~ (DISC-071). Taken: it trims only when airborne**
   (DEC-096) — the first of the three candidates this entry used to list. A helicopter that destroys

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import materials
 from .bands import Component
 
 #: Suffixes for the second and later parts in one band. Runs out at four, which is
@@ -43,7 +44,7 @@ class PartPlan:
     slot_id: str = ""
     origin: tuple[float, float, float] = (0.0, 0.0, 0.0)
     material_id: str = "concrete"
-    destruction_class: str = "STRUCTURAL"
+    destruction_class: str = "MASONRY"
     mass_kg: float = 0.0
     triangles: int = 0
     weapon: dict | None = None
@@ -73,6 +74,30 @@ def _overlap_area(a: Box, b: Box) -> float:
 
 def _centre(box: Box) -> tuple[float, float]:
     return ((box[0] + box[2]) / 2.0, (box[1] + box[3]) / 2.0)
+
+
+def bearing_candidates(candidates: list[PartPlan]) -> list[PartPlan]:
+    """The candidates that can actually carry something: everything but glazing (DEC-100).
+
+    A curtain wall hangs on the frame behind it; it does not hold up the storey above. Before
+    this, the band split by failure family gave each band a glazing part and a masonry part with
+    identical footprints, and the glazing above chose the glazing below on overlap alone — so a
+    building had two independent support chains and shooting the ground-floor wall out left a
+    free-standing column of windows.
+
+    Falls back to the full list when a band is *only* glazing, because a parent that exists is
+    better than no parent: an all-glass band still has to hang on something.
+    """
+    # Read off the component's own pieces rather than off ``PartPlan.destruction_class``: the
+    # class is assigned in stage 6 and this runs in stage 5, so the field is still its default
+    # here and filtering on it silently matches everything.
+    bearing = [c for c in candidates if not _is_glazing(c.component)]
+    return bearing or candidates
+
+
+def _is_glazing(component: Component) -> bool:
+    """Whether every piece of a component is glazing, which is what the family split guarantees."""
+    return all(materials.family_of(piece.material) == "GLASS" for piece in component.pieces)
 
 
 def choose_parent(child: Component, candidates: list[PartPlan]) -> PartPlan:
@@ -127,8 +152,13 @@ def plan(bands: list[list[Component]], structure_name: str) -> list[PartPlan]:
                 component=component,
                 origin=part_origin(component),
             )
-            if previous:
-                parent = choose_parent(component, previous)
+            # Band 0 is the ground, so its first part is the root and has no parent. Anything
+            # else in band 0 is a family that was split off the root (DEC-100) — glazing at
+            # ground level — and it hangs on the root rather than becoming a second one, because
+            # D16-R18 gives a structure exactly one.
+            carriers = previous if previous else current
+            if carriers:
+                parent = choose_parent(component, bearing_candidates(carriers))
                 part.parent_id = parent.part_type_id
                 part.slot_id = role
             current.append(part)

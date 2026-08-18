@@ -1,3 +1,18 @@
 {
-  "displayName": "Concrete Block"
+  "displayName": "Brick Block",
+  "_notes": [
+    "The masonry bands are brick rather than the concrete default so that the roster carries a",
+    "worked example of each masonry material. Both are MASONRY and both come apart into blocks;",
+    "brick is lighter and much weaker to blast (see assets/materials/materials.json).",
+    "",
+    "This model rather than city_block_tall because this one's geometry actually fractures. The",
+    "tall block leans -- 1 to 3 m of plan drift per band, which is in the source art -- and the",
+    "surface cut produces unbounded cells on it that TV-013 rejects. That is a property of the",
+    "mesh and not of the material."
+  ],
+  "materials": {
+    "base_a": "brick",
+    "tier1_b": "brick",
+    "tier2_b": "brick"
+  }
 }

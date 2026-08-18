@@ -1,0 +1,1401 @@
+{
+  "aabbMax": {
+    "x": 1.790553,
+    "y": 5.462184,
+    "z": 0.064167
+  },
+  "aabbMin": {
+    "x": -1.790553,
+    "y": 0.0,
+    "z": -0.064166
+  },
+  "blenderVersion": "4.2.13 LTS",
+  "collision": {
+    "partHullPieces": 1,
+    "partHullVertexCount": 15,
+    "shardHullMaxVertexCount": 32
+  },
+  "comLocal": {
+    "x": 0.0,
+    "y": 2.742981,
+    "z": 0.026328
+  },
+  "densityKgPerM3": 2500.0,
+  "destructionClass": "GLASS",
+  "generatedAt": "2026-08-18T21:31:57Z",
+  "inertiaDiagonal": {
+    "x": 658.578596,
+    "y": 266.309747,
+    "z": 924.662118
+  },
+  "materialId": "glass",
+  "morphStats": [],
+  "morphTargets": [],
+  "parameters": {
+    "hullMaxVerts": 32,
+    "minShardVolumeM3": 1e-06,
+    "shardMode": "uniform",
+    "shards": 24,
+    "shellThicknessM": 0.005
+  },
+  "partMassKg": 273.771892,
+  "partTypeId": "struct_city_block_low_tier2_a_01",
+  "partVolumeM3": 0.109509,
+  "schemaVersion": "1.0.0",
+  "seed": 1,
+  "shardCount": 24,
+  "shards": [
+    {
+      "aabbMax": {
+        "x": -1.580351,
+        "y": 1.938943,
+        "z": 0.064167
+      },
+      "aabbMin": {
+        "x": -1.795396,
+        "y": 1.179788,
+        "z": -0.069166
+      },
+      "centroid": {
+        "x": -1.731417,
+        "y": 1.530618,
+        "z": -0.021031
+      },
+      "faceCount": 80,
+      "hullVertexCount": 29,
+      "id": "struct_city_block_low_tier2_a_01_shard_000",
+      "index": 0,
+      "localTransform": {
+        "position": {
+          "x": -1.731417,
+          "y": 1.530618,
+          "z": -0.021031
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 2.064517,
+      "materialId": "glass",
+      "name": "shard_000",
+      "neighbors": [
+        5,
+        6
+      ],
+      "vertexCount": 42,
+      "volumeM3": 0.000826
+    },
+    {
+      "aabbMax": {
+        "x": -1.404529,
+        "y": 3.443895,
+        "z": 0.064167
+      },
+      "aabbMin": {
+        "x": -1.795396,
+        "y": 2.128962,
+        "z": -0.069166
+      },
+      "centroid": {
+        "x": -1.683534,
+        "y": 2.706849,
+        "z": 0.00816
+      },
+      "faceCount": 88,
+      "hullVertexCount": 32,
+      "id": "struct_city_block_low_tier2_a_01_shard_001",
+      "index": 1,
+      "localTransform": {
+        "position": {
+          "x": -1.683534,
+          "y": 2.706849,
+          "z": 0.00816
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 6.45697,
+      "materialId": "glass",
+      "name": "shard_001",
+      "neighbors": [
+        4,
+        5,
+        7,
+        9
+      ],
+      "vertexCount": 46,
+      "volumeM3": 0.002583
+    },
+    {
+      "aabbMax": {
+        "x": -1.261222,
+        "y": 5.467028,
+        "z": 0.064167
+      },
+      "aabbMin": {
+        "x": -1.795396,
+        "y": 4.92811,
+        "z": -0.069454
+      },
+      "centroid": {
+        "x": -1.624974,
+        "y": 5.294989,
+        "z": -0.010552
+      },
+      "faceCount": 80,
+      "hullVertexCount": 24,
+      "id": "struct_city_block_low_tier2_a_01_shard_002",
+      "index": 2,
+      "localTransform": {
+        "position": {
+          "x": -1.624974,
+          "y": 5.294989,
+          "z": -0.010552
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 3.340192,
+      "materialId": "glass",
+      "name": "shard_002",
+      "neighbors": [
+        8
+      ],
+      "vertexCount": 42,
+      "volumeM3": 0.001336
+    },
+    {
+      "aabbMax": {
+        "x": -1.192826,
+        "y": 1.039497,
+        "z": 0.064167
+      },
+      "aabbMin": {
+        "x": -1.795396,
+        "y": 0.0,
+        "z": -0.069166
+      },
+      "centroid": {
+        "x": -1.60485,
+        "y": 0.519738,
+        "z": 0.025025
+      },
+      "faceCount": 80,
+      "hullVertexCount": 29,
+      "id": "struct_city_block_low_tier2_a_01_shard_003",
+      "index": 3,
+      "localTransform": {
+        "position": {
+          "x": -1.60485,
+          "y": 0.519738,
+          "z": 0.025025
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 7.586297,
+      "materialId": "glass",
+      "name": "shard_003",
+      "neighbors": [
+        6,
+        10,
+        11
+      ],
+      "vertexCount": 42,
+      "volumeM3": 0.003035
+    },
+    {
+      "aabbMax": {
+        "x": -0.7938,
+        "y": 4.785669,
+        "z": 0.064167
+      },
+      "aabbMin": {
+        "x": -1.795396,
+        "y": 3.441674,
+        "z": -0.069166
+      },
+      "centroid": {
+        "x": -1.476517,
+        "y": 4.113415,
+        "z": 0.033597
+      },
+      "faceCount": 88,
+      "hullVertexCount": 29,
+      "id": "struct_city_block_low_tier2_a_01_shard_004",
+      "index": 4,
+      "localTransform": {
+        "position": {
+          "x": -1.476517,
+          "y": 4.113415,
+          "z": 0.033597
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 12.643082,
+      "materialId": "glass",
+      "name": "shard_004",
+      "neighbors": [
+        1,
+        8,
+        9,
+        16
+      ],
+      "vertexCount": 46,
+      "volumeM3": 0.005057
+    },
+    {
+      "aabbMax": {
+        "x": -0.907387,
+        "y": 2.209362,
+        "z": 0.064167
+      },
+      "aabbMin": {
+        "x": -1.795396,
+        "y": 1.458625,
+        "z": -0.069166
+      },
+      "centroid": {
+        "x": -1.412918,
+        "y": 1.863474,
+        "z": 0.050171
+      },
+      "faceCount": 92,
+      "hullVertexCount": 22,
+      "id": "struct_city_block_low_tier2_a_01_shard_005",
+      "index": 5,
+      "localTransform": {
+        "position": {
+          "x": -1.412918,
+          "y": 1.863474,
+          "z": 0.050171
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 6.653312,
+      "materialId": "glass",
+      "name": "shard_005",
+      "neighbors": [
+        0,
+        1,
+        6,
+        7,
+        11,
+        13
+      ],
+      "vertexCount": 48,
+      "volumeM3": 0.002661
+    },
+    {
+      "aabbMax": {
+        "x": -0.867981,
+        "y": 1.625596,
+        "z": 0.069167
+      },
+      "aabbMin": {
+        "x": -1.790553,
+        "y": 0.833719,
+        "z": -0.064166
+      },
+      "centroid": {
+        "x": -1.375993,
+        "y": 1.233134,
+        "z": 0.057359
+      },
+      "faceCount": 92,
+      "hullVertexCount": 25,
+      "id": "struct_city_block_low_tier2_a_01_shard_006",
+      "index": 6,
+      "localTransform": {
+        "position": {
+          "x": -1.375993,
+          "y": 1.233134,
+          "z": 0.057359
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 5.688708,
+      "materialId": "glass",
+      "name": "shard_006",
+      "neighbors": [
+        0,
+        3,
+        5,
+        11,
+        13
+      ],
+      "vertexCount": 48,
+      "volumeM3": 0.002275
+    },
+    {
+      "aabbMax": {
+        "x": -0.688211,
+        "y": 3.219333,
+        "z": 0.064167
+      },
+      "aabbMin": {
+        "x": -1.627716,
+        "y": 2.138299,
+        "z": 0.059166
+      },
+      "centroid": {
+        "x": -1.207318,
+        "y": 2.61342,
+        "z": 0.061666
+      },
+      "faceCount": 12,
+      "hullVertexCount": 8,
+      "id": "struct_city_block_low_tier2_a_01_shard_007",
+      "index": 7,
+      "localTransform": {
+        "position": {
+          "x": -1.207318,
+          "y": 2.61342,
+          "z": 0.061666
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 6.194152,
+      "materialId": "glass",
+      "name": "shard_007",
+      "neighbors": [
+        1,
+        5,
+        9,
+        13,
+        14
+      ],
+      "vertexCount": 8,
+      "volumeM3": 0.002478
+    },
+    {
+      "aabbMax": {
+        "x": -0.641626,
+        "y": 5.467028,
+        "z": 0.064167
+      },
+      "aabbMin": {
+        "x": -1.795396,
+        "y": 4.255037,
+        "z": -0.069166
+      },
+      "centroid": {
+        "x": -1.153491,
+        "y": 4.940095,
+        "z": 0.047458
+      },
+      "faceCount": 144,
+      "hullVertexCount": 27,
+      "id": "struct_city_block_low_tier2_a_01_shard_008",
+      "index": 8,
+      "localTransform": {
+        "position": {
+          "x": -1.153491,
+          "y": 4.940095,
+          "z": 0.047458
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 12.750682,
+      "materialId": "glass",
+      "name": "shard_008",
+      "neighbors": [
+        2,
+        4,
+        12,
+        16,
+        19
+      ],
+      "vertexCount": 74,
+      "volumeM3": 0.0051
+    },
+    {
+      "aabbMax": {
+        "x": -0.513753,
+        "y": 3.980621,
+        "z": 0.069167
+      },
+      "aabbMin": {
+        "x": -1.757882,
+        "y": 2.606751,
+        "z": -0.064166
+      },
+      "centroid": {
+        "x": -1.054554,
+        "y": 3.296711,
+        "z": 0.065547
+      },
+      "faceCount": 68,
+      "hullVertexCount": 25,
+      "id": "struct_city_block_low_tier2_a_01_shard_009",
+      "index": 9,
+      "localTransform": {
+        "position": {
+          "x": -1.054554,
+          "y": 3.296711,
+          "z": 0.065547
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 11.299167,
+      "materialId": "glass",
+      "name": "shard_009",
+      "neighbors": [
+        1,
+        4,
+        7,
+        13,
+        14,
+        16
+      ],
+      "vertexCount": 36,
+      "volumeM3": 0.00452
+    },
+    {
+      "aabbMax": {
+        "x": -0.226322,
+        "y": 0.696499,
+        "z": 0.069167
+      },
+      "aabbMin": {
+        "x": -1.514244,
+        "y": 2e-06,
+        "z": 0.064166
+      },
+      "centroid": {
+        "x": -0.851107,
+        "y": 0.282026,
+        "z": 0.066666
+      },
+      "faceCount": 24,
+      "hullVertexCount": 12,
+      "id": "struct_city_block_low_tier2_a_01_shard_010",
+      "index": 10,
+      "localTransform": {
+        "position": {
+          "x": -0.851107,
+          "y": 0.282026,
+          "z": 0.066666
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 8.11469,
+      "materialId": "glass",
+      "name": "shard_010",
+      "neighbors": [
+        3,
+        11,
+        15,
+        17
+      ],
+      "vertexCount": 14,
+      "volumeM3": 0.003246
+    },
+    {
+      "aabbMax": {
+        "x": -0.125539,
+        "y": 1.571509,
+        "z": 0.069166
+      },
+      "aabbMin": {
+        "x": -1.240053,
+        "y": 0.453207,
+        "z": 0.064166
+      },
+      "centroid": {
+        "x": -0.643854,
+        "y": 1.00648,
+        "z": 0.066666
+      },
+      "faceCount": 32,
+      "hullVertexCount": 17,
+      "id": "struct_city_block_low_tier2_a_01_shard_011",
+      "index": 11,
+      "localTransform": {
+        "position": {
+          "x": -0.643854,
+          "y": 1.00648,
+          "z": 0.066666
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 10.482485,
+      "materialId": "glass",
+      "name": "shard_011",
+      "neighbors": [
+        3,
+        5,
+        6,
+        10,
+        13,
+        15,
+        18
+      ],
+      "vertexCount": 18,
+      "volumeM3": 0.004193
+    },
+    {
+      "aabbMax": {
+        "x": -0.077989,
+        "y": 5.467028,
+        "z": 0.064166
+      },
+      "aabbMin": {
+        "x": -0.860492,
+        "y": 4.851247,
+        "z": -0.069166
+      },
+      "centroid": {
+        "x": -0.476056,
+        "y": 5.284614,
+        "z": 0.022309
+      },
+      "faceCount": 60,
+      "hullVertexCount": 25,
+      "id": "struct_city_block_low_tier2_a_01_shard_012",
+      "index": 12,
+      "localTransform": {
+        "position": {
+          "x": -0.476056,
+          "y": 5.284614,
+          "z": 0.022309
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 5.238462,
+      "materialId": "glass",
+      "name": "shard_012",
+      "neighbors": [
+        8,
+        19,
+        20
+      ],
+      "vertexCount": 32,
+      "volumeM3": 0.002095
+    },
+    {
+      "aabbMax": {
+        "x": 0.203046,
+        "y": 2.712141,
+        "z": 0.069166
+      },
+      "aabbMin": {
+        "x": -1.082288,
+        "y": 1.360615,
+        "z": 0.064166
+      },
+      "centroid": {
+        "x": -0.443627,
+        "y": 2.001044,
+        "z": 0.066666
+      },
+      "faceCount": 44,
+      "hullVertexCount": 22,
+      "id": "struct_city_block_low_tier2_a_01_shard_013",
+      "index": 13,
+      "localTransform": {
+        "position": {
+          "x": -0.443627,
+          "y": 2.001044,
+          "z": 0.066666
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 14.07032,
+      "materialId": "glass",
+      "name": "shard_013",
+      "neighbors": [
+        5,
+        6,
+        7,
+        9,
+        11,
+        14,
+        15,
+        18
+      ],
+      "vertexCount": 24,
+      "volumeM3": 0.005628
+    },
+    {
+      "aabbMax": {
+        "x": 0.852766,
+        "y": 3.917862,
+        "z": 0.069166
+      },
+      "aabbMin": {
+        "x": -0.782391,
+        "y": 2.647529,
+        "z": 0.064166
+      },
+      "centroid": {
+        "x": -0.106233,
+        "y": 3.248676,
+        "z": 0.066666
+      },
+      "faceCount": 32,
+      "hullVertexCount": 17,
+      "id": "struct_city_block_low_tier2_a_01_shard_014",
+      "index": 14,
+      "localTransform": {
+        "position": {
+          "x": -0.106233,
+          "y": 3.248676,
+          "z": 0.066666
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 13.322093,
+      "materialId": "glass",
+      "name": "shard_014",
+      "neighbors": [
+        7,
+        9,
+        13,
+        16,
+        18,
+        22
+      ],
+      "vertexCount": 18,
+      "volumeM3": 0.005329
+    },
+    {
+      "aabbMax": {
+        "x": 0.904565,
+        "y": 1.560234,
+        "z": 0.069166
+      },
+      "aabbMin": {
+        "x": -0.268971,
+        "y": 0.349584,
+        "z": 0.064166
+      },
+      "centroid": {
+        "x": 0.27528,
+        "y": 0.901268,
+        "z": 0.066666
+      },
+      "faceCount": 28,
+      "hullVertexCount": 15,
+      "id": "struct_city_block_low_tier2_a_01_shard_015",
+      "index": 15,
+      "localTransform": {
+        "position": {
+          "x": 0.27528,
+          "y": 0.901268,
+          "z": 0.066666
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 12.925699,
+      "materialId": "glass",
+      "name": "shard_015",
+      "neighbors": [
+        10,
+        11,
+        13,
+        17,
+        18,
+        21
+      ],
+      "vertexCount": 16,
+      "volumeM3": 0.00517
+    },
+    {
+      "aabbMax": {
+        "x": 1.795396,
+        "y": 4.582839,
+        "z": 0.064166
+      },
+      "aabbMin": {
+        "x": -0.829923,
+        "y": 3.29701,
+        "z": -0.069166
+      },
+      "centroid": {
+        "x": 0.466886,
+        "y": 4.050997,
+        "z": 0.060675
+      },
+      "faceCount": 112,
+      "hullVertexCount": 32,
+      "id": "struct_city_block_low_tier2_a_01_shard_016",
+      "index": 16,
+      "localTransform": {
+        "position": {
+          "x": 0.466886,
+          "y": 4.050997,
+          "z": 0.060675
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 24.876905,
+      "materialId": "glass",
+      "name": "shard_016",
+      "neighbors": [
+        4,
+        8,
+        9,
+        14,
+        19,
+        22
+      ],
+      "vertexCount": 58,
+      "volumeM3": 0.009951
+    },
+    {
+      "aabbMax": {
+        "x": 1.404442,
+        "y": 0.443204,
+        "z": 0.069166
+      },
+      "aabbMin": {
+        "x": -0.288891,
+        "y": 2e-06,
+        "z": 0.064166
+      },
+      "centroid": {
+        "x": 0.502919,
+        "y": 0.187852,
+        "z": 0.066666
+      },
+      "faceCount": 16,
+      "hullVertexCount": 10,
+      "id": "struct_city_block_low_tier2_a_01_shard_017",
+      "index": 17,
+      "localTransform": {
+        "position": {
+          "x": 0.502919,
+          "y": 0.187852,
+          "z": 0.066666
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 7.281514,
+      "materialId": "glass",
+      "name": "shard_017",
+      "neighbors": [
+        10,
+        15,
+        21,
+        23
+      ],
+      "vertexCount": 10,
+      "volumeM3": 0.002913
+    },
+    {
+      "aabbMax": {
+        "x": 1.220374,
+        "y": 3.231696,
+        "z": 0.069166
+      },
+      "aabbMin": {
+        "x": -0.202649,
+        "y": 1.552275,
+        "z": 0.064166
+      },
+      "centroid": {
+        "x": 0.528425,
+        "y": 2.330641,
+        "z": 0.066666
+      },
+      "faceCount": 32,
+      "hullVertexCount": 17,
+      "id": "struct_city_block_low_tier2_a_01_shard_018",
+      "index": 18,
+      "localTransform": {
+        "position": {
+          "x": 0.528425,
+          "y": 2.330641,
+          "z": 0.066666
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 18.452753,
+      "materialId": "glass",
+      "name": "shard_018",
+      "neighbors": [
+        11,
+        13,
+        14,
+        15,
+        21,
+        22
+      ],
+      "vertexCount": 18,
+      "volumeM3": 0.007381
+    },
+    {
+      "aabbMax": {
+        "x": 1.795396,
+        "y": 5.158317,
+        "z": 0.064166
+      },
+      "aabbMin": {
+        "x": -0.679687,
+        "y": 4.400587,
+        "z": -0.069166
+      },
+      "centroid": {
+        "x": 0.566587,
+        "y": 4.783206,
+        "z": 0.055186
+      },
+      "faceCount": 104,
+      "hullVertexCount": 23,
+      "id": "struct_city_block_low_tier2_a_01_shard_019",
+      "index": 19,
+      "localTransform": {
+        "position": {
+          "x": 0.566587,
+          "y": 4.783206,
+          "z": 0.055186
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 18.615245,
+      "materialId": "glass",
+      "name": "shard_019",
+      "neighbors": [
+        8,
+        12,
+        16,
+        20,
+        22
+      ],
+      "vertexCount": 54,
+      "volumeM3": 0.007446
+    },
+    {
+      "aabbMax": {
+        "x": 1.795396,
+        "y": 5.467028,
+        "z": 0.064166
+      },
+      "aabbMin": {
+        "x": -0.149271,
+        "y": 5.019627,
+        "z": -0.069455
+      },
+      "centroid": {
+        "x": 0.918756,
+        "y": 5.304924,
+        "z": 0.01673
+      },
+      "faceCount": 92,
+      "hullVertexCount": 23,
+      "id": "struct_city_block_low_tier2_a_01_shard_020",
+      "index": 20,
+      "localTransform": {
+        "position": {
+          "x": 0.918756,
+          "y": 5.304924,
+          "z": 0.01673
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 13.485356,
+      "materialId": "glass",
+      "name": "shard_020",
+      "neighbors": [
+        12,
+        19
+      ],
+      "vertexCount": 48,
+      "volumeM3": 0.005394
+    },
+    {
+      "aabbMax": {
+        "x": 1.522489,
+        "y": 1.972073,
+        "z": 0.064166
+      },
+      "aabbMin": {
+        "x": 0.542531,
+        "y": 0.162342,
+        "z": 0.059166
+      },
+      "centroid": {
+        "x": 1.082006,
+        "y": 1.180893,
+        "z": 0.061666
+      },
+      "faceCount": 16,
+      "hullVertexCount": 10,
+      "id": "struct_city_block_low_tier2_a_01_shard_021",
+      "index": 21,
+      "localTransform": {
+        "position": {
+          "x": 1.082006,
+          "y": 1.180893,
+          "z": 0.061666
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 13.153145,
+      "materialId": "glass",
+      "name": "shard_021",
+      "neighbors": [
+        15,
+        17,
+        18,
+        22,
+        23
+      ],
+      "vertexCount": 10,
+      "volumeM3": 0.005261
+    },
+    {
+      "aabbMax": {
+        "x": 1.795396,
+        "y": 4.549432,
+        "z": 0.064166
+      },
+      "aabbMin": {
+        "x": 0.83383,
+        "y": 1.857896,
+        "z": -0.069166
+      },
+      "centroid": {
+        "x": 1.491339,
+        "y": 3.062284,
+        "z": 0.03419
+      },
+      "faceCount": 92,
+      "hullVertexCount": 32,
+      "id": "struct_city_block_low_tier2_a_01_shard_022",
+      "index": 22,
+      "localTransform": {
+        "position": {
+          "x": 1.491339,
+          "y": 3.062284,
+          "z": 0.03419
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 26.017999,
+      "materialId": "glass",
+      "name": "shard_022",
+      "neighbors": [
+        14,
+        16,
+        18,
+        19,
+        21,
+        23
+      ],
+      "vertexCount": 48,
+      "volumeM3": 0.010407
+    },
+    {
+      "aabbMax": {
+        "x": 1.795396,
+        "y": 1.874992,
+        "z": 0.064166
+      },
+      "aabbMin": {
+        "x": 1.278027,
+        "y": 1e-06,
+        "z": -0.069166
+      },
+      "centroid": {
+        "x": 1.628168,
+        "y": 0.868954,
+        "z": 0.022918
+      },
+      "faceCount": 76,
+      "hullVertexCount": 21,
+      "id": "struct_city_block_low_tier2_a_01_shard_023",
+      "index": 23,
+      "localTransform": {
+        "position": {
+          "x": 1.628168,
+          "y": 0.868954,
+          "z": 0.022918
+        },
+        "rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "massKg": 13.058147,
+      "materialId": "glass",
+      "name": "shard_023",
+      "neighbors": [
+        17,
+        21,
+        22
+      ],
+      "vertexCount": 40,
+      "volumeM3": 0.005223
+    }
+  ],
+  "sourceFile": "assets/structures/str_city_block_low_01/parts/struct_city_block_low_tier2_a_01/mesh.glb",
+  "sourceHash": "sha256:5361ff36ce4800b6018a20c20fd579bc054c7e5fb46fae49ef5c3df7cb2406cb",
+  "toolVersion": "0.1.0",
+  "topologyHash": "sha256:69fc8f26e4ef86ae98fb22c5ed38083cde0d2014bcf4c0fee12fc0c4cfa3e3fa",
+  "transform": "FRACTURE",
+  "verification": {
+    "checks": [
+      {
+        "expected": "> 0.01 kg",
+        "id": "TV-001",
+        "measured": "min 2.0645 kg, max 26.0180 kg over 24 shards",
+        "name": "All shards have positive mass",
+        "status": "pass"
+      },
+      {
+        "expected": "4..64 verts, positive volume",
+        "id": "TV-004",
+        "measured": "15 verts, volume 2.460216 m3",
+        "name": "Hull part is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "29 verts, volume 0.007265 m3",
+        "name": "Hull shard_000 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "32 verts, volume 0.027693 m3",
+        "name": "Hull shard_001 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "24 verts, volume 0.015658 m3",
+        "name": "Hull shard_002 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "29 verts, volume 0.036002 m3",
+        "name": "Hull shard_003 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "29 verts, volume 0.068130 m3",
+        "name": "Hull shard_004 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "22 verts, volume 0.029508 m3",
+        "name": "Hull shard_005 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "25 verts, volume 0.025036 m3",
+        "name": "Hull shard_006 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "8 verts, volume 0.002478 m3",
+        "name": "Hull shard_007 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "27 verts, volume 0.085561 m3",
+        "name": "Hull shard_008 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "25 verts, volume 0.045051 m3",
+        "name": "Hull shard_009 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "12 verts, volume 0.003246 m3",
+        "name": "Hull shard_010 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "17 verts, volume 0.004193 m3",
+        "name": "Hull shard_011 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "25 verts, volume 0.025534 m3",
+        "name": "Hull shard_012 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "22 verts, volume 0.005628 m3",
+        "name": "Hull shard_013 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "17 verts, volume 0.005329 m3",
+        "name": "Hull shard_014 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "15 verts, volume 0.005170 m3",
+        "name": "Hull shard_015 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "32 verts, volume 0.101793 m3",
+        "name": "Hull shard_016 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "10 verts, volume 0.002913 m3",
+        "name": "Hull shard_017 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "17 verts, volume 0.007381 m3",
+        "name": "Hull shard_018 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "23 verts, volume 0.092263 m3",
+        "name": "Hull shard_019 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "23 verts, volume 0.079048 m3",
+        "name": "Hull shard_020 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "10 verts, volume 0.005261 m3",
+        "name": "Hull shard_021 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "32 verts, volume 0.137326 m3",
+        "name": "Hull shard_022 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "4..32 verts, positive volume",
+        "id": "TV-004",
+        "measured": "21 verts, volume 0.059410 m3",
+        "name": "Hull shard_023 is valid",
+        "status": "pass"
+      },
+      {
+        "expected": "equal sets",
+        "id": "TV-005",
+        "measured": "manifest 24, exported 24",
+        "name": "Manifest shard count matches exported meshes",
+        "status": "pass"
+      },
+      {
+        "expected": "[]",
+        "id": "TV-006",
+        "measured": "[]",
+        "name": "Exported mesh carries no damage morphs",
+        "status": "pass"
+      },
+      {
+        "expected": "within 2.0%",
+        "id": "TV-007",
+        "measured": "273.7719 kg vs 273.7719 kg",
+        "name": "Total shard mass conserves part mass",
+        "status": "pass"
+      },
+      {
+        "expected": "max/total <= 0.70, max/min <= 200",
+        "id": "TV-008",
+        "measured": "max/total 0.095, max/min 12.6",
+        "name": "Shard mass distribution is not pathological",
+        "status": "pass"
+      },
+      {
+        "expected": "all finite",
+        "id": "TV-009",
+        "measured": "checked 24 shards + intact mesh",
+        "name": "No NaN or Inf in any output vertex",
+        "status": "pass"
+      },
+      {
+        "expected": "0.01..20.0 m",
+        "id": "TV-010",
+        "measured": "5.4622 m",
+        "name": "Extents are plausible (unit check)",
+        "status": "pass"
+      },
+      {
+        "expected": "within 0.055 m of the source AABB",
+        "id": "TV-013",
+        "measured": "all shards within bounds",
+        "name": "No shard lies outside the part's own bounds",
+        "status": "pass"
+      },
+      {
+        "expected": "no schema violations",
+        "id": "TV-011",
+        "measured": "no violations",
+        "name": "Manifest conforms to schema",
+        "status": "pass"
+      },
+      {
+        "expected": "all equal",
+        "id": "TV-012",
+        "measured": "array 24, count 24, shards 24",
+        "name": "Manifest shard array matches shardCount",
+        "status": "pass"
+      }
+    ],
+    "passed": true,
+    "warnings": []
+  }
+}

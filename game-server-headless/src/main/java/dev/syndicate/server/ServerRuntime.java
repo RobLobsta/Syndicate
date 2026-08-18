@@ -137,7 +137,7 @@ final class ServerRuntime implements AutoCloseable {
                     arena.arenaId().value(),
                     config.gameMode());
         }
-        ArenaFactory.load(world, physics, shapes, arena);
+        ArenaFactory.load(world, physics, shapes, arena, assets);
     }
 
     World world() {

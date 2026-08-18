@@ -29,6 +29,7 @@ from pathlib import Path
 
 from . import bands as bands_module
 from . import documents, graph, mass, split
+from . import materials as materials_module
 from .graph import PartPlan
 
 try:  # pragma: no cover - exercised only inside a Blender host
@@ -51,12 +52,12 @@ MIN_PART_TRIANGLES = 240
 #: distance a building is looked at from.
 MORPH_AMPLITUDES_M = (0.25, 0.15, 0.08)
 
-#: Source material names that mean glass, matched case-insensitively as substrings. Everything
-#: else is whatever ``parts.json`` says, or concrete.
-GLASS_TOKENS = ("glass", "window", "glazing")
-
 #: The default material for a structure part with nothing better known about it.
-DEFAULT_MATERIAL = "concrete"
+DEFAULT_MATERIAL = materials_module.DEFAULT_MATERIAL
+
+#: The classes that come apart instead of denting. Both take FRACTURE and neither takes DEFORM,
+#: which is D15-S5.7's table read as a set rather than as two separate conditionals.
+BRITTLE_CLASSES = ("GLASS", "MASONRY")
 
 
 class StructureError(RuntimeError):
@@ -173,30 +174,11 @@ def dominant_material(part: PartPlan, overrides: dict[str, str]) -> str:
     return map_material(winner)
 
 
-def map_material(source_name: str) -> str:
-    """A source material name to a ``materials.json`` id.
-
-    Only glass is detected by name, and only because getting it wrong is the one mistake that
-    shows: a pane authored as concrete dents instead of shattering. Everything else falls to
-    concrete and is corrected by ``parts.json`` where it matters, which is DEC-068's rule the
-    other way round — a cue is preferred where one exists, and no cue distinguishes a painted
-    concrete wall from a painted brick one in an untextured mesh.
-    """
-    lowered = (source_name or "").lower()
-    if any(token in lowered for token in GLASS_TOKENS):
-        return "glass"
-    return DEFAULT_MATERIAL
-
-
-def destruction_class_for(material_id: str) -> str:
-    """How a part of this material fails (D15-S5.7).
-
-    Glass shatters; everything a structure is otherwise made of buckles. ``STRUCTURAL`` rather
-    than ``SHEET_METAL`` for the same reason a chassis is: these are load-bearing members that
-    give way globally, not skins that crumple locally, and the two classes differ by an order of
-    magnitude in how finely they are subdivided before being dented.
-    """
-    return "GLASS" if material_id == "glass" else "STRUCTURAL"
+#: Re-exported so that the module's callers and its tests keep one import site. The bodies live
+#: in :mod:`~syndicate_structure.materials` because the *cut* needs them too, and this module
+#: cannot be imported without a Blender host (DEC-100).
+map_material = materials_module.map_material
+destruction_class_for = materials_module.destruction_class_for
 
 
 def weigh(plans: list[PartPlan], densities: dict[str, float], overrides: dict[str, str]) -> None:
@@ -258,8 +240,11 @@ def export_part(
     if triangles != sum(p.triangles for p in part.component.pieces):
         part.notes.append(f"decimated to {triangles} triangles for D08-R2's budget")
 
+    # Only the classes D15-S5.7 gives DEFORM to. Glass and masonry are both brittle: neither has
+    # a dented state, and authoring one would put a part in the position of declaring both
+    # transforms, which no class receives.
     morphs: list[str] = []
-    if part.destruction_class != "GLASS":
+    if part.destruction_class not in BRITTLE_CLASSES:
         morphs = author_morphs(joined, part)
 
     collision = emit.build_collision_hull(joined, f"{part.part_type_id}_col")
@@ -294,7 +279,7 @@ def author_morphs(obj, part: PartPlan) -> list[str]:
 
 
 def author_fracture(part: PartPlan, out_root: Path, material_table: Path, seed: int) -> bool:
-    """The FRACTURE transform, for the classes D15-S5.7 gives it (glass).
+    """The FRACTURE transform, for the classes D15-S5.7 gives it (glass and masonry).
 
     Runs after every mesh is on disk because the fracture pipeline reloads the scene — the same
     constraint, and the same ordering, as the vehicle exporter's.
@@ -302,6 +287,7 @@ def author_fracture(part: PartPlan, out_root: Path, material_table: Path, seed: 
     from syndicate_fracture.cli import Args
     from syndicate_fracture.errors import ToolError
     from syndicate_fracture.pipeline import run as fracture_run
+    from syndicate_policy import classes as policy_classes
     from syndicate_prepare.manifest import WALL_THICKNESS_M
 
     directory = out_root / part.part_type_id
@@ -312,7 +298,7 @@ def author_fracture(part: PartPlan, out_root: Path, material_table: Path, seed: 
                 out=directory,
                 object=part.part_type_id,
                 seed=seed,
-                shards=24,
+                shards=policy_classes.treatment(part.destruction_class).fracture_shards,
                 destruction_class=part.destruction_class,
                 material_table=material_table,
                 material_override=part.material_id,
@@ -409,7 +395,7 @@ def run(options: Options) -> dict:
     fractured = {
         part.part_type_id: author_fracture(part, out_root, options.material_table, options.seed)
         for part in plans
-        if part.destruction_class == "GLASS"
+        if part.destruction_class in BRITTLE_CLASSES
     }
 
     by_parent: dict[str, list[PartPlan]] = {}
@@ -426,7 +412,8 @@ def run(options: Options) -> dict:
             fractured.get(part.part_type_id, False),
         )
     written[options.out / structure_id / "structure.json"] = documents.structure_document(
-        structure_id, display, plans, radius_m, height_m
+        structure_id, display, plans, radius_m, height_m,
+        documents.licence_status(options.model),
     )
     for path, document in sorted(written.items(), key=lambda item: str(item[0])):
         path.parent.mkdir(parents=True, exist_ok=True)

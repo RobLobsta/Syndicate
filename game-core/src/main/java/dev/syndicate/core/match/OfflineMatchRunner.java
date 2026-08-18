@@ -120,7 +120,7 @@ public final class OfflineMatchRunner implements AutoCloseable {
                     "arena {} is not loaded; the match has no ground",
                     config.arenaId().value());
         } else {
-            ArenaFactory.load(world, physics, shapes, arena);
+            ArenaFactory.load(world, physics, shapes, arena, assets);
         }
     }
 

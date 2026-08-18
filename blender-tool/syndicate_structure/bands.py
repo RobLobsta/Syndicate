@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import materials
+
 #: Metres of structure per band, before rounding. Chosen so that the shapes this project has —
 #: a 31 m tower, a 17 m and a 22 m block, a 2 m tree — land on 5, 3, 4 and 1 bands respectively,
 #: which is the granularity at which each one's collapse reads as a collapse rather than as a
@@ -236,12 +238,40 @@ def edges_for(
     return band_edges(lowest, highest, band_count(highest - lowest, target_m, cap))
 
 
+def split_families(found: list[Component]) -> list[Component]:
+    """Split every component into one component per failure family (DEC-100).
+
+    Run *after* footprint clustering rather than instead of it, and the order is the point. The
+    clustering answers "what stands together", which is a question about load paths and is the
+    right question for deciding what a part is. This answers "what fails together", which is a
+    different question with a different answer over the same pieces: a curtain wall's glazing and
+    the concrete behind it share a footprint exactly, so no spatial rule will ever separate them.
+
+    Without this, a band is one part whose material is whichever family has the most **surface**
+    — and on a real building that is always the walls, so every pane of glass in the shipped city
+    blocks was concrete that dented. The glazing was in the source art the whole time.
+
+    A family with no pieces produces no component, so a structure with one material is unchanged.
+    Families are emitted in sorted order, and pieces keep their input order within one (G3).
+    """
+    out: list[Component] = []
+    for component in found:
+        by_family: dict[str, list[Piece]] = {}
+        for piece in component.pieces:
+            by_family.setdefault(materials.family_of(piece.material), []).append(piece)
+        for family in sorted(by_family):
+            out.append(Component(by_family[family]))
+    return out
+
+
 def cut(pieces: list[Piece], edges: list[float]) -> list[list[Component]]:
     """The whole cut: bands bottom-up, each band's parts left-to-right.
 
-    Band 0 is always **one** component, whatever the clustering found. A structure has exactly one
-    root (D16-R18) and it is what holds the rest off the ground; four separate legs, none of which
-    holds up anything on its own, is not a support chain but four structures.
+    Band 0's **load-bearing** pieces are always one component, whatever the clustering found. A
+    structure has exactly one root (D16-R18) and it is what holds the rest off the ground; four
+    separate legs, none of which holds up anything on its own, is not a support chain but four
+    structures. Glazing at ground level is not merged into that root — it is not holding anything
+    up, and merging it is exactly the mistake :func:`split_families` exists to undo.
     """
     if not pieces:
         return []
@@ -250,9 +280,22 @@ def cut(pieces: list[Piece], edges: list[float]) -> list[list[Component]]:
     for index, band in enumerate(assign_bands(ordered, edges)):
         if not band:
             continue
-        found = merge_detail(components(band))
+        found = split_families(merge_detail(components(band)))
         if index == 0 and len(found) > 1:
-            root = Component([p for c in found for p in c.pieces])
-            found = [root]
+            found = _merge_root(found)
         out.append(found)
     return out
+
+
+def _merge_root(found: list[Component]) -> list[Component]:
+    """Band 0's load-bearing components into one root, with the rest left alone.
+
+    "Load-bearing" is every family but glazing, and the root is emitted first so that
+    :func:`~syndicate_structure.graph.plan` names it ``base`` and hangs the remainder off it.
+    """
+    bearing = [c for c in found if materials.family_of(c.pieces[0].material) != "GLASS"]
+    rest = [c for c in found if c not in bearing]
+    if not bearing:
+        return found
+    root = Component([p for c in bearing for p in c.pieces])
+    return [root, *rest]

@@ -80,6 +80,8 @@ public final class ClientRuntime implements AutoCloseable {
     private final SoundBank sounds;
     private final ClientSystemProvider provider;
     private final LocalPlayer localPlayer;
+    private final InMemoryAssetIndex assets;
+    private final SpawnQueue spawnQueue;
 
     private ClientRuntime(
             LaunchConfig config,
@@ -89,7 +91,9 @@ public final class ClientRuntime implements AutoCloseable {
             RenderContext render,
             SoundBank sounds,
             ClientSystemProvider provider,
-            LocalPlayer localPlayer) {
+            LocalPlayer localPlayer,
+            InMemoryAssetIndex assets,
+            SpawnQueue spawnQueue) {
         this.config = config;
         this.world = world;
         this.physics = physics;
@@ -98,6 +102,8 @@ public final class ClientRuntime implements AutoCloseable {
         this.sounds = sounds;
         this.provider = provider;
         this.localPlayer = localPlayer;
+        this.assets = assets;
+        this.spawnQueue = spawnQueue;
     }
 
     /**
@@ -153,7 +159,7 @@ public final class ClientRuntime implements AutoCloseable {
         world.registerSystems(systems);
 
         if (arena != null) {
-            ArenaFactory.LoadedArena loaded = ArenaFactory.load(world, physics, shapes, arena);
+            ArenaFactory.LoadedArena loaded = ArenaFactory.load(world, physics, shapes, arena, assets);
             // The ground has to be handed to the renderer here rather than built with it: generating
             // it needs the physics world, and drawing it needs a GL context. Without this the
             // scrapyard's heaps collide and nothing draws them, which reads as broken physics.
@@ -170,7 +176,8 @@ public final class ClientRuntime implements AutoCloseable {
 
         bootstrapMatch(world, assets, config, localPlayer, provider, selectedAssembly);
 
-        return new ClientRuntime(config, world, physics, shapes, render, sounds, provider, localPlayer);
+        return new ClientRuntime(
+                config, world, physics, shapes, render, sounds, provider, localPlayer, assets, spawnQueue);
     }
 
     /**
@@ -224,6 +231,26 @@ public final class ClientRuntime implements AutoCloseable {
 
     public LaunchConfig config() {
         return config;
+    }
+
+    /** The physics world, for a tool that has to place a body into it (the debug console). */
+    public PhysicsWorld physics() {
+        return physics;
+    }
+
+    /** The shape cache that owns every hull (G19). */
+    public ShapeCache shapes() {
+        return shapes;
+    }
+
+    /** Everything that was loaded, for a tool that offers the roster as a choice. */
+    public InMemoryAssetIndex assets() {
+        return assets;
+    }
+
+    /** The queue slot 5 drains, which is the only sanctioned way to ask for a spawn. */
+    public SpawnQueue spawnQueue() {
+        return spawnQueue;
     }
 
     public ClientSystemProvider provider() {

@@ -1,0 +1,28 @@
+{
+  "armorValue": 0.03,
+  "assets": {
+    "collisionSource": "mesh.glb#node=struct_city_block_low_tier1_a_01_col",
+    "fractureManifest": "fracture_manifest.json",
+    "morphTargets": [],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 11854.1,
+  "category": "PANEL",
+  "destructionClass": "GLASS",
+  "displayName": "Brick Block \u2014 Tier1 A",
+  "hangsBeforeFalling": false,
+  "massKg": 263.424,
+  "materialId": "glass",
+  "maxHp": 120.0,
+  "partTypeId": "struct_city_block_low_tier1_a_01",
+  "powerCost": 0.0,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "PANEL",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "structure",
+    "tier1",
+    "prepared"
+  ]
+}

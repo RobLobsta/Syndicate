@@ -1,0 +1,28 @@
+{
+  "armorValue": 60.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=struct_city_block_low_tier2_b_01_col",
+    "fractureManifest": "fracture_manifest.json",
+    "morphTargets": [],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 4267814.9,
+  "category": "PANEL",
+  "destructionClass": "MASONRY",
+  "displayName": "Brick Block \u2014 Tier2 B",
+  "hangsBeforeFalling": false,
+  "massKg": 94840.331,
+  "materialId": "brick",
+  "maxHp": 4267.8,
+  "partTypeId": "struct_city_block_low_tier2_b_01",
+  "powerCost": 0.0,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "PANEL",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "structure",
+    "tier2",
+    "prepared"
+  ]
+}

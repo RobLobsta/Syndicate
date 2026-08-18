@@ -153,6 +153,11 @@ public final class SoundBankBuilder {
                         case SHEET_METAL -> SoundSynth.tear(0.55, seed);
                         case GLASS -> SoundSynth.shatter(AudioMaterial.GLASS, 180, 0.9, seed);
                         case STRUCTURAL -> SoundSynth.tear(1.1, seed);
+                            // Masonry is the one detach that is neither a tear nor a ring:
+                            // a wall coming apart is a broadband collapse, so it is built
+                            // from the stone shatter voice at a lower pitch and a longer
+                            // tail than glass gets.
+                        case MASONRY -> SoundSynth.shatter(AudioMaterial.STONE, 70, 1.6, seed);
                         case RIGID -> SoundSynth.impact(AudioMaterial.METAL, 1.5, 0.9, seed);
                         case NONE -> throw new IllegalStateException("filtered above");
                     };
