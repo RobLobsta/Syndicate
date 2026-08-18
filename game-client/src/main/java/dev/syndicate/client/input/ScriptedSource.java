@@ -33,8 +33,8 @@ import java.util.Locale;
  *   t=0 throttle=1 | t=3 steer=0.4 fire=1 | t=7 steer=-0.4 | t=11 throttle=0 brake=1
  * </pre>
  *
- * <p>Recognised keys are {@code throttle}, {@code brake}, {@code steer}, {@code fire}, {@code aimYaw}
- * and {@code aimPitch}. A key a segment does not mention keeps the value
+ * <p>Recognised keys are {@code throttle}, {@code brake}, {@code steer}, {@code collective},
+ * {@code fire}, {@code aimYaw} and {@code aimPitch}. A key a segment does not mention keeps the value
  * the previous segment set, so a script says what changes rather than restating the whole state —
  * which is what makes a long drive readable.
  */
@@ -110,6 +110,7 @@ public final class ScriptedSource implements InputSource {
                     case "t" -> atSeconds = value;
                     case "throttle" -> frame.throttle = value;
                     case "brake" -> frame.brake = value;
+                    case "collective" -> frame.collective = value;
                     case "steer" -> frame.steer = value;
                     case "aimyaw" -> frame.aimYawRad = value;
                     case "aimpitch" -> frame.aimPitchRad = value;
@@ -189,6 +190,7 @@ public final class ScriptedSource implements InputSource {
     private static void copyInto(PlayerInputComponent from, PlayerInputComponent to) {
         to.throttle = from.throttle;
         to.brake = from.brake;
+        to.collective = from.collective;
         to.steer = from.steer;
         to.fireMask = from.fireMask;
         to.aimYawRad = from.aimYawRad;

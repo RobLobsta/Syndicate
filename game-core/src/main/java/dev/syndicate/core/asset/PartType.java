@@ -55,6 +55,7 @@ public final class PartType {
     private final HandlingBlock handling;
     private final WeaponBlock weapon;
     private final ModuleBlock module;
+    private final RotorBlock rotor;
     private final Map<StatBlock.Stat, DegradationRule> degradationOverrides;
     private final Map<String, SlotDefinition> slots;
     private final AssetId fractureManifestRef;
@@ -79,6 +80,7 @@ public final class PartType {
         this.handling = builder.handling;
         this.weapon = builder.weapon;
         this.module = builder.module;
+        this.rotor = builder.rotor;
         this.degradationOverrides = builder.degradationOverrides.isEmpty()
                 ? Map.of()
                 : Collections.unmodifiableMap(new EnumMap<>(builder.degradationOverrides));
@@ -203,6 +205,16 @@ public final class PartType {
     }
 
     /**
+     * What kind of rotor this part is, or null for a part that is not one (D08-R5).
+     *
+     * <p>Null for the same reason {@link #weapon()} is: {@code RotorControl} uses its presence to
+     * decide whether a part lifts at all, and a default block would make every bonnet a rotor.
+     */
+    public RotorBlock rotor() {
+        return rotor;
+    }
+
+    /**
      * Per-stat degradation rules this part authors, overriding the D05-S5.4 table (D08-R5).
      *
      * <p>Usually empty: the table is the answer for almost every part, and an override exists so a
@@ -314,6 +326,7 @@ public final class PartType {
         private HandlingBlock handling = HandlingBlock.REFERENCE;
         private WeaponBlock weapon;
         private ModuleBlock module;
+        private RotorBlock rotor;
         private final Map<StatBlock.Stat, DegradationRule> degradationOverrides = new EnumMap<>(StatBlock.Stat.class);
         private final Map<String, SlotDefinition> slots = new TreeMap<>();
         private AssetId fractureManifestRef;
@@ -406,6 +419,12 @@ public final class PartType {
             return this;
         }
 
+        /** Declares this part a lifting or anti-torque rotor (D08-R5). */
+        public Builder rotor(RotorBlock value) {
+            this.rotor = value;
+            return this;
+        }
+
         /** Overrides the D05-S5.4 table for one stat on this part type (D08-R5). */
         public Builder degradationOverride(StatBlock.Stat stat, DegradationRule rule) {
             degradationOverrides.put(stat, rule);
@@ -441,6 +460,7 @@ public final class PartType {
             return switch (category) {
                 case CHASSIS -> SlotType.ROOT;
                 case WHEEL -> SlotType.WHEEL;
+                case ROTOR -> SlotType.ROTOR_MOUNT;
                 case PANEL -> SlotType.PANEL;
                 case WEAPON, UTILITY -> SlotType.HARDPOINT;
                 case DECORATIVE -> SlotType.ACCESSORY;

@@ -49,6 +49,30 @@ public final class VehicleChassisComponent implements Component {
     public int wheelCount;
 
     /**
+     * Rotor part entities, in ascending slot-path order (G3).
+     *
+     * <p>Unlike {@link #wheelEntities} the order carries no meaning to Bullet — a rotor is not a
+     * ray cast and has no controller index — but it is still sorted, because {@code RotorControl}
+     * sums thrust across it and float addition is not associative. Two peers that walked this array
+     * in different orders would compute lift that differed in the last bit and diverge (G3).
+     */
+    public final int[] rotorEntities = new int[MAX_WHEELS];
+
+    /** How many entries of {@link #rotorEntities} are live. */
+    public int rotorCount;
+
+    /**
+     * True when this vehicle is held up by rotors rather than by wheels (DEC-090).
+     *
+     * <p>Derived once at spawn from whether the assembly carries a {@code MAIN} rotor, and stored
+     * rather than re-derived per tick because it decides which control operation runs and that
+     * question is asked on the hot path. It is not "has any rotor": a wheeled vehicle carrying a
+     * lift fan would still drive, and a rotorcraft that has had its main rotor shot off is still a
+     * rotorcraft — one that is now falling, which is the correct behaviour and not a mode change.
+     */
+    public boolean isRotorcraft;
+
+    /**
      * Radians. The steering angle currently applied to the steered wheels.
      *
      * <p>D06-S5.5's control loop rate-limits steering toward its target, which needs the angle it
@@ -80,6 +104,9 @@ public final class VehicleChassisComponent implements Component {
         comLocal.set(0f, 0f, 0f);
         Arrays.fill(wheelEntities, EntityId.NULL);
         wheelCount = 0;
+        Arrays.fill(rotorEntities, EntityId.NULL);
+        rotorCount = 0;
+        isRotorcraft = false;
         currentSteerRad = 0f;
         vehicleController = null;
     }

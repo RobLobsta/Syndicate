@@ -34,11 +34,11 @@ class AssetIndexBuilderTest {
         ObjectNode index = builder.build(Path.of("..", "assets"));
 
         assertThat(index.path("materials")).isNotEmpty();
-        // Two vehicles of twenty-odd real parts each, not two chassis and four wheels. The count
+        // Vehicles of twenty-odd real parts each, not a chassis and four wheels. The count
         // is asserted as a floor rather than a figure: re-cutting the art moves it, and a test
         // that pinned it would fail on every art change without saying anything about the index.
         assertThat(index.path("parts")).hasSizeGreaterThan(40);
-        assertThat(index.path("vehicles")).hasSize(2);
+        assertThat(index.path("vehicles")).hasSize(3);
 
         // Every part lives in exactly one of the two places D08-R14b allows, and *which* place says
         // what it is for (DEC-075). A part cut from a vehicle's own art is owned by that vehicle and
@@ -74,8 +74,10 @@ class AssetIndexBuilderTest {
         assertThat(index.path("arenas").get(0).path("arenaId").asText()).isEqualTo("arena_desert_01");
         assertThat(index.path("arenas").get(1).path("arenaId").asText()).isEqualTo("arena_scrapyard_01");
 
-        // The vehicle summaries carry what the runtime and the balance check both need.
-        ObjectNode eclipse = (ObjectNode) index.path("vehicles").get(0);
+        // The vehicle summaries carry what the runtime and the balance check both need. Indexed by
+        // id rather than by position: the vehicles are sorted, so adding the Kestrel between the
+        // Eclipse and the Stampede moved the one this block is about (DEC-090).
+        ObjectNode eclipse = vehicleById(index, "vehicle_eclipse_01");
         assertThat(eclipse.path("vehicleTypeId").asText()).isEqualTo("vehicle_eclipse_01");
         assertThat(eclipse.path("wheelCount").asInt()).isEqualTo(4);
         // Close to, not equal: this is the sum of thirty-odd authored masses, and the last binary
@@ -349,5 +351,15 @@ class AssetIndexBuilderTest {
                 }
                 """
                 .formatted(vehicleTypeId, vehicleClass, expectedMassKg);
+    }
+
+    /** One vehicle summary out of the index by id, so a new vehicle cannot move another's row. */
+    private static ObjectNode vehicleById(ObjectNode index, String vehicleTypeId) {
+        for (com.fasterxml.jackson.databind.JsonNode vehicle : index.path("vehicles")) {
+            if (vehicleTypeId.equals(vehicle.path("vehicleTypeId").asText())) {
+                return (ObjectNode) vehicle;
+            }
+        }
+        throw new AssertionError("no vehicle " + vehicleTypeId + " in the index");
     }
 }

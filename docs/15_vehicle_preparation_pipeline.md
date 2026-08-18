@@ -67,6 +67,7 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 |---|---|---|---|---|---|
 | `chassis` | The structural body — everything not separately labelled | `CHASSIS` | `ROOT` | never (D05-R26) | `structural` |
 | `wheel` | Tyre, rim, hub and disc: what rotates about the axle | `WHEEL` | `WHEEL` | yes | `rigid` |
+| `rotor` | A rotorcraft's lifting or anti-torque disc | `ROTOR` | `ROTOR_MOUNT` | yes | `rigid` |
 | `hub` | Caliper, upright, dust shield: unsprung, does **not** rotate | `UTILITY` | `HARDPOINT` | with its wheel | `rigid` |
 | `panel` | Bonnet, boot lid, doors, wings, bumpers | `PANEL` | `PANEL` | yes | `sheet_metal` |
 | `glass` | Windscreen, side and rear glass, lamp lenses | `DECORATIVE` | `ACCESSORY` | shatters | `glass` |
@@ -94,6 +95,7 @@ Requirements are numbered `R1..Rn`, cited as `D15-R14`.
 | Label | Roles |
 |---|---|
 | `panel` | `bonnet`, `boot`, `door`, `fender`, `quarter`, `bumper`, `sill`, `roof` |
+| `rotor` | `main`, `tail` |
 | `glass` | `windscreen`, `rear_window`, `side_window`, `lens` |
 | `light` | `head`, `tail` |
 | `grille` | `head`, `tail` |
@@ -126,6 +128,16 @@ The shape is specific enough to name. A door is thin in **x** and in x alone —
 This is the geometric cue doing what R7 requires of it: the numbers are fractions of the vehicle's own dimensions, taken from measurements of both shipped cars, and the cases that must *not* match — an interior door card, a wheel, a sill — are each held out by a different one of the six conditions rather than by the margin on one.
 
 **R7.** Cue weights and thresholds are constants in the tool, not per-model tuning. A threshold that has to move for a new model is a bug in the threshold.
+
+<!-- D15-R6b -->**R6b.** **C1 votes `rotor` for a disc, and outweighs the structure vote.** A rotor is the one part a positional cue cannot see: it spans most of the aircraft, sits over its middle, and is therefore exactly what R4's "big and central is structure" rule is written to catch. The Kestrel's main rotor was labelled `chassis` at 0.7 for precisely that reason, which merged it into the airframe — where it could not be shot off, produced no lift, and took the collision hull out to the blade tips.
+
+A disc is three measurements and each excludes a different thing that is also flat. It is **flat**, at least 0.90; it is **square in the plane normal to its thinnest axis**, at least 0.80 — a measurement `roundness` cannot make because `roundness` only ever compares y against z, and a main rotor is thin *vertically*; and it is at least 0.60 m across. C1 votes `rotor` at 0.9 on that, which beats the structure vote.
+
+The square-footprint bar is the one doing the real work. The Kestrel's tail-boom decal is **flatter** than its own tail rotor — 0.983 against 0.946 — and is separated from it only by footprint: 0.49 m by 1.17 m, an aspect of 0.42, against a disc's 1.00.
+
+<!-- D15-R6c -->**R6c.** A disc must also be **rotationally symmetric about its thin axis**: either at least 2-fold symmetric, or covering at least 240° of the circle. Two sufficient tests, for the reason R24a already gives — a rotating piece is either a *pattern* or a *solid of revolution*, and this taxonomy contains one of each. A three-blade main rotor occupies nine sectors of twenty-four and passes on symmetry order; a shrouded tail rotor occupies eighteen and passes on coverage. Neither test alone finds both.
+
+<!-- D15-R6d -->**R6d.** Every measurement about a rotor's axis is taken from the disc's **area centroid**, never from its bounding-box centre, and so are its exported radius and its part origin. A rotor with an odd number of blades does not box symmetrically about its own mast: the Kestrel's main disc boxes 0.77 m away from it, which reads as **no rotational symmetry at all** and would export a radius 13% short and an origin the blades orbit rather than turn about (DISC-070). The role — `main` or `tail` — is then decided by *which* axis it is thin along, because a main rotor turns about the vertical and an anti-torque rotor about a horizontal axis, on every rotorcraft with a tail boom ever built.
 
 <!-- D15-S4.3 -->### 4.3 Per-Model Override: `parts.json`
 
@@ -326,6 +338,8 @@ Stage 8 turns labelled geometry into the two documents D08 specifies. Four of it
 The per-class constant is a **mass per square metre**, not a thickness times a density, and the distinction is load-bearing. 20 mm is the right wall for a rubber tyre and yields 22 kg/m²; the same 20 mm of *steel* yields 157, so a brake hub with 1.37 m² of folded surface was weighed at 214 kg — ten times a real one — and inflated a 1,500 kg car to 1,977. One `rigid` class covers both a tyre and a steel casting, so its constant must be the quantity that is stable across the two. It is: a designer picks whatever thickness gets the required stiffness out of the material to hand, which puts nearly everything on a vehicle between 17 and 20 kg/m². Glass is genuinely lighter and a chassis genuinely heavier, being box sections rather than a skin.
 
 The cap exists because a part cannot contain more material than fits inside it. An open surface encloses nothing and keeps the surface reading; a hollow box encloses far more than its walls hold, so the surface reading is already the smaller of the two; a small solid lump encloses less than its own folded surface implies, and the lump wins.
+
+<!-- D15-R41b -->**R41b.** Where there is no track, the footprint excludes **rotor** shells, for the same reason the track excludes wing mirrors. A rotorcraft's bounding box is not wrong by 11% but by a factor: the Kestrel's is 7.83 m across because that is its rotor span, against a 3.10 m airframe, and the footprint estimate read from it produced a **15.7-tonne helicopter** that no rotor was ever going to lift. A disc that sweeps over an aircraft is not part of how wide the aircraft is. This narrows the error rather than removing it — anything not shaped like a road vehicle still needs `--mass` or a researched `profile.json`, exactly as `DEFAULT_AREAL_DENSITY_KG_PER_M2` has always said.
 
 <!-- D15-R41a -->**R41a.** The target mass a vehicle is scaled to is measured across its **track**, not across its bounding box, whenever the pipeline found wheels. A bounding box includes the wing mirrors: on the Eclipse that is 2.18 m against a real 1.97, which is 11% on the number every part's mass is derived from. Track plus a wheel's width is a road vehicle's width to within a few centimetres, because that is what a track is.
 

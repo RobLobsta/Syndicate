@@ -182,15 +182,24 @@ public final class AssemblyValidator {
         }
     }
 
-    /** A309: a vehicle needs three wheels to be drivable at all. */
+    /**
+     * A309: a vehicle needs three wheels to be drivable at all — or a rotor to fly on.
+     *
+     * <p>The rule is "can this thing move under its own power", and until the Kestrel it had
+     * only one way to answer yes. A rotorcraft has no wheels by construction and is not a
+     * malformed car; it satisfies the same requirement a different way, so the check tests for
+     * <em>some</em> means of locomotion rather than for wheels specifically (DEC-090).
+     */
     private static void checkWheelCount(AssemblyLayout layout, List<ValidationIssue> issues) {
         int wheels = layout.countCategory(PartCategory.WHEEL);
-        if (wheels < MIN_WHEELS) {
-            issues.add(ValidationIssue.error(
-                    "A309",
-                    layout.assembly().assemblyId().value(),
-                    wheels + " wheels; a vehicle needs at least " + MIN_WHEELS + " to be drivable"));
+        if (wheels >= MIN_WHEELS || layout.countCategory(PartCategory.ROTOR) > 0) {
+            return;
         }
+        issues.add(ValidationIssue.error(
+                "A309",
+                layout.assembly().assemblyId().value(),
+                wheels + " wheels and no rotor; a vehicle needs at least " + MIN_WHEELS
+                        + " wheels to be drivable, or a rotor to fly"));
     }
 
     /** A313: two armour parts claiming the same slot, which D05-E4 makes an authoring mistake. */

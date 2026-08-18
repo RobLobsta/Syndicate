@@ -67,16 +67,21 @@ Requirements are numbered `R1..Rn`, cited as `D05-R11`.
 
 <!-- D05-S4.2 -->### 4.2 Part Categories and Catalogue
 
-**R5.** Exactly six `PartCategory` values exist.
+**R5.** Exactly seven `PartCategory` values exist.
 
 | Category | Role | Contributes | May be destroyed | Detaches on destroy | In compound shape |
 |---|---|---|---|---|---|
 | `chassis` | Root; owns the vehicle body, engine, and base slots | mass, engine force, base armour, all slots | Yes → vehicle destroyed | No (vehicle ends) | Yes (root shape) |
 | `panel` | Bodywork; absorbs damage before what it covers | mass, armour value, `covers` relationship | Yes | Yes | Yes |
 | `wheel` | Ground contact, drive, steering | mass, traction, steering, suspension | Yes | Yes | No (ray-cast wheel) |
+| `rotor` | Lift and yaw for a rotorcraft | mass, `rotorThrustN` | Yes | Yes | Yes |
 | `weapon` | Damage output | mass, fire rate, damage, spread, ammo | Yes | Yes | Yes |
 | `utility` | Support effects (ammo feed, radar, cooler, plating booster, cloak) | mass, its specific stat modifiers | Yes | Yes | Yes |
 | `decorative` | Cosmetic only | mass **only** | Yes | Yes | Yes (small hull) |
+
+<!-- D05-R5a -->**R5a.** A `rotor` is **not** a `wheel` with unusual numbers, and the three differences are each load-bearing (DEC-090). A wheel carries no hull because it is a ray cast (D06-S4.3); a rotor is geometry above the vehicle that a shot must be able to reach, so it is *in* the compound shape. A wheel's force acts through a contact patch against a surface; a rotor's acts against nothing, so lift is a body force and not a wheel command. And a wheel's thrust direction is the vehicle's, where a rotor's is its own — thrust along the vehicle's local up axis is what makes pitching the nose down convert lift into forward flight.
+
+**R5b.** A rotor carries a `rotor` block on its `part.json` giving its **role** (`MAIN` or `TAIL`), disc radius, spin axis, blade count and governed rpm — an identity and a set of one-rotor properties, in the same split `handling` (DEC-031) and `weapon` (DEC-039) already make. Its **thrust** is the stat `rotorThrustN` rather than a field on that block, so that degradation (D05-S5.4) reaches it: a rotor shot to half health lifts less. A vehicle carrying at least one `MAIN` rotor is flown by `RotorControl` rather than driven by the ray-cast wheel path.
 
 **R6.** `decorative` parts carry mass and collide, but contribute no stat modifiers and no armour. They exist so that visual identity has physical consequence (P3) — a big spoiler is real weight — while never affecting balance beyond that mass. Cosmetic *skins* (D01-R28) are different: they change nothing at all.
 
@@ -125,6 +130,7 @@ gate applied on top of this table. Both must pass, along with `maxMassKg`.
 |---|---|---|
 | `ROOT` | `chassis` | 1 (implicit, the vehicle root) |
 | `WHEEL` | `wheel` | 4–6 |
+| `ROTOR_MOUNT` | `rotor` | 0, or 2 on a rotorcraft (a mast and a tail gearbox) |
 | `HARDPOINT` | `weapon`, `utility` | 2–4 |
 | `PANEL` | `panel` | 4–10 |
 | `TURRET_MOUNT` | `weapon` | 0–1 |

@@ -124,6 +124,39 @@ class Shell:
         return 1.0 - self.shortest_extent / longest
 
     @property
+    def thinnest_axis(self) -> int:
+        """Which axis the shell is thinnest along: ``0`` for x, ``1`` for y, ``2`` for z.
+
+        For a plate this is the axis normal to it, and for a disc it is the axis it turns
+        about. Ties break toward the lower index, which is arbitrary and only reachable for a
+        cube, where no axis is meaningfully the thin one anyway.
+        """
+        size = self.size
+        return min(range(3), key=lambda axis: size[axis])
+
+    @property
+    def disc_aspect(self) -> float:
+        """How square the shell is in the plane normal to its thinnest axis, ``[0,1]``.
+
+        {@link roundness} generalised off the x axis. ``roundness`` asks the question for a
+        wheel, which is always thin across the car; a rotor is thin *vertically*, and asking
+        the same question about the same two axes gives the answer for a plane the disc does
+        not lie in.
+
+        This is the measurement that separates a rotor from a decal, and it is the only one
+        that does: both are sheets with no thickness, and the Kestrel's tail-boom decal has a
+        higher flatness (0.983) than its own tail rotor (0.946). What the decal does not have
+        is a square footprint — it is 0.49 m by 1.17 m, an aspect of 0.42, against a disc's
+        1.0.
+        """
+        size = self.size
+        others = [size[axis] for axis in range(3) if axis != self.thinnest_axis]
+        larger = max(others)
+        if larger <= 1e-9:
+            return 0.0
+        return min(others) / larger
+
+    @property
     def roundness(self) -> float:
         """How disc-like the shell is in side view, ``[0,1]``.
 

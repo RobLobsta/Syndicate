@@ -88,6 +88,12 @@ public final class VehicleControl {
      */
     private final PhysicsWorld physics;
 
+    /**
+     * The rotorcraft half of the same operation, held rather than constructed per call because it
+     * owns scratch vectors and this runs once per vehicle per tick.
+     */
+    private final RotorControl rotors;
+
     /** A control operation with no terrain: every wheel keeps the grip its part authored. */
     public VehicleControl() {
         this(null);
@@ -98,6 +104,8 @@ public final class VehicleControl {
      */
     public VehicleControl(PhysicsWorld physics) {
         this.physics = physics;
+        this.rotors = new RotorControl(physics);
+        this.rotors.useClamp(this);
     }
 
     /**
@@ -106,12 +114,21 @@ public final class VehicleControl {
      * <p>Steering is advanced whether or not there is a controller to apply it to: a vehicle that
      * has lost every wheel still has a driver turning the wheel, and holding the angle frozen would
      * make it snap to wherever the input was pointing the moment a wheel came back.
+     *
+     * <p>A rotorcraft takes {@link RotorControl} instead and returns before any of that. The branch
+     * is here, inside the shared operation, rather than in the two callers: slot 7 and
+     * {@code ReconciliationSystem} (20) must agree about which arithmetic a vehicle gets, and
+     * duplicating the test is how they would come to disagree (DEC-061).
      */
     public void drive(World world, int vehicleEntity, float dtSeconds) {
         VehicleChassisComponent chassis = world.getComponent(vehicleEntity, VehicleChassisComponent.class);
         PlayerInputComponent input = world.getComponent(vehicleEntity, PlayerInputComponent.class);
         VehicleStatsComponent stats = world.getComponent(vehicleEntity, VehicleStatsComponent.class);
         if (chassis == null || input == null || stats == null) {
+            return;
+        }
+        if (chassis.isRotorcraft) {
+            rotors.fly(world, vehicleEntity, dtSeconds);
             return;
         }
 
@@ -306,6 +323,21 @@ public final class VehicleControl {
      * that has to win. Grounded, the behaviour is byte-for-byte what it was, so the seed-locked
      * regressions of D12-S4.2 see no change.
      */
+    /**
+     * The D06-S5.5 speed clamp, for a caller that has already applied its own forces.
+     *
+     * <p>Package-private so {@link RotorControl} can reach it. The clamp is a net against
+     * tunnelling (D06-R5) and belongs to <em>every</em> vehicle, not to the wheel path it happens
+     * to be written in; the rotorcraft branch of {@link #drive} returns before
+     * {@code applyBodyForces} runs, so without this a helicopter is the one thing in the game with
+     * no speed bound at all — which the first flight duly showed, at 165 km/h against a 144 km/h
+     * limit.
+     */
+    void clampSpeed(World world, int vehicleEntity, btRigidBody body) {
+        scratchVelocity.set(body.getLinearVelocity());
+        applySpeedClamp(world, vehicleEntity, body, scratchVelocity.len());
+    }
+
     private void applySpeedClamp(World world, int vehicleEntity, btRigidBody body, float speedMps) {
         if (isAirborne(world, vehicleEntity)) {
             float horizontalMps = (float) Math.hypot(scratchVelocity.x, scratchVelocity.z);
@@ -342,6 +374,13 @@ public final class VehicleControl {
         VehicleChassisComponent chassis = world.getComponent(vehicleEntity, VehicleChassisComponent.class);
         if (chassis == null) {
             return false;
+        }
+        if (chassis.isRotorcraft) {
+            // A rotorcraft has no suspension ray to ask, and is airborne by construction. Without
+            // this it falls through to the no-live-wheels branch below, which reads a helicopter in
+            // level flight as a wreck on its belly and clamps its whole velocity vector — taking
+            // the vertical component with it, which is the case DEV-019 exists to avoid.
+            return true;
         }
         int liveWheels = 0;
         for (int i = 0; i < chassis.wheelCount; i++) {

@@ -40,15 +40,23 @@ import java.util.Map;
 public final class ModelInspector {
 
     /**
-     * The length a road vehicle plausibly has, in metres.
+     * The longest extent a vehicle of any kind plausibly has, in metres.
      *
      * <p>Wide on purpose: the check is not "is this the right car", it is "is this in metres at
      * all". The two failures it exists to catch are a centimetre model (0.05 m long) and an
      * inch-or-unit model (180 long), and both miss this window by two orders of magnitude.
+     *
+     * <p>The upper bound was 7.0 m while every vehicle in the game was a car, and the first
+     * aircraft failed on it: the Kestrel measures 11.63 m across because its main rotor overhangs
+     * the nose, and the check told an operator to scale a correctly sized helicopter down by
+     * 0.396. That is the failure mode this constant's own comment warns against — a bound tight
+     * enough to encode a vehicle *class* stops testing units and starts testing shape. 16 m still
+     * catches both unit errors by two orders of magnitude and admits any rotorcraft the game is
+     * likely to carry.
      */
-    private static final float MIN_VEHICLE_LENGTH_M = 2.5f;
+    private static final float MIN_VEHICLE_EXTENT_M = 2.5f;
 
-    private static final float MAX_VEHICLE_LENGTH_M = 7.0f;
+    private static final float MAX_VEHICLE_EXTENT_M = 16.0f;
 
     /** How far a model's lowest point may sit from y=0 before the origin stops meaning "ground". */
     private static final float GROUND_TOLERANCE_M = 0.02f;
@@ -175,7 +183,7 @@ public final class ModelInspector {
             if (image.uri() == null || directory == null) {
                 continue;
             }
-            if (!Files.isRegularFile(directory.resolve(image.uri()))) {
+            if (!Files.isRegularFile(directory.resolve(decodeUri(image.uri())))) {
                 missing.add(image.uri());
             }
         }
@@ -190,14 +198,47 @@ public final class ModelInspector {
                         + " it, and a zip that lost its textures/ still parses.");
     }
 
+    /**
+     * A glTF {@code uri} as a relative path.
+     *
+     * <p>glTF 2.0 §3.6.1.1 says a {@code uri} is a URI, so a texture whose file name contains a
+     * space is written {@code helicopter%20low.png} and naming the file {@code %20} finds nothing.
+     * Every texture in the Kestrel's source is named with spaces, and all three read as missing
+     * until this decoded them.
+     *
+     * <p>Only the path is decoded — a data URI has no file beside the document and is skipped by
+     * the caller, and a {@code +} is a literal plus in a URI path rather than a space, which is why
+     * this is not {@code URLDecoder}.
+     */
+    private static String decodeUri(String uri) {
+        if (uri.indexOf('%') < 0) {
+            return uri;
+        }
+        StringBuilder out = new StringBuilder(uri.length());
+        for (int i = 0; i < uri.length(); i++) {
+            char c = uri.charAt(i);
+            if (c == '%' && i + 2 < uri.length()) {
+                int hi = Character.digit(uri.charAt(i + 1), 16);
+                int lo = Character.digit(uri.charAt(i + 2), 16);
+                if (hi >= 0 && lo >= 0) {
+                    out.append((char) ((hi << 4) | lo));
+                    i += 2;
+                    continue;
+                }
+            }
+            out.append(c);
+        }
+        return out.toString();
+    }
+
     private Check scalePlausible(Vector3 size) {
         float longest = Math.max(size.x, Math.max(size.y, size.z));
-        boolean ok = longest >= MIN_VEHICLE_LENGTH_M && longest <= MAX_VEHICLE_LENGTH_M;
+        boolean ok = longest >= MIN_VEHICLE_EXTENT_M && longest <= MAX_VEHICLE_EXTENT_M;
         return measured(
                 "MODEL-004",
                 "scale is metres",
                 ok ? Check.Status.PASS : Check.Status.FAIL,
-                MIN_VEHICLE_LENGTH_M + "–" + MAX_VEHICLE_LENGTH_M + " m longest extent",
+                MIN_VEHICLE_EXTENT_M + "–" + MAX_VEHICLE_EXTENT_M + " m longest extent",
                 String.format(Locale.ROOT, "%.4f m", longest),
                 (double) longest,
                 ok

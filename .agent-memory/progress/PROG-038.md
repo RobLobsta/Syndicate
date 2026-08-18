@@ -4,7 +4,7 @@
 **Category:** progress
 **Related Docs:** docs/04_entity_component_model.md#D04-S4.4, docs/07_damage_destruction_model.md#D07-S5.6, docs/08_asset_pipeline.md#D08-S5.3, docs/06_physics_simulation.md#D06-S5.5
 
-**Status:** active
+**Status:** superseded (by PROG-041)
 
 Supersedes: PROG-026
 

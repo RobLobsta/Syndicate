@@ -29,6 +29,20 @@ public final class PlayerInputComponent implements Component {
     /** Brake, {@code [0,1]}. */
     public float brake;
 
+    /**
+     * Climb/descend demand for a rotorcraft, {@code [-1,1]} (DEC-092).
+     *
+     * <p>A fourth axis rather than a reuse of {@link #throttle} or {@link #brake}, because a
+     * helicopter needs to climb and go forward <em>at the same time</em> and those two are one
+     * stick on a car. Zero is not "no thrust": {@code RotorControl} trims neutral collective to a
+     * hover, so a released stick holds height and the axis reads as a departure from it.
+     *
+     * <p>Ignored entirely by a wheeled vehicle, which is why it costs nothing to give every
+     * vehicle one — the alternative is a second input component and a family split through every
+     * system that reads intent.
+     */
+    public float collective;
+
     /** Aim yaw in radians. */
     public float aimYawRad;
 
@@ -49,6 +63,7 @@ public final class PlayerInputComponent implements Component {
         throttle = 0f;
         steer = 0f;
         brake = 0f;
+        collective = 0f;
         aimYawRad = 0f;
         aimPitchRad = 0f;
         fireMask = 0;

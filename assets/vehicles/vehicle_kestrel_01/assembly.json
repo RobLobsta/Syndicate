@@ -1,0 +1,40 @@
+{
+  "chassis": "chassis_kestrel_01",
+  "cosmetics": {
+    "paintSchemeId": "scheme_default_01"
+  },
+  "displayName": "Kestrel",
+  "expected": {
+    "comLocal": {
+      "x": -0.0748,
+      "y": 1.8708,
+      "z": -0.6219
+    },
+    "powerBudget": 60.0,
+    "totalMassKg": 1600.0
+  },
+  "parts": [
+    {
+      "parentSlotId": "decal",
+      "parentSlotPath": "root",
+      "partTypeId": "decal_kestrel_01",
+      "slotPath": "root/decal"
+    },
+    {
+      "parentSlotId": "rotor_main",
+      "parentSlotPath": "root",
+      "partTypeId": "rotor_kestrel_main_01",
+      "slotPath": "root/rotor_main"
+    },
+    {
+      "parentSlotId": "rotor_tail",
+      "parentSlotPath": "root",
+      "partTypeId": "rotor_kestrel_tail_01",
+      "slotPath": "root/rotor_tail"
+    }
+  ],
+  "schemaVersion": "1.0.0",
+  "unlockLevel": 0,
+  "vehicleClass": "light",
+  "vehicleTypeId": "vehicle_kestrel_01"
+}

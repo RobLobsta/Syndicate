@@ -1,0 +1,26 @@
+{
+  "armorValue": 0.0,
+  "assets": {
+    "collisionSource": "mesh.glb#node=decal_kestrel_01_col",
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 250.0,
+  "category": "DECORATIVE",
+  "destructionClass": "NONE",
+  "displayName": "Decal",
+  "hangsBeforeFalling": false,
+  "massKg": 1.839,
+  "materialId": "trim",
+  "maxHp": 25.0,
+  "partTypeId": "decal_kestrel_01",
+  "powerCost": 0.115,
+  "schemaVersion": "1.0.0",
+  "sizeClass": "MEDIUM",
+  "slotTypeRequired": "ACCESSORY",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "decal",
+    "prepared"
+  ]
+}

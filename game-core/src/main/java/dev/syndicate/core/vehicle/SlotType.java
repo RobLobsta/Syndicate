@@ -19,6 +19,8 @@ import java.util.Set;
 public enum SlotType {
     ROOT(EnumSet.of(PartCategory.CHASSIS)),
     WHEEL(EnumSet.of(PartCategory.WHEEL)),
+    /** A rotor mast or tail-rotor gearbox: where a lifting rotor bolts on (D05-S4.3). */
+    ROTOR_MOUNT(EnumSet.of(PartCategory.ROTOR)),
     HARDPOINT(EnumSet.of(PartCategory.WEAPON, PartCategory.UTILITY)),
     /** A bodywork mount: a door aperture, a bonnet hinge line, a bumper mount. */
     PANEL(EnumSet.of(PartCategory.PANEL)),

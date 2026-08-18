@@ -32,6 +32,7 @@ from .labels import (
     PANEL,
     ROTATION_SECTORS,
     ROTATION_SYMMETRY_MIN_DEG,
+    ROTOR,
     WHEEL,
 )
 from .shell import Shell
@@ -47,6 +48,13 @@ QUARTER = "quarter"
 BUMPER = "bumper"
 SILL = "sill"
 ROOF = "roof"
+
+#: Rotor roles. A rotorcraft's two discs do different jobs — one lifts, one stops the
+#: fuselage spinning — and they must not group into one part, which is what they did before
+#: this existed: the Kestrel exported a single ``rotor_c00`` whose bounds spanned the whole
+#: aircraft, because grouping is by ``(label, role, side, index)`` and both discs sat at the
+#: centreline with no role between them.
+MAIN = "main"
 
 #: Lamp and glazing roles.
 HEAD = "head"
@@ -67,6 +75,7 @@ SINGULAR_ROLES = frozenset({"bonnet", "boot", "roof", "windscreen", "rear_window
 ROLES = (
     BONNET, BOOT, DOOR, FENDER, QUARTER, BUMPER, SILL, ROOF,
     HEAD, TAIL, WINDSCREEN, REAR_WINDOW, SIDE_WINDOW, LENS,
+    MAIN,
 )
 
 #: Fewest evenly spaced repeats that count as a bolt pattern rather than a coincidence. Three:
@@ -114,8 +123,25 @@ def role_for(shell: Shell, body) -> str | None:
         return _glass_role(shell, body)
     if shell.label == GRILLE:
         return HEAD if _front_fraction(shell, body) > 0.5 else TAIL
+    if shell.label == ROTOR:
+        return _rotor_role(shell)
     return None
 
+
+
+def _rotor_role(shell: Shell) -> str:
+    """Which rotor a disc is, from the axis it turns about.
+
+    A conventional helicopter's main rotor turns about the **vertical** — that is what makes
+    its thrust lift — and its anti-torque rotor turns about a **horizontal** axis, because its
+    thrust has to push sideways. That is not a convention of this model or a habit of this
+    artist: it is what the two rotors are *for*, and it holds on every rotorcraft with a tail
+    boom ever built.
+
+    So the axis the disc is thin along is the whole test. The Kestrel's main rotor is 0.020 m
+    through in y; its tail rotor is 0.055 m through in x.
+    """
+    return MAIN if shell.thinnest_axis == 1 else TAIL
 
 def _panel_role(shell: Shell, body) -> str | None:
     """Which panel this is, from the plane it lies in and where on the body it sits.

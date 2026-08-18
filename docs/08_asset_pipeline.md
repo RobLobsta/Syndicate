@@ -536,6 +536,8 @@ function AssetRegistry.load(assetRoot, headless):
 | A219 | ERROR | `module.family` is not a `ModuleFamily`, or its charges or radius are out of range |
 | A220 | WARN | An `articulation` block is malformed — unknown `motion` or `driver`, a non-unit axis, or a field the motion needs and does not have. The part loads static (D17-R14) |
 | A221 | ERROR | `sizeClass` is not a `SizeClass` on a part or on a slot definition (D17-S4.3) |
+| A223 | ERROR | A `rotor` block on a part that is not a `ROTOR`; or WARN when a `ROTOR` authors none, which is a part that looks like it lifts and does not |
+| A224 | ERROR | `rotor.role` is not a `RotorBlock.Role`, or its radius or spin axis is out of range |
 | A222 | ERROR | A `<weaponId>.weapon.json` cannot be read, or names no sub-part labelled `mount`. The weapon's parts still load and a vehicle already carrying it still works; what is lost is the ability to fit it to anything else (D17-R16) |
 | **A3xx — assembly semantics** | | |
 | A301 | ERROR | Not exactly one root, or root is not a `chassis` |
@@ -546,7 +548,7 @@ function AssetRegistry.load(assetRoot, headless):
 | A306 | ERROR | Part mass exceeds the slot's `maxMassKg` |
 | A307 | ERROR | Slot occupied twice |
 | A308 | ERROR | Slot graph contains a cycle, or a part is unreachable from root |
-| A309 | ERROR | Fewer than 3 wheels |
+| A309 | ERROR | Fewer than 3 wheels **and** no rotor. The rule asks whether the vehicle can move under its own power, and a rotorcraft answers it a different way (DEC-092) |
 | A310 | ERROR | `expected.totalMassKg` differs from computed by more than `MASS_DELTA_FRAC` |
 | A311 | ERROR | `expected.comLocal` differs from computed by more than `COM_OFFSET_M` |
 | A312 | ERROR | Power budget outside the class target by more than 3% (D05-R30) |

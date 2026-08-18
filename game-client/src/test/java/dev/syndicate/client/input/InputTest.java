@@ -378,6 +378,7 @@ class InputTest {
         boolean left;
         boolean right;
         boolean brake;
+        boolean descend;
         float mouseDx;
         float mouseDy;
         final boolean[] fire = new boolean[4];
@@ -410,6 +411,11 @@ class InputTest {
         @Override
         public boolean isBrakeHeld() {
             return brake;
+        }
+
+        @Override
+        public boolean isDescendHeld() {
+            return descend;
         }
 
         @Override

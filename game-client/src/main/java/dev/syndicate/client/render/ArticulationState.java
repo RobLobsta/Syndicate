@@ -7,6 +7,7 @@ package dev.syndicate.client.render;
 import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.PartRefComponent;
 import dev.syndicate.core.component.PlayerInputComponent;
+import dev.syndicate.core.component.RotorControllerComponent;
 import dev.syndicate.core.damage.WeaponFiredEvent;
 import dev.syndicate.core.ecs.EntityId;
 import dev.syndicate.core.ecs.World;
@@ -43,7 +44,20 @@ public final class ArticulationState {
     private record WeaponKey(int vehicleEntity, String slotPath) {}
 
     private final Map<WeaponKey, Float> lastFiredAt = new HashMap<>();
+
+    /**
+     * Blade angle per rotor entity, in turns, accumulated frame by frame.
+     *
+     * <p>Accumulated rather than computed as {@code rpm x now}, which is the obvious form and is
+     * wrong whenever the speed changes: the angle a disc has turned through is the *integral* of
+     * its speed, and multiplying the current speed by the whole elapsed time makes the blades
+     * snap backwards the instant a destroyed rotor starts running down. Integrating costs one
+     * float per rotor and is right at every speed.
+     */
+    private final Map<Integer, Float> bladeTurns = new HashMap<>();
+
     private float now;
+    private float frameDt;
 
     /** Subscribes to the fire events that drive {@code FIRE} and {@code CONTINUOUS} motions. */
     public void initialize(World world) {
@@ -53,6 +67,7 @@ public final class ArticulationState {
     /** Advances the client clock. Called once per frame with real frame time, never with a tick. */
     public void advance(float frameDtSeconds) {
         now += frameDtSeconds;
+        frameDt = frameDtSeconds;
     }
 
     /** Client seconds since start; the clock every phase below is measured against. */
@@ -119,6 +134,7 @@ public final class ArticulationState {
         return switch (articulation.driver()) {
             case FIRE -> firePhase(part, articulation);
             case CONTINUOUS -> continuousPhase(part, articulation);
+            case ROTOR -> rotorPhase(world, entityId);
             case AIM -> aimPhase(world, part, articulation);
             case OPEN -> 0f;
         };
@@ -160,6 +176,27 @@ public final class ArticulationState {
         float degrees = articulation.rateDegPerSec() * now * coast;
         float turns = degrees / 360f;
         return turns - (float) Math.floor(turns);
+    }
+
+    /**
+     * How far round a rotor's blades are, from the disc's own authoritative speed.
+     *
+     * <p>{@code currentRpm} is simulation state that both peers agree about, so two clients
+     * watching the same helicopter see the blades in the same place — and a disc that has been
+     * shot off visibly runs down instead of stopping dead, because the spin-down is in the
+     * simulation rather than in the renderer.
+     */
+    private float rotorPhase(World world, int entityId) {
+        RotorControllerComponent rotor = world.getComponent(entityId, RotorControllerComponent.class);
+        if (rotor == null || rotor.currentRpm <= 0f) {
+            // Held where it stopped rather than reset to zero: a stopped rotor snapping back to
+            // its authored blade angle is a visible jump, and there is nothing to gain by it.
+            return bladeTurns.getOrDefault(entityId, 0f);
+        }
+        float turns = bladeTurns.getOrDefault(entityId, 0f) + rotor.currentRpm / 60f * frameDt;
+        turns -= (float) Math.floor(turns);
+        bladeTurns.put(entityId, turns);
+        return turns;
     }
 
     /** Commanded pitch as a signed fraction of the articulation's travel limit. */

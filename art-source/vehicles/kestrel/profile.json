@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0.0",
+  "_notes": [
+    "The researched figures for this model (docs/15_vehicle_preparation_pipeline.md#D15-S11).",
+    "",
+    "dev.syndicate.core.vehicle.VehicleProfiles.KESTREL is the authority and carries the",
+    "derivations; VehicleProfileContentTest asserts the shipped content against it field by field.",
+    "",
+    "This is the roster's first rotorcraft, so the contrast it draws is not against the Eclipse or",
+    "the Stampede on their own terms — it does not corner, it does not brake, and it has no gears.",
+    "What it has is the third axis. It is a seventh of the Stampede's mass, it cannot take a hit,",
+    "and it can be anywhere on the map in a straight line.",
+    "",
+    "The reference machine is an Airbus H125 (AS350 B3 Ecureuil), which the supplied art is close",
+    "to in every measurement that matters: a three-blade main rotor, a shrouded tail rotor, skid",
+    "gear and a ten-metre airframe. The model's disc is 9.45 m against the H125's 10.69 m, so the",
+    "rotor figures below are the real machine's scaled to the disc the art actually has, rather",
+    "than the published ones copied across.",
+    "",
+    "The mass is an operating weight, not the H125's 2,250 kg maximum: empty (1,174 kg) plus fuel,",
+    "crew and a weapon fit. At MTOW a helicopter has by definition no thrust margin left, and the",
+    "first build flew at 2,250 kg against a 22.4 kN disc — a hover trim of 0.98, which the model",
+    "clamps to 0.90, so it sank at full collective with the stick doing nothing. At 1,600 kg the",
+    "disc lifts 1.43 times the weight, which is the margin a real machine works at and leaves the",
+    "collective something to spend.",
+    "",
+    "No manufacturer's name appears in an asset id or a display name (DEC-033)."
+  ],
+
+  "displayName": "Kestrel",
+  "vehicleClass": "light",
+  "referenceVehicle": "Airbus H125 (AS350 B3)",
+  "kerbMassKg": 1600.0,
+
+  "chassisHandling": {
+    "dragCoefficient": 9.0,
+    "rollingResistance": 0.0,
+    "downforceCoefficient": 0.0
+  }
+}

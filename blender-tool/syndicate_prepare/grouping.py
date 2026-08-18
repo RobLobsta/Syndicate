@@ -206,7 +206,7 @@ def _median(values) -> float:
     return (ordered[middle - 1] + ordered[middle]) * 0.5
 
 
-def angular_coverage_deg(points, axle_centre, sectors: int) -> float:
+def angular_coverage_deg(points, axle_centre, sectors: int, axis: int = 0) -> float:
     """How much of the circle a set of points occupies about an axle (D15-R21, D15-R24).
 
     Measured from the **points**, never from a bounding box: a five-spoke rim's box has four
@@ -220,7 +220,7 @@ def angular_coverage_deg(points, axle_centre, sectors: int) -> float:
         two-element slice of it that is easy to build in the wrong order.
     :param sectors: how many equal sectors the circle is divided into
     """
-    return len(occupied_sectors(points, axle_centre, sectors)) * (360.0 / max(1, sectors))
+    return len(occupied_sectors(points, axle_centre, sectors, axis)) * (360.0 / max(1, sectors))
 
 
 #: Degrees of slack when a bearing lands on the far side of the 360° wrap. See the comment in
@@ -228,13 +228,21 @@ def angular_coverage_deg(points, axle_centre, sectors: int) -> float:
 BEARING_EPSILON_DEG = 1e-6
 
 
-def occupied_sectors(points, axle_centre, sectors: int) -> set[int]:
-    """Which sectors about the axle a set of points falls in."""
+def occupied_sectors(points, axle_centre, sectors: int, axis: int = 0) -> set[int]:
+    """Which sectors about the axle a set of points falls in.
+
+    :param axis: which coordinate is the axis of rotation — ``0`` for a wheel, whose axle is
+        along x, and ``1`` for a main rotor, whose mast is vertical. The two in-plane
+        coordinates are taken in cyclic order after it, so ``axis=0`` reads ``(y, z)`` and is
+        exactly what this function did before the parameter existed.
+    """
     occupied: set[int] = set()
     step = 360.0 / max(1, sectors)
+    first = (axis + 1) % 3
+    second = (axis + 2) % 3
     for point in points:
-        dy = point[1] - axle_centre[1]
-        dz = point[2] - axle_centre[2]
+        dy = point[first] - axle_centre[first]
+        dz = point[second] - axle_centre[second]
         if (dy * dy + dz * dz) < 4e-4:
             # Vertices on the axis have no bearing; the angle there is undefined and
             # numerically wild.
@@ -251,7 +259,7 @@ def occupied_sectors(points, axle_centre, sectors: int) -> set[int]:
     return occupied
 
 
-def rotational_symmetry_order(points, axle_centre, sectors: int) -> int:
+def rotational_symmetry_order(points, axle_centre, sectors: int, axis: int = 0) -> int:
     """The largest ``n`` for which the group maps onto itself under a turn of ``360/n``.
 
     This is D15-R22's rule as it is *stated* — "a wheel is symmetric under rotation by 360/n
@@ -267,7 +275,7 @@ def rotational_symmetry_order(points, axle_centre, sectors: int) -> int:
 
     :return: the symmetry order, or ``1`` for a group with no rotational symmetry
     """
-    occupied = occupied_sectors(points, axle_centre, sectors)
+    occupied = occupied_sectors(points, axle_centre, sectors, axis)
     if not occupied:
         return 1
     best = 1

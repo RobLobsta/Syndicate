@@ -201,6 +201,11 @@ public final class LibGdxDevices {
         }
 
         @Override
+        public boolean isDescendHeld() {
+            return held(Input.Keys.CONTROL_LEFT) || held(Input.Keys.CONTROL_RIGHT);
+        }
+
+        @Override
         public float mouseDeltaX() {
             return Gdx.input == null ? 0f : Gdx.input.getDeltaX();
         }

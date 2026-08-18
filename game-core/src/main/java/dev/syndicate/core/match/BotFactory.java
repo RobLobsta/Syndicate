@@ -4,7 +4,9 @@
  */
 package dev.syndicate.core.match;
 
+import dev.syndicate.core.asset.AssemblyDef;
 import dev.syndicate.core.asset.AssetIndex;
+import dev.syndicate.core.asset.PartType;
 import dev.syndicate.core.component.BotControllerComponent;
 import dev.syndicate.core.component.ControlledVehicleComponent;
 import dev.syndicate.core.component.OwnerComponent;
@@ -20,6 +22,7 @@ import dev.syndicate.core.util.StreamId;
 import dev.syndicate.model.AssetId;
 import dev.syndicate.model.BotDifficulty;
 import dev.syndicate.model.GameMode;
+import dev.syndicate.model.PartCategory;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -141,16 +144,42 @@ public final class BotFactory {
     }
 
     /**
-     * Every loaded assembly id, sorted.
+     * Every loaded assembly a bot can actually drive, sorted.
      *
      * <p>Sorted rather than in map order because the choice below indexes into it with a seeded
      * draw, and a seed that picked a different vehicle depending on hash order would break G4 in the
      * least visible way possible — a replay that diverges only when the map is rebuilt.
+     *
+     * <p><b>Rotorcraft are excluded, for now.</b> {@code BotDecisionSystem} writes {@code throttle},
+     * {@code steer} and {@code brake} and never writes {@code collective} (DEC-095), so a bot handed
+     * the Kestrel has no way to climb: it sits at the height it spawned, tilting and sliding, and is
+     * a stationary target for the whole match. That is a gap in the behaviour tree (D11-S5.2, and
+     * PROG-041 records it) rather than something to paper over by letting the draw produce a bot
+     * that cannot play. When a bot can fly, this predicate goes.
      */
     private static List<AssetId> assemblyCatalogue(AssetIndex assets) {
-        List<AssetId> ids = new ArrayList<>(assets.assemblyIds());
+        List<AssetId> ids = new ArrayList<>();
+        for (AssetId id : assets.assemblyIds()) {
+            AssemblyDef assembly = assets.assembly(id);
+            if (assembly != null && !isRotorcraft(assets, assembly)) {
+                ids.add(id);
+            }
+        }
         ids.sort(Comparator.comparing(AssetId::value));
-        return ids;
+        // Every vehicle being a rotorcraft is not a state this can recover from, and an empty
+        // catalogue would throw inside the seeded draw with nothing pointing here.
+        return ids.isEmpty() ? List.copyOf(assets.assemblyIds()) : ids;
+    }
+
+    /** True when any part of this assembly is a rotor, which is what a bot cannot fly yet. */
+    private static boolean isRotorcraft(AssetIndex assets, AssemblyDef assembly) {
+        for (AssemblyDef.PartPlacement placement : assembly.parts()) {
+            PartType type = assets.partType(placement.partTypeId());
+            if (type != null && type.category() == PartCategory.ROTOR) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
