@@ -77,6 +77,14 @@ public final class LibGdxDevices {
         }
 
         @Override
+        public float leftStickY() {
+            Controller pad = controller();
+            // Negated for the reason rightStickY is: gdx-controllers reports a stick pushed forward
+            // as negative, and every caller here works in "up is positive".
+            return pad == null ? 0f : -pad.getAxis(pad.getMapping().axisLeftY);
+        }
+
+        @Override
         public float rightStickX() {
             Controller pad = controller();
             return pad == null ? 0f : pad.getAxis(pad.getMapping().axisRightX);

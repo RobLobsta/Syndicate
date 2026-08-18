@@ -5,6 +5,7 @@
 package dev.syndicate.core.arena;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.badlogic.gdx.math.Vector3;
@@ -85,6 +86,85 @@ class RoadCarverTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("test_road_overlong")
                 .hasMessageContaining("border rise");
+    }
+
+    /**
+     * The extent guard is measured against the arena it is generating, not a remembered number.
+     *
+     * <p>This is the property that makes the guard usable and the reason the scrapyard's haul road
+     * could be shipped at all. The two arenas differ in both size and border width — the desert is
+     * 601 samples at 1 m behind a 60 m rim, the scrapyard 301 at 1 m behind a 45 m one — so the
+     * same spline is safe on one and a canyon on the other, and DISC-062's cost was that there was
+     * no way to check the second short of re-deriving the first by hand.
+     */
+    @Test
+    void theExtentGuardIsMeasuredAgainstEachArenaSOwnRim() {
+        TerrainParams desert = TerrainParams.of(ArenaTheme.DESERT_HIGHWAY, 12345L, 600f);
+        TerrainParams yard = TerrainParams.of(ArenaTheme.SCRAPYARD, 12345L, 300f);
+
+        // A spline that is comfortably inside the desert and straight through the scrapyard's rim.
+        List<RoadSpec> road = List.of(new RoadSpec(
+                "test_road_shared",
+                Surface.TARMAC,
+                12.0f,
+                2.5f,
+                Surface.GRAVEL,
+                8f,
+                List.of(new RoadSpec.Point(-140f, -140f), new RoadSpec.Point(0f, 0f), new RoadSpec.Point(140f, 140f))));
+
+        assertThatCode(() -> RoadCarver.validateExtent(desert, -300f, -300f, road))
+                .as("140 m out in a 600 m arena is nowhere near its rim")
+                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> RoadCarver.validateExtent(yard, -150f, -150f, road))
+                .as("the same spline is 10 m from the edge of a 300 m one")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("test_road_shared")
+                .hasMessageContaining("border rise");
+
+        assertThat(RoadCarver.safeDistanceToEdgeM(desert))
+                .as("a taller, wider rim has to be given a wider berth than a shorter, narrower one")
+                .isGreaterThan(RoadCarver.safeDistanceToEdgeM(yard));
+    }
+
+    /**
+     * The scrapyard's haul road carves cleanly on every seed a match can draw (DISC-062).
+     *
+     * <p>Withdrawn rather than shipped broken when the desert's was fixed, because its rim sits
+     * somewhere else and nothing could check it. It ships now, and the thing worth asserting is
+     * that it holds across seeds rather than on the one it was authored against: an arena with
+     * {@code seed: 0} generates a new landform every match (D16-R6b), so a road that only works on
+     * one of them is a road that fails in front of a player.
+     */
+    @Test
+    void theShippedScrapyardHaulRoadCarvesOnEverySeed() {
+        RoadSpec haulRoad = new RoadSpec(
+                "haul_road_main",
+                Surface.TARMAC,
+                12.0f,
+                2.5f,
+                Surface.GRAVEL,
+                8f,
+                List.of(
+                        new RoadSpec.Point(-92f, -55f),
+                        new RoadSpec.Point(-45f, -20f),
+                        new RoadSpec.Point(10f, -30f),
+                        new RoadSpec.Point(55f, 10f),
+                        new RoadSpec.Point(92f, 55f)));
+
+        for (long seed = 1L; seed <= 12L; seed++) {
+            TerrainParams params = TerrainParams.of(ArenaTheme.SCRAPYARD, seed, 300f);
+            TerrainField field = TerrainGenerator.generate(
+                    new Vector3(-150f, -30f, -150f),
+                    new Vector3(150f, 90f, 150f),
+                    0f,
+                    params,
+                    List.of(),
+                    List.of(haulRoad));
+
+            assertThat(field.drivableFraction())
+                    .as("the yard is still a yard on seed %d", seed)
+                    .isGreaterThan(0.4f);
+        }
     }
 
     /** The same guard does not fire on a road that stays inside the playable area (DISC-062). */

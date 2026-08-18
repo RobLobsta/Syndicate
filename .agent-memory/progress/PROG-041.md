@@ -29,19 +29,20 @@ Kestrel is on the shipped roster.
 | Terrain-aware spawn placement | done | `liftOntoTerrain`; fixes a defect cars had absorbed (DISC-071) |
 | Speed clamp on a rotorcraft | done | Was missing entirely — the rotor branch returned before it |
 
-**One known defect, diagnosed and not fixed (DISC-071).** A Kestrel left **sitting on sloped
-ground** destroys its own rotor within seconds, because neutral collective trims to a full hover and
-a tilted aircraft with no wheels slides and rocks until the disc reaches the ground. Flown, it is
-fine — three captures show it taking off cleanly and cruising at 191 km/h with every part attached.
-The fix is a design choice about whether hover trim should engage on the ground, and is left to the
-user; DISC-071 lists the three candidates.
+**~~One known defect (DISC-071).~~ Fixed, 2026-08-18 (DEC-096).** A Kestrel parked on a slope used
+to destroy its own rotor: neutral collective trimmed to a hover, and a tilted aircraft with no wheels
+slid until the disc met the ground. The trim now engages only off the ground — 43.9 m of slide down a
+12° gradient becomes none, and it still takes off. Both tests are on a **slope**; the flat-ground one
+passes with the defect present. Finding the ground under a resting body is its own trap: DISC-072.
 
 **What a rotorcraft does not have yet**, and none of it is blocked:
 
 - **No bot can fly one.** `BotDecisionSystem` writes `throttle`, `steer` and `brake`; it never writes
   `collective`, so a bot handed the Kestrel sits at a hover at whatever height it spawned. The
   behaviour tree needs an altitude term before an aircraft can be an opponent (D11-S5.2).
-- **No gamepad binding** for the collective. Keyboard and `--script` both have one.
+- ~~**No gamepad binding** for the collective.~~ Bound to the left stick's vertical axis
+  (2026-08-18). It wrote nothing at all before, so `collective` kept whatever the keyboard or the
+  previous match left there; `InputRouter`'s idle path had the same hole.
 - **No weapons fitted.** The Kestrel's chassis carries the same five synthesised hardpoints every
   prepared vehicle gets (D15-R42), so a gun can be fitted; nothing has been balanced for firing from
   a moving hover.

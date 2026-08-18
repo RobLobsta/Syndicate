@@ -30,7 +30,8 @@ and rendering proper (stage 2b) remain.
 | Stage 3 — per-surface grip (D16-S5.10) | done | Read at the suspension ray's contact point, in the shared control operation |
 | Stage 4 — structures (D16-S7) | not_started | Needs Blender for fracture manifests; unavailable in this sandbox |
 | Ground in the house style | done | `GroundStyle`, DEC-079's two mechanisms applied to theme albedo |
-| Shipped roads | in_progress | The desert's highway ships; the scrapyard's was withdrawn — DISC-062 |
+| Shipped roads | done | Both arenas ship one. The scrapyard's 235 m haul road landed with DEC-097's guard |
+| Road extent guard (DISC-062's ask) | done | `validateExtent`, seed-independent, measured against each arena's own rim |
 
 **The desert highway** measures 612 m, 8,692 carriageway cells and 3,872 of verge, cutting about 4–5 m
 and filling 2–5 m depending on the match's seed, holding its 6% grade. That cut and fill is the whole
@@ -51,6 +52,10 @@ Rec. 709 luma against a 0.409 ceiling for ground, and read as noticeably lighter
 **Not done, and now measured:** DISC-062 (a road reaching the border rise digs a 31 m canyon) and
 DISC-063 (a car at 40 m/s launches off a dune and the speed clamp holds it airborne). Both were found
 by driving, not by testing.
+
+**Update, 2026-08-18.** DISC-062's ask is built (DEC-097): `validateExtent` rejects a road before
+the carve, measuring the rim height under its centreline. The scrapyard's withdrawn haul road now
+ships — 235 m, cutting 3.6 m, across twelve seeds.
 
 ## Rationale / Context
 PROG-030 recorded stage 3 as "the surface grid exists and is populated; the carve and the wheel read

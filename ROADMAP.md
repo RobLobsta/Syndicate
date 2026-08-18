@@ -1,6 +1,6 @@
 # Syndicate — Roadmap
 
-**Last updated:** 2026-08-17 (end of SESS-039)
+**Last updated:** 2026-08-18 (end of SESS-043)
 
 This is the plan, in order. Each step below is meant to be picked up from the top: everything above
 "you are here" is done, everything below it is not, and the order is the order they should be done
@@ -13,8 +13,9 @@ it sequential, and keep it honest about what does not work.
 
 ## 1. What this is, right now
 
-A single-player vehicular combat game you can start, play and quit — and, as of this session, one
-that has something in it that flies.
+A single-player vehicular combat game you can start, play and quit. Last session gave it something
+that flies; this one went looking for what was broken and found four things, three of which no test
+could have told you about.
 
 Launch the client and you get a title screen. PLAY takes you to a garage: two cars and a helicopter,
 drawn from their real art, turning on a floor line, with the figures they were derived from beside them — an Eclipse
@@ -33,8 +34,8 @@ blades are geometry you can shoot, and its thrust acts along the aircraft's own 
 the nose down is what makes it go forward, and shooting the main rotor off is what makes it stop
 flying. Its tail rotor cancels the torque of the main one, which means shooting *that* off sets the
 whole fuselage spinning, and nothing in the code says it should: it is what is left when a term is
-removed. Space climbs, Ctrl descends, and it will hold a hover with the stick centred. Leave it
-parked on a hill, though, and it will break its own rotor — see §5.
+removed. Space climbs, Ctrl descends, a gamepad's left stick flies it, and it will hold a hover with the
+stick centred. Park it on a hill and it now just sits there — which it did not, until this session.
 
 Five things that sentence leaves out, in the order they hurt:
 
@@ -45,19 +46,21 @@ Five things that sentence leaves out, in the order they hurt:
    which fly, land and slide — the first time any of that authored destruction has run inside the
    game rather than in a harness beside it. The damage numbers are still D01's defaults, only glass
    has shards, no weapon fractures when it dies, and six of the eight families have no content.
-2. **The Desert Highway now has a highway.** A 612 m tarmac road is carved from a spline, and the
-   blend either side digs cuttings and raises embankments without anybody authoring one — cover on
-   both sides, and ridges you can be pushed off. Sand is slower than tarmac at the wheel now, so
-   leaving the road costs you something. What the arenas still have not got is **structures**: nothing
-   to take cover behind that was not extruded from a noise function. The scrapyard's haul road was
-   withdrawn rather than shipped broken (DISC-062).
+2. **Both arenas now have a road.** The Desert Highway's is 612 m and the Scrapyard's is a 235 m
+   haul road, new this session — the one that was withdrawn rather than shipped broken now that
+   there is a way to check it against its own rim (DEC-097). The blend either side digs cuttings and
+   raises embankments without anybody authoring one — cover on both sides, and ridges you can be
+   pushed off — and sand is slower than tarmac at the wheel, so leaving the road costs you
+   something. What the arenas still have not got is **structures**: nothing to take cover behind
+   that was not extruded from a noise function.
 3. **The cars are real now, and unproven.** Each ships as thirty-odd parts — doors that hinge and
    dent, glass that shatters, lamps and grilles that come off, and now a weapon — cut from its own
    art, colour-matched to a house palette, and calibrated to a published spec sheet. Their headlights
    cast at night. Nobody has driven them in anger.
 4. **Nothing has been tuned by a person.** Handling is a real supercar's published figures. Damage
    numbers are blueprint defaults. Bot difficulty is a scale nobody has lost to. The audio mix is a
-   set of first guesses.
+   set of first guesses — and until this session it was a set of first guesses you could not have
+   heard anyway, because the engine bus silently stopped partway through every match (DISC-073).
 5. **Multiplayer talks only to itself.** Snapshots, deltas, prediction and reconciliation all work,
    over a loopback transport, in one process. There is no socket.
 
@@ -88,8 +91,9 @@ numbers, one renderer and one socket.
    ├── The two things the first drive found, fixed              DEV-019
    ├── Cars no longer spawn underground                         DISC-067
    ├── The glass breaks into glass                              PROG-038
-   └── **The Kestrel: the first thing that flies**              PROG-041
-  ───── one known rough edge: a parked helicopter on a slope breaks its own rotor (DISC-071)
+   ├── The Kestrel: the first thing that flies                  PROG-041
+   └── **A stabilisation pass: four defects, one road shipped**  SESS-043
+  ───── no known rough edges; the four below are unbuilt work, not broken work
   ─────────────────────────────────────────────────────── you are here
   NEXT
    1. Structures                              ← terrain stage 4, the last one
@@ -99,6 +103,12 @@ numbers, one renderer and one socket.
    5. Sockets
    6. Hardening and release
 ```
+
+**What the stabilisation pass changed**, since it is the newest line and reads as vague: a parked
+helicopter no longer destroys its own rotor; the engine audio bus no longer dies partway through
+every match; a gamepad can fly, because the collective was the one axis nothing ever wrote; and the
+Scrapyard has the haul road that was withdrawn last session. Three of those four were found by
+running the game and reading the log, not by the test suite, which was green before and after.
 
 ---
 
@@ -204,9 +214,13 @@ blocker for three sessions and is not one.
 This matters more for the Scrapyard than for the desert. A breaker's yard with no wrecks in it is a
 quarry, and it is currently a quarry.
 
-Also here, and smaller: **the scrapyard's haul road**, withdrawn this session rather than shipped
-broken. Its extent has to be measured against its own rim, which is at a different place from the
-desert's because the two arenas have different cell sizes — 1 m against 2 m.
+~~Also here, and smaller: the scrapyard's haul road.~~ **Done.** A road's extent is now checked
+against the arena it is being carved into, by measuring how high the border rise stands under its
+centreline — which is the depth of the canyon it would dig (DEC-097). That runs before the carve, so
+it fails once naming the road, rather than eight times naming spawn points. With a way to check it,
+the withdrawn haul road ships: 235 m of tarmac through the yard, cutting 3.6 m at a 2.5% grade,
+holding across twelve seeds. The yard now has a fast route between the two spawn clusters, and a
+reason to leave it that costs grip.
 
 ### Step 2 — Tuning, with a console to do it from ★ the alpha gate
 
@@ -226,7 +240,7 @@ Then turn them, in roughly this order:
 | Armour floors, propagation fraction, degradation curves | Decides how long a fight lasts and how it ends. |
 | Bot reaction delay and aim error | Difficulty. Use the headless runner, then confirm by playing. |
 | Match length and frag limit | Cheapest to change, so change it last. |
-| Audio gains and the synthesiser's voicing | Nothing has ever been balanced with a person listening. |
+| Audio gains and the synthesiser's voicing | Nothing has ever been balanced with a person listening. Worth knowing before you start: until this session the engine bus silently died partway through every match (DISC-073), so anything you remember hearing was a mix that had already stopped. |
 
 Use the offline headless runner for everything that is not about feel — eight bots for sixty seconds
 with a report at the end is a much faster loop than driving.
@@ -311,14 +325,15 @@ Real work, no fixed place in the sequence.
 
 Not decided, and not for the assistant to decide alone.
 
-- **How a parked helicopter should behave** (DISC-071). Neutral collective trims to a full hover,
-  which is right in the air and wrong on the ground: a Kestrel left sitting on a slope slides,
-  rocks and destroys its own rotor within seconds, because it has 100% of the thrust it needs to fly
-  and no wheels to hold it. Flown it is fine. Three ways out, and it is a feel question rather than
-  a physics one: **trim only when airborne** (correct, needs a ground-contact test a rotorcraft does
-  not have yet), **spawn aircraft already flying** (cheap, sidesteps it rather than solving it, and
-  leaves the same problem for anyone who lands), or **let the collective rest down** so lifting off
-  takes input — truest to a real machine and the biggest change to how it feels to fly.
+- **~~How a parked helicopter should behave~~ (DISC-071). Taken: it trims only when airborne**
+  (DEC-096) — the first of the three candidates this entry used to list. A helicopter that destroys
+  itself when parked reads as a defect rather than a matter of feel, and the other two options
+  sidestepped the case rather than fixing it. On the ground the collective is now a raw command
+  resting at the bottom of its range, which is where a real machine's sits on a pad; in the air
+  nothing changed. **Reverse it in one line** if you disagree — DEC-096 says which one, and what the
+  other two candidates would cost. What is worth flying before you decide it is settled: lifting off
+  steps the thrust up by up to a fifth of maximum, which the height-hold term absorbs in a second or
+  two and which reads as the aircraft unsticking.
 
 - **Whether the forward axis is +Z or −Z** (DEV-020). `D00-R15` says a vehicle faces −Z. The engine
   faces +Z — `setCoordinateSystem(0, 1, 2)` — and both cars, the helicopter and the whole preparation

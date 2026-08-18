@@ -94,6 +94,97 @@ public final class RoadCarver {
     }
 
     /**
+     * Rejects a road whose centreline crosses enough of the border rise to dig through it, before
+     * anything is carved (D16-S5.5, DISC-062).
+     *
+     * <p>The companion to {@link #validateCuts}, and the one that names the cause. A measured cut
+     * is evidence <em>after</em> the fact and it is seed-dependent: the same over-long spline digs
+     * 31 m on one landform and might dig 9 m on a flatter one, slipping under the cut limit while
+     * still opening a corridor through the wall. Where the rim stands under a road's centreline
+     * depends on nothing but the authoring, so it can be answered before a single height is
+     * touched, identically on every seed, with one message saying which road and by how much.
+     *
+     * <p><b>The rim height under the centreline is the cut depth.</b> A road that reaches the rim
+     * does not climb it: the profile is smoothed over {@link RoadSpec#PROFILE_SMOOTH_SIGMA_M} and
+     * then grade-limited, so it flattens to near the arena floor and the blend drags the rim down
+     * to meet it. Checked against DISC-062's measurements on the desert, whose rim is 40 m over a
+     * 60 m band:
+     *
+     * <pre>
+     *   spline +/-240 m   rim under centreline  0.0 m   measured cut  3.3 m   (landform alone)
+     *   spline +/-290 m   rim under centreline 34.3 m   measured cut 30.8 m
+     * </pre>
+     *
+     * <p>So the limit is {@link #MAX_CUT_M} applied to a quantity that can be predicted, and the
+     * two guards share one threshold rather than each having their own. It is emphatically not a
+     * rule about how far a corridor may reach: the shipped desert highway's outer falloff does
+     * overlap the rim's outermost metres, where the rim has barely started to rise, and that is
+     * both harmless and visible in the arena as the road running into the hills.
+     *
+     * <p>Every station of the sampled centreline is checked rather than the control points,
+     * because a Catmull-Rom curve bulges beyond its control points and it is the curve that gets
+     * carved.
+     *
+     * <p>Measured against the arena's own rim, which is what makes it usable. The two shipped
+     * arenas differ in both size and border width — the desert is 601 samples at 1 m behind a 60 m
+     * rim, the scrapyard 301 at 1 m behind a 45 m one — so a spline extent verified on one says
+     * nothing about the other. That is exactly why the scrapyard's haul road was withdrawn rather
+     * than shipped: there was no way to check it short of re-deriving DISC-062 by hand.
+     *
+     * @throws IllegalArgumentException naming the road, the point, and the rim it would cut
+     */
+    public static void validateExtent(TerrainParams params, float originX, float originZ, List<RoadSpec> roads) {
+        Objects.requireNonNull(params, "params");
+        if (roads == null || roads.isEmpty() || params.borderWidthM() <= 0f) {
+            return;
+        }
+        float cell = params.cellSizeM();
+        float span = (params.gridSize() - 1) * cell;
+        for (RoadSpec road : roads) {
+            for (RoadSpec.Point p : catmullRom(road.spline(), cell * STATION_STEP_FACTOR)) {
+                float toEdge = Math.min(
+                        Math.min(p.x() - originX, originX + span - p.x()),
+                        Math.min(p.z() - originZ, originZ + span - p.z()));
+                float rise = TerrainGenerator.borderRiseAt(params, toEdge);
+                if (rise > MAX_CUT_M) {
+                    throw new IllegalArgumentException(String.format(
+                            "road '%s' passes (%.0f, %.0f), %.0f m from the arena edge, where the border rise stands "
+                                    + "%.1f m — over the %.1f m limit. Carving it there flattens the rim and opens a "
+                                    + "drivable canyon through the wall that contains the arena. Keep the centreline "
+                                    + "at least %.0f m from every edge (D16-S5.5, DISC-062)",
+                            road.id(), p.x(), p.z(), toEdge, rise, MAX_CUT_M, safeDistanceToEdgeM(params)));
+                }
+            }
+        }
+    }
+
+    /**
+     * The closest a centreline may come to the arena edge, in metres — the distance at which the
+     * border rise reaches {@link #MAX_CUT_M}.
+     *
+     * <p>Solved by bisection rather than algebraically because the rim's profile is a smoothstep
+     * squared, and inverting it in closed form would put a second expression of the same curve in
+     * a second file — which is the thing {@link TerrainGenerator#borderRiseAt} exists to prevent.
+     * It runs once per road that fails, to write a number into an error message.
+     */
+    static float safeDistanceToEdgeM(TerrainParams params) {
+        float low = 0f;
+        float high = params.borderWidthM();
+        if (TerrainGenerator.borderRiseAt(params, low) <= MAX_CUT_M) {
+            return 0f;
+        }
+        for (int i = 0; i < 40; i++) {
+            float mid = (low + high) * 0.5f;
+            if (TerrainGenerator.borderRiseAt(params, mid) > MAX_CUT_M) {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+        return high;
+    }
+
+    /**
      * Carves every road into {@code heights} and paints {@code surfaces}, in array order (D16-R10).
      *
      * @param heights metres above {@code groundY}, row-major in {@code (z, x)}; modified in place

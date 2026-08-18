@@ -9,12 +9,14 @@ import static org.assertj.core.api.Assertions.offset;
 
 import com.badlogic.gdx.math.Vector3;
 import dev.syndicate.core.asset.RotorBlock;
+import dev.syndicate.core.component.DamageStateComponent;
 import dev.syndicate.core.component.PlayerInputComponent;
 import dev.syndicate.core.component.RigidBodyComponent;
 import dev.syndicate.core.component.RotorControllerComponent;
 import dev.syndicate.core.component.VehicleChassisComponent;
 import dev.syndicate.core.physics.DestructionTestScene;
 import dev.syndicate.model.AssetId;
+import dev.syndicate.model.DamageState;
 import dev.syndicate.model.PartCategory;
 import java.util.List;
 import org.junit.jupiter.api.Tag;
@@ -52,6 +54,15 @@ class RotorFlightTest {
 
     /** Metres a hover may drift over five seconds before it is not a hover. */
     private static final float HOVER_TOLERANCE_M = 3.0f;
+
+    /** Metres a <em>parked</em> aircraft may move over five seconds before it is not parked. */
+    private static final float PARKED_DRIFT_TOLERANCE_M = 4.0f;
+
+    /** Degrees of gradient to park on. Well inside what both shipped arenas generate. */
+    private static final float PARKING_SLOPE_DEG = 12f;
+
+    /** Metres a helicopter must gain in five seconds of full collective to have taken off. */
+    private static final float TAKEOFF_CLIMB_M = 5.0f;
 
     private static List<DestructionTestScene.PartSpec> helicopter() {
         return List.of(
@@ -121,6 +132,72 @@ class RotorFlightTest {
                             .state)
                     .as("a helicopter sitting still does not destroy its own rotor")
                     .isNotEqualTo(dev.syndicate.model.DamageState.DESTROYED);
+        }
+    }
+
+    /**
+     * A helicopter parked on a <em>slope</em> stays parked, and keeps its rotor (DISC-071).
+     *
+     * <p>The flat-ground case above passes even with the defect present, because the mechanism is
+     * the tilt: hover trim thrusts along the aircraft's own up axis, so a level machine's thrust is
+     * vertical and a tilted one's has a horizontal component of {@code weight × sin(θ)} with no
+     * wheels, no suspension and no rolling resistance to oppose it. Before the fix this aircraft
+     * skated 43.9 m down a 12° gradient in five seconds, given no input at all, and on real terrain
+     * it rocked far enough to put its own 4.72 m disc into the hillside.
+     */
+    @Test
+    void aHelicopterParkedOnASlopeStaysParked() {
+        try (DestructionTestScene scene = new DestructionTestScene(17L)) {
+            scene.addGround(PARKING_SLOPE_DEG);
+            int vehicle = scene.spawnVehicle(AssetId.of("assembly_test_heli"), helicopter(), new Vector3(0f, 1.2f, 0f));
+            int mainRotor = scene.partAt(vehicle, "root/rotor_main");
+
+            scene.step(SETTLE_TICKS);
+
+            assertThat(scene.world().getComponent(mainRotor, DamageStateComponent.class).state)
+                    .as("a helicopter parked on a gradient does not destroy its own rotor")
+                    .isNotEqualTo(DamageState.DESTROYED);
+
+            Vector3 position = scene.world()
+                    .getComponent(vehicle, RigidBodyComponent.class)
+                    .body
+                    .getCenterOfMassPosition();
+            assertThat((float) Math.hypot(position.x, position.z))
+                    .as("and it stays where it was parked rather than sliding downhill")
+                    .isLessThan(PARKED_DRIFT_TOLERANCE_M);
+        }
+    }
+
+    /**
+     * The other half of DISC-071's fix: a parked helicopter still takes off when told to.
+     *
+     * <p>Disengaging the hover trim on the ground is only correct if raising the collective still
+     * flies the aircraft — a fix that made it a permanent ornament would pass the test above and be
+     * worse than the defect it cured. Measured from the same gradient, because a machine that can
+     * only leave level ground is not fixed either.
+     */
+    @Test
+    void aParkedHelicopterStillTakesOff() {
+        try (DestructionTestScene scene = new DestructionTestScene(18L)) {
+            scene.addGround(PARKING_SLOPE_DEG);
+            int vehicle = scene.spawnVehicle(AssetId.of("assembly_test_heli"), helicopter(), new Vector3(0f, 1.2f, 0f));
+
+            // Settle onto the slope first. The body is created by the spawn system on the first
+            // step, so nothing can be read off the vehicle before then.
+            scene.step(SETTLE_TICKS);
+            float parked = altitudeOf(scene, vehicle);
+
+            inputOf(scene, vehicle).collective = 1f;
+            scene.step(SETTLE_TICKS);
+
+            assertThat(altitudeOf(scene, vehicle) - parked)
+                    .as("full collective lifts a parked helicopter off the ground")
+                    .isGreaterThan(TAKEOFF_CLIMB_M);
+            assertThat(scene.world()
+                            .getComponent(scene.partAt(vehicle, "root/rotor_main"), DamageStateComponent.class)
+                            .state)
+                    .as("and it keeps its rotor on the way up")
+                    .isNotEqualTo(DamageState.DESTROYED);
         }
     }
 

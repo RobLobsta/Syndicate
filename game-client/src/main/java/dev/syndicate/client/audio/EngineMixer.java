@@ -302,6 +302,17 @@ public final class EngineMixer {
             while (readAt < 0f) {
                 readAt += DELAY_FRAMES;
             }
+            // The wrap can land exactly on the end of the line, and the reason is rounding rather
+            // than arithmetic. DELAY_FRAMES is 28,249 and a float's spacing there is about 0.002,
+            // so any readAt in that last sliver below zero — which is where a voice sits whenever
+            // its source is almost on top of the listener — becomes exactly DELAY_FRAMES when the
+            // wrap adds it back, and indexes one past the end. It threw
+            // ArrayIndexOutOfBoundsException on the render thread, which stops the bus for the rest
+            // of the match: every engine in the game goes silent after one bad frame, behind a
+            // single WARN line.
+            if (readAt >= DELAY_FRAMES) {
+                readAt -= DELAY_FRAMES;
+            }
             int index = (int) readAt;
             float fraction = readAt - index;
             int next = index + 1 == DELAY_FRAMES ? 0 : index + 1;

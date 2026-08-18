@@ -272,6 +272,10 @@ public final class TerrainGenerator {
         // verge onto the cells it owns, and running the classifier afterwards would immediately
         // repaint them as whatever the slope suggests. The heights it changes are why drivability
         // has to come last — a cutting's walls are legitimately unclimbable (D16-R37).
+        // Before the carve, because where a corridor lies is a fact about the authoring and not
+        // about this seed — so it fails once, on the first attempt, with a message naming the road
+        // and the rim rather than eight times with one about spawn points (DISC-062).
+        RoadCarver.validateExtent(params, min.x, min.z, roads);
         List<RoadCarver.Report> roadReports = RoadCarver.carve(heights, surfaces, params, min.x, min.z, roads);
         for (RoadCarver.Report report : roadReports) {
             // Cut and fill are logged because they are the numbers that go wrong silently. A road
@@ -441,12 +445,7 @@ public final class TerrainGenerator {
             float distZ = Math.min(j, grid - 1 - j) * cell;
             for (int i = 0; i < grid; i++) {
                 float distX = Math.min(i, grid - 1 - i) * cell;
-                float d = Math.min(distX, distZ);
-                if (d >= params.borderWidthM()) {
-                    continue;
-                }
-                float w = smoothstepDown(d / params.borderWidthM());
-                heights[j * grid + i] += params.borderRiseM() * w * w;
+                heights[j * grid + i] += borderRiseAt(params, Math.min(distX, distZ));
             }
         }
     }
@@ -665,6 +664,23 @@ public final class TerrainGenerator {
     }
 
     /** Smoothstep from 1 at t=0 to 0 at t=1 — the falloff shape, written once. */
+    /**
+     * How far the border rise lifts the ground at {@code distanceToEdgeM} from the arena edge.
+     *
+     * <p>Package-private and factored out of {@link #applyBorderRise} because {@code RoadCarver}
+     * asks the same question of a road's centreline: a road that reaches the rim is flattened to
+     * near the arena floor by its own grade limiter, so what the rim stands at where the road
+     * crosses it <em>is</em> the depth of the canyon the carve would open (DISC-062). Two copies of
+     * this curve would be two answers to that question.
+     */
+    static float borderRiseAt(TerrainParams params, float distanceToEdgeM) {
+        if (params.borderWidthM() <= 0f || distanceToEdgeM >= params.borderWidthM()) {
+            return 0f;
+        }
+        float w = smoothstepDown(distanceToEdgeM / params.borderWidthM());
+        return params.borderRiseM() * w * w;
+    }
+
     private static float smoothstepDown(float t) {
         float u = 1f - Math.max(0f, Math.min(1f, t));
         return u * u * (3f - 2f * u);

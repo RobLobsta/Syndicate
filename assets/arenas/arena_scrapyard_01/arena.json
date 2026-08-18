@@ -160,6 +160,38 @@
     "TIME_TRIAL"
   ],
   "payloadPath": null,
+  "roads": [
+    {
+      "id": "haul_road_main",
+      "surface": "tarmac",
+      "widthM": 12.0,
+      "shoulderM": 2.5,
+      "verge": "gravel",
+      "maxGradePct": 8.0,
+      "spline": [
+        {
+          "x": -92.0,
+          "z": -55.0
+        },
+        {
+          "x": -45.0,
+          "z": -20.0
+        },
+        {
+          "x": 10.0,
+          "z": -30.0
+        },
+        {
+          "x": 55.0,
+          "z": 10.0
+        },
+        {
+          "x": 92.0,
+          "z": 55.0
+        }
+      ]
+    }
+  ],
   "terrain": {
     "theme": "SCRAPYARD",
     "seed": 0,

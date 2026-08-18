@@ -10,8 +10,10 @@ import com.badlogic.gdx.physics.bullet.collision.CollisionConstants;
 import com.badlogic.gdx.physics.bullet.collision.btBroadphaseInterface;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionConfiguration;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionDispatcher;
+import com.badlogic.gdx.physics.bullet.collision.btCollisionObject;
 import com.badlogic.gdx.physics.bullet.collision.btDbvtBroadphase;
 import com.badlogic.gdx.physics.bullet.collision.btDefaultCollisionConfiguration;
+import com.badlogic.gdx.physics.bullet.collision.btPersistentManifold;
 import com.badlogic.gdx.physics.bullet.dynamics.btConstraintSolver;
 import com.badlogic.gdx.physics.bullet.dynamics.btContactSolverInfo;
 import com.badlogic.gdx.physics.bullet.dynamics.btDefaultVehicleRaycaster;
@@ -507,6 +509,52 @@ public final class PhysicsWorld implements AutoCloseable {
      */
     public void step() {
         dynamicsWorld.stepSimulation(SimulationConstants.TICK_DT, 0, SimulationConstants.TICK_DT);
+    }
+
+    /**
+     * Whether {@code body} is currently touching static geometry — the ground, a wall, an arena.
+     *
+     * <p>Read off the dispatcher's manifolds rather than measured with a downward ray, because both
+     * obvious ray origins are wrong for a body that is <em>already resting</em>. Starting at the
+     * hull's lowest point puts the origin at or just inside the surface it is sitting on, and
+     * Bullet's convex ray cast reports no hit from inside a shape — so a landed aircraft reads as
+     * airborne, which is the exact case the query exists to catch. Starting at the centre of mass
+     * instead puts the origin inside the body's own compound, and the first thing the ray can find
+     * is a child of the shape it was cast from.
+     *
+     * <p>Static rather than any contact: the question is "is it standing on the world", and a
+     * vehicle leaning on another vehicle is not. {@code CF_STATIC_OBJECT} is set by Bullet for every
+     * zero-mass body, which is what an arena's ground, walls and height field all are (D06-S4.4).
+     *
+     * <p>The manifolds are those of the last {@link #step}, so a caller in an earlier schedule slot
+     * reads a one-tick-old answer. That is the same freshness every other contact-derived reading in
+     * the simulation has, including the collision damage of slot 11.
+     */
+    public boolean isTouchingStatic(btRigidBody body) {
+        if (body == null || dispatcher == null) {
+            return false;
+        }
+        int manifoldCount = dispatcher.getNumManifolds();
+        for (int i = 0; i < manifoldCount; i++) {
+            btPersistentManifold manifold = dispatcher.getManifoldByIndexInternal(i);
+            if (manifold.getNumContacts() <= 0) {
+                continue;
+            }
+            btCollisionObject body0 = manifold.getBody0();
+            btCollisionObject body1 = manifold.getBody1();
+            btCollisionObject other;
+            if (body0 != null && body0.getCPointer() == body.getCPointer()) {
+                other = body1;
+            } else if (body1 != null && body1.getCPointer() == body.getCPointer()) {
+                other = body0;
+            } else {
+                continue;
+            }
+            if (other != null && other.isStaticObject()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

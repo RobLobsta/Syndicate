@@ -4,9 +4,9 @@
 **Category:** discoveries
 **Related Docs:** docs/06_physics_simulation.md#D06-S5.5, docs/16_procedural_arena_generation.md#D16-S5.6, docs/05_vehicle_part_system.md#D05-S5.2
 
-**Status:** active
+**Status:** resolved
 
-**Diagnosed, not fixed** — the fix is a design choice, recorded in ROADMAP §5.
+**Fixed** by DEC-096, which takes the first of the three candidates below.
 
 ## Summary
 Given **no input at all**, the Kestrel loses its main rotor within seconds: three captures at frame

@@ -24,6 +24,10 @@ import java.util.Objects;
  *       centre whenever the player let go.
  *   <li><b>Shoulders and face buttons fire</b>, one weapon group per bit, which is the same
  *       {@code fireMask} a human's keyboard and a bot's decision both write.
+ *   <li><b>Left stick Y is the collective</b> on a rotorcraft, and nothing at all on a car. It was
+ *       the one axis of the four this class reads that nothing wrote, which left a helicopter
+ *       unflyable on a pad — and worse than unflyable, since an unwritten field keeps whatever the
+ *       keyboard or the previous match last put in it.
  * </ul>
  *
  * <p>The device is read through {@link State} rather than through libGDX's {@code Controller}
@@ -45,6 +49,17 @@ public final class GamepadSource implements InputSource {
 
         /** Left stick, {@code [-1,1]}, right positive. */
         float leftStickX();
+
+        /**
+         * Left stick vertical, {@code [-1,1]}, up positive.
+         *
+         * <p>Unread by anything with wheels, and the collective on a rotorcraft. A car steers with
+         * this stick's horizontal axis and has nothing to spend the vertical one on, so the two
+         * vehicle kinds never contend for it — which is why the collective goes here rather than
+         * onto a button: it is the only free <em>analogue</em> axis on the pad, and holding a
+         * fraction of climb is the whole reason a pad is worth flying with.
+         */
+        float leftStickY();
 
         /** Right stick horizontal, {@code [-1,1]}, right positive. */
         float rightStickX();
@@ -94,6 +109,7 @@ public final class GamepadSource implements InputSource {
         InputBindings.Gamepad tuning = bindings.gamepad();
 
         float steerRaw = InputBindings.applyDeadZone(state.leftStickX(), tuning.stickDeadZone());
+        float collectiveRaw = InputBindings.applyDeadZone(state.leftStickY(), tuning.stickDeadZone());
         float throttleRaw = InputBindings.applyDeadZone(state.rightTrigger(), tuning.triggerDeadZone());
         float brakeRaw = InputBindings.applyDeadZone(state.leftTrigger(), tuning.triggerDeadZone());
 
@@ -103,6 +119,10 @@ public final class GamepadSource implements InputSource {
         // simulation has one brake, and a player who wants to stop does not care which control
         // they used.
         out.brake = Math.max(brakeRaw, state.isHandbrakeHeld() ? 1f : 0f);
+        // Raw rather than curved. The collective is a trim rather than an aim: what a pilot wants
+        // from a small deflection is a small, proportional change in climb rate, and a curve would
+        // make the middle of the stick — where hovering happens — the least responsive part of it.
+        out.collective = collectiveRaw;
 
         float aimX = InputBindings.applyCurve(
                 InputBindings.applyDeadZone(state.rightStickX(), tuning.stickDeadZone()), tuning.aimExponent());
@@ -124,7 +144,7 @@ public final class GamepadSource implements InputSource {
         }
         out.fireMask = fireMask;
 
-        return activity(steerRaw, throttleRaw, brakeRaw, aimX, aimY, fireMask);
+        return activity(steerRaw, throttleRaw, brakeRaw, collectiveRaw, aimX, aimY, fireMask);
     }
 
     /**
@@ -134,9 +154,11 @@ public final class GamepadSource implements InputSource {
      * not "twice as active" as one only steering, and summing would make a pad with a slightly
      * drifting stick permanently outrank a keyboard being typed on.
      */
-    private static float activity(float steer, float throttle, float brake, float aimX, float aimY, int fireMask) {
+    private static float activity(
+            float steer, float throttle, float brake, float collective, float aimX, float aimY, int fireMask) {
         float most = Math.max(Math.abs(steer), Math.max(throttle, brake));
         most = Math.max(most, Math.max(Math.abs(aimX), Math.abs(aimY)));
+        most = Math.max(most, Math.abs(collective));
         return fireMask != 0 ? Math.max(most, 1f) : most;
     }
 
