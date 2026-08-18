@@ -196,5 +196,30 @@
     "TEAM_DEATHMATCH",
     "LAST_MACHINE"
   ],
-  "payloadPath": null
+  "payloadPath": null,
+  "structures": [
+    {
+      "structureId": "str_rocket_turret_01",
+      "placement": "scatter",
+      "countMin": 2,
+      "countMax": 3,
+      "densityPerHa": 0.08
+    },
+    {
+      "structureId": "str_city_block_low_01",
+      "placement": "scatter",
+      "countMin": 0,
+      "countMax": 3,
+      "densityPerHa": 0.1
+    },
+    {
+      "structureId": "str_street_tree_01",
+      "placement": "road_verge",
+      "spacingM": 22.0,
+      "jitterM": 2.5,
+      "countMin": 0,
+      "countMax": 16,
+      "densityPerHa": 0.5
+    }
+  ]
 }

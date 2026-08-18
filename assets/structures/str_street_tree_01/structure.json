@@ -1,0 +1,15 @@
+{
+  "displayName": "Street Tree",
+  "expected": {
+    "massKg": 129.634
+  },
+  "footprint": {
+    "heightM": 2.049,
+    "radiusM": 0.754
+  },
+  "parts": [],
+  "rootPartTypeId": "struct_street_tree_base_01",
+  "schemaVersion": "1.0.0",
+  "staticRoot": true,
+  "structureId": "str_street_tree_01"
+}

@@ -1,0 +1,15 @@
+{
+  "displayName": "Park Bench",
+  "expected": {
+    "massKg": 77.193
+  },
+  "footprint": {
+    "heightM": 0.973,
+    "radiusM": 1.024
+  },
+  "parts": [],
+  "rootPartTypeId": "struct_street_bench_base_01",
+  "schemaVersion": "1.0.0",
+  "staticRoot": true,
+  "structureId": "str_street_bench_01"
+}

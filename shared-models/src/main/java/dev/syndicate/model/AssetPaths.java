@@ -44,6 +44,9 @@ public final class AssetPaths {
     /** The directory under an asset root holding one directory per vehicle. */
     public static final String VEHICLES_DIR = "vehicles";
 
+    /** The directory holding one subdirectory per structure (D16-R18). */
+    public static final String STRUCTURES_DIR = "structures";
+
     /** The directory under a vehicle's own directory holding the parts only it uses. */
     public static final String VEHICLE_PARTS_DIR = "parts";
 
@@ -68,6 +71,20 @@ public final class AssetPaths {
     }
 
     /** Every vehicle directory under the asset root, in ascending id order (G3). */
+    public static List<Path> structureDirectories(Path assetRoot) {
+        return childDirectories(structuresRoot(assetRoot));
+    }
+
+    /** {@code assets/structures} — one directory per structure (D16-R18). */
+    public static Path structuresRoot(Path assetRoot) {
+        return assetRoot.resolve(STRUCTURES_DIR);
+    }
+
+    /** {@code assets/structures/<structureId>/parts} — a structure owns its parts, as a vehicle does (DEC-075). */
+    public static Path structurePartsRoot(Path assetRoot, String structureId) {
+        return structuresRoot(assetRoot).resolve(structureId).resolve(VEHICLE_PARTS_DIR);
+    }
+
     public static List<Path> vehicleDirectories(Path assetRoot) {
         return childDirectories(vehiclesRoot(assetRoot));
     }
@@ -83,6 +100,12 @@ public final class AssetPaths {
         List<Path> directories = new ArrayList<>(childDirectories(sharedPartsRoot(assetRoot)));
         for (Path vehicle : vehicleDirectories(assetRoot)) {
             directories.addAll(childDirectories(vehicle.resolve(VEHICLE_PARTS_DIR)));
+        }
+        // Structures own their parts for the reason vehicles do (DEC-075): a building's third floor
+        // is not a component anybody else fits, and putting it in the shared bucket would make it
+        // look like one.
+        for (Path structure : structureDirectories(assetRoot)) {
+            directories.addAll(childDirectories(structure.resolve(VEHICLE_PARTS_DIR)));
         }
         return List.copyOf(directories);
     }
@@ -113,6 +136,12 @@ public final class AssetPaths {
         Path shared = sharedPartsRoot(assetRoot).resolve(partTypeId);
         if (Files.isDirectory(shared)) {
             return shared;
+        }
+        for (Path structure : structureDirectories(assetRoot)) {
+            Path owned = structure.resolve(VEHICLE_PARTS_DIR).resolve(partTypeId);
+            if (Files.isDirectory(owned)) {
+                return owned;
+            }
         }
         for (Path vehicle : vehicleDirectories(assetRoot)) {
             Path owned = vehicle.resolve(VEHICLE_PARTS_DIR).resolve(partTypeId);

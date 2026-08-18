@@ -1,0 +1,28 @@
+{
+  "displayName": "Concrete Block",
+  "expected": {
+    "massKg": 335870.177
+  },
+  "footprint": {
+    "heightM": 17.123,
+    "radiusM": 6.404
+  },
+  "parts": [
+    {
+      "parentSlotId": "tier1",
+      "parentSlotPath": "root",
+      "partTypeId": "struct_city_block_low_tier1_01",
+      "slotPath": "root/tier1"
+    },
+    {
+      "parentSlotId": "tier2",
+      "parentSlotPath": "root/tier1",
+      "partTypeId": "struct_city_block_low_tier2_01",
+      "slotPath": "root/tier1/tier2"
+    }
+  ],
+  "rootPartTypeId": "struct_city_block_low_base_01",
+  "schemaVersion": "1.0.0",
+  "staticRoot": true,
+  "structureId": "str_city_block_low_01"
+}

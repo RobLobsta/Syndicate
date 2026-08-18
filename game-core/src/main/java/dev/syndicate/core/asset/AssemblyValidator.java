@@ -69,6 +69,40 @@ public final class AssemblyValidator {
      * @return every finding, in the order the rules are checked; empty when the assembly is clean
      */
     public static List<ValidationIssue> validate(AssemblyDef assembly, AssetIndex assets) {
+        return validate(assembly, assets, Kind.VEHICLE);
+    }
+
+    /**
+     * What is being validated, which decides which of the A3xx rules apply.
+     *
+     * <p>A structure is an assembly (DEC-071) and goes through every rule about <em>how an assembly
+     * is put together</em> — slot paths, occupancy, slot types, mass and bulk limits. Three rules are
+     * not about that at all and are about being a <em>vehicle</em>:
+     *
+     * <ul>
+     *   <li><b>A301</b> — the root must be a {@code CHASSIS}. A building's ground floor is a
+     *       {@code PANEL}, because it is a lump of material with health and not a thing that carries
+     *       an engine.
+     *   <li><b>A309</b> — three wheels or a rotor, "or it cannot be driven at all". A building is not
+     *       supposed to be driveable, and DEC-092 already read this rule as asking whether a vehicle
+     *       can move.
+     *   <li><b>A311</b> — the centre of mass must match what the file asserts. A structure asserts
+     *       none: it never moves as a whole and has no inertia tensor to keep correct (D16-R77), so
+     *       the assertion would be a number nothing reads, checked against a number nothing uses.
+     * </ul>
+     *
+     * <p>Skipping them by kind rather than by a flag on the file keeps the decision here, where the
+     * reasons are, instead of in whatever writes the JSON.
+     */
+    public enum Kind {
+        /** A vehicle: every rule applies. */
+        VEHICLE,
+        /** A destructible structure: A301, A309 and A311 do not (D16-R19). */
+        STRUCTURE
+    }
+
+    /** Validates an assembly of the given kind. */
+    public static List<ValidationIssue> validate(AssemblyDef assembly, AssetIndex assets, Kind kind) {
         List<ValidationIssue> issues = new ArrayList<>();
         String subject = assembly.assemblyId().value();
 
@@ -82,7 +116,7 @@ public final class AssemblyValidator {
                     "chassis part type " + assembly.chassisPartTypeId().value() + " is not loaded"));
             return issues;
         }
-        if (chassisType.category() != PartCategory.CHASSIS) {
+        if (kind == Kind.VEHICLE && chassisType.category() != PartCategory.CHASSIS) {
             issues.add(ValidationIssue.error(
                     "A301",
                     subject,
@@ -102,9 +136,11 @@ public final class AssemblyValidator {
         checkPlacements(assembly, assets, issues);
 
         AssemblyLayout layout = AssemblyLayout.resolve(assembly, assets);
-        checkWheelCount(layout, issues);
+        if (kind == Kind.VEHICLE) {
+            checkWheelCount(layout, issues);
+        }
         checkCoverage(layout, issues);
-        checkExpected(assembly, layout, issues);
+        checkExpected(assembly, layout, issues, kind);
         return issues;
     }
 
@@ -223,7 +259,8 @@ public final class AssemblyValidator {
     }
 
     /** A310 and A311: the authored assertion against what the parts actually add up to (D08-R10). */
-    private static void checkExpected(AssemblyDef assembly, AssemblyLayout layout, List<ValidationIssue> issues) {
+    private static void checkExpected(
+            AssemblyDef assembly, AssemblyLayout layout, List<ValidationIssue> issues, Kind kind) {
         AssemblyDef.Expected expected = assembly.expected();
         if (expected == null) {
             return;
@@ -236,6 +273,9 @@ public final class AssemblyValidator {
                     "A310",
                     subject,
                     "expected totalMassKg " + expected.totalMassKg() + " but the parts sum to " + computedMass));
+        }
+        if (kind != Kind.VEHICLE) {
+            return;
         }
         Vector3 computedCom = layout.comLocal(new Vector3());
         if (computedCom.dst(expected.comLocal()) > COM_OFFSET_M) {

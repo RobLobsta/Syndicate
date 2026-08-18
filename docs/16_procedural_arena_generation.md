@@ -320,10 +320,29 @@ desert rather than like a blue-lit quarry.
 }
 ```
 
-**R19.** The `partTypeId`s refer to ordinary `assets/parts/<id>/part.json` entries with ordinary
-fracture manifests produced by the ordinary D09 tool. A structure introduces **no new part schema, no
-new material path and no new fracture path**. If a structure part needs something a vehicle part
-cannot express, that is a defect in this design, not a reason to fork the schema.
+**R19.** The `partTypeId`s refer to ordinary `part.json` entries with ordinary fracture manifests
+produced by the ordinary D09 tool. A structure introduces **no new part schema, no new material path
+and no new fracture path**. If a structure part needs something a vehicle part cannot express, that
+is a defect in this design, not a reason to fork the schema.
+
+**R19a.** Those entries live at `assets/structures/<structureId>/parts/<partTypeId>/part.json`, under
+the structure that owns them, exactly as a vehicle's parts live under the vehicle that owns them
+(D08-R14b, DEC-075). This section originally put them in the shared `assets/parts/` library, which
+was written before that rule existed; the shared library is for **modular** components that anything
+with a compatible mount can fit, and a building's third floor is not one. Nothing else about R19
+changes — the file is the same file, in a different directory.
+
+**R19b.** A structure's slot chain uses the **existing** slot types of D05-S4.3: a `PANEL` part in a
+`PANEL` slot, and a built-in weapon (D15-S5.10, DEC-077) as a `WEAPON` part on a `TURRET_MOUNT`.
+`SUBSLOT` reads better and is wrong — D05-S4.3 has it accept weapons, utilities and decoration, and a
+floor is none of those. Inventing a slot type for structures would be the schema fork R19 forbids.
+
+**R19c.** Three of D08-S5.4's `A3xx` assembly rules do **not** apply to a structure, because they are
+about being a vehicle rather than about being an assembly: **A301** (the root must be a `CHASSIS` —
+a building's ground floor is a `PANEL`), **A309** (three wheels or a rotor, "or it cannot be driven
+at all" — a building is not supposed to be), and **A311** (the centre of mass must match what the
+file asserts — a structure asserts none, having no inertia tensor worth maintaining under R77).
+Every other `A3xx` rule applies unchanged.
 
 **R20.** `staticRoot: true` means the root part's body has zero mass and lives on the `STATIC` layer
 until it is destroyed. `footprint.radiusM` is what placement uses for spacing and what the terrain

@@ -132,6 +132,11 @@ public final class ShippedContentScene implements AutoCloseable {
         state.stateVersion++;
     }
 
+    /** The shape cache the scene's bodies borrow their hulls from (G19). */
+    public ShapeCache shapes() {
+        return shapes;
+    }
+
     public InMemoryAssetIndex assets() {
         return assets;
     }

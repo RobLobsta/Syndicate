@@ -1,0 +1,32 @@
+{
+  "armorValue": 0.32,
+  "assets": {
+    "collisionSource": "mesh.glb#node=struct_street_tree_base_01_col",
+    "morphTargets": [
+      "dmg_25",
+      "dmg_50",
+      "dmg_75",
+      "dmg_100"
+    ],
+    "visualMesh": "mesh.glb"
+  },
+  "breakImpulseN": 5833.6,
+  "category": "PANEL",
+  "destructionClass": "STRUCTURAL",
+  "displayName": "Street Tree \u2014 Base",
+  "hangsBeforeFalling": false,
+  "massKg": 129.634,
+  "materialId": "wood",
+  "maxHp": 120.0,
+  "partTypeId": "struct_street_tree_base_01",
+  "powerCost": 0.0,
+  "schemaVersion": "1.0.0",
+  "slotTypeRequired": "ROOT",
+  "slots": [],
+  "stats": {},
+  "tags": [
+    "structure",
+    "base",
+    "prepared"
+  ]
+}

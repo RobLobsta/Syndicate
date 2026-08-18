@@ -183,16 +183,23 @@ public final class AssetLoader {
         for (Path directory : AssetPaths.vehicleDirectories(assetRoot)) {
             loadAssembly(directory, index);
         }
+        // After the parts, for the reason an assembly is: a structure names part type ids and
+        // resolves through the same AssemblyLayout a vehicle does (DEC-071).
+        for (Path directory : AssetPaths.structureDirectories(assetRoot)) {
+            loadStructure(directory, index);
+        }
         for (Path directory : childDirectories(assetRoot.resolve("arenas"))) {
             loadArena(directory, index);
         }
         loadBotDifficulties(assetRoot.resolve("balance").resolve("bot_difficulty.json"), index);
         LOG.info(
-                "loaded {} materials, {} part types, {} weapons, {} assemblies, {} arenas from {} ({} findings)",
+                "loaded {} materials, {} part types, {} weapons, {} assemblies, {} structures, "
+                        + "{} arenas from {} ({} findings)",
                 index.materials().size(),
                 index.partTypes().size(),
                 index.weapons().size(),
                 index.assemblies().size(),
+                index.structures().size(),
                 index.arenas().size(),
                 assetRoot,
                 issues.size());
@@ -1208,6 +1215,7 @@ public final class AssetLoader {
 
         TerrainParams terrain = readTerrain(root.path("terrain"), arenaId, boundsMin, boundsMax, issues);
         List<RoadSpec> roads = readRoads(root.path("roads"), arenaId, issues);
+        List<StructurePlacementRule> structures = readStructureRules(root.path("structures"), arenaId);
 
         index.put(new ArenaDef(
                 arenaId,
@@ -1220,7 +1228,113 @@ public final class AssetLoader {
                 modes,
                 root.path("assets").path("collision").asText(null),
                 terrain,
-                roads));
+                roads,
+                structures));
+    }
+
+    /**
+     * Reads the optional {@code structures} array (D16-S4.7), in authored order (D16-R21).
+     *
+     * <p>A malformed rule is dropped with an error and the rest of the arena loads (G18). An arena
+     * that lists a structure nobody built is a map with less cover, not a map that fails to open —
+     * and the finding says which id was missing, which is the thing a designer needs.
+     */
+    private List<StructurePlacementRule> readStructureRules(JsonNode node, AssetId arenaId) {
+        if (node == null || !node.isArray() || node.isEmpty()) {
+            return List.of();
+        }
+        List<StructurePlacementRule> rules = new ArrayList<>();
+        for (JsonNode entry : node) {
+            AssetId structureId = optionalAssetId(entry.path("structureId").asText(null), arenaId.value());
+            if (structureId == null) {
+                issues.add(ValidationIssue.error("A416", arenaId.value(), "a structure rule names no structureId"));
+                continue;
+            }
+            StructurePlacementRule.Placement placement;
+            String raw = entry.path("placement").asText("scatter");
+            try {
+                placement = StructurePlacementRule.Placement.valueOf(raw.toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException notAPlacement) {
+                issues.add(ValidationIssue.error(
+                        "A411",
+                        arenaId.value(),
+                        "structure rule for " + structureId.value() + " has placement " + raw));
+                continue;
+            }
+            rules.add(new StructurePlacementRule(
+                    structureId,
+                    placement,
+                    (float) entry.path("spacingM").asDouble(StructurePlacementRule.MIN_SPACING_M),
+                    (float) entry.path("jitterM").asDouble(0d),
+                    entry.path("countMin").asInt(0),
+                    entry.path("countMax").asInt(StructurePlacementRule.MAX_INSTANCES),
+                    (float) entry.path("densityPerHa").asDouble(0d)));
+        }
+        return List.copyOf(rules);
+    }
+
+    /**
+     * Reads one {@code assets/structures/<structureId>/structure.json} (D16-R18).
+     *
+     * <p>A structure is an assembly, so this builds an {@link AssemblyDef} out of the same fields
+     * {@link #loadAssembly} reads and runs it through the same {@link AssemblyValidator}. What it
+     * does <em>not</em> do is check a power budget or a vehicle class: a structure fields nothing
+     * and drives nowhere, and both of those are vehicle concepts (DEC-071).
+     */
+    public void loadStructure(Path structureDirectory, InMemoryAssetIndex index) {
+        Path file = structureDirectory.resolve("structure.json");
+        String directoryName = structureDirectory.getFileName().toString();
+        JsonNode root = readJson(file, directoryName);
+        if (root == null || !checkSchemaVersion(root, file.toString())) {
+            return;
+        }
+        AssetId structureId = assetId(root.path("structureId").asText(null), directoryName);
+        AssetId rootPart = optionalAssetId(root.path("rootPartTypeId").asText(null), directoryName);
+        if (structureId == null || rootPart == null) {
+            issues.add(ValidationIssue.error("A418", directoryName, "structure names no rootPartTypeId"));
+            return;
+        }
+        if (!structureId.value().equals(directoryName)) {
+            issues.add(ValidationIssue.error(
+                    "A105", structureId.value(), "structureId does not match its directory name " + directoryName));
+        }
+
+        List<AssemblyDef.PartPlacement> placements = new ArrayList<>();
+        for (JsonNode node : root.path("parts")) {
+            AssetId partTypeId = optionalAssetId(node.path("partTypeId").asText(null), directoryName);
+            String parentSlotPath = node.path("parentSlotPath").asText(null);
+            String parentSlotId = node.path("parentSlotId").asText(null);
+            if (partTypeId == null || parentSlotPath == null || parentSlotId == null) {
+                issues.add(ValidationIssue.error(
+                        "A102",
+                        structureId.value(),
+                        "a structure part entry is missing partTypeId, parentSlotPath or parentSlotId"));
+                continue;
+            }
+            placements.add(new AssemblyDef.PartPlacement(
+                    node.path("slotPath").asText(parentSlotPath + "/" + parentSlotId),
+                    parentSlotPath,
+                    parentSlotId,
+                    partTypeId,
+                    AssemblyDef.Overrides.NONE));
+        }
+
+        AssemblyDef assembly = new AssemblyDef(
+                structureId,
+                root.path("displayName").asText(structureId.value()),
+                "structure",
+                rootPart,
+                placements,
+                new AssemblyDef.Expected(
+                        (float) root.path("expected").path("massKg").asDouble(0d), 0f, new Vector3()));
+        issues.addAll(AssemblyValidator.validate(assembly, index, AssemblyValidator.Kind.STRUCTURE));
+        JsonNode footprint = root.path("footprint");
+        index.put(new StructureDef(
+                structureId,
+                assembly,
+                root.path("staticRoot").asBoolean(true),
+                (float) footprint.path("radiusM").asDouble(0d),
+                (float) footprint.path("heightM").asDouble(0d)));
     }
 
     /**

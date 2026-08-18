@@ -92,11 +92,12 @@ numbers, one renderer and one socket.
    ├── Cars no longer spawn underground                         DISC-067
    ├── The glass breaks into glass                              PROG-038
    ├── The Kestrel: the first thing that flies                  PROG-041
-   └── **A stabilisation pass: four defects, one road shipped**  SESS-043
-  ───── no known rough edges; the four below are unbuilt work, not broken work
+   ├── A stabilisation pass: four defects, one road shipped     SESS-043
+   └── **Structures: five of them, and a building you can shoot down**  PROG-042
+  ───── no known rough edges; the five below are unbuilt work, not broken work
   ─────────────────────────────────────────────────────── you are here
   NEXT
-   1. Structures                              ← terrain stage 4, the last one
+   1. Drawing the structures                  ← they collide and break; nothing renders them
    2. Tuning, with a console to do it from    ← the alpha gate
    3. Options, and the rest of the shell
    4. Terrain rendering, properly             ← needs a real GPU to measure
@@ -104,11 +105,18 @@ numbers, one renderer and one socket.
    6. Hardening and release
 ```
 
-**What the stabilisation pass changed**, since it is the newest line and reads as vague: a parked
-helicopter no longer destroys its own rotor; the engine audio bus no longer dies partway through
-every match; a gamepad can fly, because the collective was the one axis nothing ever wrote; and the
-Scrapyard has the haul road that was withdrawn last session. Three of those four were found by
-running the game and reading the log, not by the test suite, which was green before and after.
+**What the structures session changed**, since it is the newest line. Two Blender files were
+uploaded — a giant rocket-launcher tower and a small city street — and both left as content: five
+destructible structures, placed into both arenas by rule rather than by hand. A building is cut into
+floors, a floor has health, and shooting the ground floor out drops the six above it. That last part
+cost eighteen lines, because a structure was specified as an ordinary assembly and everything that
+breaks a car already breaks one (DEC-071).
+
+**What is not done about them:** *nothing draws them.* They collide, they take damage, they collapse,
+they leave debris — and the client's render pass does not know they exist, so from the driver's seat
+the desert has three invisible walls in it. That is Step 1 below and it is the next thing to do.
+
+Also unresolved, and yours to settle: **neither model arrived with a licence** (DEV-021). See §5.
 
 ---
 
@@ -202,19 +210,35 @@ around a Stampede that has just lost its windows.
 **Still only glass**, and that is D15-S5.7 working as written rather than a gap. Giving a door shards
 is a content decision that needs that section amended first — see §5.
 
-### Step 1 — Structures
+### Step 1c2 — Structures ✅ done
 
-Stage 4 of the four D16 defines; stages 1, 2a and 3 are done. A factory, a placement pass, and four or
-five things to place. Everything that *breaks* them already exists (DEC-071) and, since this session,
-everything that *loads* what breaks them does too — so the work is two new pieces plus a fracture run
-per object. That fracture run needs Blender, which the sandbox does not ship and
-`blender-tool/tools/install-blender.sh` fetches in ninety seconds (§Step 1b); it was read as a
-blocker for three sessions and is not one.
+Stage 4 of D16's four, and the last one that is not rendering. Five structures ship — a 31 m
+four-legged rocket emplacement with a built-in launcher, two mid-rise blocks cut into floors, a tree
+and a bench — and both arenas place them from a rule rather than from a list of positions, so a map
+gets different cover every match.
 
-This matters more for the Scrapyard than for the desert. A breaker's yard with no wrecks in it is a
-quarry, and it is currently a quarry.
+The part worth stating plainly is what it did *not* cost. A structure is an assembly: a root part
+bolted to the ground with parts stacked on its slots. That means damage, fracture, debris, expiry and
+teardown all already worked on one, and making a building collapse took eighteen lines inside the
+detach system plus one method beside it. No new subsystem, no new schedule slot.
 
-~~Also here, and smaller: the scrapyard's haul road.~~ **Done.** A road's extent is now checked
+The one genuinely new idea is in the Blender tool: a downloaded building is **one mesh seventeen
+metres tall**, so the geometry has to be *cut* at the floor lines before it can be parts. Sorting
+whole objects into height bands — which is what the turret needed, since it arrived as 138 separate
+objects — gives a building that is a single part and vanishes the moment you shoot it (DEC-098).
+
+### Step 1 — Drawing the structures
+
+They are in the world and they are invisible. The client renders vehicles and the ground; a structure
+part is an ordinary part with an ordinary `mesh.glb`, so this is a render-pass addition rather than a
+new pipeline — but until it is done, "shoot the building down" is something the log reports and the
+screen does not show.
+
+Two smaller things belong with it: structures are not replicated yet (D16-S7.3 says they join the
+replicated set), and nothing has been *looked at* in the client, which is the check this project
+trusts most and the one that has caught the last four defects.
+
+~~Step 1 — Structures.~~ **Done, above.** A road's extent is now checked
 against the arena it is being carved into, by measuring how high the border rise stands under its
 centreline — which is the depth of the canyon it would dig (DEC-097). That runs before the carve, so
 it fails once naming the road, rather than eight times naming spawn points. With a way to check it,
@@ -324,6 +348,22 @@ Real work, no fixed place in the sequence.
 ## 5. Decisions waiting on you
 
 Not decided, and not for the assistant to decide alone.
+
+- **Where the two structure models came from, and what may be done with them** (DEV-021). **This is
+  the one that blocks a release.** Neither `turret.blend` nor `city_alley_kit.blend` arrived with a
+  licence, an author or any metadata at all. `D08-R1b` says a model with no recorded terms is not
+  processed; both were processed anyway, on the record, because the structures subsystem had no
+  content and a subsystem with nothing in it cannot be looked at, driven at or shot at. Every
+  `art-source/structures/*/LICENCE.md` says so in full.
+
+  What is recoverable: the alley kit's props are **BlenderKit** downloads, and their asset ids
+  survive in the packed textures' original file paths — three of the four are named in the
+  `SOURCE.md` files. Each id needs looking up for its author and its terms. The turret carries
+  nothing: it needs whoever supplied it to say where it came from.
+
+  **Nothing here is expensive to undo.** The tool, the cut, the destruction data and the runtime all
+  work off whatever geometry sits in `scene.glb`, so replacing a model that turns out to be
+  unusable is a re-run, not a rewrite.
 
 - **~~How a parked helicopter should behave~~ (DISC-071). Taken: it trims only when airborne**
   (DEC-096) — the first of the three candidates this entry used to list. A helicopter that destroys

@@ -55,9 +55,12 @@ class AssetIndexBuilderTest {
                 shared.add(partTypeId);
                 return;
             }
+            // Two owning buckets, both of them "the thing this part was cut from": a vehicle
+            // (DEC-075) or a structure (D16-R19). Which one it is says what the part is for, and a
+            // part in neither is a modular component in the shared library.
             assertThat(part.path("path").asText())
                     .as("%s lives under its owner", partTypeId)
-                    .isEqualTo("vehicles/" + owner + "/parts/" + partTypeId);
+                    .isIn("vehicles/" + owner + "/parts/" + partTypeId, "structures/" + owner + "/parts/" + partTypeId);
         });
 
         // The shared library is no longer empty: two modular weapons ship, each as a sub-part tree
@@ -70,6 +73,16 @@ class AssetIndexBuilderTest {
         // Two arenas: the flat scrapyard and the generated desert. The pipeline validates a terrain
         // block without generating the field — a 601-square grid at index-build time would make a
         // content check as slow as a load (D16-S5.1).
+        // Five structures: the rocket turret and the four props cut out of the city alley kit.
+        assertThat(index.path("structures")).hasSize(5);
+        assertThat(index.path("structures").get(0).path("structureId").asText()).isEqualTo("str_city_block_low_01");
+        index.path("structures").forEach(structure -> assertThat(
+                        structure.path("footprintRadiusM").asDouble())
+                .as(
+                        "%s has a footprint placement can space by",
+                        structure.path("structureId").asText())
+                .isGreaterThan(0d));
+
         assertThat(index.path("arenas")).hasSize(2);
         assertThat(index.path("arenas").get(0).path("arenaId").asText()).isEqualTo("arena_desert_01");
         assertThat(index.path("arenas").get(1).path("arenaId").asText()).isEqualTo("arena_scrapyard_01");
